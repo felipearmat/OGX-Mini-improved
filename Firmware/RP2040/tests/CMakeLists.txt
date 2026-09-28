@@ -1,0 +1,67 @@
+# Host-side unit tests (OGX-Mini-improved). Built with the native compiler, not the Pico SDK:
+#   cmake -S Firmware/RP2040/tests -B build-tests && cmake --build build-tests && ctest --test-dir build-tests
+cmake_minimum_required(VERSION 3.16)
+project(ogxm_host_tests C CXX)
+
+set(CMAKE_CXX_STANDARD 20)  # same as the firmware (Range.h uses requires-clauses)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 11)
+
+set(FW_SRC ${CMAKE_CURRENT_LIST_DIR}/../src)
+set(EXTERNAL_DIR ${CMAKE_CURRENT_LIST_DIR}/../../external)
+set(MOCKS ${CMAKE_CURRENT_LIST_DIR}/mocks)
+
+enable_testing()
+
+add_compile_options(-Wall -Wextra)
+
+# libfixmath (used by Gamepad.h)
+add_library(fixmath STATIC
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16.c
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_exp.c
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_sqrt.c
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_str.c
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_trig.c
+    ${EXTERNAL_DIR}/libfixmath/libfixmath/uint32.c
+)
+target_include_directories(fixmath PUBLIC ${EXTERNAL_DIR}/libfixmath)
+
+function(ogxm_add_test NAME)
+    add_executable(${NAME} ${ARGN})
+    target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${MOCKS} ${FW_SRC})
+    add_test(NAME ${NAME} COMMAND ${NAME})
+endfunction()
+
+ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_SRC}/Custom/ModeIndicator.cpp)
+
+ogxm_add_test(test_nvstool test_nvstool.cpp)
+target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
+
+ogxm_add_test(test_wire_pad test_wire_pad.cpp)
+target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_wire_pad PRIVATE fixmath)
+
+# Bluepad32 Switch parser with the OGX-Mini-improved patch series (applied here if needed). Built 32-bit so struct layouts match the RP2350 (the parser's instance
+# must fit in 256 bytes of parser_data).
+set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)
+include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/patch_libs.cmake)
+ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})  # same series as the firmware build
+include(CheckCSourceCompiles)
+set(CMAKE_REQUIRED_FLAGS -m32)
+check_c_source_compiles("int main(void){return 0;}" OGXM_HAVE_M32)
+unset(CMAKE_REQUIRED_FLAGS)
+if (OGXM_HAVE_M32)
+    add_executable(test_switch_parser
+        switch_parser/test_switch_parser.c
+        switch_parser/fake_bt.c
+        ${BP32}/parser/uni_hid_parser_switch.c)
+    target_include_directories(test_switch_parser PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${BP32}/include ${BP32}
+        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${FW_SRC})
+    target_compile_definitions(test_switch_parser PRIVATE MAX_GAMEPADS=1 CONFIG_OGXM_BOARD_PI_PICO2W=1)
+    target_compile_options(test_switch_parser PRIVATE -m32 -Wno-unused-parameter -Wno-sign-compare)
+    target_link_options(test_switch_parser PRIVATE -m32)
+    add_test(NAME test_switch_parser COMMAND test_switch_parser)
+else ()
+    message(WARNING "No 32-bit toolchain (install gcc-multilib): skipping test_switch_parser")
+endif ()
