@@ -6,6 +6,7 @@
 #include "btstack.h"
 
 #include "BLEServer/BLEServer.h"
+#include "Gamepad/I2CWirePad.h"
 #include "UserSettings/UserProfile.h"
 #include "UserSettings/UserSettings.h"
 #include "TaskQueue/TaskQueue.h"
@@ -245,11 +246,14 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
             return profile_reader_.get_xfer_len();
 
         case Handle::GAMEPAD:
+            /* Custom fix: legacy 23-byte layout expected by the web app (PadIn grew IMU and
+             * touchpad fields), and never copy more than the ATT buffer holds. */
             if (buffer) {
                 pad_in = gamepads_.front()->get_pad_in();
-                std::memcpy(buffer, &pad_in, sizeof(Gamepad::PadIn));
+                const I2CWirePadIn wire = i2c_wire_pad_from(pad_in);
+                std::memcpy(buffer, &wire, std::min<size_t>(sizeof(wire), buffer_size));
             }
-            return static_cast<uint16_t>(sizeof(Gamepad::PadIn));
+            return static_cast<uint16_t>(sizeof(I2CWirePadIn));
 
         default:
             break;

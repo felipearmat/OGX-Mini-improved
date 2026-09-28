@@ -3,6 +3,7 @@
 
 #include "Board/ogxm_log.h"
 #include "Descriptors/CDCDev.h"
+#include "Gamepad/I2CWirePad.h"
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 
 void WebAppDevice::initialize() 
@@ -183,8 +184,11 @@ bool WebAppDevice::write_profile(uint8_t index, const UserProfile& profile, Pack
 bool WebAppDevice::write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in)
 {
     Packet packet_in;
-    const uint8_t* pad_in_data = reinterpret_cast<const uint8_t*>(&pad_in);
-    const uint8_t total_chunks = static_cast<uint8_t>((sizeof(Gamepad::PadIn) + packet_in.data.size() - 1) / packet_in.data.size());
+    /* Custom fix: the web app only accepts the legacy 23-byte pad layout; PadIn grew IMU and
+     * touchpad fields, so it rejected every input packet ("Invalid data length"). */
+    const I2CWirePadIn wire = i2c_wire_pad_from(pad_in);
+    const uint8_t* pad_in_data = reinterpret_cast<const uint8_t*>(&wire);
+    const uint8_t total_chunks = static_cast<uint8_t>((sizeof(wire) + packet_in.data.size() - 1) / packet_in.data.size());
     uint8_t current_chunk = 0;
 
     packet_in.header.packet_id = PacketID::SET_GP_IN;
@@ -195,7 +199,7 @@ bool WebAppDevice::write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in)
     while (current_chunk < total_chunks)
     {
         size_t offset = current_chunk * packet_in.data.size();
-        size_t remaining_bytes = sizeof(Gamepad::PadIn) - offset;
+        size_t remaining_bytes = sizeof(wire) - offset;
         uint8_t current_chunk_len = static_cast<uint8_t>(std::min(packet_in.data.size(), remaining_bytes));
 
         packet_in.header.chunk_idx = current_chunk;
