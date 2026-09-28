@@ -26,7 +26,9 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
+#include "Custom/ModeIndicator.h"
 #include "Input/InputSlot.h"
+#include "UserSettings/UserSettings.h"
 #include "USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.h"
 #include "USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.h"
 #include "USBHost/HostDriver/GameSirCyclone2/Cyclone2BtProbe.h"
@@ -406,6 +408,16 @@ static void send_feedback_cb(btstack_timer_source *ts)
 static void check_led_cb(btstack_timer_source *ts)
 {
     static bool led_state = false;
+
+    /* Custom: boot blink code showing the output mode (see Custom/ModeIndicator.h). */
+    bool code_led_on = false;
+    uint32_t code_step_ms = 0;
+    if (mode_indicator::next_step(code_led_on, code_step_ms)) {
+        board_api::set_led(code_led_on);
+        btstack_run_loop_set_timer(ts, code_step_ms);
+        btstack_run_loop_add_timer(ts);
+        return;
+    }
 
     led_state = !led_state;
 
@@ -799,6 +811,36 @@ static void ogxm_play_connection_rumble(uni_hid_device_t* device)
         CONNECT_RUMBLE_STRONG);
 }
 
+/* Custom: lightbar colour per output mode (DS4 / DualSense). Deferred like the connect rumble:
+ * early BT output reports can drop a freshly connected DS4. */
+static constexpr uint32_t MODE_LIGHTBAR_DELAY_MS = 1500;
+static btstack_timer_source_t s_mode_lightbar_timer[CONFIG_BLUEPAD32_MAX_DEVICES];
+
+static void mode_lightbar_cb(btstack_timer_source_t* ts)
+{
+    const int idx = static_cast<int>(reinterpret_cast<intptr_t>(ts->context));
+    uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(idx);
+    if (d == nullptr || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID ||
+        d->report_parser.set_lightbar_color == nullptr)
+        return;
+    uint8_t r, g, b;
+    mode_indicator::lightbar_color(UserSettings::get_instance().get_current_driver(), r, g, b);
+    d->report_parser.set_lightbar_color(d, r, g, b);
+}
+
+static void schedule_mode_lightbar(uni_hid_device_t* device, int idx)
+{
+    if (device->controller_type != CONTROLLER_TYPE_PS4Controller &&
+        device->controller_type != CONTROLLER_TYPE_PS5Controller)
+        return;
+    btstack_timer_source_t* ts = &s_mode_lightbar_timer[idx];
+    btstack_run_loop_remove_timer(ts);
+    ts->process = mode_lightbar_cb;
+    ts->context = reinterpret_cast<void*>(static_cast<intptr_t>(idx));
+    btstack_run_loop_set_timer(ts, MODE_LIGHTBAR_DELAY_MS);
+    btstack_run_loop_add_timer(ts);
+}
+
 static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     /* DS4/DS5 BT create a second "virtual mouse" device on the same ACL. OGX-Mini only uses
      * gamepad input; accepting the virtual slot destabilized the link (disconnect ~2 s). */
@@ -923,11 +965,13 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &off);
     }
 
-    if (led_timer_set_) {
+    /* Custom: let the boot mode blink code finish; check_led_cb goes solid afterwards. */
+    if (led_timer_set_ && !mode_indicator::active()) {
         led_timer_set_ = false;
         btstack_run_loop_remove_timer(&led_timer_);
         board_api::set_led(true);
     }
+    schedule_mode_lightbar(device, idx);
     if (!feedback_timer_set_) {
         feedback_timer_set_ = true;
         feedback_timer_.process = send_feedback_cb;
@@ -1334,6 +1378,7 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
     uni_platform_set_custom(get_driver());
     uni_init(0, nullptr);
 
+    mode_indicator::begin(UserSettings::get_instance().get_current_driver());
     led_timer_set_ = true;
     led_timer_.process = check_led_cb;
     led_timer_.context = nullptr;

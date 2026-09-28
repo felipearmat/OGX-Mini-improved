@@ -355,6 +355,7 @@ if(EN_BLUETOOTH)
     list(APPEND SOURCES_BOARD
         ${SRC}/Bluepad32/Bluepad32.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
+        ${SRC}/Custom/ModeIndicator.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp

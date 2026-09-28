@@ -6,6 +6,7 @@
 #include <array>
 #include <cstring>
 #include <hardware/flash.h>
+#include <hardware/sync.h>
 #include <pico/mutex.h>
 
 /* Define NVS_SECTORS (number of sectors to allocate to storage) either here or with CMake */
@@ -84,19 +85,25 @@ public:
     {
         mutex_enter_blocking(&nvs_mutex_);
 
-        for (uint32_t i = 0; i < NVS_SECTORS; ++i) 
+        Entry entry;
+
+        /* Custom fix: XIP is unavailable while erasing/programming; any IRQ handler running
+         * from flash in that window hard-faults. Keep this core's interrupts off. */
+        const uint32_t irq_state = save_and_disable_interrupts();
+
+        for (uint32_t i = 0; i < NVS_SECTORS; ++i)
         {
             flash_range_erase(NVS_START_OFFSET + i * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE);
         }
 
-        Entry entry;
-
-        for (uint32_t i = 0; i < MAX_ENTRIES + 1; ++i) 
+        for (uint32_t i = 0; i < MAX_ENTRIES + 1; ++i)
         {
-            flash_range_program(NVS_START_OFFSET + i * sizeof(Entry), 
-                                reinterpret_cast<const uint8_t*>(&entry), 
+            flash_range_program(NVS_START_OFFSET + i * sizeof(Entry),
+                                reinterpret_cast<const uint8_t*>(&entry),
                                 sizeof(Entry));
         }
+
+        restore_interrupts(irq_state);
 
         mutex_exit(&nvs_mutex_);
     }
@@ -157,22 +164,30 @@ private:
         uint32_t entry_offset = index * sizeof(Entry);
         uint32_t sector_offset = ((NVS_START_OFFSET + entry_offset) / FLASH_SECTOR_SIZE) * FLASH_SECTOR_SIZE;
 
-        std::array<uint8_t, FLASH_SECTOR_SIZE> sector_buffer;
+        /* Custom fix: 4 KB does not fit the 2 KB core stack; keep it static (guarded by nvs_mutex_). */
+        static std::array<uint8_t, FLASH_SECTOR_SIZE> sector_buffer;
         std::memcpy(sector_buffer.data(), reinterpret_cast<const uint8_t*>(XIP_BASE + sector_offset), FLASH_SECTOR_SIZE);
 
-        flash_range_erase(sector_offset, FLASH_SECTOR_SIZE);
-
-        Entry* entry_to_write = reinterpret_cast<Entry*>(sector_buffer.data() + entry_offset);
+        /* Entry offset is relative to the sector, not to NVS_START_OFFSET. */
+        Entry* entry_to_write = reinterpret_cast<Entry*>(
+            sector_buffer.data() + ((NVS_START_OFFSET + entry_offset) - sector_offset));
 
         *entry_to_write = Entry();
         std::strncpy(entry_to_write->key, key.c_str(), key.size());
         entry_to_write->key[key.size()] = '\0';
         std::memcpy(entry_to_write->value, buffer, len);
 
-        for (uint32_t i = 0; i < FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE; ++i) 
+        /* Custom fix: no IRQs while XIP is down (see erase_all). */
+        const uint32_t irq_state = save_and_disable_interrupts();
+
+        flash_range_erase(sector_offset, FLASH_SECTOR_SIZE);
+
+        for (uint32_t i = 0; i < FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE; ++i)
         {
             flash_range_program(sector_offset + i * FLASH_PAGE_SIZE, sector_buffer.data() + i * FLASH_PAGE_SIZE, FLASH_PAGE_SIZE);
         }
+
+        restore_interrupts(irq_state);
     }
 
 }; // class NVSTool
