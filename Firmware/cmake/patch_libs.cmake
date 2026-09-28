@@ -129,6 +129,31 @@ function(apply_lib_patches EXTERNAL_DIR)
         message(FATAL_ERROR "Failed to apply Bluepad32 8BitDo PID patch: ${BLUEPAD32_8BITDO_ERROR}")
     endif ()
 
+    # Switch parser: send subcommand 0x48 (enable vibration) during setup. Joy-Cons
+    # ignore every rumble packet until vibration is enabled, so they never vibrated.
+    # "Already applied" is detected with a reverse check, not by a failed apply.
+    set(BLUEPAD32_SWITCH_VIB_PATCH "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff")
+    execute_process(
+        COMMAND git apply --check --reverse --ignore-whitespace ${BLUEPAD32_SWITCH_VIB_PATCH}
+        WORKING_DIRECTORY ${BLUEPAD32_PATH}
+        RESULT_VARIABLE BLUEPAD32_SWITCH_VIB_APPLIED
+        OUTPUT_QUIET ERROR_QUIET
+    )
+    if (BLUEPAD32_SWITCH_VIB_APPLIED EQUAL 0)
+        message(STATUS "Bluepad32 Switch enable-vibration patch already applied.")
+    else ()
+        message(STATUS "Applying Bluepad32 Switch enable-vibration patch: ${BLUEPAD32_SWITCH_VIB_PATCH}")
+        execute_process(
+            COMMAND git apply --ignore-whitespace ${BLUEPAD32_SWITCH_VIB_PATCH}
+            WORKING_DIRECTORY ${BLUEPAD32_PATH}
+            RESULT_VARIABLE BLUEPAD32_SWITCH_VIB_RESULT
+            ERROR_VARIABLE BLUEPAD32_SWITCH_VIB_ERROR
+        )
+        if (NOT BLUEPAD32_SWITCH_VIB_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to apply Bluepad32 Switch enable-vibration patch: ${BLUEPAD32_SWITCH_VIB_ERROR}")
+        endif ()
+    endif ()
+
     # Pico SDK 2.1.x still lists BTstack's old hids_client.c; Bluepad32's BTstack
     # v1.8 renamed it to hids_host.c. Patch the SDK cmake when using that tree.
     set(PICO_SDK_HIDS_PATCH "${EXTERNAL_DIR}/patches/pico_sdk_hids_host.diff")
