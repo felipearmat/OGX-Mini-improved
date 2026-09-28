@@ -1,0 +1,92 @@
+# OGX-Mini-improved CI: host unit tests + Pico 2 W firmware builds.
+# Kept separate from the upstream build.yml so upstream merges stay conflict-free.
+name: OGX-Mini-improved CI
+
+on:
+  push:
+    branches: ["master", "main", "phase*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PICO_SDK_TAG: "2.1.0"
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout required submodules
+        run: |
+          git submodule update --init --recursive --depth 1 \
+            Firmware/external/bluepad32 Firmware/external/libfixmath
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc-multilib g++-multilib
+
+      - name: Build and run tests
+        run: |
+          cmake -S Firmware/RP2040/tests -B build-tests -G Ninja
+          cmake --build build-tests
+          ctest --test-dir build-tests --output-on-failure
+
+  firmware:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PI_PICO2W
+            build_type: Release
+            flags: ""
+          - name: PI_PICO2W-jcdisc
+            build_type: Release
+            flags: "-DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON"
+          - name: PI_PICO2W-jcdisc-DebugLite
+            build_type: Debug
+            flags: "-DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON"
+            cxxflags: "-DBLUEPAD32_UART_LOG_INPUT=0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout required submodules
+        run: |
+          git submodule update --init --recursive --depth 1 \
+            Firmware/external/bluepad32 Firmware/external/tinyusb \
+            Firmware/external/Pico-PIO-USB Firmware/external/libfixmath
+
+      - name: Cache Pico SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: Firmware/external/pico-sdk
+          key: pico-sdk-${{ env.PICO_SDK_TAG }}
+
+      - name: Get Pico SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch ${PICO_SDK_TAG} https://github.com/raspberrypi/pico-sdk.git Firmware/external/pico-sdk
+          git -C Firmware/external/pico-sdk submodule update --init --depth 1
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib python3
+
+      - name: Build ${{ matrix.name }}
+        env:
+          CXXFLAGS: ${{ matrix.cxxflags }}
+        run: |
+          cmake -S Firmware/RP2040 -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=PI_PICO2W -DMAX_GAMEPADS=1 \
+            ${{ matrix.flags }}
+          cmake --build build
+          mkdir -p out
+          for f in build/*.uf2; do cp "$f" "out/$(basename "${f%.uf2}")-${{ matrix.name }}-${GITHUB_SHA::7}.uf2"; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uf2-${{ matrix.name }}
+          path: out/*.uf2

@@ -39,6 +39,19 @@ function(ogxm_apply_patch_series NAME DIR)
     endforeach ()
 endfunction()
 
+# Switch parser fixes (OGX-Mini-improved), applied in order on top of each other:
+# - enable vibration (subcommand 0x48) during setup: Joy-Cons ignore rumble until then;
+# - setup robustness: per-step timeout + retries, stale-reply filtering, one pad in
+#   setup at a time, and timer cleanup before a device's parser data is wiped;
+# - request-sleep: subcommand 0x06/0x00 so a Joy-Con drops the link and sleeps.
+# Shared by the firmware build and the host tests (Firmware/RP2040/tests).
+function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
+    ogxm_apply_patch_series("Bluepad32 Switch parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff")
+endfunction()
+
 function(apply_lib_patches EXTERNAL_DIR)
     set(BTSTACK_PATCH "${EXTERNAL_DIR}/patches/btstack_l2cap.diff")
     set(BTSTACK_PATH "${EXTERNAL_DIR}/bluepad32/external/btstack")
@@ -170,15 +183,7 @@ function(apply_lib_patches EXTERNAL_DIR)
         message(FATAL_ERROR "Failed to apply Bluepad32 8BitDo PID patch: ${BLUEPAD32_8BITDO_ERROR}")
     endif ()
 
-    # Switch parser fixes (OGX-Mini-improved), applied in order on top of each other:
-    # - enable vibration (subcommand 0x48) during setup: Joy-Cons ignore rumble until then;
-    # - setup robustness: per-step timeout + retries, stale-reply filtering, one pad in
-    #   setup at a time, and timer cleanup before a device's parser data is wiped;
-    # - request-sleep: subcommand 0x06/0x00 so a Joy-Con drops the link and sleeps.
-    ogxm_apply_patch_series("Bluepad32 Switch parser (OGX-Mini-improved)" "${BLUEPAD32_PATH}"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff")
+    ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})
 
     # Pico SDK 2.1.x still lists BTstack's old hids_client.c; Bluepad32's BTstack
     # v1.8 renamed it to hids_host.c. Patch the SDK cmake when using that tree.

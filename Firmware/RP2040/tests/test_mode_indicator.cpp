@@ -1,0 +1,71 @@
+// Boot blink code and lightbar colour per output mode.
+#include "Custom/ModeIndicator.h"
+#include "test.h"
+
+namespace {
+
+// Plays the whole code and returns how many "LED on" steps it had.
+int count_blinks(DeviceDriverType mode) {
+    mode_indicator::begin(mode);
+    int on_steps = 0;
+    bool led_on = false;
+    uint32_t ms = 0;
+    for (int guard = 0; guard < 1000 && mode_indicator::next_step(led_on, ms); ++guard) {
+        CHECK(ms > 0);
+        on_steps += led_on ? 1 : 0;
+    }
+    CHECK(!mode_indicator::active());
+    return on_steps;
+}
+
+}  // namespace
+
+TEST(blink_count_per_mode) {
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XINPUT), 1);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::SWITCH), 2);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::DINPUT), 3);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS4), 4);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::STEAM), 5);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG), 6);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG_SB), 6);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS3), 7);
+}
+
+TEST(code_is_played_twice_then_stops) {
+    CHECK_EQ(count_blinks(DeviceDriverType::XINPUT), 2);
+    CHECK_EQ(count_blinks(DeviceDriverType::SWITCH), 4);
+    CHECK_EQ(count_blinks(DeviceDriverType::XBOXOG), 12);
+    bool led_on = true;
+    uint32_t ms = 0;
+    CHECK(!mode_indicator::next_step(led_on, ms));
+}
+
+TEST(each_repetition_ends_with_led_off_pause) {
+    mode_indicator::begin(DeviceDriverType::SWITCH);
+    bool led_on = false;
+    uint32_t ms = 0;
+    // 2 blinks = on, off, on, off, then the pause.
+    for (int i = 0; i < 4; ++i)
+        mode_indicator::next_step(led_on, ms);
+    mode_indicator::next_step(led_on, ms);
+    CHECK(!led_on);
+    CHECK(ms >= 1000);
+}
+
+TEST(lightbar_colours_are_distinct) {
+    const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
+                                      DeviceDriverType::DINPUT, DeviceDriverType::PS4,
+                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG};
+    uint32_t colours[6];
+    for (int i = 0; i < 6; ++i) {
+        uint8_t r, g, b;
+        mode_indicator::lightbar_color(modes[i], r, g, b);
+        colours[i] = (uint32_t(r) << 16) | (uint32_t(g) << 8) | b;
+        CHECK(colours[i] != 0);
+    }
+    for (int i = 0; i < 6; ++i)
+        for (int j = i + 1; j < 6; ++j)
+            CHECK(colours[i] != colours[j]);
+}
+
+TEST_MAIN()
