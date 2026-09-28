@@ -18,6 +18,8 @@
 #include "Board/board_api_private/board_api_private.h"
 #include "TaskQueue/TaskQueue.h"
 
+static constexpr uint32_t DISCONNECT_WATCHDOG_MS = 5000;
+
 #if defined(CONFIG_EN_USB_HOST)
 #include "USBHost/HostManager.h"
 #endif
@@ -73,7 +75,19 @@ bool usb::host_any_pad_mounted() {
 void usb::disconnect_all() {
     OGXM_LOG("Disconnecting USB and resetting Core1\n");
 
+    /* Custom fix: every caller writes flash and reboots right after this. If anything below
+     * hangs, the watchdog reboots the board instead of leaving it frozen (USB alive, BT dead). */
+    watchdog_enable(DISCONNECT_WATCHDOG_MS, true);
+
     TaskQueue::suspend_delayed_tasks();
+
+    /* Custom fix: park Core1 in RAM (it only stops with interrupts enabled, so it holds no
+     * spinlock) before stop_pio_usb_host() / multicore_reset_core1(). Force-resetting it while
+     * it owned a shared lock (e.g. timer / alarm pool) made the next sleep_ms() on Core0 wait
+     * forever: the combo was detected but the mode was never saved. */
+    if (multicore_lockout_victim_is_initialized(1)) {
+        (void)multicore_lockout_start_timeout_us(500 * 1000);
+    }
 #if defined(CONFIG_EN_USB_HOST)
     /*
      * stop_pio_usb_host may be a weak empty stub (default) or a strong board
