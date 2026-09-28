@@ -423,6 +423,10 @@ void core1_task_wii_usb_host() {
 
 void core1_task() {
     OGXM_LOG("PicoW Core1: entry\n");
+    /* Custom fix: let Core0 park this core safely (multicore_lockout) before a mode switch
+     * writes flash, instead of force-resetting it while it may hold a shared lock. Done here,
+     * before BTstack runs, not from a BT timer. */
+    multicore_lockout_victim_init();
     board_api::init_bluetooth();
     OGXM_LOG("PicoW Core1: init_bluetooth done\n");
     board_api::set_led(true);
