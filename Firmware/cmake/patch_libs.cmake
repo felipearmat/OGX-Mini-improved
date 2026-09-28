@@ -1,3 +1,44 @@
+# Apply a series of patches (in order, each on top of the previous) in DIR, unless the series
+# is already applied. A later patch changes the context of earlier ones, so per-patch reverse
+# checks stop matching; instead: last patch reverse-applies => whole series applied; first
+# patch applies cleanly => apply all in order; anything else (partial / drifted) fails the build.
+function(ogxm_apply_patch_series NAME DIR)
+    set(_patches ${ARGN})
+    list(GET _patches -1 _last)
+    list(GET _patches 0 _first)
+    execute_process(
+        COMMAND git apply --check --reverse --ignore-whitespace ${_last}
+        WORKING_DIRECTORY ${DIR}
+        RESULT_VARIABLE _already
+        OUTPUT_QUIET ERROR_QUIET
+    )
+    if (_already EQUAL 0)
+        message(STATUS "${NAME} patches already applied.")
+        return()
+    endif ()
+    execute_process(
+        COMMAND git apply --check --ignore-whitespace ${_first}
+        WORKING_DIRECTORY ${DIR}
+        RESULT_VARIABLE _clean
+        ERROR_VARIABLE _error
+    )
+    if (NOT _clean EQUAL 0)
+        message(FATAL_ERROR "${NAME} patches are partially applied or out of date: ${_error}")
+    endif ()
+    foreach (_patch IN LISTS _patches)
+        message(STATUS "Applying ${NAME} patch: ${_patch}")
+        execute_process(
+            COMMAND git apply --ignore-whitespace ${_patch}
+            WORKING_DIRECTORY ${DIR}
+            RESULT_VARIABLE _result
+            ERROR_VARIABLE _error
+        )
+        if (NOT _result EQUAL 0)
+            message(FATAL_ERROR "Failed to apply ${NAME} patch ${_patch}: ${_error}")
+        endif ()
+    endforeach ()
+endfunction()
+
 function(apply_lib_patches EXTERNAL_DIR)
     set(BTSTACK_PATCH "${EXTERNAL_DIR}/patches/btstack_l2cap.diff")
     set(BTSTACK_PATH "${EXTERNAL_DIR}/bluepad32/external/btstack")
@@ -129,30 +170,15 @@ function(apply_lib_patches EXTERNAL_DIR)
         message(FATAL_ERROR "Failed to apply Bluepad32 8BitDo PID patch: ${BLUEPAD32_8BITDO_ERROR}")
     endif ()
 
-    # Switch parser: send subcommand 0x48 (enable vibration) during setup. Joy-Cons
-    # ignore every rumble packet until vibration is enabled, so they never vibrated.
-    # "Already applied" is detected with a reverse check, not by a failed apply.
-    set(BLUEPAD32_SWITCH_VIB_PATCH "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff")
-    execute_process(
-        COMMAND git apply --check --reverse --ignore-whitespace ${BLUEPAD32_SWITCH_VIB_PATCH}
-        WORKING_DIRECTORY ${BLUEPAD32_PATH}
-        RESULT_VARIABLE BLUEPAD32_SWITCH_VIB_APPLIED
-        OUTPUT_QUIET ERROR_QUIET
-    )
-    if (BLUEPAD32_SWITCH_VIB_APPLIED EQUAL 0)
-        message(STATUS "Bluepad32 Switch enable-vibration patch already applied.")
-    else ()
-        message(STATUS "Applying Bluepad32 Switch enable-vibration patch: ${BLUEPAD32_SWITCH_VIB_PATCH}")
-        execute_process(
-            COMMAND git apply --ignore-whitespace ${BLUEPAD32_SWITCH_VIB_PATCH}
-            WORKING_DIRECTORY ${BLUEPAD32_PATH}
-            RESULT_VARIABLE BLUEPAD32_SWITCH_VIB_RESULT
-            ERROR_VARIABLE BLUEPAD32_SWITCH_VIB_ERROR
-        )
-        if (NOT BLUEPAD32_SWITCH_VIB_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to apply Bluepad32 Switch enable-vibration patch: ${BLUEPAD32_SWITCH_VIB_ERROR}")
-        endif ()
-    endif ()
+    # Switch parser fixes (OGX-Mini-improved), applied in order on top of each other:
+    # - enable vibration (subcommand 0x48) during setup: Joy-Cons ignore rumble until then;
+    # - setup robustness: per-step timeout + retries, stale-reply filtering, one pad in
+    #   setup at a time, and timer cleanup before a device's parser data is wiped;
+    # - request-sleep: subcommand 0x06/0x00 so a Joy-Con drops the link and sleeps.
+    ogxm_apply_patch_series("Bluepad32 Switch parser (OGX-Mini-improved)" "${BLUEPAD32_PATH}"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff")
 
     # Pico SDK 2.1.x still lists BTstack's old hids_client.c; Bluepad32's BTstack
     # v1.8 renamed it to hids_host.c. Patch the SDK cmake when using that tree.
