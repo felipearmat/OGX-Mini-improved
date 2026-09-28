@@ -302,6 +302,14 @@ endif()
 set(MAIN_LOOP_DELAY_US 0 CACHE STRING "Main loop delay in microseconds; 0 = low latency (default)")
 add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 
+# Custom (OGX-Mini-improved): cleanly disconnect Switch Joy-Cons before a mode-change reboot,
+# so they sleep and reconnect on a button press instead of hanging with the LED on.
+option(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE "Disconnect Joy-Cons before a mode-change reboot" OFF)
+if(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE)
+    add_compile_definitions(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=1)
+    message(STATUS "Joy-Con disconnect on mode change: enabled")
+endif()
+
 if(EN_USB_HOST)
     message(STATUS "USB host enabled.")
     add_compile_definitions(CONFIG_EN_USB_HOST=1)
