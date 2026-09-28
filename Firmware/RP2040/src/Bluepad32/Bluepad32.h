@@ -21,6 +21,11 @@ namespace bluepad32 {
     void set_pico_w_pio_usb_mux_tick(void (*tick_cb)(void));
     /** Disconnect all BT gamepads and block new connections (PIO wired USB took over). */
     void wired_usb_takeover_disconnect_bt();
+    /**
+     * Custom: cleanly disconnect Switch Joy-Cons before a mode-change reboot, so they sleep
+     * (LED off) and reconnect with a button press. Blocks up to ~2 s. Call from Core0.
+     */
+    void disconnect_joycons_before_reboot();
     /** Re-enable BT pairing after wired USB device unplugged. */
     void wired_usb_release_enable_bt_pairing();
     /** Pico W / Pico 2 W / RP2354 BT: restore pairing scans after USB host resume (e.g. Xbox 360 standby wake). */

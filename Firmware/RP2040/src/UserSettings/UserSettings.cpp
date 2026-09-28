@@ -9,6 +9,23 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
+#if defined(CONFIG_EN_BLUETOOTH)
+#include "Bluepad32/Bluepad32.h"
+#endif
+
+/* Custom: disconnect Joy-Cons cleanly before a mode-change reboot (see
+ * bluepad32::disconnect_joycons_before_reboot). Off by default (upstream behaviour);
+ * enable with -DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON. */
+#ifndef OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE
+#define OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE 0
+#endif
+
+static void prepare_bt_for_mode_change_reboot()
+{
+#if defined(CONFIG_EN_BLUETOOTH) && OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE
+    bluepad32::disconnect_joycons_before_reboot();
+#endif
+}
 
 static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0) {
     return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
@@ -283,6 +300,7 @@ bool UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_typ
         new_driver_type = DEFAULT_DRIVER();
     }
 
+    prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
     nvs_tool_.write(DRIVER_TYPE_KEY(), reinterpret_cast<const uint8_t*>(&new_driver_type), sizeof(new_driver_type));
@@ -305,6 +323,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver)
 
     OGXM_LOG("Storing new driver type: " + OGXM_TO_STRING(new_driver) + "\n");
 
+    prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));

@@ -125,6 +125,48 @@ static void bp32_disconnect_controller_and_joycon_partner(uni_hid_device_t* d) {
     uni_hid_device_disconnect(d);
 }
 
+/* Custom fix: the disconnect combo is detected while parsing the pad's own input report.
+ * Disconnecting it (and its Joy-Con partner) right there tore the pair down under the
+ * parser's feet and hung the BT core. Defer the disconnect to a run-loop timer instead. */
+static btstack_timer_source_t s_disconnect_combo_timer;
+static int s_disconnect_combo_idx = -1;
+
+static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
+{
+    (void)ts;
+    const int idx = s_disconnect_combo_idx;
+    s_disconnect_combo_idx = -1;
+    if (idx < 0 || idx >= CONFIG_BLUEPAD32_MAX_DEVICES)
+        return;
+    uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(idx);
+    if (!d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
+        return;
+    if (bp32_is_switch_joycon(d)) {
+        /* gap_disconnect() does not complete on live Joy-Con links: ask them to sleep. The
+         * stall watchdog / HCI disconnection event then frees the slots as usual. */
+        const int partner_idx = bp32_get_pair_partner_idx(d);
+        if (partner_idx >= 0 && partner_idx < CONFIG_BLUEPAD32_MAX_DEVICES) {
+            uni_hid_device_t* partner = uni_hid_device_get_instance_for_idx(partner_idx);
+            if (partner && partner != d)
+                uni_hid_parser_switch_request_sleep(partner);
+        }
+        uni_hid_parser_switch_request_sleep(d);
+        return;
+    }
+    bp32_disconnect_controller_and_joycon_partner(d);
+}
+
+static void schedule_disconnect_combo(int idx)
+{
+    if (s_disconnect_combo_idx >= 0)
+        return;  // already pending
+    s_disconnect_combo_idx = idx;
+    s_disconnect_combo_timer.process = disconnect_combo_timer_cb;
+    s_disconnect_combo_timer.context = nullptr;
+    btstack_run_loop_set_timer(&s_disconnect_combo_timer, 0);
+    btstack_run_loop_add_timer(&s_disconnect_combo_timer);
+}
+
 static constexpr uint32_t FEEDBACK_TIME_MS = 250;
 static constexpr uint32_t LED_CHECK_TIME_MS = 500;
 /** Idle pairing health check — restarts BR/LE scan if they died during long USB suspend (e.g. 360 standby). */
@@ -1134,7 +1176,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         // Require combo to be held for ~500ms (assuming ~60Hz callback rate, ~30 frames)
         if (disconnect_combo_hold_time[idx] >= 30) {
             printf("[BP32] Disconnect combo detected, disconnecting controller %d\n", idx);
-            bp32_disconnect_controller_and_joycon_partner(device);
+            schedule_disconnect_combo(idx);
             disconnect_combo_hold_time[idx] = 0;
             return; // Don't process further input after disconnect
         }
@@ -1325,6 +1367,101 @@ void set_pico_w_pio_usb_mux_tick(void (*tick_cb)(void)) {
     s_pico_w_pio_usb_mux_tick = tick_cb;
 }
 
+
+/* Custom: after a mode-change reboot the BT stack needs ~9 s to come back. Joy-Cons that just
+ * lost their link usually stop paging before that and hang with the LED on until power-cycled.
+ * Disconnecting them first makes them sleep cleanly and reconnect on a button press. */
+static btstack_context_callback_registration_t s_reboot_disc_reg;
+static btstack_timer_source_t s_reboot_disc_poll_timer;
+/* gap_disconnect() on a live Joy-Con link never completed (links still open after 2 s), so
+ * first ask the Joy-Con to disconnect itself and sleep; fall back to gap_disconnect() later. */
+static constexpr uint32_t REBOOT_DISC_FALLBACK_MS = 1000;
+static uint32_t s_reboot_disc_started_ms = 0;
+static bool s_reboot_disc_fallback_done = false;
+static hci_con_handle_t s_reboot_disc_handles[CONFIG_BLUEPAD32_MAX_DEVICES];
+static uint8_t s_reboot_disc_count = 0;
+/* Set on the BT core once every Joy-Con ACL link is really gone (HCI disconnection complete). */
+static std::atomic<bool> s_reboot_disc_done{false};
+
+static void reboot_disc_poll_cb(btstack_timer_source_t* ts)
+{
+    /* Poll BTstack's own connection table with the saved handles (gap_disconnect() would
+     * invalidate d->conn.handle immediately) until the controller reports them closed. */
+    bool open = false;
+    for (uint8_t i = 0; i < s_reboot_disc_count; ++i) {
+        if (gap_get_connection_type(s_reboot_disc_handles[i]) != GAP_CONNECTION_INVALID)
+            open = true;
+    }
+    if (open) {
+        if (!s_reboot_disc_fallback_done &&
+            btstack_run_loop_get_time_ms() - s_reboot_disc_started_ms >= REBOOT_DISC_FALLBACK_MS) {
+            s_reboot_disc_fallback_done = true;
+            printf("[BP32] Mode change: Joy-Con still linked, falling back to gap_disconnect\n");
+            for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+                uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+                if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d))
+                    uni_hid_device_disconnect(d);
+            }
+        }
+        btstack_run_loop_set_timer(ts, 20);
+        btstack_run_loop_add_timer(ts);
+        return;
+    }
+    printf("[BP32] Mode change: Joy-Con links closed\n");
+    s_reboot_disc_done.store(true, std::memory_order_release);
+}
+
+static void reboot_disconnect_joycons_on_bt_main(void* ctx)
+{
+    (void)ctx;
+    s_reboot_disc_count = 0;
+    for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+        if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d)) {
+            printf("[BP32] Mode change: asking Joy-Con slot %u to sleep before reboot\n", i);
+            s_reboot_disc_handles[s_reboot_disc_count++] = d->conn.handle;
+            uni_hid_parser_switch_request_sleep(d);
+        }
+    }
+    s_reboot_disc_started_ms = btstack_run_loop_get_time_ms();
+    s_reboot_disc_fallback_done = false;
+    s_reboot_disc_poll_timer.process = reboot_disc_poll_cb;
+    s_reboot_disc_poll_timer.context = nullptr;
+    btstack_run_loop_set_timer(&s_reboot_disc_poll_timer, 20);
+    btstack_run_loop_add_timer(&s_reboot_disc_poll_timer);
+}
+
+/* Read from Core0 while Core1 owns the table: only used to skip the wait when idle. */
+static bool any_joycon_link_open()
+{
+    for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+        if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d))
+            return true;
+    }
+    return false;
+}
+
+void disconnect_joycons_before_reboot()
+{
+    static constexpr uint32_t LINK_DOWN_TIMEOUT_MS = 2000;
+
+    if (!s_btstack_run_loop_ready.load(std::memory_order_acquire) || !any_joycon_link_open())
+        return;
+
+    s_reboot_disc_done.store(false, std::memory_order_release);
+    s_reboot_disc_reg.callback = reboot_disconnect_joycons_on_bt_main;
+    s_reboot_disc_reg.context = nullptr;
+    btstack_run_loop_execute_on_main_thread(&s_reboot_disc_reg);
+
+    const uint32_t start = board_api::ms_since_boot();
+    while (!s_reboot_disc_done.load(std::memory_order_acquire) &&
+           board_api::ms_since_boot() - start < LINK_DOWN_TIMEOUT_MS)
+        sleep_ms(10);
+    if (!s_reboot_disc_done.load(std::memory_order_acquire))
+        printf("[BP32] Mode change: Joy-Con links still open after %lu ms, rebooting anyway\n",
+               static_cast<unsigned long>(LINK_DOWN_TIMEOUT_MS));
+}
 
 void wired_usb_takeover_disconnect_bt() {
 #if defined(CONFIG_TARGET_PICO_W) && defined(CONFIG_EN_USB_HOST)
