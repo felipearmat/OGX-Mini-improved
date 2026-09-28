@@ -5,6 +5,7 @@
 #include <pico/mutex.h>
 #include <pico/cyw43_arch.h>
 #include <pico/time.h>
+#include <hardware/watchdog.h>
 
 #include <btstack.h>
 #include "btstack_run_loop.h"
@@ -131,6 +132,13 @@ static void bp32_disconnect_controller_and_joycon_partner(uni_hid_device_t* d) {
 static btstack_timer_source_t s_disconnect_combo_timer;
 static int s_disconnect_combo_idx = -1;
 
+/* Custom: after the disconnect combo the adapter stopped accepting controller-initiated
+ * reconnections (no HCI connection request ever arrived), while a fresh boot always accepts
+ * them. So reboot (same output mode) for a clean radio. The reboot is armed on the hardware
+ * watchdog *before* touching the pads: a run-loop timer never fired when the BT core hung
+ * while the pads were going away. Nothing feeds the watchdog, so it always resets. */
+static constexpr uint32_t DISCONNECT_COMBO_REBOOT_DELAY_MS = 1500;
+
 static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
 {
     (void)ts;
@@ -141,9 +149,11 @@ static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
     uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(idx);
     if (!d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
         return;
+    printf("[BP32] Disconnect combo: reboot in %lu ms for a clean reconnect\n",
+           static_cast<unsigned long>(DISCONNECT_COMBO_REBOOT_DELAY_MS));
+    watchdog_enable(DISCONNECT_COMBO_REBOOT_DELAY_MS, true);
     if (bp32_is_switch_joycon(d)) {
-        /* gap_disconnect() does not complete on live Joy-Con links: ask them to sleep. The
-         * stall watchdog / HCI disconnection event then frees the slots as usual. */
+        /* gap_disconnect() does not complete on live Joy-Con links: ask them to sleep. */
         const int partner_idx = bp32_get_pair_partner_idx(d);
         if (partner_idx >= 0 && partner_idx < CONFIG_BLUEPAD32_MAX_DEVICES) {
             uni_hid_device_t* partner = uni_hid_device_get_instance_for_idx(partner_idx);
@@ -151,9 +161,9 @@ static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
                 uni_hid_parser_switch_request_sleep(partner);
         }
         uni_hid_parser_switch_request_sleep(d);
-        return;
+    } else {
+        bp32_disconnect_controller_and_joycon_partner(d);
     }
-    bp32_disconnect_controller_and_joycon_partner(d);
 }
 
 static void schedule_disconnect_combo(int idx)
@@ -741,9 +751,12 @@ static void restore_bt_pairing_mode(int disconnected_idx) {
     led_timer_set_ = true;
     led_timer_.process = check_led_cb;
     led_timer_.context = nullptr;
-    btstack_run_loop_set_timer(&led_timer_, LED_CHECK_TIME_MS);
+    /* Custom fix: no board_api::set_led() here. On Pico W the LED sits on the CYW43 chip, and
+     * this runs inside the HCI/L2CAP disconnect event: the LED ioctl deadlocked the BT core
+     * when the last pad of a Joy-Con pair disconnected. check_led_cb (timer context) takes
+     * over the LED right away. */
+    btstack_run_loop_set_timer(&led_timer_, 1);
     btstack_run_loop_add_timer(&led_timer_);
-    board_api::set_led(false);
 
 #if defined(CONFIG_EN_BLUETOOTH) && defined(CONFIG_TARGET_PICO_W)
     ensure_idle_pairing_scans(disconnected_idx);
@@ -1160,7 +1173,10 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     }
 
     // Check for disconnect combo: Start+Select for most controllers, L3+R3 for OUYA (no Start/Select)
-    static uint32_t disconnect_combo_hold_time[MAX_GAMEPADS] = {0};
+    /* Custom: hold time is measured in ms (report rates differ per pad) and matches the 3 s of
+     * the mode-change combos. On Pico W, Start+Select is not used for input-source cycling. */
+    static constexpr uint32_t DISCONNECT_COMBO_HOLD_MS = 3000;
+    static uint32_t disconnect_combo_since_ms[MAX_GAMEPADS] = {0};
     const uint32_t now_cb = to_ms_since_boot(get_absolute_time());
     const bool combo_grace =
         (idx >= 0 && idx < MAX_GAMEPADS && now_cb < s_bt_disconnect_combo_grace_until_ms[idx]);
@@ -1170,18 +1186,18 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         : ((uni_gp->misc_buttons & MISC_BUTTON_START) && (uni_gp->misc_buttons & MISC_BUTTON_BACK));
 
     if (combo_grace) {
-        disconnect_combo_hold_time[idx] = 0;
+        disconnect_combo_since_ms[idx] = 0;
     } else if (combo_pressed) {
-        disconnect_combo_hold_time[idx]++;
-        // Require combo to be held for ~500ms (assuming ~60Hz callback rate, ~30 frames)
-        if (disconnect_combo_hold_time[idx] >= 30) {
+        if (disconnect_combo_since_ms[idx] == 0)
+            disconnect_combo_since_ms[idx] = now_cb ? now_cb : 1;
+        if (now_cb - disconnect_combo_since_ms[idx] >= DISCONNECT_COMBO_HOLD_MS) {
             printf("[BP32] Disconnect combo detected, disconnecting controller %d\n", idx);
             schedule_disconnect_combo(idx);
-            disconnect_combo_hold_time[idx] = 0;
+            disconnect_combo_since_ms[idx] = 0;
             return; // Don't process further input after disconnect
         }
     } else {
-        disconnect_combo_hold_time[idx] = 0;
+        disconnect_combo_since_ms[idx] = 0;
     }
 
     // Prefer analog triggers (brake / throttle) when present, but fall back to
