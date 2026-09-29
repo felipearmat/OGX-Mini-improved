@@ -55,16 +55,18 @@ TEST(each_repetition_ends_with_led_off_pause) {
 TEST(lightbar_colours_are_distinct) {
     const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
                                       DeviceDriverType::DINPUT, DeviceDriverType::PS4,
-                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG};
-    uint32_t colours[6];
-    for (int i = 0; i < 6; ++i) {
+                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
+                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU};
+    constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
+    uint32_t colours[kModes];
+    for (int i = 0; i < kModes; ++i) {
         uint8_t r, g, b;
         mode_indicator::lightbar_color(modes[i], r, g, b);
         colours[i] = (uint32_t(r) << 16) | (uint32_t(g) << 8) | b;
         CHECK(colours[i] != 0);
     }
-    for (int i = 0; i < 6; ++i)
-        for (int j = i + 1; j < 6; ++j)
+    for (int i = 0; i < kModes; ++i)
+        for (int j = i + 1; j < kModes; ++j)
             CHECK(colours[i] != colours[j]);
 }
 
