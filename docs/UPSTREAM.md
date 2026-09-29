@@ -16,6 +16,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 |---|---|---|---|
 | 44147f1 | Switch Pro output: L3/R3 swapped | todo | Every pad showed stick clicks inverted in Switch Pro mode. Small, with test. |
 | 83e2514 | Switch Pro output: decode host HD rumble properly | todo | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Adds `Custom/HdRumble` (rename to fit upstream layout). |
+| 2c6d768 | PS3 output: rumble from Linux hosts (hid-sony report 0x01 one byte short) | todo | TinyUSB strips the 0x01 padding byte as a report ID. Small. |
 | 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | todo | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
 | 332aed6 | Switch pads: rumble stuck on, stop/restart in long rumble | todo | Idle neutral refresh (Bluepad32 patch) + 350 ms duration. |
 | 7d1f0b3 | Switch parser: enable vibration during setup | todo | Joy-Cons never vibrated (subcommand 0x48). Also for Bluepad32 upstream. |
