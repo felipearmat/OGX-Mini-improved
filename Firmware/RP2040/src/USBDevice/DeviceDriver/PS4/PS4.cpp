@@ -3,7 +3,8 @@
 #include <algorithm>
 
 #include "pico/time.h"
-#include "Custom/BoardMac.h"
+#include "Custom/ReportedMac.h"
+#include "Custom/DongleSettings.h"
 #include "Custom/SonyImu.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
@@ -35,10 +36,16 @@ uint8_t joystick_to_u8(int16_t value, int16_t deadzone)
  * Custom (OGX-Mini-improved): real DS4 units (Custom/SonyImu). The old Brook-style scaling
  * (gyro/8, accel/64) only read right to hosts applying our calibration report; Steam treated it
  * as real DS4 units: gyro 8x too fast, gravity 64x too weak. */
-using sony_imu::kGyroDiv;
-using sony_imu::kAccelDiv;
+/* Dongle option: the legacy scale for auth adapters (Brook) that may expect it. */
+const sony_imu::MotionScale& motion_scale()
+{
+	return dongle_settings::get().ps4_legacy_motion_scale ? sony_imu::kLegacyPs4 : sony_imu::kRealUnits;
+}
+
 void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::PadIn& gp_in)
 {
+	const int32_t kGyroDiv = motion_scale().gyro_div;
+	const int32_t kAccelDiv = motion_scale().accel_div;
 	if (!gp_in.has_motion()) {
 		return;
 	}
@@ -70,12 +77,17 @@ constexpr uint8_t kFeaturePairingInfo = 0x12;
 constexpr uint8_t kFeatureFirmwareInfo = 0xA3;
 
 using sony_imu::put_le16;
-using sony_imu::fill_calibration;
 
-/* Pairing info: device MAC (LSB first) at [1..6], from the board's unique ID. */
+void fill_calibration(uint8_t* report)
+{
+	sony_imu::fill_calibration(report, motion_scale());
+}
+
+/* Pairing info: device MAC (LSB first) at [1..6]: the dongle's, or the pad's with the
+ * "MAC address per controller" dongle option (Custom/ReportedMac). */
 void fill_pairing_info(uint8_t* report)
 {
-	board_mac::get_lsb_first(&report[1]);
+	reported_mac::get_lsb_first(&report[1]);
 }
 
 /* Firmware info: build date/time strings, hardware version at [35], firmware version at [41]. */
@@ -105,6 +117,7 @@ void PS4Device::initialize()
 	report_in_[0] = kReportIdIn;
 	report_in_[1] = report_in_[2] = report_in_[3] = report_in_[4] = PS4::JOYSTICK_MID;
 	report_out_.report_id = 0x05;
+	reported_mac::init();
 }
 
 void PS4Device::process(const uint8_t idx, Gamepad& gamepad)

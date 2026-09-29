@@ -30,6 +30,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Custom/JoyConSettings.h"
 #include "Custom/ModeIndicator.h"
 #include "Custom/RumbleRefresh.h"
+#include "Custom/ReportedMac.h"
 #include "Input/InputSlot.h"
 #include "UserSettings/UserSettings.h"
 #include "USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.h"
@@ -957,6 +958,9 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     if (idx < 0 || idx >= CONFIG_BLUEPAD32_MAX_DEVICES) {
         return UNI_ERROR_SUCCESS;
     }
+
+    /* Custom: "MAC address per controller" dongle option (PS4 / STEAM pairing info). */
+    reported_mac::on_pad_ready(device->conn.btaddr);
 
     const int out_idx = bp32_get_gamepad_output_idx(device);
     const int pad_idx = resolve_bt_output_pad_idx(out_idx >= 0 ? out_idx : idx);

@@ -5,10 +5,8 @@
 
 /*  Joy-Con motion settings (custom addition, not upstream).
  *
- *  Runtime values so the web app can change them later; defaults come from CMake:
- *    OGXM_JOYCON_PAIR_IMU_SIDE        RIGHT | LEFT          (default RIGHT)
- *    OGXM_JOYCON_PAIR_ORIENTATION     VERTICAL | HORIZONTAL (default VERTICAL)
- *    OGXM_JOYCON_SOLO_ORIENTATION     VERTICAL | HORIZONTAL (default HORIZONTAL)
+ *  Views of the dongle settings (Custom/DongleSettings: web app, defaults from CMake
+ *  OGXM_JOYCON_PAIR_IMU_SIDE, OGXM_JOYCON_PAIR_ORIENTATION, OGXM_JOYCON_SOLO_ORIENTATION).
  *
  *  Joy-Con motion arrives in the Pro Controller axes for a Joy-Con held upright
  *  ("vertical", as each half of a pair is held): X towards the top, Y to the left,
@@ -25,7 +23,7 @@ namespace joycon_settings {
         Orientation solo_orientation;
     };
 
-    Settings& get();
+    Settings get();
 
     // Rotate motion (in place) from the upright Joy-Con frame to the given orientation.
     void apply_orientation(bool left_joycon, Orientation orientation, int32_t accel[3], int32_t gyro[3]);
