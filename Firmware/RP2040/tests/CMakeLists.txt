@@ -53,6 +53,14 @@ ogxm_add_test(test_hd_rumble test_hd_rumble.cpp ${FW_SRC}/Custom/HdRumble.cpp)
 
 ogxm_add_test(test_sony_imu test_sony_imu.cpp)
 
+ogxm_add_test(test_sony_reports test_sony_reports.cpp)
+
+ogxm_add_test(test_gamepad_out test_gamepad_out.cpp)
+target_compile_definitions(test_gamepad_out PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_gamepad_out PRIVATE fixmath)
+
+ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Custom/ReportedMac.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
+
 ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)

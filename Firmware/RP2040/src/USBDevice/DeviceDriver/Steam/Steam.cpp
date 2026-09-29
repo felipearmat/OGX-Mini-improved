@@ -5,6 +5,7 @@
 #include "pico/time.h"
 #include "Custom/ReportedMac.h"
 #include "Custom/SonyImu.h"
+#include "Custom/SonyReports.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/Steam/SteamPassthrough.h"
@@ -17,10 +18,6 @@ namespace {
 
 constexpr uint8_t kReportIdIn = 0x01;
 
-/* DualSense output report valid flags (Linux hid-playstation DS_OUTPUT_VALID_FLAG*). */
-constexpr uint8_t kValid0CompatibleVibration = 0x01;
-constexpr uint8_t kValid0HapticsSelect = 0x02;
-constexpr uint8_t kValid1LightbarControl = 0x04;
 
 void init_neutral_report(std::array<uint8_t, SteamPassthrough::USB_REPORT_SIZE>& rep)
 {
@@ -29,53 +26,27 @@ void init_neutral_report(std::array<uint8_t, SteamPassthrough::USB_REPORT_SIZE>&
 	rep[1] = rep[2] = rep[3] = rep[4] = PS5::JOYSTICK_MID;
 }
 
-/* Custom (OGX-Mini-improved): what a synthesized DualSense report (any pad but a real DualSense)
- * used to leave at zero. Offsets within the 64-byte USB report, report ID at [0], as Linux
- * hid-playstation reads it (PS5::InReport lacks the 4 reserved bytes after the buttons, so it
- * only fits up to the buttons). */
-constexpr int kOffSeq = 7;
-constexpr int kOffButtons2 = 10;
-constexpr int kOffGyro = 16;
-constexpr int kOffAccel = 22;
-constexpr int kOffSensorTimestamp = 28;
-constexpr int kOffStatus = 53;
-
+/* Custom (OGX-Mini-improved): fields a synthesized DualSense report (any pad but a real
+ * DualSense) used to leave at zero; see sony_reports::ds5_fill_synth. */
 void add_synth_fields(std::array<uint8_t, SteamPassthrough::USB_REPORT_SIZE>& rep,
                       const Gamepad::PadIn& gp_in, uint8_t seq)
 {
-	rep[kOffSeq] = seq;
-
-	/* Motion in real DualSense units, matching the calibration feature (Custom/SonyImu). */
-	if (gp_in.has_motion()) {
-		int32_t accel[3] = {gp_in.accel[0], gp_in.accel[1], gp_in.accel[2]};
-		int32_t gyro[3] = {gp_in.gyro[0], gp_in.gyro[1], gp_in.gyro[2]};
-		MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
+	sony_reports::Ds5SynthInput in{};
+	in.seq = seq;
+	in.has_motion = gp_in.has_motion();
+	if (in.has_motion) {
 		for (int i = 0; i < 3; ++i) {
-			sony_imu::put_le16(rep.data(), kOffGyro + i * 2, sony_imu::scale(gyro[i], sony_imu::kGyroDiv));
-			sony_imu::put_le16(rep.data(), kOffAccel + i * 2, sony_imu::scale(accel[i], sony_imu::kAccelDiv));
+			in.gyro[i] = gp_in.gyro[i];
+			in.accel[i] = gp_in.accel[i];
 		}
+		MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, in.accel, in.gyro);
 	}
-	const uint32_t ts = time_us_32() * 3u;  // units of 1/3 us
-	std::memcpy(&rep[kOffSensorTimestamp], &ts, sizeof(ts));
-
-	/* Touchpad: DS4 and DualSense touch points share this format (bit 7 set = not touching). */
-	if (gp_in.touchpad_valid) {
-		std::memcpy(&rep[SteamTouchpad::kReportTouchPointsOffset], gp_in.touch_raw, sizeof(gp_in.touch_raw));
-		if (gp_in.touchpad_click) {
-			rep[kOffButtons2] |= PS5::Buttons2::TP;
-		}
-	} else {
-		rep[SteamTouchpad::kReportTouchPointsOffset] = 0x80;
-		rep[SteamTouchpad::kReportTouchPointsOffset + 4] = 0x80;
-	}
-
-	/* Status: battery 0-10 in the low nibble, charging state in the high one (2 = full).
-	 * Unknown battery reads as full. */
-	if (gp_in.battery == 0) {
-		rep[kOffStatus] = 0x2A;
-	} else {
-		rep[kOffStatus] = static_cast<uint8_t>((gp_in.battery * 10u + 127u) / 255u);
-	}
+	in.time_us = time_us_64();
+	in.touch_raw = gp_in.touch_raw;
+	in.touch_valid = gp_in.touchpad_valid != 0;
+	in.touch_click = gp_in.touchpad_click != 0;
+	in.battery = gp_in.battery;
+	sony_reports::ds5_fill_synth(rep.data(), in);
 }
 
 /* Custom: DualSense feature reports hosts read at startup (all zeros before). Report ID at [0]. */
@@ -168,13 +139,13 @@ void SteamDevice::process(const uint8_t idx, Gamepad& gamepad)
 	if (new_report_out_) {
 		/* Custom: only take what the host marked valid. A lightbar-only update carries zero
 		 * motor bytes, which used to stop a running rumble. */
-		if (report_out_.control_flag[0] & (kValid0CompatibleVibration | kValid0HapticsSelect)) {
+		if (sony_reports::ds5_rumble_valid(report_out_.control_flag[0])) {
 			Gamepad::PadOut gp_out;
 			gp_out.rumble_l = report_out_.motor_left;
 			gp_out.rumble_r = report_out_.motor_right;
 			gamepad.set_pad_out(gp_out);
 		}
-		if (report_out_.control_flag[1] & kValid1LightbarControl) {
+		if (sony_reports::ds5_lightbar_valid(report_out_.control_flag[1])) {
 			gamepad.set_host_lightbar(report_out_.lightbar_red, report_out_.lightbar_green,
 			                          report_out_.lightbar_blue);
 		}
@@ -193,20 +164,16 @@ uint16_t SteamDevice::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_t
 			return n;
 		}
 		if (itf == Steam::ITF_GAMEPAD && (report_id == 0 || report_id == kReportIdIn)) {
-			/* TinyUSB already put the report ID in front when the host asked for one. */
-			const size_t skip = (report_id == 0) ? 0 : 1;
-			const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, report_in_.size() - skip));
-			std::memcpy(buffer, report_in_.data() + skip, n);
-			return n;
+			return static_cast<uint16_t>(sony_reports::copy_for_get_report(
+				report_id, report_in_.data(), report_in_.size(), buffer, reqlen));
 		}
 	} else if (report_type == HID_REPORT_TYPE_FEATURE) {
 		/* Build the full report (ID at [0]) and hand TinyUSB everything after the ID. */
 		std::array<uint8_t, 64> report{};
 		report[0] = report_id;
 		fill_feature(report_id, report.data());
-		const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, report.size() - 1));
-		std::memcpy(buffer, report.data() + 1, n);
-		return n;
+		return static_cast<uint16_t>(sony_reports::copy_for_get_report(
+			report_id, report.data(), report.size(), buffer, reqlen));
 	}
 	return 0;
 }
@@ -226,15 +193,11 @@ void SteamDevice::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_
 		buf = &buffer[1];
 	}
 
-	/* Custom fix: buf is the report body after its ID, while PS5::OutReport starts with the ID
-	 * field. It used to be copied over that field, reading every setting one byte off (rumble
-	 * from the flags byte, no lightbar). */
-	constexpr size_t kBodySize = sizeof(PS5::OutReport) - 1;
+	/* Custom fix: buf is the report body after its ID; it used to be copied over the ID field,
+	 * reading every setting one byte off (see sony_reports::copy_output_body). */
 	constexpr size_t kMinBody = offsetof(PS5::OutReport, lightbar_blue);
-	if ((rid == PS5::OutReportID::RUMBLE || rid == PS5::OutReportID::CONTROL) && len >= kMinBody) {
-		report_out_ = PS5::OutReport{};
-		report_out_.report_id = rid;
-		std::memcpy(reinterpret_cast<uint8_t*>(&report_out_) + 1, buf, std::min<size_t>(len, kBodySize));
+	if ((rid == PS5::OutReportID::RUMBLE || rid == PS5::OutReportID::CONTROL) &&
+	    sony_reports::copy_output_body(rid, buf, len, kMinBody, report_out_)) {
 		new_report_out_ = true;
 	}
 }

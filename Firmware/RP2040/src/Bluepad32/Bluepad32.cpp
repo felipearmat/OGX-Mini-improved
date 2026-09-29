@@ -270,6 +270,15 @@ static bool adaptive_trigger_enabled_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
 static bool prev_touchpad_clicked_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
 // Defer sending adaptive trigger effect out of BT callback to avoid l2cap_send in callback (reduces input lag)
 static bool pending_adaptive_trigger_send_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
+/* Regression guard: these are indexed by Bluetooth slot (see the comment on the per-pad state
+ * arrays above); a pad in slot 1 wrote past them when they were sized MAX_GAMEPADS. */
+template <typename T, size_t N>
+constexpr size_t bt_slots_of(const T (&)[N]) { return N; }
+static_assert(bt_slots_of(s_bt_disconnect_combo_grace_until_ms) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
+static_assert(bt_slots_of(s_ps4_rumble_ok_ms) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
+static_assert(bt_slots_of(adaptive_trigger_enabled_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
+static_assert(bt_slots_of(prev_touchpad_clicked_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
+static_assert(bt_slots_of(pending_adaptive_trigger_send_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 
 bool any_connected()
 {
