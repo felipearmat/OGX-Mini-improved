@@ -44,14 +44,17 @@ endfunction()
 # - setup robustness: per-step timeout + retries, stale-reply filtering, one pad in
 #   setup at a time, and timer cleanup before a device's parser data is wiped;
 # - request-sleep: subcommand 0x06/0x00 so a Joy-Con drops the link and sleeps;
-# - pair IMU: a merged Joy-Con pair keeps (and parses) the left Joy-Con's IMU.
+# - pair IMU: a merged Joy-Con pair keeps (and parses) only the selected half's IMU;
+# - idle rumble refresh: neutral rumble re-sent while idle, so a lost "stop" can't leave
+#   the motor on.
 # Shared by the firmware build and the host tests (Firmware/RP2040/tests).
 function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
     ogxm_apply_patch_series("Bluepad32 Switch parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_enable_vibration.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff")
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_idle_rumble_refresh.diff")
 endfunction()
 
 function(apply_lib_patches EXTERNAL_DIR)

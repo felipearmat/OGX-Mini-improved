@@ -43,6 +43,8 @@ target_link_libraries(test_wire_pad PRIVATE fixmath)
 
 ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/JoyConSettings.cpp)
 
+ogxm_add_test(test_rumble_refresh test_rumble_refresh.cpp ${FW_SRC}/Custom/RumbleRefresh.cpp)
+
 ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)
