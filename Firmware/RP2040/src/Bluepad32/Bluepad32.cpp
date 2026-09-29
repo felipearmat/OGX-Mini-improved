@@ -373,6 +373,9 @@ static void send_feedback_cb(btstack_timer_source *ts)
 {
     uni_hid_device_t* bp_device = nullptr;
     const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    /* Custom: rumble read once per gamepad per tick (both Joy-Cons of a pair share one). */
+    Gamepad::PadOut pad_out[MAX_GAMEPADS];
+    bool pad_out_read[MAX_GAMEPADS] = {};
 
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
     {
@@ -418,7 +421,13 @@ static void send_feedback_cb(btstack_timer_source *ts)
         if (gp_idx < 0 || gp_idx >= static_cast<int>(MAX_GAMEPADS) || bt_devices_[gp_idx].gamepad == nullptr)
             continue;
 
-        Gamepad::PadOut gp_out = bt_devices_[gp_idx].gamepad->get_pad_out();
+        /* Custom: peak since the last tick, so host pulses shorter than FEEDBACK_TIME_MS still play. */
+        if (!pad_out_read[gp_idx])
+        {
+            pad_out[gp_idx] = bt_devices_[gp_idx].gamepad->take_pad_out_peak();
+            pad_out_read[gp_idx] = true;
+        }
+        const Gamepad::PadOut gp_out = pad_out[gp_idx];
         if (bp_device->controller_type == CONTROLLER_TYPE_XBoxOneController && bp_device->hids_cid != 0 &&
             gp_out.rumble_l == 0 && gp_out.rumble_r == 0)
         {
