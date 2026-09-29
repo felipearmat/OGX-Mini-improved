@@ -27,6 +27,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
+#include "Custom/JoyConSettings.h"
 #include "Custom/ModeIndicator.h"
 #include "Input/InputSlot.h"
 #include "UserSettings/UserSettings.h"
@@ -1246,6 +1247,10 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
             break;
         case CONTROLLER_TYPE_SwitchProController:
         case CONTROLLER_TYPE_Switch2ProController:
+        /* Custom: Joy-Cons too. The parser already aligns the right Joy-Con's axes with the
+         * left/Pro ones, and a merged pair carries the left half's IMU. */
+        case CONTROLLER_TYPE_SwitchJoyConLeft:
+        case CONTROLLER_TYPE_SwitchJoyConRight:
             gp_in.motion_source = Gamepad::PadIn::MOTION_SRC_SWITCH_PRO;
             break;
         case CONTROLLER_TYPE_WiiController:
@@ -1276,6 +1281,15 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         for (int i = 0; i < 3; i++) {
             gp_in.accel[i] = uni_gp->accel[i];
             gp_in.gyro[i] = uni_gp->gyro[i];
+        }
+        /* Custom: Joy-Con motion is in the upright frame; rotate for how it is held. */
+        if (bp32_is_switch_joycon(device)) {
+            const auto& jc = joycon_settings::get();
+            const bool paired = bp32_get_pair_partner_idx(device) >= 0;
+            const bool left = paired ? !jc.pair_imu_right
+                                     : device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft;
+            joycon_settings::apply_orientation(left, paired ? jc.pair_orientation : jc.solo_orientation,
+                                               gp_in.accel, gp_in.gyro);
         }
     }
 
@@ -1530,6 +1544,8 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
 
     uni_platform_set_custom(get_driver());
     uni_init(0, nullptr);
+    /* Custom: which half of a merged Joy-Con pair provides motion. */
+    uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
 
     mode_indicator::begin(UserSettings::get_instance().get_current_driver());
     led_timer_set_ = true;

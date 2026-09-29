@@ -73,6 +73,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Steam/Steam.cpp
     ${SRC}/USBDevice/DeviceDriver/Steam/SteamTouchpad.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
+    ${SRC}/Custom/SwitchImu.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
     ${SRC}/USBDevice/DeviceDriver/PS1PS2/PS1PS2.cpp
@@ -305,6 +306,40 @@ add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 # Custom (OGX-Mini-improved): cleanly disconnect Switch Joy-Cons before a mode-change reboot,
 # so they sleep and reconnect on a button press instead of hanging with the LED on.
 option(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE "Disconnect Joy-Cons before a mode-change reboot" OFF)
+
+# Custom (OGX-Mini-improved): Joy-Con motion defaults (runtime settings, web app later).
+set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
+set(OGXM_JOYCON_PAIR_ORIENTATION "VERTICAL" CACHE STRING "Merged Joy-Con pair orientation (VERTICAL|HORIZONTAL)")
+set(OGXM_JOYCON_SOLO_ORIENTATION "HORIZONTAL" CACHE STRING "Single Joy-Con orientation (VERTICAL|HORIZONTAL)")
+set_property(CACHE OGXM_JOYCON_PAIR_IMU_SIDE PROPERTY STRINGS RIGHT LEFT)
+set_property(CACHE OGXM_JOYCON_PAIR_ORIENTATION PROPERTY STRINGS VERTICAL HORIZONTAL)
+set_property(CACHE OGXM_JOYCON_SOLO_ORIENTATION PROPERTY STRINGS VERTICAL HORIZONTAL)
+foreach(_opt IN ITEMS OGXM_JOYCON_PAIR_IMU_SIDE:RIGHT:LEFT OGXM_JOYCON_PAIR_ORIENTATION:HORIZONTAL:VERTICAL
+                      OGXM_JOYCON_SOLO_ORIENTATION:HORIZONTAL:VERTICAL)
+    string(REPLACE ":" ";" _parts "${_opt}")
+    list(GET _parts 0 _name)
+    list(GET _parts 1 _true_value)
+    list(GET _parts 2 _false_value)
+    if (NOT ${_name} STREQUAL _true_value AND NOT ${_name} STREQUAL _false_value)
+        message(FATAL_ERROR "${_name} must be ${_true_value} or ${_false_value}, got '${${_name}}'")
+    endif()
+endforeach()
+if (OGXM_JOYCON_PAIR_IMU_SIDE STREQUAL "RIGHT")
+    add_compile_definitions(OGXM_JOYCON_PAIR_IMU_RIGHT=1)
+else()
+    add_compile_definitions(OGXM_JOYCON_PAIR_IMU_RIGHT=0)
+endif()
+if (OGXM_JOYCON_PAIR_ORIENTATION STREQUAL "HORIZONTAL")
+    add_compile_definitions(OGXM_JOYCON_PAIR_HORIZONTAL=1)
+else()
+    add_compile_definitions(OGXM_JOYCON_PAIR_HORIZONTAL=0)
+endif()
+if (OGXM_JOYCON_SOLO_ORIENTATION STREQUAL "HORIZONTAL")
+    add_compile_definitions(OGXM_JOYCON_SOLO_HORIZONTAL=1)
+else()
+    add_compile_definitions(OGXM_JOYCON_SOLO_HORIZONTAL=0)
+endif()
+message(STATUS "Joy-Con motion: pair IMU ${OGXM_JOYCON_PAIR_IMU_SIDE}, pair ${OGXM_JOYCON_PAIR_ORIENTATION}, solo ${OGXM_JOYCON_SOLO_ORIENTATION}")
 if(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE)
     add_compile_definitions(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=1)
     message(STATUS "Joy-Con disconnect on mode change: enabled")
@@ -364,6 +399,7 @@ if(EN_BLUETOOTH)
         ${SRC}/Bluepad32/Bluepad32.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${SRC}/Custom/ModeIndicator.cpp
+        ${SRC}/Custom/JoyConSettings.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp
