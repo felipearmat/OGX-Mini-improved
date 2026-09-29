@@ -40,12 +40,9 @@ jobs:
           - name: PI_PICO2W
             build_type: Release
             flags: ""
-          - name: PI_PICO2W-jcdisc
-            build_type: Release
-            flags: "-DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON"
-          - name: PI_PICO2W-jcdisc-DebugLite
+          - name: PI_PICO2W-DebugLite
             build_type: Debug
-            flags: "-DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON"
+            flags: ""
             cxxflags: "-DBLUEPAD32_UART_LOG_INPUT=0"
     steps:
       - uses: actions/checkout@v4

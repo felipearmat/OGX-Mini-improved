@@ -13,17 +13,17 @@
 #include "Bluepad32/Bluepad32.h"
 #endif
 
-/* Custom: disconnect Joy-Cons cleanly before a mode-change reboot (see
- * bluepad32::disconnect_joycons_before_reboot). Off by default (upstream behaviour);
- * enable with -DOGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=ON. */
-#ifndef OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE
-#define OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE 0
+/* Custom: disconnect Bluetooth pads cleanly before a mode-change reboot (see
+ * bluepad32::disconnect_pads_before_reboot). CMake option OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
+ * (ON by default in this fork; OFF keeps the upstream behaviour). */
+#ifndef OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
+#define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 0
 #endif
 
 static void prepare_bt_for_mode_change_reboot()
 {
-#if defined(CONFIG_EN_BLUETOOTH) && OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE
-    bluepad32::disconnect_joycons_before_reboot();
+#if defined(CONFIG_EN_BLUETOOTH) && OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
+    bluepad32::disconnect_pads_before_reboot();
 #endif
 }
 

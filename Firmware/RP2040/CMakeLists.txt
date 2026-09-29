@@ -304,9 +304,13 @@ endif()
 set(MAIN_LOOP_DELAY_US 0 CACHE STRING "Main loop delay in microseconds; 0 = low latency (default)")
 add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 
-# Custom (OGX-Mini-improved): cleanly disconnect Switch Joy-Cons before a mode-change reboot,
-# so they sleep and reconnect on a button press instead of hanging with the LED on.
-option(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE "Disconnect Joy-Cons before a mode-change reboot" OFF)
+# Custom (OGX-Mini-improved): disconnect every Bluetooth pad before a mode-change reboot. Pads
+# turn off (LED off, a visible sign the mode changed) and reconnect on a button press; Joy-Cons
+# no longer hang with the LED on. OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE is the old name.
+option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Disconnect Bluetooth pads before a mode-change reboot" ON)
+if(DEFINED OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE)
+    set(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE ${OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE})
+endif()
 
 # Custom (OGX-Mini-improved): Joy-Con motion defaults (runtime settings, web app later).
 set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
@@ -341,9 +345,9 @@ else()
     add_compile_definitions(OGXM_JOYCON_SOLO_HORIZONTAL=0)
 endif()
 message(STATUS "Joy-Con motion: pair IMU ${OGXM_JOYCON_PAIR_IMU_SIDE}, pair ${OGXM_JOYCON_PAIR_ORIENTATION}, solo ${OGXM_JOYCON_SOLO_ORIENTATION}")
-if(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE)
-    add_compile_definitions(OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE=1)
-    message(STATUS "Joy-Con disconnect on mode change: enabled")
+if(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE)
+    add_compile_definitions(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE=1)
+    message(STATUS "Pad disconnect on mode change: enabled")
 endif()
 
 if(EN_USB_HOST)
