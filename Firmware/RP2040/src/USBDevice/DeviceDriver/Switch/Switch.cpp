@@ -11,20 +11,6 @@ namespace
 {
 	constexpr uint8_t VIB_OPTS[4] = { 0x0A, 0x0C, 0x0B, 0x09 };
 
-	/** HD rumble motor block → 0–255 intensity (dekuNukem / Switch Pro reverse engineering). */
-	uint8_t hd_rumble_amplitude(const uint8_t motor[4])
-	{
-		if (motor[0] == 0x00 && motor[1] == 0x01 && motor[2] == 0x40 && motor[3] == 0x40)
-			return 0;
-
-		const uint8_t hfa = static_cast<uint8_t>((motor[1] >> 1) & 0x7F);
-		const uint16_t lfa = static_cast<uint16_t>(motor[3] | ((static_cast<uint16_t>(motor[2] & 0x80u)) << 1));
-
-		const uint8_t hfa_scaled = (hfa > 127) ? 255 : static_cast<uint8_t>(hfa * 2);
-		const uint8_t lfa_scaled = (lfa > 255) ? 255 : static_cast<uint8_t>(lfa);
-		return (hfa_scaled > lfa_scaled) ? hfa_scaled : lfa_scaled;
-	}
-
 	bool is_rumble_output_cmd(uint8_t cmd)
 	{
 		return cmd == SwitchPro::REPORT_ID_OUTPUT_SUBCMD ||
@@ -290,8 +276,8 @@ void SwitchDevice::parse_host_rumble(uint8_t report_id, uint8_t const* buffer, u
 	else
 		return;
 
-	const uint8_t left = hd_rumble_amplitude(motor_l);
-	const uint8_t right = hd_rumble_amplitude(motor_r);
+	const uint8_t left = rumble_dec_l_.apply(motor_l);
+	const uint8_t right = rumble_dec_r_.apply(motor_r);
 	if (left == rumble_l_ && right == rumble_r_)
 		return;
 	rumble_l_ = left;
