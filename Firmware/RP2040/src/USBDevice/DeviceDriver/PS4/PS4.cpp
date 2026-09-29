@@ -238,7 +238,11 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	report_in_[9] = gp_in.trigger_r;
 
 	frame_seq_++;
-	std::memcpy(&report_in_[10], &frame_seq_, sizeof(frame_seq_));
+	/* Custom fix: bytes 10-11 are the motion sensor clock, in units of 16/3 us on a real DS4
+	 * (Linux hid-playstation and SDL derive the sample interval from it). They used to get a
+	 * per-call counter, so hosts saw samples ~5 us apart. */
+	const uint16_t sensor_ts = static_cast<uint16_t>(time_us_64() * 3u / 16u);
+	std::memcpy(&report_in_[10], &sensor_ts, sizeof(sensor_ts));
 	report_in_[12] = 0;
 
 	apply_pad_imu_to_ps4_report(report_in_, gp_in);
