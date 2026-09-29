@@ -26,6 +26,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | e18b8ea | Web App: send pad input in the legacy 23-byte layout | todo | Web app never showed live input. |
 | bd9aa29 | Disconnect combo: BT-core deadlock (set_led in HCI event) | todo | Deadlock is an upstream bug. The 3 s hold and reboot-after are behaviour changes: offer separately or as options. |
 | 6335503 (combo part) | Disconnect combo deferred to a run-loop timer | todo | Tearing the pair down while parsing its report hung the BT core. |
+| eada5e5 | PS4 output: host output reports dropped (no rumble / lightbar) | todo | Length check counted the report ID twice. Small, standalone. |
 | bda2bdf | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). |
 
 ## Features (offer, upstream may or may not want them)
