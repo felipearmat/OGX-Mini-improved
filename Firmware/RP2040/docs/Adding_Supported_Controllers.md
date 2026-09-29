@@ -347,7 +347,7 @@ Face-button convention into PadIn (Xbox names):
 
 D-pad: set `gp_in.dpad` with `MAP_DPAD_*` (including diagonals if the pad reports them).
 
-**User remapping** for USB output modes is done in the [web app](https://megacadedev.github.io/OGX-Mini-2026-WebApp/) via profiles — host drivers should keep using `MAP_*`.
+**User remapping** for USB output modes is done in the [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) via profiles — host drivers should keep using `MAP_*`.
 
 ---
 

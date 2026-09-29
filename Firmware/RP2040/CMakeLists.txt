@@ -312,15 +312,13 @@ endif()
 set(MAIN_LOOP_DELAY_US 0 CACHE STRING "Main loop delay in microseconds; 0 = low latency (default)")
 add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 
-# Custom (OGX-Mini-improved): disconnect every Bluetooth pad before a mode-change reboot. Pads
-# turn off (LED off, a visible sign the mode changed) and reconnect on a button press; Joy-Cons
-# no longer hang with the LED on. OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE is the old name.
-option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Disconnect Bluetooth pads before a mode-change reboot" ON)
-if(DEFINED OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE)
-    set(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE ${OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE})
-endif()
+# Custom (OGX-Mini-improved): defaults of the dongle options (Custom/DongleSettings). Every one
+# can be changed at runtime from the web app (Adapter Options); these only set the defaults.
+# Disconnect every Bluetooth pad before a mode-change reboot: pads turn off (LED off, a visible
+# sign the mode changed) and reconnect on a button press; Joy-Cons no longer hang with the LED on.
+option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads before a mode-change reboot" ON)
 
-# Custom (OGX-Mini-improved): Joy-Con motion defaults (runtime settings, web app later).
+# Joy-Con motion defaults (dongle options).
 set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
 set(OGXM_JOYCON_PAIR_ORIENTATION "VERTICAL" CACHE STRING "Merged Joy-Con pair orientation (VERTICAL|HORIZONTAL)")
 set(OGXM_JOYCON_SOLO_ORIENTATION "HORIZONTAL" CACHE STRING "Single Joy-Con orientation (VERTICAL|HORIZONTAL)")
@@ -358,9 +356,9 @@ if(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE)
     message(STATUS "Pad disconnect on mode change: enabled")
 endif()
 
-# Custom (OGX-Mini-improved): more dongle option defaults (all changeable from the web app).
-option(OGXM_MAC_PER_CONTROLLER "PS4/STEAM modes: report the connected pad's Bluetooth address instead of the dongle's" OFF)
-option(OGXM_PS4_LEGACY_MOTION_SCALE "PS4 mode: legacy Brook-style motion scale (gyro/8, accel/64) instead of real DS4 units" OFF)
+# More dongle option defaults.
+option(OGXM_MAC_PER_CONTROLLER "Default: PS4/STEAM modes report the connected pad's Bluetooth address instead of the dongle's" OFF)
+option(OGXM_PS4_LEGACY_MOTION_SCALE "Default: PS4 mode uses the legacy Brook-style motion scale (gyro/8, accel/64) instead of real DS4 units" OFF)
 if(OGXM_MAC_PER_CONTROLLER)
     add_compile_definitions(OGXM_MAC_PER_CONTROLLER=1)
 endif()

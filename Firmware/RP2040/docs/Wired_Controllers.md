@@ -139,7 +139,7 @@ Controllers that use the standard HID gamepad (DInput) protocol, including:
 
 ### Generic HID (unspecified mapping)
 
-- Other HID gamepad‑like devices may work; button and axis mappings might need to be adjusted in the [web app](https://megacadedev.github.io/OGX-Mini-2026-WebApp/).
+- Other HID gamepad‑like devices may work; button and axis mappings might need to be adjusted in the [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/).
 
 ---
 
@@ -149,4 +149,4 @@ Controllers that use the standard HID gamepad (DInput) protocol, including:
 - **Host drivers:** `Firmware/RP2040/src/USBHost/HostDriver/`
 - **Adding a new controller:** [Adding_Supported_Controllers.md](Adding_Supported_Controllers.md) (capture, drivers, Debug UART)
 - **Platform selection:** See the main [README](../../../README.md) for button combos to change output platform.
-- **SteamOS / Bazzite (STEAM output):** USB presents **DualSense** (`054c:0ce6`) + **HID mouse**. **DualSense** input (wired or BT): passthrough gamepad + **touchpad → cursor**; other pads get synthesized DualSense mapping (gamepad only — no stick mouse). **Start + LB + D-pad Up** selects mode. See [SteamOS / Bazzite output mode](SteamOS_Bazzite_Output_Mode.md), [IMPROVEMENTS — STEAM mode](IMPROVEMENTS.md#steam-mode--steamos--bazzite-linux-desktop), and [Controller_Mappings — STEAM](Controller_Mappings.md#steamos--bazzite-steam-mode).
+- **SteamOS / Bazzite (STEAM output):** USB presents **DualSense** (`054c:0ce6`) + **HID mouse**. **DualSense** input (wired or BT): passthrough gamepad + **touchpad → cursor**; other pads get a synthesized DualSense report (OGX-Mini-improved: with motion, and DS4 touchpad → cursor; no stick mouse). **Start + LB + D-pad Up** selects mode. See [SteamOS / Bazzite output mode](SteamOS_Bazzite_Output_Mode.md), [IMPROVEMENTS — STEAM mode](IMPROVEMENTS.md#steam-mode--steamos--bazzite-linux-desktop), and [Controller_Mappings — STEAM](Controller_Mappings.md#steamos--bazzite-steam-mode).

@@ -53,7 +53,6 @@ If you only remember one rule when extending the firmware: **always map into `Pa
 | `scripts/` | `build.sh` / `build.ps1` interactive builds |
 | `Tools/controller_capture/` | Legacy PC capture scripts — **not accepted** for mapping submissions |
 | `docs/` | Research / planning surveys |
-| `WebApp/` | Web configuration UI (submodule) |
 
 ### `Firmware/`
 
