@@ -49,6 +49,8 @@ ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)
 
 ogxm_add_test(test_hd_rumble test_hd_rumble.cpp ${FW_SRC}/Custom/HdRumble.cpp)
 
+ogxm_add_test(test_sony_imu test_sony_imu.cpp)
+
 ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)
