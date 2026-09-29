@@ -37,7 +37,7 @@
 #include <pico/flash.h>
 #include "Wii/WiiReportConverter.h"
 
-/** Called from flash_safe_execute on Core1; only write flash. Reboot is done by caller after return. */
+/** Called on Core1; only writes flash (NVSTool handles flash safety). Reboot is done by the caller. */
 static void store_driver_type_callback(void* arg) {
     auto d = *static_cast<DeviceDriverType*>(arg);
     UserSettings::get_instance().store_driver_type_only(d);
@@ -407,13 +407,12 @@ void core1_task_wii_usb_host() {
             if (changed) {
                 static DeviceDriverType new_driver;
                 new_driver = user_settings.get_current_driver();
-                OGXM_LOG("WII Core1: driver change detected, new_driver=" + OGXM_TO_STRING(new_driver) + ", calling flash_safe_execute\n");
-                int fs_ret = flash_safe_execute(store_driver_type_callback, &new_driver, 200);
-                OGXM_LOG("WII Core1: flash_safe_execute returned " + std::to_string(fs_ret) + " (0=ok)\n");
-                if (fs_ret == 0) {
-                    OGXM_LOG("WII Core1: calling reboot\n");
-                    board_api::reboot();
-                }
+                OGXM_LOG("WII Core1: driver change detected, new_driver=" + OGXM_TO_STRING(new_driver) + "\n");
+                /* Custom: NVSTool parks the other core itself (flash_safe_execute); wrapping the
+                 * write in another flash_safe_execute would nest the lockout and fail. */
+                store_driver_type_callback(&new_driver);
+                OGXM_LOG("WII Core1: calling reboot\n");
+                board_api::reboot();
             }
         }
 #endif
