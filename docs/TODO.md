@@ -31,6 +31,12 @@ Known issues in this fork, to fix later.
   the DS4 natively (PlayStation controllers are passed through to games), so Steam's gyro
   output never reaches it. Check with other games; try PROTON_DISABLE_HIDRAW / SDL hints.
 
+- **STEAM mode mouse interface unbound on Linux.** hid-playstation matches both USB interfaces
+  (same VID/PID), fails on the mouse one ("Duplicate device found for MAC address") and leaves it
+  without a driver. Harmless on Linux (hid-playstation already exposes the DualSense touchpad as a
+  pointer, and Steam's desktop layout works), but the extra mouse interface only helps on Windows.
+  Options: expose the mouse on a separate VID/PID configuration, or drop it on Linux hosts.
+
 ## Buttons
 
 - **Capture button not read with paired Joy-Cons** (Switch Pro output mode).
