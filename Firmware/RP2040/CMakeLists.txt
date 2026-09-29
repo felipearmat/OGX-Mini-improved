@@ -234,6 +234,12 @@ elseif(OGXM_BOARD STREQUAL "RP2354")
     set(PICO_PLATFORM rp2350)
     set(FLASH_SIZE_MB 4)
 
+elseif(OGXM_BOARD STREQUAL "OGX_LIVE")
+    # nightowl3090/OGX-LIVE: bare RP2040, W25Q128 16MB flash, PIO USB host GP10/11 (USB-A)
+    add_compile_definitions(CONFIG_OGXM_BOARD_OGX_LIVE=1)
+    set(EN_USB_HOST TRUE)
+    set(FLASH_SIZE_MB 16)
+
 else()
     message(FATAL_ERROR "Invalid OGXM_BOARD value. See options in src/Board/Config.h")
 
