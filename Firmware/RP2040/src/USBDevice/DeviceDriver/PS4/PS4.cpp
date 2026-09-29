@@ -3,7 +3,8 @@
 #include <algorithm>
 
 #include "pico/time.h"
-#include "pico/unique_id.h"
+#include "Custom/BoardMac.h"
+#include "Custom/SonyImu.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "Descriptors/PS4Usb.h"
@@ -29,33 +30,13 @@ uint8_t joystick_to_u8(int16_t value, int16_t deadzone)
 	return static_cast<uint8_t>(scaled);
 }
 
-/* Truncating division zeros small Bluetooth IMU samples; use symmetric rounding so light motion
- * still reaches the host. */
-int16_t scale_i32_to_i16_rounded(int32_t v, int32_t div)
-{
-	if (div <= 0) {
-		div = 1;
-	}
-	const int64_t num = static_cast<int64_t>(v);
-	const int64_t d = static_cast<int64_t>(div);
-	const int64_t q = (num >= 0) ? (num + d / 2) / d : (num - d / 2) / d;
-	if (q > 32767) {
-		return 32767;
-	}
-	if (q < -32768) {
-		return -32768;
-	}
-	return static_cast<int16_t>(q);
-}
-
 /* int16 LE gyro @ 13–18, accel @ 19–24 in report id 1. Filled from DS4/DS5 BT, Switch Pro, or
  * wired DS4/DualSense USB host paths.
- * Custom (OGX-Mini-improved): real DS4 units, 16 per deg/s and 8192 per g (input is 1024 per
- * deg/s and 8192 per g). The old Brook-style scaling (gyro/8, accel/64) only reads right to a
- * host that applies our calibration report; Steam treated it as real DS4 units: gyro 8x too
- * fast, gravity 64x too weak. */
-constexpr int32_t kGyroDiv = 64;
-constexpr int32_t kAccelDiv = 1;
+ * Custom (OGX-Mini-improved): real DS4 units (Custom/SonyImu). The old Brook-style scaling
+ * (gyro/8, accel/64) only read right to hosts applying our calibration report; Steam treated it
+ * as real DS4 units: gyro 8x too fast, gravity 64x too weak. */
+using sony_imu::kGyroDiv;
+using sony_imu::kAccelDiv;
 void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::PadIn& gp_in)
 {
 	if (!gp_in.has_motion()) {
@@ -66,12 +47,12 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 	int32_t gyro[3] = {gp_in.gyro[0], gp_in.gyro[1], gp_in.gyro[2]};
 	MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
 
-	const int16_t gx = scale_i32_to_i16_rounded(gyro[0], kGyroDiv);
-	const int16_t gy = scale_i32_to_i16_rounded(gyro[1], kGyroDiv);
-	const int16_t gz = scale_i32_to_i16_rounded(gyro[2], kGyroDiv);
-	const int16_t ax = scale_i32_to_i16_rounded(accel[0], kAccelDiv);
-	const int16_t ay = scale_i32_to_i16_rounded(accel[1], kAccelDiv);
-	const int16_t az = scale_i32_to_i16_rounded(accel[2], kAccelDiv);
+	const int16_t gx = sony_imu::scale(gyro[0], kGyroDiv);
+	const int16_t gy = sony_imu::scale(gyro[1], kGyroDiv);
+	const int16_t gz = sony_imu::scale(gyro[2], kGyroDiv);
+	const int16_t ax = sony_imu::scale(accel[0], kAccelDiv);
+	const int16_t ay = sony_imu::scale(accel[1], kAccelDiv);
+	const int16_t az = sony_imu::scale(accel[2], kAccelDiv);
 
 	std::memcpy(&rep[13], &gx, 2);
 	std::memcpy(&rep[15], &gy, 2);
@@ -88,41 +69,13 @@ constexpr uint8_t kFeatureCalibration = 0x02;
 constexpr uint8_t kFeaturePairingInfo = 0x12;
 constexpr uint8_t kFeatureFirmwareInfo = 0xA3;
 
-void put_le16(uint8_t* report, int offset, int16_t v)
-{
-	report[offset] = static_cast<uint8_t>(v & 0xFF);
-	report[offset + 1] = static_cast<uint8_t>((v >> 8) & 0xFF);
-}
+using sony_imu::put_le16;
+using sony_imu::fill_calibration;
 
-/* Calibration of an ideal DS4, matching apply_pad_imu_to_ps4_report(): 16 per deg/s, 8192 per g
- * (a real DS4 reports about speed 540 and gyro +-8700). Hosts compute
- * deg/s = raw * (speed_plus + speed_minus) / (|plus - bias| + |minus - bias|) and
- * g = (raw - bias) * 2 / (acc_plus - acc_minus). USB order: pitch+, pitch-, yaw+, yaw-, ... */
-void fill_calibration(uint8_t* report)
-{
-	constexpr int16_t kGyroPlus = 8640;    // 1080 / 17280 = 1/16 deg/s per count
-	constexpr int16_t kGyroSpeed = 540;
-	constexpr int16_t kAccelPlus = 8192;   // 2 g over 16384 counts
-	for (int axis = 0; axis < 3; ++axis) {
-		put_le16(report, 1 + axis * 2, 0);                   // bias
-		put_le16(report, 7 + axis * 4, kGyroPlus);
-		put_le16(report, 9 + axis * 4, -kGyroPlus);
-		put_le16(report, 23 + axis * 4, kAccelPlus);
-		put_le16(report, 25 + axis * 4, -kAccelPlus);
-	}
-	put_le16(report, 19, kGyroSpeed);
-	put_le16(report, 21, kGyroSpeed);
-}
-
-/* Pairing info: device MAC (LSB first) at [1..6]. Derived from the board's unique ID, with the
- * locally administered bit set, so each dongle gets a stable address of its own. */
+/* Pairing info: device MAC (LSB first) at [1..6], from the board's unique ID. */
 void fill_pairing_info(uint8_t* report)
 {
-	pico_unique_board_id_t id;
-	pico_get_unique_board_id(&id);
-	for (int i = 0; i < 6; ++i)
-		report[1 + i] = id.id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES - 1 - i];
-	report[6] = static_cast<uint8_t>((report[6] | 0x02) & ~0x01);  // MSB: local, unicast
+	board_mac::get_lsb_first(&report[1]);
 }
 
 /* Firmware info: build date/time strings, hardware version at [35], firmware version at [41]. */
@@ -317,10 +270,14 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	}
 
 	if (new_report_out_) {
-		Gamepad::PadOut gp_out;
-		gp_out.rumble_l = report_out_.motor_left;
-		gp_out.rumble_r = report_out_.motor_right;
-		gamepad.set_pad_out(gp_out);
+		/* Custom: only take what the host marked valid. A lightbar-only update carries zero
+		 * motor bytes, which would stop a running rumble. */
+		if (report_out_.set_rumble) {
+			Gamepad::PadOut gp_out;
+			gp_out.rumble_l = report_out_.motor_left;
+			gp_out.rumble_r = report_out_.motor_right;
+			gamepad.set_pad_out(gp_out);
+		}
 		/* Custom: pass the lightbar colour on to the pad (DS4 / DualSense over Bluetooth). */
 		if (report_out_.set_led) {
 			gamepad.set_host_lightbar(report_out_.lightbar_red, report_out_.lightbar_green,
