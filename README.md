@@ -1,4 +1,60 @@
-# OGX-Mini 2026
+# OGX-Mini-improved
+
+Fork of [MegaCadeDev/OGX-Mini-2026](https://github.com/MegaCadeDev/OGX-Mini-2026), developed and
+tested on a **Raspberry Pi Pico 2 W** as a Bluetooth → USB adapter for PC and Nintendo Switch.
+Everything below the fork section is the original project's documentation, updated where this
+fork changes behaviour.
+
+## About this fork
+
+**What it adds or fixes** (full list, with the commits to offer upstream: [docs/UPSTREAM.md](docs/UPSTREAM.md); known issues: [docs/TODO.md](docs/TODO.md)):
+
+- **Switch Pro mode:** gyro / accelerometer from Joy-Cons (single or pair), DS4 and DualSense;
+  L3/R3 fixed; HD rumble decoded properly (Steam UI ticks no longer leave the pad rumbling).
+- **PS4 mode:** a complete DualShock 4 for PC hosts — calibration / firmware / pairing feature
+  reports, touchpad (two points and click), battery, lightbar and rumble from the host, motion in
+  real DS4 units.
+- **STEAM mode:** the same for any pad (DS4, Joy-Cons...), not only a real DualSense: motion,
+  touchpad (also as desktop mouse), battery, lightbar, rumble.
+- **PS3 mode:** rumble from Linux hosts.
+- **Joy-Cons:** vibration, robust pairing, sleep on mode change / disconnect combo.
+- **Stability:** mode switch no longer freezes (Core1 parked), flash writes park the other core,
+  memory corruption on Bluetooth slot 1 fixed, disconnect combo deadlock fixed.
+- **Mode indicator:** the board LED blinks the mode number at boot and a DS4 / DualSense lightbar
+  shows the mode colour (replaced by the colour the host asks for).
+- **Adapter Options** in the web app (below), host unit tests and CI.
+
+**Output modes** (combos held ~3 s; on a DS4, Start = Options, LB = L1; on Joy-Cons, Start = +):
+
+| Mode | Combo | PC sees | Lightbar | LED blinks |
+|---|---|---|---|---|
+| XInput | Start + Up | Xbox 360 controller | green | 1 |
+| Switch Pro | Start + Down | Switch Pro Controller | red | 2 |
+| DInput | Start + RB + Left | generic gamepad | blue | 3 |
+| PS4 | Start + LB + Left | DualShock 4 | light blue | 4 |
+| STEAM | Start + LB + Up | DualSense + mouse | purple | 5 |
+| Original Xbox (and Steel Battalion / XRemote) | Start + Right (+ RB / + LB) | Xbox controller | yellow | 6 |
+| PS3 | Start + Left | DualShock 3 | dark blue | 7 |
+| Wii U, PS Classic, Web App, GPIO modes | see [Changing platforms](#changing-platforms) | | white | 7 |
+
+Disconnect combo: **Start + Select** for 3 s (Options + Share on a DS4, + and − on Joy-Cons).
+
+**Adapter Options** — changeable from the [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/)
+(source: [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp)); the
+CMake option sets the default:
+
+| Option | CMake default |
+|---|---|
+| Turn off controllers on mode change | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE` = ON |
+| Joy-Con pair: motion from the right / left Joy-Con | `OGXM_JOYCON_PAIR_IMU_SIDE` = RIGHT |
+| Joy-Con pair orientation | `OGXM_JOYCON_PAIR_ORIENTATION` = VERTICAL |
+| Single Joy-Con orientation | `OGXM_JOYCON_SOLO_ORIENTATION` = HORIZONTAL |
+| Use a MAC address per controller (PS4 / STEAM) | `OGXM_MAC_PER_CONTROLLER` = OFF |
+| Legacy PS4 motion scale (Brook auth adapters) | `OGXM_PS4_LEGACY_MOTION_SCALE` = OFF |
+
+---
+
+# OGX-Mini 2026 (original documentation)
 
 **Support development** — If this firmware helps you, consider **[donating on Ko-fi](https://ko-fi.com/megacadedev)**. Donations fund hardware I can test on (see [Support policy](#support-policy)).
 
@@ -37,7 +93,7 @@ Unofficial clones, random AliExpress spin-offs, or homebrew PCBs that only “lo
 2. Open a GitHub issue only after reading **[Support issue requirements](Firmware/RP2040/docs/Support_Issue_Requirements.md)** and including **every** required field. Incomplete reports **may be closed or delayed**.
 3. Out-of-scope **boards:** clone → fix → pull request. Out-of-scope **controllers:** arrange donation or shipment first — otherwise the request will be closed as out of scope.
 
-[**Visit the web app here**](https://megacadedev.github.io/OGX-Mini-2026-WebApp/) to change your mappings and deadzone settings. To pair the OGX-Mini with the web app via USB, plug your controller in, then connect it to your PC, hold **Start + Left Bumper + Right Bumper** to enter web app mode. Click "Connect via USB" in the web app and select the OGX-Mini. You can also pair via Bluetooth, no extra steps are needed in that case. 
+[**Visit the web app here**](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) to change your mappings and deadzone settings, and the **Adapter Options** of this fork (turn off controllers on mode change, Joy-Con motion side and orientation, MAC address per controller, legacy PS4 motion scale). To pair the OGX-Mini with the web app via USB, plug your controller in, then connect it to your PC, hold **Start + Left Bumper + Right Bumper** to enter web app mode. Click "Connect via USB" in the web app and select the OGX-Mini. You can also pair via Bluetooth, no extra steps are needed in that case.  Source: [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp); to run it locally, clone it and run `./serve.sh`, then open http://localhost:8000 in a Chromium-based browser.
 
 [**Join the discord here!**](https://discord.gg/HhZuSaSc4)
 
@@ -75,7 +131,7 @@ Unofficial clones, random AliExpress spin-offs, or homebrew PCBs that only “lo
 
 ![Supported platforms](images/platform-list.png "Supported platforms")
 
-**RP2040 output modes:** **USB device:** XInput (Xbox 360 + XSM3), DInput, PS3, **PS4 (DualShock 4 USB gadget for motion on auth dongles — not licensed PS4 console output)**, **STEAM (SteamOS / Bazzite — DualSense + touchpad mouse)**, **Switch Pro** (Nintendo Switch Pro Controller emulation), Wii U, **Wii (Wiimote, build-option only)**, Xbox OG (Gamepad / Steel Battalion / XRemote), PS Classic, Web App. **GPIO (no USB device):** PS1/PS2, Dreamcast, GameCube, N64 — intended for **Pico W / Pico 2 W** as a wireless bridge (**Bluetooth in** → GPIO out on a hacked controller cable). **USB-A / wired USB host input on those boards is unsupported for these modes.** **Wii, GameCube, and N64 are not in the combo list** — use a dedicated build for those modes (see below).
+**RP2040 output modes:** **USB device:** XInput (Xbox 360 + XSM3), DInput, PS3, **PS4 (DualShock 4 USB gadget: a complete DS4 for PC hosts in this fork, or motion on auth dongles — not licensed PS4 console output)**, **STEAM (SteamOS / Bazzite — DualSense + touchpad mouse)**, **Switch Pro** (Nintendo Switch Pro Controller emulation), Wii U, **Wii (Wiimote, build-option only)**, Xbox OG (Gamepad / Steel Battalion / XRemote), PS Classic, Web App. **GPIO (no USB device):** PS1/PS2, Dreamcast, GameCube, N64 — intended for **Pico W / Pico 2 W** as a wireless bridge (**Bluetooth in** → GPIO out on a hacked controller cable). **USB-A / wired USB host input on those boards is unsupported for these modes.** **Wii, GameCube, and N64 are not in the combo list** — use a dedicated build for those modes (see below).
 
 ## Changing platforms
 By default the OGX-Mini will emulate an OG Xbox controller, you must hold a button combo for 3 seconds to change which platform you want to play on. Your chosen mode will persist after powering off the device. 
@@ -125,7 +181,7 @@ GPIO mode input on Pico W / Pico 2 W is **Bluetooth** only for these modes. No c
 After a new mode is stored, the RP2040 will reset itself so you don't need to unplug it.
 
 ## Disconnecting Controllers
-For most controllers pressing and holding Start+Select (+/-, etc) for the controller will disconnect it and restart pairing mode.
+For most controllers pressing and holding Start+Select (+/-, etc) for **3 seconds** will disconnect it and restart pairing mode (in this fork Joy-Cons are asked to sleep, and the adapter reboots in the same mode for a clean reconnect).
 For the OUYA controller there is no Start+Select, the disconnection combo has been set to L3+R3.
 
 ## Supported devices
@@ -223,7 +279,7 @@ Full technical detail: **[Firmware/RP2040/docs/IMPROVEMENTS.md](Firmware/RP2040/
 
 Please visit [**this page**](https://bluepad32.readthedocs.io/en/latest/supported_gamepads/) for a more comprehensive list of Bluepad32 gamepads and Bluetooth pairing instructions.
 
-# Features new to this fork
+# Features new to OGX-Mini 2026
 
 Version history and release notes are in **[CHANGELOG.md](CHANGELOG.md)**. For detailed firmware improvements — **PS3**, **XInput / XSM3**, **OG Xbox**, **PS2/OPL**, **latency**, **SteamOS / Bazzite (STEAM mode)**, **PS3 / PS4 motion passthrough**, **Pico W Bluetooth (DS4 Classic BT, BLE coexistence, Xbox Series BLE, Switch 2 Pro + Joy-Con 2 BLE, Steam Controller 2026 / Triton, DualShock 3 USB→BT auto-pair)**, **Pico W / Pico 2 W PIO USB wired unplug detection**, etc. — see **[Firmware/RP2040/docs/IMPROVEMENTS.md](Firmware/RP2040/docs/IMPROVEMENTS.md)**.
 
@@ -248,9 +304,9 @@ Highlights:
 
 - **Two adapters on other consoles** — **Not supported yet** as two independent players: units share the same USB identity (VID/PID / serial). Use **one OGX + a native or other-brand pad**, or a **multi-port** host. See [IMPROVEMENTS — Summary](Firmware/RP2040/docs/IMPROVEMENTS.md#summary).
 
-- **PS3 / PS4 motion (tilt / IMU passthrough)** — **PS3** and **PS4** modes forward accelerometer (and gyro where available) from **DualShock 4**, **DualSense**, **Switch Pro**, and **Wii Remote** (BT/USB where supported). **PS4 mode is for motion on authentication dongles** (DualShock 4 USB gadget profile); it is **not** native/licensed PS4 console output — PS4 auth is **not supported directly** by this firmware. **Switch** output does not pass through motion for now. For **real PS3/PS4 consoles**, use a **licensed USB authentication dongle** between OGX-Mini and the console — **tested with [Brook Wingman XE 2 Converter](https://www.brookaccessories.com/products/wingman-xe2)** (works on **PS3** and **PS4**). Details: [PS3 / PS4 motion controls](Firmware/RP2040/docs/PS3_PS4_Motion_Controls.md), [IMPROVEMENTS.md — motion passthrough](Firmware/RP2040/docs/IMPROVEMENTS.md#ps3--ps4-output--motion-passthrough).
+- **PS3 / PS4 motion (tilt / IMU passthrough)** — **PS3** and **PS4** modes forward accelerometer (and gyro where available) from **DualShock 4**, **DualSense**, **Switch Pro**, and **Wii Remote** (BT/USB where supported). **PS4 mode is for motion on authentication dongles** (DualShock 4 USB gadget profile); it is **not** native/licensed PS4 console output — PS4 auth is **not supported directly** by this firmware. **Switch** output passes motion through in this fork (see [About this fork](#about-this-fork)). In this fork, PS4 mode reports motion in real DualShock 4 units (right for PC hosts); the older scale is available as the *Legacy PS4 motion scale* adapter option, pending a test with an auth adapter on a PS4 console. For **real PS3/PS4 consoles**, use a **licensed USB authentication dongle** between OGX-Mini and the console — **tested with [Brook Wingman XE 2 Converter](https://www.brookaccessories.com/products/wingman-xe2)** (works on **PS3** and **PS4**). Details: [PS3 / PS4 motion controls](Firmware/RP2040/docs/PS3_PS4_Motion_Controls.md), [IMPROVEMENTS.md — motion passthrough](Firmware/RP2040/docs/IMPROVEMENTS.md#ps3--ps4-output--motion-passthrough).
 
-- **SteamOS / Bazzite (STEAM output mode)** — **Start + Left Bumper + D-pad Up** (~3 s), **web app**, or `-DOGXM_FIXED_DRIVER=STEAM` / build-script fixed mode. USB enumerates as **Sony DualSense** (`054c:0ce6`) **plus** a separate **HID mouse** interface. **DualSense emulation:** passthrough of the real PS5 report when input is DualSense (BT or wired USB); other controllers get a **synthesized** DualSense report (Cross/Circle/Square/Triangle, L1/R2, Share/Options, PS). **Touchpad → mouse:** DualSense touchpad drag moves the desktop cursor; tap = left click. Controllers without a touchpad are gamepad-only. Works with **Bluetooth** (Pico W / Pico 2 W) or **wired USB** input. Details: [SteamOS / Bazzite output mode](Firmware/RP2040/docs/SteamOS_Bazzite_Output_Mode.md), [IMPROVEMENTS.md — STEAM mode](Firmware/RP2040/docs/IMPROVEMENTS.md#steam-mode--steamos--bazzite-linux-desktop), [Controller_Mappings.md — STEAM](Firmware/RP2040/docs/Controller_Mappings.md#steamos--bazzite-steam-mode).
+- **SteamOS / Bazzite (STEAM output mode)** — **Start + Left Bumper + D-pad Up** (~3 s), **web app**, or `-DOGXM_FIXED_DRIVER=STEAM` / build-script fixed mode. USB enumerates as **Sony DualSense** (`054c:0ce6`) **plus** a separate **HID mouse** interface. **DualSense emulation:** passthrough of the real PS5 report when input is DualSense (BT or wired USB); other controllers get a **synthesized** DualSense report with buttons, sticks, triggers and, in this fork, motion, touchpad (both points and click), battery, lightbar and rumble. **Touchpad → mouse:** DualSense or DS4 touchpad drag moves the desktop cursor; tap = left click. Controllers without a touchpad are gamepad-only. Works with **Bluetooth** (Pico W / Pico 2 W) or **wired USB** input. Details: [SteamOS / Bazzite output mode](Firmware/RP2040/docs/SteamOS_Bazzite_Output_Mode.md), [IMPROVEMENTS.md — STEAM mode](Firmware/RP2040/docs/IMPROVEMENTS.md#steam-mode--steamos--bazzite-linux-desktop), [Controller_Mappings.md — STEAM](Firmware/RP2040/docs/Controller_Mappings.md#steamos--bazzite-steam-mode).
 
 - **Pico W / Pico 2 W — PIO USB wired unplug:** When you unplug the gamepad from the adapter’s USB host port, the firmware now **detects disconnect reliably** even though PIO USB owns D+/D− (GPIO line state often never shows a true “disconnected” idle). Detection uses **debounced** hints: **HCD port connect status**, **no TinyUSB configured device** (all `tuh_mounted` addresses), and **no host input reports** for a few seconds — so the TinyUSB/PIO host can **tear down**, **GPIO line IRQ monitoring** can resume, and **Bluetooth pairing** can work again without power-cycling or “shorting” the port. Details: [IMPROVEMENTS.md — Pico W PIO USB unplug](Firmware/RP2040/docs/IMPROVEMENTS.md#pico-w--pico-2-w--pio-usb-wired-controller-unplug-detection).
 
@@ -303,7 +359,7 @@ Use one of these values for **`OGXM_BOARD`** in a manual build, or pick the same
 - ```ESP32_BLUERETRO_I2C``` 
 - ```EXTERNAL_4CH_I2C```
 
-You can also set ```MAX_GAMEPADS``` (1–4; default **1**). **Multi-controller use is not supported for most output modes** — see [Multi-controller builds](#multi-controller-builds-max_gamepads--1). **Optional:** ```OGXM_FIXED_DRIVER``` to lock output mode (e.g. ```XINPUT```, ```PS3```, ```STEAM```, ```PS4```); ```OGXM_FIXED_DRIVER_ALLOW_COMBOS=ON``` to keep combos when fixed. ```MAIN_LOOP_DELAY_US``` (default ```0```) sets main-loop delay for lower CPU use (e.g. ```250```).
+You can also set ```MAX_GAMEPADS``` (1–4; default **1**). **Multi-controller use is not supported for most output modes** — see [Multi-controller builds](#multi-controller-builds-max_gamepads--1). **Optional:** ```OGXM_FIXED_DRIVER``` to lock output mode (e.g. ```XINPUT```, ```PS3```, ```STEAM```, ```PS4```); ```OGXM_FIXED_DRIVER_ALLOW_COMBOS=ON``` to keep combos when fixed. ```MAIN_LOOP_DELAY_US``` (default ```0```) sets main-loop delay for lower CPU use (e.g. ```250```). This fork adds the defaults of the Adapter Options (```OGXM_DISCONNECT_PADS_ON_MODE_CHANGE```, ```OGXM_JOYCON_PAIR_IMU_SIDE```, ```OGXM_JOYCON_PAIR_ORIENTATION```, ```OGXM_JOYCON_SOLO_ORIENTATION```, ```OGXM_MAC_PER_CONTROLLER```, ```OGXM_PS4_LEGACY_MOTION_SCALE```; see [About this fork](#about-this-fork)).
 
 ### Multi-controller builds (`MAX_GAMEPADS` > 1)
 
@@ -316,7 +372,7 @@ CMake option **`-DMAX_GAMEPADS=2`** (or **3** / **4**) builds firmware that can 
 
 A multi-pad build may still **compile** with other modes available in the combo list, but those modes are **not tested**, **not intended** for more than one controller at a time, and **not supported** for multi-player setups. Bugs, missing players, wrong port assignment, or console rejection are expected if you use them that way.
 
-**Recommendation:** Use **`-DMAX_GAMEPADS=1`** (default) unless you specifically need a Wii U GameCube Adapter multi-player adapter. For Xbox 360 local multiplayer, use one OGX-Mini per player, each adapter receives its own per-device XSM3/USB identity. See **Two adapters on Xbox 360** and **Two adapters on other consoles** under [Features new to this fork](#features-new-to-this-fork).
+**Recommendation:** Use **`-DMAX_GAMEPADS=1`** (default) unless you specifically need a Wii U GameCube Adapter multi-player adapter. For Xbox 360 local multiplayer, use one OGX-Mini per player, each adapter receives its own per-device XSM3/USB identity. See **Two adapters on Xbox 360** and **Two adapters on other consoles** under [Features new to OGX-Mini 2026](#features-new-to-ogx-mini-2026).
 
 You'll need the tools listed in [Building_From_Source.md](Firmware/RP2040/docs/Building_From_Source.md). CMake scripts patch Bluepad32 and BTStack and initialize selected git submodules; clone with `--recursive` (or `git submodule update --init --recursive`) and install Pico SDK **2.1.0** before the first build.
 

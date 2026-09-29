@@ -39,11 +39,14 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | Commit | Change | Status | Notes |
 |---|---|---|---|
 | f33a17d, 1179a0f | Motion (gyro/accel) in Switch Pro output mode | todo | README upstream says Switch output has no motion. Joy-Con pair IMU side / orientation options. |
-| 6335503 (option), 0a67038 | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE`: every BT pad is turned off before a mode-change reboot (Joy-Cons asked to sleep, others disconnected) | todo | ON in this fork; offer upstream as OFF by default. Old name `OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE` still accepted. |
+| 6335503 (option), 0a67038 | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE`: every BT pad is turned off before a mode-change reboot (Joy-Cons asked to sleep, others disconnected) | todo | ON in this fork; offer upstream as OFF by default. Now a runtime dongle option (web app). |
 | e0629c9 (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
+| 0703a2d | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
+| b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | todo | Small build fix. |
 
 ## Fork only (not for upstream)
 
-- `docs/TODO.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`.
+- `docs/TODO.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork section of `README.md` and fork notes in the docs.
+- Removal of the `WebApp` submodule (points to the unmaintained wiredopposite web app; this fork uses OGX-Mini-improved-WebApp).
 - `.github/workflows/build.yml`: release job limited to the original repository (keeps the fork from publishing releases).

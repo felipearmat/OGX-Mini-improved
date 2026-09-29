@@ -1,10 +1,12 @@
 # PS3 / PS4 motion controls
 
-**PS3** and **PS4** modes can forward **tilt / motion** from compatible input controllers into the emulated report (Sixaxis on PS3, accelerometer on PS4). **Switch** output mode does **not** pass through motion for now.
+**PS3** and **PS4** modes can forward **tilt / motion** from compatible input controllers into the emulated report (Sixaxis on PS3, accelerometer on PS4). In OGX-Mini-improved, **Switch** output mode passes motion through as well (Joy-Cons, DS4, DualSense), and so does **STEAM** mode.
 
 ## Important — what “PS4 mode” is (and is not)
 
 **PS4 mode is made for motion controls to work on authentication dongles.** It enumerates a DualShock 4–style USB gadget so a licensed converter (e.g. Brook Wingman) can authenticate to the console and pass through buttons + motion.
+
+**OGX-Mini-improved:** PS4 mode is also a complete DualShock 4 for PC hosts, and reports motion in **real DS4 units** (16 per °/s, 8192 per g) with a matching calibration report. The upstream scale (gyro ÷ 8, accel ÷ 64 of the 1024 per °/s / 8192 per g input) is kept as the **Legacy PS4 motion scale** adapter option (web app, default off; CMake default `OGXM_PS4_LEGACY_MOTION_SCALE`). If an auth adapter on a PS4 console needs the old scale, turn it on.
 
 It does **not** enable native **PlayStation 4 console output** by itself. **PS4 output requires authentication from a licensed dongle**, and that authentication is **not supported directly by this firmware**. Do not expect plugging OGX-Mini alone into a PS4 USB port to work as a DualShock 4.
 

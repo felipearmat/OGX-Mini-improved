@@ -39,7 +39,7 @@ This document describes how OGX-Mini maps **input controllers** (USB host / Blue
 | **joystick_lx/ly, joystick_rx/ry** | Sticks (−32768 … +32767, center 0) |
 | **accel / gyro** | Motion (when input pad provides IMU) |
 
-**User remapping:** For most **USB output** modes, button and stick assignments can be changed in the [web app](https://megacadedev.github.io/OGX-Mini-2026-WebApp/) (saved profiles alter `Gamepad::MAP_*` fields). **GPIO output** modes and some specialty mappings use fixed defaults only (see [GPIO doc](GPIO_Output_Pinout_and_Mappings.md#changing-mappings)).
+**User remapping:** For most **USB output** modes, button and stick assignments can be changed in the [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) (saved profiles alter `Gamepad::MAP_*` fields). **GPIO output** modes and some specialty mappings use fixed defaults only (see [GPIO doc](GPIO_Output_Pinout_and_Mappings.md#changing-mappings)).
 
 **Source code index:** `Gamepad.h` (PadIn), `Bluepad32/Bluepad32.cpp` (BT → PadIn), `USBHost/HostDriver/*` (wired USB → PadIn), `USBDevice/DeviceDriver/*` and `Gamepad/*` GPIO drivers (PadIn → output).
 
@@ -266,7 +266,7 @@ Face buttons use **Nintendo names on the wire**; mapping from PadIn is **crossed
 
 **Select mode:** **Start + Left Bumper + D-pad Up** (~3 s).
 
-Enumerates as **DualSense** (`054c:0ce6`) plus a **HID mouse** interface. **DualSense input** (BT or wired USB): gamepad report is **passthrough**; touchpad → separate **mouse** interface. **Other input:** report is **synthesized** from PadIn using the mapping below; **no stick-mouse fallback**.
+Enumerates as **DualSense** (`054c:0ce6`) plus a **HID mouse** interface. **DualSense input** (BT or wired USB): gamepad report is **passthrough**; touchpad → separate **mouse** interface. **Other input:** report is **synthesized** from PadIn using the mapping below (in OGX-Mini-improved also motion, DS4 touch points / click, battery; host lightbar and rumble reach the pad); **no stick-mouse fallback**.
 
 | PadIn | DualSense USB |
 |-------|----------------|
