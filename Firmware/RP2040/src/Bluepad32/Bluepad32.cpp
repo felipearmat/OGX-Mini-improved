@@ -1418,17 +1418,20 @@ void set_pico_w_pio_usb_mux_tick(void (*tick_cb)(void)) {
 
 /* Custom: after a mode-change reboot the BT stack needs ~9 s to come back. Joy-Cons that just
  * lost their link usually stop paging before that and hang with the LED on until power-cycled.
- * Disconnecting them first makes them sleep cleanly and reconnect on a button press. */
+ * Disconnecting them first makes them sleep cleanly and reconnect on a button press. Other pads
+ * are disconnected too: they turn off at once (LED off, a visible sign the mode changed)
+ * instead of paging a rebooting adapter. */
 static btstack_context_callback_registration_t s_reboot_disc_reg;
 static btstack_timer_source_t s_reboot_disc_poll_timer;
 /* gap_disconnect() on a live Joy-Con link never completed (links still open after 2 s), so
- * first ask the Joy-Con to disconnect itself and sleep; fall back to gap_disconnect() later. */
+ * first ask a Joy-Con to disconnect itself and sleep; fall back to gap_disconnect() later.
+ * Other pads get gap_disconnect() right away. */
 static constexpr uint32_t REBOOT_DISC_FALLBACK_MS = 1000;
 static uint32_t s_reboot_disc_started_ms = 0;
 static bool s_reboot_disc_fallback_done = false;
 static hci_con_handle_t s_reboot_disc_handles[CONFIG_BLUEPAD32_MAX_DEVICES];
 static uint8_t s_reboot_disc_count = 0;
-/* Set on the BT core once every Joy-Con ACL link is really gone (HCI disconnection complete). */
+/* Set on the BT core once every pad ACL link is really gone (HCI disconnection complete). */
 static std::atomic<bool> s_reboot_disc_done{false};
 
 static void reboot_disc_poll_cb(btstack_timer_source_t* ts)
@@ -1444,10 +1447,10 @@ static void reboot_disc_poll_cb(btstack_timer_source_t* ts)
         if (!s_reboot_disc_fallback_done &&
             btstack_run_loop_get_time_ms() - s_reboot_disc_started_ms >= REBOOT_DISC_FALLBACK_MS) {
             s_reboot_disc_fallback_done = true;
-            printf("[BP32] Mode change: Joy-Con still linked, falling back to gap_disconnect\n");
+            printf("[BP32] Mode change: pad still linked, falling back to gap_disconnect\n");
             for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
                 uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-                if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d))
+                if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && !uni_hid_device_is_virtual_device(d))
                     uni_hid_device_disconnect(d);
             }
         }
@@ -1455,20 +1458,25 @@ static void reboot_disc_poll_cb(btstack_timer_source_t* ts)
         btstack_run_loop_add_timer(ts);
         return;
     }
-    printf("[BP32] Mode change: Joy-Con links closed\n");
+    printf("[BP32] Mode change: pad links closed\n");
     s_reboot_disc_done.store(true, std::memory_order_release);
 }
 
-static void reboot_disconnect_joycons_on_bt_main(void* ctx)
+static void reboot_disconnect_pads_on_bt_main(void* ctx)
 {
     (void)ctx;
     s_reboot_disc_count = 0;
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-        if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d)) {
+        if (!d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID || uni_hid_device_is_virtual_device(d))
+            continue;
+        s_reboot_disc_handles[s_reboot_disc_count++] = d->conn.handle;
+        if (bp32_is_switch_joycon(d)) {
             printf("[BP32] Mode change: asking Joy-Con slot %u to sleep before reboot\n", i);
-            s_reboot_disc_handles[s_reboot_disc_count++] = d->conn.handle;
             uni_hid_parser_switch_request_sleep(d);
+        } else {
+            printf("[BP32] Mode change: disconnecting pad slot %u before reboot\n", i);
+            uni_hid_device_disconnect(d);
         }
     }
     s_reboot_disc_started_ms = btstack_run_loop_get_time_ms();
@@ -1480,25 +1488,25 @@ static void reboot_disconnect_joycons_on_bt_main(void* ctx)
 }
 
 /* Read from Core0 while Core1 owns the table: only used to skip the wait when idle. */
-static bool any_joycon_link_open()
+static bool any_pad_link_open()
 {
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-        if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && bp32_is_switch_joycon(d))
+        if (d && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID && !uni_hid_device_is_virtual_device(d))
             return true;
     }
     return false;
 }
 
-void disconnect_joycons_before_reboot()
+void disconnect_pads_before_reboot()
 {
     static constexpr uint32_t LINK_DOWN_TIMEOUT_MS = 2000;
 
-    if (!s_btstack_run_loop_ready.load(std::memory_order_acquire) || !any_joycon_link_open())
+    if (!s_btstack_run_loop_ready.load(std::memory_order_acquire) || !any_pad_link_open())
         return;
 
     s_reboot_disc_done.store(false, std::memory_order_release);
-    s_reboot_disc_reg.callback = reboot_disconnect_joycons_on_bt_main;
+    s_reboot_disc_reg.callback = reboot_disconnect_pads_on_bt_main;
     s_reboot_disc_reg.context = nullptr;
     btstack_run_loop_execute_on_main_thread(&s_reboot_disc_reg);
 
@@ -1507,7 +1515,7 @@ void disconnect_joycons_before_reboot()
            board_api::ms_since_boot() - start < LINK_DOWN_TIMEOUT_MS)
         sleep_ms(10);
     if (!s_reboot_disc_done.load(std::memory_order_acquire))
-        printf("[BP32] Mode change: Joy-Con links still open after %lu ms, rebooting anyway\n",
+        printf("[BP32] Mode change: pad links still open after %lu ms, rebooting anyway\n",
                static_cast<unsigned long>(LINK_DOWN_TIMEOUT_MS));
 }
 

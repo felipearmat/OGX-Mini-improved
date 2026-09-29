@@ -31,7 +31,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | Commit | Change | Status | Notes |
 |---|---|---|---|
 | f33a17d, 1179a0f | Motion (gyro/accel) in Switch Pro output mode | todo | README upstream says Switch output has no motion. Joy-Con pair IMU side / orientation options. |
-| 6335503 (option) | `OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE`: Joy-Cons sleep before mode-change reboot | todo | Default OFF. |
+| 6335503 (option), next commit | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE`: every BT pad is turned off before a mode-change reboot (Joy-Cons asked to sleep, others disconnected) | todo | ON in this fork; offer upstream as OFF by default. Old name `OGXM_DISCONNECT_JOYCONS_ON_MODE_CHANGE` still accepted. |
 | e0629c9 (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
 
