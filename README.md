@@ -45,7 +45,7 @@ CMake option sets the default:
 
 | Option | CMake default |
 |---|---|
-| Turn off controllers on mode change | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE` = ON |
+| Turn off controllers before mode change | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE` = ON |
 | Joy-Con pair: motion from the right / left Joy-Con | `OGXM_JOYCON_PAIR_IMU_SIDE` = RIGHT |
 | Joy-Con pair orientation | `OGXM_JOYCON_PAIR_ORIENTATION` = VERTICAL |
 | Single Joy-Con orientation | `OGXM_JOYCON_SOLO_ORIENTATION` = HORIZONTAL |
@@ -93,7 +93,7 @@ Unofficial clones, random AliExpress spin-offs, or homebrew PCBs that only “lo
 2. Open a GitHub issue only after reading **[Support issue requirements](Firmware/RP2040/docs/Support_Issue_Requirements.md)** and including **every** required field. Incomplete reports **may be closed or delayed**.
 3. Out-of-scope **boards:** clone → fix → pull request. Out-of-scope **controllers:** arrange donation or shipment first — otherwise the request will be closed as out of scope.
 
-[**Visit the web app here**](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) to change your mappings and deadzone settings, and the **Adapter Options** of this fork (turn off controllers on mode change, Joy-Con motion side and orientation, MAC address per controller, legacy PS4 motion scale). To pair the OGX-Mini with the web app via USB, plug your controller in, then connect it to your PC, hold **Start + Left Bumper + Right Bumper** to enter web app mode. Click "Connect via USB" in the web app and select the OGX-Mini. You can also pair via Bluetooth, no extra steps are needed in that case.  Source: [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp); to run it locally, clone it and run `./serve.sh`, then open http://localhost:8000 in a Chromium-based browser.
+[**Visit the web app here**](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) to change your mappings and deadzone settings, and the **Adapter Options** of this fork (turn off controllers before mode change, Joy-Con motion side and orientation, MAC address per controller, legacy PS4 motion scale). To pair the OGX-Mini with the web app via USB, plug your controller in, then connect it to your PC, hold **Start + Left Bumper + Right Bumper** to enter web app mode. Click "Connect via USB" in the web app and select the OGX-Mini. You can also pair via Bluetooth, no extra steps are needed in that case.  Source: [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp); to run it locally, clone it and run `./serve.sh`, then open http://localhost:8000 in a Chromium-based browser.
 
 [**Join the discord here!**](https://discord.gg/HhZuSaSc4)
 
