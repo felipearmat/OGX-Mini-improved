@@ -96,7 +96,8 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    # Fork (OGX-Mini-improved): publish releases only from the original repository.
+    if: github.repository == 'MegaCadeDev/OGX-Mini-2026' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
 
     steps:
