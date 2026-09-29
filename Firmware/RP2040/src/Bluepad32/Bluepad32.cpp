@@ -404,14 +404,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
             (stall_idx >= 0 && stall_idx < static_cast<int>(MAX_GAMEPADS))
                 ? static_cast<unsigned>(stall_idx)
                 : static_cast<unsigned>(i);
-        if (s_last_bt_input_ms[stall_slot] != 0 &&
-            (now_ms - s_last_bt_input_ms[stall_slot]) > BT_INPUT_STALL_DISCONNECT_MS)
-        {
-            printf("[Bluepad32] BT input stalled (%u ms); forcing disconnect (slot %u)\n",
-                   static_cast<unsigned>(now_ms - s_last_bt_input_ms[stall_slot]), static_cast<unsigned>(i));
-            uni_hid_device_disconnect(bp_device);
-            continue;
-        }
+        
         }
     after_stall_check:
 
@@ -848,24 +841,33 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     /* Immediately show pairing mode (LED blink + BT scan). */
     restore_bt_pairing_mode(idx);
 
-    /*
-     * Xbox BLE needs a full reboot after a ready disconnect — bonded re-encryption /
-     * leftover HIDS state otherwise leave the adapter frozen until unplug.
-     * Classic BT and non-Xbox BLE (8BitDo Android/Switch, DualShock, Joy-Con, etc.)
-     * reconnect in place; rebooting those on OG Xbox looks like a freeze.
-     * Failed pair attempts must not reboot or we never stay in pairing mode.
-     */
-    const bool xbox_ble = device_is_xbox_ble(device);
-    if (was_ready && xbox_ble && !s_bt_disconnect_reboot_pending) {
-        s_bt_disconnect_reboot_pending = true;
-        s_bt_disconnect_reboot_timer.process = bt_disconnect_reboot_cb;
-        s_bt_disconnect_reboot_timer.context = nullptr;
-        btstack_run_loop_set_timer(&s_bt_disconnect_reboot_timer, 500);
-        btstack_run_loop_add_timer(&s_bt_disconnect_reboot_timer);
-        printf("[BP32] Pairing mode on — Xbox BLE reboot in 500 ms for clean reconnect\n");
-    } else if (was_ready) {
-        printf("[BP32] Pairing mode on — Classic/non-Xbox-BLE reconnect without reboot\n");
-    }
+   /*
+	 * Reboot after a controller that previously reached DEVICE_READY disconnects.
+	 *
+	 * The original behavior intentionally avoided rebooting Classic BT and non-Xbox
+	 * BLE devices because, on OG Xbox, the adapter briefly disappearing and
+	 * re-enumerating can look like a short freeze.
+	 *
+	 * We are changing that behavior because some Classic HID controllers can leave
+	 * Bluepad32 / BTstack in a stale state after a real disconnect. In that state the
+	 * controller may reconnect at the Bluetooth level but never resume usable input
+	 * until the adapter itself is power-cycled.
+	 *
+	 * A brief reboot after a confirmed, previously-ready disconnect is preferable to
+	 * requiring the user to physically unplug and reconnect the adapter.
+	 *
+	 * Failed pairing attempts must NOT reboot. A device that never reached
+	 * DEVICE_READY leaves was_ready == false, which allows pairing mode to remain
+	 * active instead of entering a reboot loop after every failed connection attempt.
+	 */
+	if (was_ready && !s_bt_disconnect_reboot_pending) {
+		s_bt_disconnect_reboot_pending = true;
+		s_bt_disconnect_reboot_timer.process = bt_disconnect_reboot_cb;
+		s_bt_disconnect_reboot_timer.context = nullptr;
+		btstack_run_loop_set_timer(&s_bt_disconnect_reboot_timer, 500);
+		btstack_run_loop_add_timer(&s_bt_disconnect_reboot_timer);
+		printf("[BP32] Pairing mode on — reboot in 500 ms for clean reconnect\n");
+	}
 }
 
 static void ogxm_play_connection_rumble(uni_hid_device_t* device)
