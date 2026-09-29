@@ -25,6 +25,12 @@ Known issues in this fork, to fix later.
   0-255 intensity (`Custom/HdRumble`). Consider passing the host's HD rumble
   through unchanged when both ends are Switch pads.
 
+- **Far Cry 6 ignores gyro aiming in PS4 mode** (Steam Input gyro as mouse or as joystick,
+  Steam Input forced on). Steam reads the DS4 motion correctly (its calibration and test view
+  track rotation), and the same DS4 aims fine in Switch Pro mode. Likely Proton handing the game
+  the DS4 natively (PlayStation controllers are passed through to games), so Steam's gyro
+  output never reaches it. Check with other games; try PROTON_DISABLE_HIDRAW / SDL hints.
+
 ## Buttons
 
 - **Capture button not read with paired Joy-Cons** (Switch Pro output mode).
