@@ -14,12 +14,24 @@
  */
 namespace sony_imu {
 
-    constexpr int32_t kGyroDiv = 64;    // 1024 -> 16 per deg/s
-    constexpr int32_t kAccelDiv = 1;    // 8192 per g either way
+    /* A report scaling and the calibration that describes it. */
+    struct MotionScale {
+        int32_t gyro_div;       // input 1024 per deg/s -> report
+        int32_t accel_div;      // input 8192 per g -> report
+        int16_t cal_gyro_plus;
+        int16_t cal_gyro_speed;
+        int16_t cal_accel_plus;
+    };
 
-    constexpr int16_t kCalGyroPlus = 8640;   // (540 + 540) / (2 * 8640) = 1/16 deg/s per count
-    constexpr int16_t kCalGyroSpeed = 540;   // a real pad reports about 540 and +-8700
-    constexpr int16_t kCalAccelPlus = 8192;  // 2 g over 16384 counts
+    // Real controller units: 16 per deg/s, 8192 per g ((540 + 540) / (2 * 8640) = 1/16).
+    // A real pad reports about speed 540 and gyro +-8700.
+    constexpr MotionScale kRealUnits{64, 1, 8640, 540, 8192};
+    // Legacy PS4-mode scale (Brook-style, gyro/8, accel/64): 128 per deg/s, 128 per g.
+    // Only right for hosts that apply the calibration; dongle option for auth adapters.
+    constexpr MotionScale kLegacyPs4{8, 64, 16384, 128, 128};
+
+    constexpr int32_t kGyroDiv = kRealUnits.gyro_div;
+    constexpr int32_t kAccelDiv = kRealUnits.accel_div;
 
     // Rounded division clamped to int16 (truncation zeroed small Bluetooth samples).
     inline int16_t scale(int32_t v, int32_t div)
@@ -38,17 +50,17 @@ namespace sony_imu {
     // Calibration feature body, report ID at [0] (DS4 USB 0x02 and DualSense 0x05 share it):
     // biases at [1..6], gyro pitch+/pitch-/yaw+/yaw-/roll+/roll- at [7..18], speed at [19..22],
     // accel x+/x-/y+/y-/z+/z- at [23..34].
-    inline void fill_calibration(uint8_t* report)
+    inline void fill_calibration(uint8_t* report, const MotionScale& scale = kRealUnits)
     {
         for (int axis = 0; axis < 3; ++axis) {
             put_le16(report, 1 + axis * 2, 0);
-            put_le16(report, 7 + axis * 4, kCalGyroPlus);
-            put_le16(report, 9 + axis * 4, -kCalGyroPlus);
-            put_le16(report, 23 + axis * 4, kCalAccelPlus);
-            put_le16(report, 25 + axis * 4, -kCalAccelPlus);
+            put_le16(report, 7 + axis * 4, scale.cal_gyro_plus);
+            put_le16(report, 9 + axis * 4, static_cast<int16_t>(-scale.cal_gyro_plus));
+            put_le16(report, 23 + axis * 4, scale.cal_accel_plus);
+            put_le16(report, 25 + axis * 4, static_cast<int16_t>(-scale.cal_accel_plus));
         }
-        put_le16(report, 19, kCalGyroSpeed);
-        put_le16(report, 21, kCalGyroSpeed);
+        put_le16(report, 19, scale.cal_gyro_speed);
+        put_le16(report, 21, scale.cal_gyro_speed);
     }
 
 } // namespace sony_imu

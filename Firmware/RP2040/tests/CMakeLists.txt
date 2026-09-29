@@ -41,7 +41,9 @@ ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_wire_pad PRIVATE fixmath)
 
-ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/JoyConSettings.cpp)
+ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/JoyConSettings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
+
+ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
 
 ogxm_add_test(test_rumble_refresh test_rumble_refresh.cpp ${FW_SRC}/Custom/RumbleRefresh.cpp)
 

@@ -28,6 +28,7 @@
 #include "BLEServer/BLEServer.h"
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
+#include "Custom/ReportedMac.h"
 
 #if defined(CONFIG_EN_USB_HOST)
 #include "host/hcd.h"
@@ -588,6 +589,13 @@ void pico_w::run() {
         TaskQueue::Core0::process_tasks();
         if (!wii_mode) {
             tud_task();
+            /* Custom: the host read the dongle's MAC before the pad connected; reconnect USB so it
+             * reads the pad's ("MAC address per controller" dongle option). */
+            if (reported_mac::take_reconnect_request()) {
+                tud_disconnect();
+                sleep_ms(300);
+                tud_connect();
+            }
             HostInputSource input_src = UserSettings::get_instance().get_input_source();
             if (input_src == HostInputSource::PSX_GPIO) {
                 GPIOHost::psx_host_poll(_gamepads[0]);

@@ -3,7 +3,7 @@
 #include <cstring>
 
 #include "pico/time.h"
-#include "Custom/BoardMac.h"
+#include "Custom/ReportedMac.h"
 #include "Custom/SonyImu.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
@@ -90,7 +90,7 @@ void fill_feature(uint8_t report_id, uint8_t* report)
 			sony_imu::fill_calibration(report);
 			break;
 		case kFeaturePairingInfo:
-			board_mac::get_lsb_first(&report[1]);
+			reported_mac::get_lsb_first(&report[1]);  // dongle's, or the pad's (dongle option)
 			break;
 		case kFeatureFirmwareInfo:
 			/* Build date/time, hardware version at [24], firmware version at [28]. Update
@@ -123,6 +123,7 @@ void SteamDevice::initialize()
 	std::memcpy(device_descriptor_, PS5Usb::DEVICE_DESCRIPTORS, sizeof(device_descriptor_));
 	init_neutral_report(report_in_);
 	report_out_.report_id = PS5::OutReportID::RUMBLE;
+	reported_mac::init();
 }
 
 void SteamDevice::process(const uint8_t idx, Gamepad& gamepad)

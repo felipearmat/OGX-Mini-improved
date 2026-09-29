@@ -1,25 +1,16 @@
 #include "Custom/JoyConSettings.h"
-
-#ifndef OGXM_JOYCON_PAIR_IMU_RIGHT
-#define OGXM_JOYCON_PAIR_IMU_RIGHT 1
-#endif
-#ifndef OGXM_JOYCON_PAIR_HORIZONTAL
-#define OGXM_JOYCON_PAIR_HORIZONTAL 0
-#endif
-#ifndef OGXM_JOYCON_SOLO_HORIZONTAL
-#define OGXM_JOYCON_SOLO_HORIZONTAL 1
-#endif
+#include "Custom/DongleSettings.h"
 
 namespace joycon_settings {
 
-Settings& get()
+Settings get()
 {
-    static Settings settings{
-        OGXM_JOYCON_PAIR_IMU_RIGHT != 0,
-        OGXM_JOYCON_PAIR_HORIZONTAL ? Orientation::Horizontal : Orientation::Vertical,
-        OGXM_JOYCON_SOLO_HORIZONTAL ? Orientation::Horizontal : Orientation::Vertical,
+    const auto& d = dongle_settings::get();
+    return Settings{
+        d.joycon_pair_imu_right != 0,
+        d.joycon_pair_horizontal ? Orientation::Horizontal : Orientation::Vertical,
+        d.joycon_solo_horizontal ? Orientation::Horizontal : Orientation::Vertical,
     };
-    return settings;
 }
 
 void apply_orientation(bool left_joycon, Orientation orientation, int32_t accel[3], int32_t gyro[3])

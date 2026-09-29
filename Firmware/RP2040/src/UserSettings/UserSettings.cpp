@@ -14,18 +14,18 @@
 #endif
 
 /* Custom: disconnect Bluetooth pads cleanly before a mode-change reboot (see
- * bluepad32::disconnect_pads_before_reboot). CMake option OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
- * (ON by default in this fork; OFF keeps the upstream behaviour). */
-#ifndef OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
-#define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 0
-#endif
-
+ * bluepad32::disconnect_pads_before_reboot). Dongle option, default from CMake
+ * OGXM_DISCONNECT_PADS_ON_MODE_CHANGE (ON in this fork; OFF keeps the upstream behaviour). */
 static void prepare_bt_for_mode_change_reboot()
 {
-#if defined(CONFIG_EN_BLUETOOTH) && OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
-    bluepad32::disconnect_pads_before_reboot();
+#if defined(CONFIG_EN_BLUETOOTH)
+    if (dongle_settings::get().disconnect_pads_on_mode_change)
+        bluepad32::disconnect_pads_before_reboot();
 #endif
 }
+
+/* Custom: flash key of the dongle options (Custom/DongleSettings). */
+static const std::string DONGLE_SETTINGS_KEY = "dongle_cfg";
 
 static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0) {
     return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
@@ -562,6 +562,7 @@ void UserSettings::initialize_flash()
     if (read_init_flag == FLASH_INIT_FLAG)
     {
         OGXM_LOG("Flash already initialized: %i\n", read_init_flag);
+        load_dongle_settings();
         return;
     }
 
@@ -604,4 +605,23 @@ void UserSettings::initialize_flash()
     nvs_tool_.write(INIT_FLAG_KEY(), &init_flag_buffer, sizeof(uint8_t));
 
     OGXM_LOG("Flash initialized\n");
+    load_dongle_settings();
+}
+
+/* Custom: dongle options from flash; build-time defaults when missing or of another version. */
+void UserSettings::load_dongle_settings()
+{
+    dongle_settings::Settings settings = dongle_settings::defaults();
+    uint8_t stored[sizeof(dongle_settings::Settings)]{};
+    if (nvs_tool_.read(DONGLE_SETTINGS_KEY, stored, sizeof(stored)))
+        dongle_settings::decode(stored, sizeof(stored), settings);
+    dongle_settings::set(settings);
+}
+
+bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settings)
+{
+    board_api::usb::disconnect_all();
+    nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
+    board_api::reboot();
+    return true;
 }

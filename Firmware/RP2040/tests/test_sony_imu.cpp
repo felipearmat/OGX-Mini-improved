@@ -39,6 +39,17 @@ TEST(calibration_matches_report_units) {
     }
 }
 
+TEST(legacy_ps4_calibration_matches_its_units) {
+    const sony_imu::MotionScale& legacy = sony_imu::kLegacyPs4;
+    uint8_t cal[37] = {0x02};
+    sony_imu::fill_calibration(cal, legacy);
+    for (int axis = 0; axis < 3; ++axis) {
+        CHECK(near(host_deg_per_s(cal, axis, sony_imu::scale(90 * 1024, legacy.gyro_div)), 90.0));
+        CHECK(near(host_g(cal, axis, sony_imu::scale(8192, legacy.accel_div)), 1.0));
+    }
+    CHECK_EQ(sony_imu::scale(90 * 1024, legacy.gyro_div), 90 * 128);  // Brook-style values
+}
+
 TEST(real_units_without_calibration) {
     // Steam treats the values as a real pad's: 16 per deg/s, 8192 per g.
     CHECK_EQ(sony_imu::scale(90 * 1024, sony_imu::kGyroDiv), 90 * 16);

@@ -75,6 +75,8 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/Custom/SwitchImu.cpp
     ${SRC}/Custom/HdRumble.cpp
+    ${SRC}/Custom/DongleSettings.cpp
+    ${SRC}/Custom/ReportedMac.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
     ${SRC}/USBDevice/DeviceDriver/PS1PS2/PS1PS2.cpp
@@ -354,6 +356,16 @@ message(STATUS "Joy-Con motion: pair IMU ${OGXM_JOYCON_PAIR_IMU_SIDE}, pair ${OG
 if(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE)
     add_compile_definitions(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE=1)
     message(STATUS "Pad disconnect on mode change: enabled")
+endif()
+
+# Custom (OGX-Mini-improved): more dongle option defaults (all changeable from the web app).
+option(OGXM_MAC_PER_CONTROLLER "PS4/STEAM modes: report the connected pad's Bluetooth address instead of the dongle's" OFF)
+option(OGXM_PS4_LEGACY_MOTION_SCALE "PS4 mode: legacy Brook-style motion scale (gyro/8, accel/64) instead of real DS4 units" OFF)
+if(OGXM_MAC_PER_CONTROLLER)
+    add_compile_definitions(OGXM_MAC_PER_CONTROLLER=1)
+endif()
+if(OGXM_PS4_LEGACY_MOTION_SCALE)
+    add_compile_definitions(OGXM_PS4_LEGACY_MOTION_SCALE=1)
 endif()
 
 if(EN_USB_HOST)
