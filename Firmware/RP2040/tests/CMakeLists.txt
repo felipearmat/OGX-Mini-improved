@@ -41,6 +41,12 @@ ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_wire_pad PRIVATE fixmath)
 
+ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/JoyConSettings.cpp)
+
+ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp)
+target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_switch_imu PRIVATE fixmath)
+
 # Bluepad32 Switch parser with the OGX-Mini-improved patch series (applied here if needed). Built 32-bit so struct layouts match the RP2350 (the parser's instance
 # must fit in 256 bytes of parser_data).
 set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)

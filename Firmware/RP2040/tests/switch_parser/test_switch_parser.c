@@ -5,7 +5,8 @@
 //  - late replies advanced the setup twice -> stale replies are ignored;
 //  - two Joy-Cons reconnecting together collided -> one pad in setup at a time;
 //  - wiped parser timers left linked in the run loop -> cleanup unlinks them;
-//  - request_sleep sends subcommand 0x06 with arg 0x00.
+//  - request_sleep sends subcommand 0x06 with arg 0x00;
+//  - a merged Joy-Con pair keeps only the selected half's IMU on (right by default).
 #include <stdio.h>
 #include <string.h>
 
@@ -116,6 +117,44 @@ static void test_one_pad_in_setup_at_a_time(void) {
     CHECK(fake_device_ready(1));
 }
 
+static int last_imu_arg(int dev_idx) {
+    for (int i = fake_sent_count() - 1; i >= 0; i--)
+        if (fake_sent(i)->dev_idx == dev_idx && fake_sent_subcmd(i) == SUB_IMU)
+            return fake_sent(i)->bytes[12];
+    return -1;
+}
+
+static void pair_both(void) {
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+    start_joycon(1, JCR);
+    fake_joycon_run_setup(1, JCR, 50);
+}
+
+static void test_pair_imu_defaults_to_right(void) {
+    fake_reset();
+    uni_hid_parser_switch_set_pair_imu_side(true);
+    pair_both();
+    CHECK(fake_device_ready(0) && fake_device_ready(1));
+    CHECK(uni_hid_parser_switch_get_pair_partner_idx(fake_device(0)) == 1);  // paired
+    CHECK(last_imu_arg(1) == 1);  // right keeps motion for the merged pad
+    CHECK(last_imu_arg(0) == 0);  // left is switched off
+}
+
+static void test_pair_keeps_left_imu(void) {
+    fake_reset();
+    uni_hid_parser_switch_set_pair_imu_side(false);
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+    start_joycon(1, JCR);
+    fake_joycon_run_setup(1, JCR, 50);
+    CHECK(fake_device_ready(0) && fake_device_ready(1));
+    CHECK(uni_hid_parser_switch_get_pair_partner_idx(fake_device(0)) == 1);  // paired
+    CHECK(last_imu_arg(0) == 1);  // left keeps motion for the merged pad
+    CHECK(last_imu_arg(1) == 0);  // right is switched off
+    uni_hid_parser_switch_set_pair_imu_side(true);  // restore the default
+}
+
 static void test_stale_owner_does_not_block_forever(void) {
     fake_reset();
     start_joycon(0, JCL);  // never answers anything
@@ -155,6 +194,8 @@ int main(void) {
         {"stale_reply_does_not_advance", test_stale_reply_does_not_advance},
         {"one_pad_in_setup_at_a_time", test_one_pad_in_setup_at_a_time},
         {"stale_owner_does_not_block_forever", test_stale_owner_does_not_block_forever},
+        {"pair_imu_defaults_to_right", test_pair_imu_defaults_to_right},
+        {"pair_keeps_left_imu", test_pair_keeps_left_imu},
         {"cleanup_unlinks_timers", test_cleanup_unlinks_timers},
         {"request_sleep", test_request_sleep},
     };
