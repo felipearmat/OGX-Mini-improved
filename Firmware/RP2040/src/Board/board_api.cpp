@@ -13,6 +13,7 @@
 #endif
 
 #include "Board/Config.h"
+#include "UserSettings/NVSTool.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
 #include "Board/board_api_private/board_api_private.h"
@@ -99,6 +100,8 @@ void usb::disconnect_all() {
 #endif
     /* Always halt Core1 before flash/reboot (BT / host / GPIO simulators). */
     multicore_reset_core1();
+    /* Custom: the NVS writes that follow must not wait for a lockout of the halted core. */
+    NVSTool::set_other_core_halted();
     sleep_ms(500);
     tud_disconnect();
     sleep_ms(500);

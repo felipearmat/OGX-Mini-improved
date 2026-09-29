@@ -57,4 +57,60 @@ TEST(entries_across_sectors_keep_their_values) {
     CHECK_EQ(mock_flash::stats().ops_with_irqs_enabled, 0);
 }
 
+TEST(writes_go_through_flash_safe_execute) {
+    NVSTool& nvs = NVSTool::get_instance();
+    mock_flash_safe::result() = PICO_OK;
+    const int before = mock_flash_safe::calls();
+    const uint8_t v = 7;
+    CHECK(nvs.write("mode", &v, 1));
+    CHECK(mock_flash_safe::calls() > before);  // the other core gets parked
+}
+
+TEST(other_core_not_registered_still_writes) {
+    // Boards whose Core1 never registers for lockout: write as before, interrupts off.
+    NVSTool& nvs = NVSTool::get_instance();
+    mock_flash_safe::result() = PICO_ERROR_NOT_PERMITTED;
+    mock_flash::stats() = {};
+    const uint8_t v = 9;
+    CHECK(nvs.write("mode", &v, 1));
+    uint8_t out = 0;
+    CHECK(nvs.read("mode", &out, 1));
+    CHECK_EQ(out, 9);
+    CHECK_EQ(mock_flash::stats().ops_with_irqs_enabled, 0);
+    mock_flash_safe::result() = PICO_OK;
+}
+
+TEST(unresponsive_other_core_skips_the_write) {
+    // The other core did not park in time: writing now could crash it, so nothing is written.
+    NVSTool& nvs = NVSTool::get_instance();
+    const uint8_t v1 = 1;
+    CHECK(nvs.write("mode", &v1, 1));
+    mock_flash_safe::result() = PICO_ERROR_TIMEOUT;
+    mock_flash::stats() = {};
+    const uint8_t v2 = 2;
+    CHECK(!nvs.write("mode", &v2, 1));
+    CHECK_EQ(mock_flash::stats().erases, 0);
+    uint8_t out = 0;
+    CHECK(nvs.read("mode", &out, 1));
+    CHECK_EQ(out, 1);
+    mock_flash_safe::result() = PICO_OK;
+}
+
+TEST(halted_other_core_writes_directly) {
+    // Mode change: usb::disconnect_all() reset Core1, a lockout would never be answered.
+    // Keep this test last: the halted flag stays set.
+    NVSTool& nvs = NVSTool::get_instance();
+    NVSTool::set_other_core_halted();
+    mock_flash_safe::result() = PICO_ERROR_TIMEOUT;
+    const int before = mock_flash_safe::calls();
+    mock_flash::stats() = {};
+    const uint8_t v = 3;
+    CHECK(nvs.write("mode", &v, 1));
+    CHECK_EQ(mock_flash_safe::calls(), before);
+    CHECK_EQ(mock_flash::stats().ops_with_irqs_enabled, 0);
+    uint8_t out = 0;
+    CHECK(nvs.read("mode", &out, 1));
+    CHECK_EQ(out, 3);
+}
+
 TEST_MAIN()
