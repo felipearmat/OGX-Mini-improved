@@ -6,6 +6,7 @@
 #include "Custom/ReportedMac.h"
 #include "Custom/DongleSettings.h"
 #include "Custom/SonyImu.h"
+#include "Custom/SonyReports.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "Descriptors/PS4Usb.h"
@@ -44,8 +45,6 @@ const sony_imu::MotionScale& motion_scale()
 
 void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::PadIn& gp_in)
 {
-	const int32_t kGyroDiv = motion_scale().gyro_div;
-	const int32_t kAccelDiv = motion_scale().accel_div;
 	if (!gp_in.has_motion()) {
 		return;
 	}
@@ -54,19 +53,8 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 	int32_t gyro[3] = {gp_in.gyro[0], gp_in.gyro[1], gp_in.gyro[2]};
 	MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
 
-	const int16_t gx = sony_imu::scale(gyro[0], kGyroDiv);
-	const int16_t gy = sony_imu::scale(gyro[1], kGyroDiv);
-	const int16_t gz = sony_imu::scale(gyro[2], kGyroDiv);
-	const int16_t ax = sony_imu::scale(accel[0], kAccelDiv);
-	const int16_t ay = sony_imu::scale(accel[1], kAccelDiv);
-	const int16_t az = sony_imu::scale(accel[2], kAccelDiv);
-
-	std::memcpy(&rep[13], &gx, 2);
-	std::memcpy(&rep[15], &gy, 2);
-	std::memcpy(&rep[17], &gz, 2);
-	std::memcpy(&rep[19], &ax, 2);
-	std::memcpy(&rep[21], &ay, 2);
-	std::memcpy(&rep[23], &az, 2);
+	sony_reports::put_motion(rep.data(), sony_reports::ds4::kGyro, sony_reports::ds4::kAccel, gyro, accel,
+	                         motion_scale());
 }
 
 /* Custom (OGX-Mini-improved): feature reports a DS4 host reads at startup (Linux hid-playstation,
@@ -254,32 +242,21 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	/* Custom fix: bytes 10-11 are the motion sensor clock, in units of 16/3 us on a real DS4
 	 * (Linux hid-playstation and SDL derive the sample interval from it). They used to get a
 	 * per-call counter, so hosts saw samples ~5 us apart. */
-	const uint16_t sensor_ts = static_cast<uint16_t>(time_us_64() * 3u / 16u);
-	std::memcpy(&report_in_[10], &sensor_ts, sizeof(sensor_ts));
+	const uint16_t sensor_ts = sony_reports::ds4_sensor_timestamp(time_us_64());
+	std::memcpy(&report_in_[sony_reports::ds4::kSensorTimestamp], &sensor_ts, sizeof(sensor_ts));
 	report_in_[12] = 0;
 
 	apply_pad_imu_to_ps4_report(report_in_, gp_in);
 
-	/* Custom: battery and touchpad. Status: battery level 0-10 in the low nibble, bit 4 = cable;
-	 * a pad of unknown battery reads as cabled and full. Touch points with bit 7 clear are
-	 * "finger down": the old all-zero report showed two fingers resting at (0, 0) to hosts that
-	 * read the first touch report directly (SDL / Steam). DS4 and DualSense touch points share
-	 * this format, so theirs are passed through. */
-	if (gp_in.battery == 0) {
-		report_in_[30] = 0x1B;
-	} else {
-		report_in_[30] = static_cast<uint8_t>((gp_in.battery * 10u + 127u) / 255u);
-	}
-	report_in_[33] = 1;       // touch reports in this frame
-	report_in_[34] = static_cast<uint8_t>(frame_seq_);
-	if (gp_in.touchpad_valid) {
-		std::memcpy(&report_in_[35], gp_in.touch_raw, sizeof(gp_in.touch_raw));
-		if (gp_in.touchpad_click) {
-			report_in_[7] |= PS4::Buttons2::TP;
-		}
-	} else {
-		report_in_[35] = 0x80;    // point 0: not touching
-		report_in_[39] = 0x80;    // point 1: not touching
+	/* Custom: battery and touchpad (Custom/SonyReports: status byte, idle touch points).
+	 * DS4 and DualSense touch points share this format, so theirs are passed through. */
+	namespace ds4 = sony_reports::ds4;
+	report_in_[ds4::kStatus] = sony_reports::ds4_status(gp_in.battery);
+	report_in_[ds4::kTouchCount] = 1;
+	report_in_[ds4::kTouchTimestamp] = static_cast<uint8_t>(frame_seq_);
+	sony_reports::put_touch_points(&report_in_[ds4::kTouchPoints], gp_in.touch_raw, gp_in.touchpad_valid != 0);
+	if (gp_in.touchpad_valid && gp_in.touchpad_click) {
+		report_in_[ds4::kButtons2] |= sony_reports::kTouchpadClick;
 	}
 
 	if (tud_hid_ready()) {
@@ -289,14 +266,15 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	if (new_report_out_) {
 		/* Custom: only take what the host marked valid. A lightbar-only update carries zero
 		 * motor bytes, which would stop a running rumble. */
-		if (report_out_.set_rumble) {
+		const uint8_t flags = reinterpret_cast<const uint8_t*>(&report_out_)[1];
+		if (sony_reports::ds4_rumble_valid(flags)) {
 			Gamepad::PadOut gp_out;
 			gp_out.rumble_l = report_out_.motor_left;
 			gp_out.rumble_r = report_out_.motor_right;
 			gamepad.set_pad_out(gp_out);
 		}
 		/* Custom: pass the lightbar colour on to the pad (DS4 / DualSense over Bluetooth). */
-		if (report_out_.set_led) {
+		if (sony_reports::ds4_led_valid(flags)) {
 			gamepad.set_host_lightbar(report_out_.lightbar_red, report_out_.lightbar_green,
 			                          report_out_.lightbar_blue);
 		}
@@ -309,12 +287,8 @@ uint16_t PS4Device::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_typ
 	(void)itf;
 	if (report_type == HID_REPORT_TYPE_INPUT) {
 		if (report_id == 0 || report_id == kReportIdIn) {
-			/* TinyUSB already put the report ID in front when the host asked for one. */
-			const uint8_t* src = (report_id == 0) ? report_in_.data() : report_in_.data() + 1;
-			const size_t avail = (report_id == 0) ? report_in_.size() : report_in_.size() - 1;
-			const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, avail));
-			std::memcpy(buffer, src, n);
-			return n;
+			return static_cast<uint16_t>(sony_reports::copy_for_get_report(
+				report_id, report_in_.data(), report_in_.size(), buffer, reqlen));
 		}
 	} else if (report_type == HID_REPORT_TYPE_FEATURE) {
 		/* Build the full report (ID at [0]) and hand TinyUSB everything after the ID. */
@@ -326,9 +300,8 @@ uint16_t PS4Device::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_typ
 			case kFeatureFirmwareInfo: fill_firmware_info(report.data()); break;
 			default: break;
 		}
-		const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, report.size() - 1));
-		std::memcpy(buffer, report.data() + 1, n);
-		return n;
+		return static_cast<uint16_t>(sony_reports::copy_for_get_report(
+			report_id, report.data(), report.size(), buffer, reqlen));
 	}
 	return 0;
 }
@@ -347,16 +320,10 @@ void PS4Device::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t 
 		len = static_cast<uint16_t>(len - 1u);
 		buf = &buffer[1];
 	}
-	/* Custom fix: buf holds the report after its ID (31 bytes from Linux and SDL), while
-	 * PS4::OutReport starts with the ID (32 bytes). The old check wanted 32 bytes after the ID
-	 * and copied them over the ID field, so every report was dropped (no rumble, no lightbar)
-	 * and would have been read one byte off. */
-	constexpr size_t kBodySize = sizeof(PS4::OutReport) - 1;
-	constexpr size_t kMinBody = offsetof(PS4::OutReport, lightbar_blue);  // flags .. lightbar
-	if (rid == 0x05 && len >= kMinBody) {
-		report_out_ = PS4::OutReport{};
-		report_out_.report_id = 0x05;
-		std::memcpy(reinterpret_cast<uint8_t*>(&report_out_) + 1, buf, std::min<size_t>(len, kBodySize));
+	/* Custom fix: buf holds the report after its ID (31 bytes from Linux and SDL); every report
+	 * used to be dropped (see sony_reports::copy_output_body). Needs flags .. lightbar. */
+	constexpr size_t kMinBody = offsetof(PS4::OutReport, lightbar_blue);
+	if (rid == 0x05 && sony_reports::copy_output_body(rid, buf, len, kMinBody, report_out_)) {
 		new_report_out_ = true;
 	}
 }

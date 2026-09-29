@@ -5,6 +5,7 @@
 #include "Board/ogxm_log.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS3/PS3.h"
+#include "Custom/SonyReports.h"
 
 namespace {
 
@@ -365,22 +366,12 @@ void PS3Device::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t 
         {
             case PS3::ReportID::FEATURE_01:
             {
-                /* Custom fix: Linux hid-sony sends report 0x01 by SET_REPORT without the report ID
-                 * byte (HID_QUIRK_SKIP_OUTPUT_REPORT_ID), so the data starts with the padding
-                 * byte, which it sets to 0x01. TinyUSB takes that 0x01 for the report ID and
-                 * strips it, so the report arrives one byte short and the rumble fields were
-                 * read one byte off (rumble never worked on Linux). Put it back. */
-                constexpr uint16_t REPORT_LEN_NO_ID = 35;  // hid-sony sixaxis_output_report - ID
-                uint8_t* out = reinterpret_cast<uint8_t*>(&report_out_);
-                uint16_t max_len = sizeof(PS3::OutReport);
-                if (bufsize == REPORT_LEN_NO_ID - 1)
-                {
-                    out[0] = 0x01;
-                    out++;
-                    max_len--;
-                }
+                /* Custom fix: from Linux hid-sony the report arrives one byte short (TinyUSB strips
+                 * its 0x01 padding byte as a report ID); rumble never worked on Linux. See
+                 * sony_reports::ds3_copy_output_body. */
+                sony_reports::ds3_copy_output_body(buf, bufsize, reinterpret_cast<uint8_t*>(&report_out_),
+                                                   sizeof(PS3::OutReport));
                 new_report_out_ = true;
-                std::memcpy(out, buf, std::min(bufsize, max_len));
                 break;
             }
         }
