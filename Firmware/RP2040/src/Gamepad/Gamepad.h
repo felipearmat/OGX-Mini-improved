@@ -236,6 +236,22 @@ public:
         return pad_out;
     }
 
+    /* Custom: like get_pad_out(), but each motor reports the strongest rumble set since the
+     * previous call. For consumers that poll slower than hosts send (Bluepad32 feedback runs
+     * every 250 ms; Steam's trigger test pulses last ~200 ms), so a short pulse isn't lost. */
+    inline PadOut take_pad_out_peak()
+    {
+        mutex_enter_blocking(&pad_out_mutex_);
+        PadOut pad_out = pad_out_;
+        if (peak_out_.rumble_l > pad_out.rumble_l) pad_out.rumble_l = peak_out_.rumble_l;
+        if (peak_out_.rumble_r > pad_out.rumble_r) pad_out.rumble_r = peak_out_.rumble_r;
+        peak_out_ = pad_out_;
+        new_pad_out_.store(false);
+        mutex_exit(&pad_out_mutex_);
+
+        return pad_out;
+    }
+
     inline ChatpadIn get_chatpad_in()
     {
         mutex_enter_blocking(&chatpad_in_mutex_);
@@ -361,6 +377,8 @@ public:
     {
         mutex_enter_blocking(&pad_out_mutex_);
         pad_out_ = pad_out;
+        if (pad_out.rumble_l > peak_out_.rumble_l) peak_out_.rumble_l = pad_out.rumble_l;
+        if (pad_out.rumble_r > peak_out_.rumble_r) peak_out_.rumble_r = pad_out.rumble_r;
         new_pad_out_.store(true);
         mutex_exit(&pad_out_mutex_);
     }
@@ -394,6 +412,7 @@ public:
     {
         mutex_enter_blocking(&pad_out_mutex_);
         pad_out_ = PadOut();
+        peak_out_ = PadOut();
         new_pad_out_.store(true);
         mutex_exit(&pad_out_mutex_);
     }
@@ -512,6 +531,7 @@ private:
     mutex_t chatpad_in_mutex_;
 
     PadOut pad_out_;
+    PadOut peak_out_;  // strongest rumble since the last take_pad_out_peak()
     PadIn pad_in_queue_[PAD_IN_QUEUE_SIZE];
     unsigned pad_in_head_{0};
     unsigned pad_in_tail_{0};
