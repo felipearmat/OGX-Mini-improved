@@ -36,12 +36,13 @@ void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
         case DeviceDriverType::XINPUT: r = 0x00; g = 0xFF; b = 0x00; break; // green
         case DeviceDriverType::SWITCH: r = 0xFF; g = 0x00; b = 0x00; break; // red
         case DeviceDriverType::DINPUT: r = 0x00; g = 0x00; b = 0xFF; break; // blue
-        case DeviceDriverType::PS4:    r = 0xFF; g = 0xFF; b = 0xFF; break; // white
+        case DeviceDriverType::PS4:    r = 0x00; g = 0xFF; b = 0xFF; break; // light blue (hue 180)
+        case DeviceDriverType::PS3:    r = 0x00; g = 0x00; b = 0x50; break; // dark blue
         case DeviceDriverType::STEAM:  r = 0x80; g = 0x00; b = 0xFF; break; // purple
         case DeviceDriverType::XBOXOG:
         case DeviceDriverType::XBOXOG_SB:
         case DeviceDriverType::XBOXOG_XR: r = 0xFF; g = 0xB0; b = 0x00; break; // yellow
-        default:                       r = 0x00; g = 0xFF; b = 0xFF; break; // cyan
+        default:                       r = 0xFF; g = 0xFF; b = 0xFF; break; // white
     }
 }
 
