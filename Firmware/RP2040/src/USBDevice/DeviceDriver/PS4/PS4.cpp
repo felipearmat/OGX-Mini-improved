@@ -29,8 +29,8 @@ uint8_t joystick_to_u8(int16_t value, int16_t deadzone)
 	return static_cast<uint8_t>(scaled);
 }
 
-/* Brook-style scaling (gyro/8, accel/64). Truncating division zeros small Bluetooth IMU samples;
- * use symmetric rounding so light motion still reaches the host. */
+/* Truncating division zeros small Bluetooth IMU samples; use symmetric rounding so light motion
+ * still reaches the host. */
 int16_t scale_i32_to_i16_rounded(int32_t v, int32_t div)
 {
 	if (div <= 0) {
@@ -48,8 +48,14 @@ int16_t scale_i32_to_i16_rounded(int32_t v, int32_t div)
 	return static_cast<int16_t>(q);
 }
 
-/* Brook capture: int16 LE gyro @ 13–18, accel @ 19–24 in report id 1. Filled from DS4/DS5 BT,
- * Switch Pro, or wired DS4/DualSense USB host paths. */
+/* int16 LE gyro @ 13–18, accel @ 19–24 in report id 1. Filled from DS4/DS5 BT, Switch Pro, or
+ * wired DS4/DualSense USB host paths.
+ * Custom (OGX-Mini-improved): real DS4 units, 16 per deg/s and 8192 per g (input is 1024 per
+ * deg/s and 8192 per g). The old Brook-style scaling (gyro/8, accel/64) only reads right to a
+ * host that applies our calibration report; Steam treated it as real DS4 units: gyro 8x too
+ * fast, gravity 64x too weak. */
+constexpr int32_t kGyroDiv = 64;
+constexpr int32_t kAccelDiv = 1;
 void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::PadIn& gp_in)
 {
 	if (!gp_in.has_motion()) {
@@ -60,12 +66,12 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 	int32_t gyro[3] = {gp_in.gyro[0], gp_in.gyro[1], gp_in.gyro[2]};
 	MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
 
-	const int16_t gx = scale_i32_to_i16_rounded(gyro[0], 8);
-	const int16_t gy = scale_i32_to_i16_rounded(gyro[1], 8);
-	const int16_t gz = scale_i32_to_i16_rounded(gyro[2], 8);
-	const int16_t ax = scale_i32_to_i16_rounded(accel[0], 64);
-	const int16_t ay = scale_i32_to_i16_rounded(accel[1], 64);
-	const int16_t az = scale_i32_to_i16_rounded(accel[2], 64);
+	const int16_t gx = scale_i32_to_i16_rounded(gyro[0], kGyroDiv);
+	const int16_t gy = scale_i32_to_i16_rounded(gyro[1], kGyroDiv);
+	const int16_t gz = scale_i32_to_i16_rounded(gyro[2], kGyroDiv);
+	const int16_t ax = scale_i32_to_i16_rounded(accel[0], kAccelDiv);
+	const int16_t ay = scale_i32_to_i16_rounded(accel[1], kAccelDiv);
+	const int16_t az = scale_i32_to_i16_rounded(accel[2], kAccelDiv);
 
 	std::memcpy(&rep[13], &gx, 2);
 	std::memcpy(&rep[15], &gy, 2);
@@ -76,9 +82,8 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 }
 
 /* Custom (OGX-Mini-improved): feature reports a DS4 host reads at startup (Linux hid-playstation,
- * SDL / Steam). They used to be all zeros, so hosts ignored the calibration and read the motion
- * above as a real DS4 (~16 per deg/s, 8192 per g): gyro 8x too fast, gravity 64x too weak.
- * Offsets below are within the full report, report ID at [0] (TinyUSB prepends it). */
+ * SDL / Steam). They used to be all zeros. Offsets below are within the full report, report ID
+ * at [0] (TinyUSB prepends it). */
 constexpr uint8_t kFeatureCalibration = 0x02;
 constexpr uint8_t kFeaturePairingInfo = 0x12;
 constexpr uint8_t kFeatureFirmwareInfo = 0xA3;
@@ -89,14 +94,15 @@ void put_le16(uint8_t* report, int offset, int16_t v)
 	report[offset + 1] = static_cast<uint8_t>((v >> 8) & 0xFF);
 }
 
-/* Calibration matching the scaling of apply_pad_imu_to_ps4_report(): 128 per deg/s and 128 per g.
- * Hosts compute deg/s = raw * (speed_plus + speed_minus) / (|plus - bias| + |minus - bias|)
- * and g = (raw - bias) * 2 / (acc_plus - acc_minus). USB order: pitch+, pitch-, yaw+, yaw-, ... */
+/* Calibration of an ideal DS4, matching apply_pad_imu_to_ps4_report(): 16 per deg/s, 8192 per g
+ * (a real DS4 reports about speed 540 and gyro +-8700). Hosts compute
+ * deg/s = raw * (speed_plus + speed_minus) / (|plus - bias| + |minus - bias|) and
+ * g = (raw - bias) * 2 / (acc_plus - acc_minus). USB order: pitch+, pitch-, yaw+, yaw-, ... */
 void fill_calibration(uint8_t* report)
 {
-	constexpr int16_t kGyroPlus = 16384;   // 256 / 32768 = 1/128 deg/s per count
-	constexpr int16_t kGyroSpeed = 128;
-	constexpr int16_t kAccelPlus = 128;    // 2 g over 256 counts
+	constexpr int16_t kGyroPlus = 8640;    // 1080 / 17280 = 1/16 deg/s per count
+	constexpr int16_t kGyroSpeed = 540;
+	constexpr int16_t kAccelPlus = 8192;   // 2 g over 16384 counts
 	for (int axis = 0; axis < 3; ++axis) {
 		put_le16(report, 1 + axis * 2, 0);                   // bias
 		put_le16(report, 7 + axis * 4, kGyroPlus);
