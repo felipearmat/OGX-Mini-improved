@@ -39,3 +39,4 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Fork only (not for upstream)
 
 - `docs/TODO.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`.
+- `.github/workflows/build.yml`: release job limited to the original repository (keeps the fork from publishing releases).
