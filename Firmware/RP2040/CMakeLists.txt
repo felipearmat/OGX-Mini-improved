@@ -74,6 +74,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Steam/SteamTouchpad.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/Custom/SwitchImu.cpp
+    ${SRC}/Custom/HdRumble.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
     ${SRC}/USBDevice/DeviceDriver/PS1PS2/PS1PS2.cpp
