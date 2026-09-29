@@ -51,6 +51,3 @@ Known issues in this fork, to fix later.
   own mutex) collides with Bluepad32's banner/printf (core 1): both stop mid-line and the
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
   every printf, or a ring buffer drained by one core).
-- `s_ps4_rumble_ok_ms` has MAX_GAMEPADS entries but the feedback loop indexes it with the
-  Bluetooth slot (up to CONFIG_BLUEPAD32_MAX_DEVICES - 1): out of bounds for a DS4 in
-  slot 1 (upstream code).
