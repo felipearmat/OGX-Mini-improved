@@ -189,6 +189,9 @@ function(apply_lib_patches EXTERNAL_DIR)
     endif ()
 
     ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})
+    # DS4 parser (OGX-Mini-improved): keep the latest touch points for touchpad passthrough.
+    ogxm_apply_patch_series("Bluepad32 DS4 parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
+        "${EXTERNAL_DIR}/patches/bluepad32_ds4_touchpad.diff")
 
     # Pico SDK 2.1.x still lists BTstack's old hids_client.c; Bluepad32's BTstack
     # v1.8 renamed it to hids_host.c. Patch the SDK cmake when using that tree.

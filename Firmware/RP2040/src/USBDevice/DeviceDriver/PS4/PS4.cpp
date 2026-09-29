@@ -2,6 +2,7 @@
 #include <algorithm>
 
 #include "pico/time.h"
+#include "pico/unique_id.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "Descriptors/PS4Usb.h"
@@ -71,6 +72,59 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 	std::memcpy(&rep[19], &ax, 2);
 	std::memcpy(&rep[21], &ay, 2);
 	std::memcpy(&rep[23], &az, 2);
+}
+
+/* Custom (OGX-Mini-improved): feature reports a DS4 host reads at startup (Linux hid-playstation,
+ * SDL / Steam). They used to be all zeros, so hosts ignored the calibration and read the motion
+ * above as a real DS4 (~16 per deg/s, 8192 per g): gyro 8x too fast, gravity 64x too weak.
+ * Offsets below are within the full report, report ID at [0] (TinyUSB prepends it). */
+constexpr uint8_t kFeatureCalibration = 0x02;
+constexpr uint8_t kFeaturePairingInfo = 0x12;
+constexpr uint8_t kFeatureFirmwareInfo = 0xA3;
+
+void put_le16(uint8_t* report, int offset, int16_t v)
+{
+	report[offset] = static_cast<uint8_t>(v & 0xFF);
+	report[offset + 1] = static_cast<uint8_t>((v >> 8) & 0xFF);
+}
+
+/* Calibration matching the scaling of apply_pad_imu_to_ps4_report(): 128 per deg/s and 128 per g.
+ * Hosts compute deg/s = raw * (speed_plus + speed_minus) / (|plus - bias| + |minus - bias|)
+ * and g = (raw - bias) * 2 / (acc_plus - acc_minus). USB order: pitch+, pitch-, yaw+, yaw-, ... */
+void fill_calibration(uint8_t* report)
+{
+	constexpr int16_t kGyroPlus = 16384;   // 256 / 32768 = 1/128 deg/s per count
+	constexpr int16_t kGyroSpeed = 128;
+	constexpr int16_t kAccelPlus = 128;    // 2 g over 256 counts
+	for (int axis = 0; axis < 3; ++axis) {
+		put_le16(report, 1 + axis * 2, 0);                   // bias
+		put_le16(report, 7 + axis * 4, kGyroPlus);
+		put_le16(report, 9 + axis * 4, -kGyroPlus);
+		put_le16(report, 23 + axis * 4, kAccelPlus);
+		put_le16(report, 25 + axis * 4, -kAccelPlus);
+	}
+	put_le16(report, 19, kGyroSpeed);
+	put_le16(report, 21, kGyroSpeed);
+}
+
+/* Pairing info: device MAC (LSB first) at [1..6]. Derived from the board's unique ID, with the
+ * locally administered bit set, so each dongle gets a stable address of its own. */
+void fill_pairing_info(uint8_t* report)
+{
+	pico_unique_board_id_t id;
+	pico_get_unique_board_id(&id);
+	for (int i = 0; i < 6; ++i)
+		report[1 + i] = id.id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES - 1 - i];
+	report[6] = static_cast<uint8_t>((report[6] | 0x02) & ~0x01);  // MSB: local, unicast
+}
+
+/* Firmware info: build date/time strings, hardware version at [35], firmware version at [41]. */
+void fill_firmware_info(uint8_t* report)
+{
+	std::memcpy(&report[1], "Sep 21 2018", 11);
+	std::memcpy(&report[17], "04:50:51", 8);
+	put_le16(report, 35, static_cast<int16_t>(0xB408));
+	put_le16(report, 41, static_cast<int16_t>(0xA00A));
 }
 
 } // namespace
@@ -229,6 +283,28 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 
 	apply_pad_imu_to_ps4_report(report_in_, gp_in);
 
+	/* Custom: battery and touchpad. Status: battery level 0-10 in the low nibble, bit 4 = cable;
+	 * a pad of unknown battery reads as cabled and full. Touch points with bit 7 clear are
+	 * "finger down": the old all-zero report showed two fingers resting at (0, 0) to hosts that
+	 * read the first touch report directly (SDL / Steam). DS4 and DualSense touch points share
+	 * this format, so theirs are passed through. */
+	if (gp_in.battery == 0) {
+		report_in_[30] = 0x1B;
+	} else {
+		report_in_[30] = static_cast<uint8_t>((gp_in.battery * 10u + 127u) / 255u);
+	}
+	report_in_[33] = 1;       // touch reports in this frame
+	report_in_[34] = static_cast<uint8_t>(frame_seq_);
+	if (gp_in.touchpad_valid) {
+		std::memcpy(&report_in_[35], gp_in.touch_raw, sizeof(gp_in.touch_raw));
+		if (gp_in.touchpad_click) {
+			report_in_[7] |= PS4::Buttons2::TP;
+		}
+	} else {
+		report_in_[35] = 0x80;    // point 0: not touching
+		report_in_[39] = 0x80;    // point 1: not touching
+	}
+
 	if (tud_hid_ready()) {
 		tud_hid_report(0, report_in_.data(), static_cast<uint16_t>(report_in_.size()));
 	}
@@ -238,6 +314,11 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 		gp_out.rumble_l = report_out_.motor_left;
 		gp_out.rumble_r = report_out_.motor_right;
 		gamepad.set_pad_out(gp_out);
+		/* Custom: pass the lightbar colour on to the pad (DS4 / DualSense over Bluetooth). */
+		if (report_out_.set_led) {
+			gamepad.set_host_lightbar(report_out_.lightbar_red, report_out_.lightbar_green,
+			                          report_out_.lightbar_blue);
+		}
 		new_report_out_ = false;
 	}
 }
@@ -247,13 +328,26 @@ uint16_t PS4Device::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_typ
 	(void)itf;
 	if (report_type == HID_REPORT_TYPE_INPUT) {
 		if (report_id == 0 || report_id == kReportIdIn) {
-			const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, report_in_.size()));
-			std::memcpy(buffer, report_in_.data(), n);
+			/* TinyUSB already put the report ID in front when the host asked for one. */
+			const uint8_t* src = (report_id == 0) ? report_in_.data() : report_in_.data() + 1;
+			const size_t avail = (report_id == 0) ? report_in_.size() : report_in_.size() - 1;
+			const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, avail));
+			std::memcpy(buffer, src, n);
 			return n;
 		}
 	} else if (report_type == HID_REPORT_TYPE_FEATURE) {
-		std::memset(buffer, 0, reqlen);
-		return reqlen;
+		/* Build the full report (ID at [0]) and hand TinyUSB everything after the ID. */
+		std::array<uint8_t, 64> report{};
+		report[0] = report_id;
+		switch (report_id) {
+			case kFeatureCalibration:  fill_calibration(report.data()); break;
+			case kFeaturePairingInfo:  fill_pairing_info(report.data()); break;
+			case kFeatureFirmwareInfo: fill_firmware_info(report.data()); break;
+			default: break;
+		}
+		const uint16_t n = static_cast<uint16_t>(std::min<size_t>(reqlen, report.size() - 1));
+		std::memcpy(buffer, report.data() + 1, n);
+		return n;
 	}
 	return 0;
 }
