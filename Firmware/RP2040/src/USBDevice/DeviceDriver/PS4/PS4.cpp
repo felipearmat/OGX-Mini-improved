@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstring>
 #include <algorithm>
 
@@ -366,8 +367,16 @@ void PS4Device::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t 
 		len = static_cast<uint16_t>(len - 1u);
 		buf = &buffer[1];
 	}
-	if (rid == 0x05 && len >= sizeof(PS4::OutReport)) {
-		std::memcpy(&report_out_, buf, sizeof(PS4::OutReport));
+	/* Custom fix: buf holds the report after its ID (31 bytes from Linux and SDL), while
+	 * PS4::OutReport starts with the ID (32 bytes). The old check wanted 32 bytes after the ID
+	 * and copied them over the ID field, so every report was dropped (no rumble, no lightbar)
+	 * and would have been read one byte off. */
+	constexpr size_t kBodySize = sizeof(PS4::OutReport) - 1;
+	constexpr size_t kMinBody = offsetof(PS4::OutReport, lightbar_blue);  // flags .. lightbar
+	if (rid == 0x05 && len >= kMinBody) {
+		report_out_ = PS4::OutReport{};
+		report_out_.report_id = 0x05;
+		std::memcpy(reinterpret_cast<uint8_t*>(&report_out_) + 1, buf, std::min<size_t>(len, kBodySize));
 		new_report_out_ = true;
 	}
 }
