@@ -53,10 +53,12 @@ bool to_switch_sample(const Gamepad::PadIn& in, Sample& out)
         case Gamepad::PadIn::MOTION_SRC_DS4_USB:
         case Gamepad::PadIn::MOTION_SRC_DS5_USB:
         {
-            /* DS4 -> Pro axes: the inverse of MotionImu::remap_to_ds4_playing_frame() for
-             * Switch sources, which is its own inverse: (x, y, z) -> (-y, -x, -z). */
-            const int32_t sa[3] = {-a[1], -a[0], -a[2]};
-            const int32_t sg[3] = {-g[1], -g[0], -g[2]};
+            /* DS4 axes as Bluepad32 delivers them: X right, Y out of the face, Z towards the
+             * player. Pro axes: X front, Y left, Z out of the face. So Pro = (-z, -x, y), a
+             * proper rotation, applied to accel and gyro alike. Measured on hardware: face up
+             * gives +1 g on Pro Z; nose down, roll right and turning left give +gy, +gx, +gz. */
+            const int32_t sa[3] = {-a[2], -a[0], a[1]};
+            const int32_t sg[3] = {-g[2], -g[0], g[1]};
             for (int i = 0; i < 3; ++i)
             {
                 out.accel[i] = clamp16(div_round(static_cast<int64_t>(sa[i]) * kAccelCountsPerG, kDs4AccelPerG));

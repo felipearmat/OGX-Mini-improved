@@ -38,14 +38,23 @@ TEST(switch_sources_pass_through_in_raw_counts) {
 }
 
 TEST(ds4_is_scaled_to_switch_units_and_axes) {
-    // 1 g on DS4 Y (8192) and 100 deg/s on DS4 X (102400).
+    // DS4 lying face up: gravity on DS4 +Y (8192) must be +1 g on Pro Z (4096).
     switch_imu::Sample s;
-    CHECK(switch_imu::to_switch_sample(pad(Gamepad::PadIn::MOTION_SRC_DS4, 0, 8192, 0, 102400, 0, 0), s));
-    // DS4 (x, y, z) -> Pro (-y, -x, -z)
-    CHECK_EQ(s.accel[0], -4096);  // 1 g = 4096 counts
+    CHECK(switch_imu::to_switch_sample(pad(Gamepad::PadIn::MOTION_SRC_DS4, 0, 8192, 0, 0, 0, 0), s));
+    CHECK_EQ(s.accel[0], 0);
     CHECK_EQ(s.accel[1], 0);
-    CHECK_EQ(s.gyro[1], -1429);   // 100 dps * 13371 / 936 = 1428.5
+    CHECK_EQ(s.accel[2], 4096);
+    // Nose down: DS4 +Z (towards the player) points up -> Pro X (front) reads -1 g.
+    CHECK(switch_imu::to_switch_sample(pad(Gamepad::PadIn::MOTION_SRC_DS4, 0, 0, 8192, 0, 0, 0), s));
+    CHECK_EQ(s.accel[0], -4096);
+    // Roll right: DS4 +X (right) points down -> Pro Y (left) reads +1 g.
+    CHECK(switch_imu::to_switch_sample(pad(Gamepad::PadIn::MOTION_SRC_DS4, -8192, 0, 0, 0, 0, 0), s));
+    CHECK_EQ(s.accel[1], 4096);
+    // Gyro follows the same rotation: 100 deg/s about DS4 Y (yaw) is Pro Z.
+    CHECK(switch_imu::to_switch_sample(pad(Gamepad::PadIn::MOTION_SRC_DS4, 0, 0, 0, 0, 102400, 0), s));
+    CHECK_EQ(s.gyro[2], 1429);  // 100 dps * 13371 / 936 = 1428.5
     CHECK_EQ(s.gyro[0], 0);
+    CHECK_EQ(s.gyro[1], 0);
 }
 
 TEST(values_saturate_instead_of_wrapping) {
