@@ -21,7 +21,10 @@ jobs:
   build:
     name: Build ${{ matrix.board }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Each step below retries on its own (up to 5 attempts, each with a time limit), so a
+    # hung download or build is retried instead of losing that board's UF2. A normal run
+    # takes 3-5 minutes; this only bounds the worst case.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -45,21 +48,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Checkout submodules
+        run: |
+          .github/scripts/retry.sh 5 10m -- \
+            git submodule update --init --recursive --depth 1
 
       - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          .github/scripts/retry.sh 5 5m -- sudo apt-get update
+          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y \
             cmake ninja-build \
             gcc-arm-none-eabi \
             libnewlib-arm-none-eabi \
             libstdc++-arm-none-eabi-newlib
 
+      # A slow cache download gives up after a few minutes and the SDK is cloned instead.
       - name: Cache Pico SDK
         id: cache-pico-sdk
         uses: actions/cache@v4
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
         with:
           path: Firmware/external/pico-sdk
           key: pico-sdk-2.1.0
@@ -67,9 +78,11 @@ jobs:
       - name: Get Pico SDK 2.1.0
         if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
-          git clone --branch 2.1.0 --depth 1 --recurse-submodules \
-            https://github.com/raspberrypi/pico-sdk.git \
-            "${{ github.workspace }}/Firmware/external/pico-sdk"
+          SDK="${{ github.workspace }}/Firmware/external/pico-sdk"
+          .github/scripts/retry.sh 5 10m -- bash -c "
+            rm -rf '$SDK' &&
+            git clone --branch 2.1.0 --depth 1 --recurse-submodules \
+              https://github.com/raspberrypi/pico-sdk.git '$SDK'"
 
       - name: Build ${{ matrix.board }}
         working-directory: Firmware/RP2040
@@ -79,13 +92,14 @@ jobs:
           OUT_DIR="${{ github.workspace }}/output"
           mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
-          cmake -S . -B "$BUILD_DIR" -G Ninja \
-            -DPICO_SDK_PATH="${{ github.workspace }}/Firmware/external/pico-sdk" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DOGXM_BOARD=${{ matrix.board }} \
-            -DMAX_GAMEPADS=1
-
-          cmake --build "$BUILD_DIR"
+          # Configure (may download tools) and build, retried if an attempt fails or hangs.
+          "${{ github.workspace }}/.github/scripts/retry.sh" 5 15m -- bash -c "
+            cmake -S . -B '$BUILD_DIR' -G Ninja \
+              -DPICO_SDK_PATH='${{ github.workspace }}/Firmware/external/pico-sdk' \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DOGXM_BOARD=${{ matrix.board }} \
+              -DMAX_GAMEPADS=1 &&
+            cmake --build '$BUILD_DIR'"
 
           UF2=$(find "$BUILD_DIR" -maxdepth 1 -name "OGX-Mini-*-${{ matrix.board }}*.uf2" | head -n 1)
           if [ -z "$UF2" ]; then
