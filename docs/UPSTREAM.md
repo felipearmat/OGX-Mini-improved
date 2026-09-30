@@ -33,6 +33,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | ed512cf | PS4 output: motion in real DS4 units (16 per deg/s, 8192 per g) | todo | Steam read the Brook-style scaling as DS4 units (gyro 8x). Needs a check with a Brook auth dongle on a PS4 console before offering. |
 | c2b93d0 | STEAM output: complete DualSense emulation for non-DualSense pads (motion, touch, battery, features, rumble/lightbar output fix) | todo | Output report was read one byte off (same bug as PS4). Split the output fix into its own PR. |
 | bda2bdf | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). |
+| c8b8a73 | Switch Pro wired input: follow the L3/R3 constant fix | todo | Goes with 44147f1 (same PR); the wired Pro host driver compensated for the old values. |
+| 8bc9c22 | STEAM output: DualSense rumble flags as SDL / Steam send them | todo | Goes with the STEAM output-report PR. |
 
 ## Features (offer, upstream may or may not want them)
 
@@ -44,6 +46,10 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
 | 0703a2d | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
 | b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | todo | Small build fix. |
+
+## Other projects
+
+- GP2040-CE: its PS3 driver copies output report 0x01 the way OGX-Mini did before 2c6d768; the Linux rumble fix could be offered there.
 
 ## Fork only (not for upstream)
 

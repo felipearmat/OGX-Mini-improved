@@ -23,7 +23,9 @@ Known issues in this fork, to fix later.
   Map the magnitude to the amplitude table instead, at fixed frequencies (e.g.
   160 Hz low band and 320 Hz high band). The host side is already decoded as a
   0-255 intensity (`Custom/HdRumble`). Consider passing the host's HD rumble
-  through unchanged when both ends are Switch pads.
+  through unchanged when both ends are Switch pads. DS4Windows (SwitchProDevice.cs,
+  PrepareRumbleData) does exactly this: fixed 320 Hz in both bands, amplitude from the
+  table indexed by the requested strength, capped at 800 of 1003.
 
 - **Far Cry 6 ignores gyro aiming in PS4 mode** (Steam Input gyro as mouse or as joystick,
   Steam Input forced on). Steam reads the DS4 motion correctly (its calibration and test view
@@ -51,3 +53,10 @@ Known issues in this fork, to fix later.
   own mutex) collides with Bluepad32's banner/printf (core 1): both stop mid-line and the
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
   every printf, or a ring buffer drained by one core).
+
+## Protocol completeness (from the 2026-09-30 reference review)
+
+- Switch Pro output: subcommands 0x50 (battery voltage) and 0x43 (read IMU registers) are
+  only acked; GP2040-CE answers them with data (0xD0 / 0xC0 replies).
+- STEAM output: DualSense firmware info (0x20) is synthetic; inputtino returns a real
+  controller's dump. Consider using real values.
