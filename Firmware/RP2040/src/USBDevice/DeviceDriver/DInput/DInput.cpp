@@ -103,9 +103,11 @@ void DInputDevice::process(const uint8_t idx, Gamepad& gamepad)
             in_report.left_axis  = gp_in.analog[Gamepad::ANALOG_OFF_LEFT];
 
             in_report.triangle_axis = gp_in.analog[Gamepad::ANALOG_OFF_Y];
-            in_report.circle_axis   = gp_in.analog[Gamepad::ANALOG_OFF_X];
-            in_report.cross_axis    = gp_in.analog[Gamepad::ANALOG_OFF_B];
-            in_report.square_axis   = gp_in.analog[Gamepad::ANALOG_OFF_A];
+            /* Custom fix: pressure follows the digital bits above (A = cross, B = circle, X = square), like
+             * PS3Device; these three were rotated one position. */
+            in_report.circle_axis   = gp_in.analog[Gamepad::ANALOG_OFF_B];
+            in_report.cross_axis    = gp_in.analog[Gamepad::ANALOG_OFF_A];
+            in_report.square_axis   = gp_in.analog[Gamepad::ANALOG_OFF_X];
 
             in_report.r1_axis = gp_in.analog[Gamepad::ANALOG_OFF_RB];
             in_report.l1_axis = gp_in.analog[Gamepad::ANALOG_OFF_LB];
