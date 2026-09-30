@@ -1,6 +1,6 @@
-// Decoding of Switch HD rumble blocks sent by the host (Custom/HdRumble).
+// Decoding of Switch HD rumble blocks sent by the host (USBDevice/DeviceDriver/Switch/HdRumble).
 // Block values marked "Steam" were captured from Steam's controller settings over USB.
-#include "Custom/HdRumble.h"
+#include "USBDevice/DeviceDriver/Switch/HdRumble.h"
 #include "test.h"
 
 namespace {

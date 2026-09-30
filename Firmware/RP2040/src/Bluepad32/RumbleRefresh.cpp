@@ -1,4 +1,4 @@
-#include "Custom/RumbleRefresh.h"
+#include "Bluepad32/RumbleRefresh.h"
 
 namespace switch_rumble {
 

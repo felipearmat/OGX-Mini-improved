@@ -144,9 +144,11 @@ Improvements and fixes applied to the OGX-Mini RP2040 firmware in this project.
 
 **Problem:** Output reports **`0x01`** / **`0x10`** / **`0x11`** (and related rumble commands) were acknowledged for Switch protocol bookkeeping but never decoded into **`PadOut`**, so wireless pads never vibrated in Switch mode.
 
-**Approach:** Parse left/right HD rumble motor blocks (dekuNukem-style amplitude decode), write **`rumble_l` / `rumble_r`** into `PadOut`, and let Bluepad32 / USB host feedback forward motors to the input controller. Applies to all boards that support Switch output (including Pico 2 W / RP2354 with BT pads).
+**Approach:** Parse left/right HD rumble motor blocks, write **`rumble_l` / `rumble_r`** into `PadOut`, and let Bluepad32 / USB host feedback forward motors to the input controller. Applies to all boards that support Switch output (including Pico 2 W / RP2354 with BT pads).
 
-**Files:** `src/USBDevice/DeviceDriver/Switch/Switch.cpp`, `Switch.h`.
+**Decoding:** hosts send every block form: the plain one-sample block (low-band amplitude is a code offset by `0x40`, `0x40` = silent) and the compact 2- and 3-sample forms, whose 5-bit commands are relative to the motor's previous amplitude. Each motor keeps its own decoder (`HdRumble`) and the amplitude the block leaves it at is used, scaled so the documented maximum (code 100) is 255. Steam's UI ticks (`00 00 05 c0`: silence, a 4 % blip, silence) therefore end silent instead of reading as a strong rumble that never stops.
+
+**Files:** `src/USBDevice/DeviceDriver/Switch/Switch.cpp`, `Switch.h`, `HdRumble.cpp`, `HdRumble.h`.
 
 ---
 

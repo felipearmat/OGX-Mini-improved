@@ -1,9 +1,9 @@
-#ifndef _OGXM_CUSTOM_HD_RUMBLE_H_
-#define _OGXM_CUSTOM_HD_RUMBLE_H_
+#ifndef _OGXM_SWITCH_HD_RUMBLE_H_
+#define _OGXM_SWITCH_HD_RUMBLE_H_
 
 #include <cstdint>
 
-/*  Decoding of Switch HD rumble motor blocks sent by the host (custom addition, not upstream).
+/*  Decoding of Switch HD rumble motor blocks sent by the host.
  *
  *  A motor block is a little-endian 32-bit word. Its top two bits give the packet type, and the
  *  rest carries 1 to 3 samples for the high and low bands:
@@ -33,4 +33,4 @@ namespace hd_rumble {
 
 } // namespace hd_rumble
 
-#endif // _OGXM_CUSTOM_HD_RUMBLE_H_
+#endif // _OGXM_SWITCH_HD_RUMBLE_H_

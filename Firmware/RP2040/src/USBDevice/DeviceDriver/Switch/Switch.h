@@ -8,7 +8,7 @@
 #include "USBDevice/DeviceDriver/DeviceDriver.h"
 #include "Descriptors/SwitchProDevice.h"
 #include "Custom/SwitchImu.h"
-#include "Custom/HdRumble.h"
+#include "USBDevice/DeviceDriver/Switch/HdRumble.h"
 
 class SwitchDevice : public DeviceDriver
 {

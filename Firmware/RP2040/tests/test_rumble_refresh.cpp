@@ -1,7 +1,7 @@
 // Idle neutral-rumble refresh for Switch pads (heals a lost "stop" without cutting rumble).
 #include <vector>
 
-#include "Custom/RumbleRefresh.h"
+#include "Bluepad32/RumbleRefresh.h"
 #include "test.h"
 
 using switch_rumble::IdleRefresh;

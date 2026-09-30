@@ -45,11 +45,11 @@ ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/Joy
 
 ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
 
-ogxm_add_test(test_rumble_refresh test_rumble_refresh.cpp ${FW_SRC}/Custom/RumbleRefresh.cpp)
+ogxm_add_test(test_rumble_refresh test_rumble_refresh.cpp ${FW_SRC}/Bluepad32/RumbleRefresh.cpp)
 
 ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)
 
-ogxm_add_test(test_hd_rumble test_hd_rumble.cpp ${FW_SRC}/Custom/HdRumble.cpp)
+ogxm_add_test(test_hd_rumble test_hd_rumble.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp)
 
 ogxm_add_test(test_sony_imu test_sony_imu.cpp)
 

@@ -74,7 +74,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Steam/SteamTouchpad.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/Custom/SwitchImu.cpp
-    ${SRC}/Custom/HdRumble.cpp
+    ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
     ${SRC}/Custom/DongleSettings.cpp
     ${SRC}/Custom/ReportedMac.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
@@ -421,7 +421,7 @@ if(EN_BLUETOOTH)
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${SRC}/Custom/ModeIndicator.cpp
         ${SRC}/Custom/JoyConSettings.cpp
-        ${SRC}/Custom/RumbleRefresh.cpp
+        ${SRC}/Bluepad32/RumbleRefresh.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp

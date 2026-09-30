@@ -1,9 +1,9 @@
-#ifndef _OGXM_CUSTOM_RUMBLE_REFRESH_H_
-#define _OGXM_CUSTOM_RUMBLE_REFRESH_H_
+#ifndef _OGXM_RUMBLE_REFRESH_H_
+#define _OGXM_RUMBLE_REFRESH_H_
 
 #include <cstdint>
 
-/*  Rumble timing for Switch pads (custom addition, not upstream).
+/*  Rumble timing for Switch pads.
  *
  *  Switch pads keep vibrating with the last rumble data they received. The feedback loop
  *  re-sends "rumble for N ms" every kFeedbackPeriodMs while the host requests rumble, and the
@@ -36,4 +36,4 @@ namespace switch_rumble {
 
 } // namespace switch_rumble
 
-#endif // _OGXM_CUSTOM_RUMBLE_REFRESH_H_
+#endif // _OGXM_RUMBLE_REFRESH_H_

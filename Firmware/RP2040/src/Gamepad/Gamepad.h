@@ -177,7 +177,12 @@ public:
     ~Gamepad() = default;
 
     //Get
-    inline bool new_pad_in() const { return new_pad_in_.load(); }
+    inline bool new_pad_in() const
+	{
+		return new_pad_in_.load(std::memory_order_acquire) ||
+			   (bt_pad_middle_state_.load(std::memory_order_acquire) &
+				BT_PAD_MAILBOX_DIRTY);
+	}
     inline bool new_pad_out() const { return new_pad_out_.load(); }
 
     // True if current pad_out has non-zero rumble (read-only, does not clear new_pad_out).
@@ -195,24 +200,44 @@ public:
     inline PadIn get_pad_in()
     {
         mutex_enter_blocking(&pad_in_mutex_);
-        /* Bluetooth HID runs on Core1; never block there on this mutex (would stall HCI/L2CAP).
-         * Latest BT reports are staged lock-free (2 slots) and merged here on Core0. */
-        while (bt_pad_staged_count_.load(std::memory_order_acquire) > 0) {
-            const unsigned ri = bt_pad_staged_read_.load(std::memory_order_relaxed) % BT_PAD_STAGING_SLOTS;
-            const PadIn& p = bt_pending_pads_[ri];
-            if (pad_in_count_ < PAD_IN_QUEUE_SIZE) {
-                pad_in_queue_[pad_in_tail_] = p;
-                pad_in_tail_ = (pad_in_tail_ + 1) % PAD_IN_QUEUE_SIZE;
-                pad_in_count_++;
-            } else {
-                pad_in_head_ = (pad_in_head_ + 1) % PAD_IN_QUEUE_SIZE;
-                pad_in_queue_[pad_in_tail_] = p;
-                pad_in_tail_ = (pad_in_tail_ + 1) % PAD_IN_QUEUE_SIZE;
-            }
-            bt_pad_staged_read_.store((ri + 1) % BT_PAD_STAGING_SLOTS, std::memory_order_relaxed);
-            bt_pad_staged_count_.fetch_sub(1, std::memory_order_acq_rel);
-            new_pad_in_.store(true);
-        }
+        /* Bluetooth HID runs on Core1; never block there on this mutex.
+		 *
+		 * Triple-buffer handoff:
+		 *   - Core1 exclusively owns bt_pad_write_index_
+		 *   - Core0 exclusively owns bt_pad_read_index_
+		 *   - bt_pad_middle_state_ atomically contains the shared middle
+		 *     buffer index plus a dirty bit
+		 *
+		 * If multiple Bluetooth reports arrive before Core0 consumes them,
+		 * the newest complete PadIn wins.
+		 */
+		const unsigned middle_state =
+			bt_pad_middle_state_.load(std::memory_order_acquire);
+
+		if (middle_state & BT_PAD_MAILBOX_DIRTY) {
+			const unsigned published =
+				bt_pad_middle_state_.exchange(bt_pad_read_index_,
+											  std::memory_order_acq_rel);
+
+			if (published & BT_PAD_MAILBOX_DIRTY) {
+				bt_pad_read_index_ = published & BT_PAD_MAILBOX_INDEX_MASK;
+
+				const PadIn& p = bt_pending_pads_[bt_pad_read_index_];
+
+				if (pad_in_count_ < PAD_IN_QUEUE_SIZE) {
+					pad_in_queue_[pad_in_tail_] = p;
+					pad_in_tail_ = (pad_in_tail_ + 1) % PAD_IN_QUEUE_SIZE;
+					pad_in_count_++;
+				} else {
+					// Queue full: discard oldest so the newest controller state survives.
+					pad_in_head_ = (pad_in_head_ + 1) % PAD_IN_QUEUE_SIZE;
+					pad_in_queue_[pad_in_tail_] = p;
+					pad_in_tail_ = (pad_in_tail_ + 1) % PAD_IN_QUEUE_SIZE;
+				}
+
+				new_pad_in_.store(true, std::memory_order_release);
+			}
+		}
         PadIn pad_in;
         if (pad_in_count_ > 0) {
             pad_in = pad_in_queue_[pad_in_head_];
@@ -384,19 +409,23 @@ public:
     }
 
     /** Bluetooth (Core1): never blocks on Core0 — avoids stalling the BT stack in HID callbacks. */
-    inline void set_pad_in_from_bluetooth(const PadIn& pad_in)
-    {
-        if (bt_pad_staged_count_.load(std::memory_order_acquire) >= BT_PAD_STAGING_SLOTS) {
-            const unsigned drop = bt_pad_staged_read_.load(std::memory_order_relaxed) % BT_PAD_STAGING_SLOTS;
-            bt_pad_staged_read_.store((drop + 1) % BT_PAD_STAGING_SLOTS, std::memory_order_relaxed);
-            bt_pad_staged_count_.fetch_sub(1, std::memory_order_acq_rel);
-        }
-        const unsigned wi = bt_pad_staged_write_.load(std::memory_order_relaxed) % BT_PAD_STAGING_SLOTS;
-        bt_pending_pads_[wi] = pad_in;
-        bt_pad_staged_write_.store((wi + 1) % BT_PAD_STAGING_SLOTS, std::memory_order_release);
-        bt_pad_staged_count_.fetch_add(1, std::memory_order_release);
-        new_pad_in_.store(true, std::memory_order_release);
-    }
+	inline void set_pad_in_from_bluetooth(const PadIn& pad_in)
+	{
+		// Core1 exclusively owns bt_pad_write_index_.
+		bt_pending_pads_[bt_pad_write_index_] = pad_in;
+
+		// Publish this completed buffer together with the dirty state,
+		// and take ownership of the previous middle buffer.
+		const unsigned previous_middle =
+			bt_pad_middle_state_.exchange(
+				bt_pad_write_index_ | BT_PAD_MAILBOX_DIRTY,
+				std::memory_order_acq_rel);
+
+		bt_pad_write_index_ =
+			previous_middle & BT_PAD_MAILBOX_INDEX_MASK;
+
+		new_pad_in_.store(true, std::memory_order_release);
+	}
 
     inline void set_pad_out(const PadOut& pad_out)
     {
@@ -421,9 +450,7 @@ public:
 
     inline void reset_pad_in()
     {
-        bt_pad_staged_write_.store(0, std::memory_order_relaxed);
-        bt_pad_staged_read_.store(0, std::memory_order_relaxed);
-        bt_pad_staged_count_.store(0, std::memory_order_relaxed);
+		bt_pad_middle_state_.fetch_and(BT_PAD_MAILBOX_INDEX_MASK, std::memory_order_acq_rel);
         mutex_enter_blocking(&pad_in_mutex_);
         pad_in_head_ = 0;
         pad_in_tail_ = 0;
@@ -545,13 +572,20 @@ public:
     }
 
     static constexpr unsigned PAD_IN_QUEUE_SIZE = 8;
-    static constexpr unsigned BT_PAD_STAGING_SLOTS = 2;
+	static constexpr unsigned BT_PAD_MAILBOX_SLOTS = 3;
+	static constexpr unsigned BT_PAD_MAILBOX_DIRTY = 1u << 2;
+	static constexpr unsigned BT_PAD_MAILBOX_INDEX_MASK = BT_PAD_MAILBOX_DIRTY - 1u;
 
 private:
-    PadIn bt_pending_pads_[BT_PAD_STAGING_SLOTS]{};
-    std::atomic<unsigned> bt_pad_staged_write_{0};
-    std::atomic<unsigned> bt_pad_staged_read_{0};
-    std::atomic<unsigned> bt_pad_staged_count_{0};
+    PadIn bt_pending_pads_[BT_PAD_MAILBOX_SLOTS]{};
+
+	// Triple-buffer ownership starts as:
+	//   Core1 write buffer = 0
+	//   shared middle     = 1
+	//   Core0 read buffer = 2
+	unsigned bt_pad_write_index_{0};                 // Core1 only
+	std::atomic<unsigned> bt_pad_middle_state_{1};   // middle index + dirty bit
+	unsigned bt_pad_read_index_{2};                  // Core0 only
     mutex_t pad_in_mutex_;
     mutex_t pad_out_mutex_;
     mutex_t chatpad_in_mutex_;

@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "Custom/HdRumble.h"
+#include "USBDevice/DeviceDriver/Switch/HdRumble.h"
 
 namespace hd_rumble {
 

@@ -21,6 +21,7 @@ jobs:
   build:
     name: Build ${{ matrix.board }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -56,7 +57,15 @@ jobs:
             libnewlib-arm-none-eabi \
             libstdc++-arm-none-eabi-newlib
 
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: Firmware/external/pico-sdk
+          key: pico-sdk-2.1.0
+
       - name: Get Pico SDK 2.1.0
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
           git clone --branch 2.1.0 --depth 1 --recurse-submodules \
             https://github.com/raspberrypi/pico-sdk.git \
