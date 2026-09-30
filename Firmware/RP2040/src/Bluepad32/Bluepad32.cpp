@@ -141,6 +141,8 @@ static int s_disconnect_combo_idx = -1;
  * watchdog *before* touching the pads: a run-loop timer never fired when the BT core hung
  * while the pads were going away. Nothing feeds the watchdog, so it always resets. */
 static constexpr uint32_t DISCONNECT_COMBO_REBOOT_DELAY_MS = 1500;
+/* Safety net for the reboot after the last ready pad disconnects (normally 500 ms). */
+static constexpr uint32_t DISCONNECT_REBOOT_WATCHDOG_MS = 3000;
 
 static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
 {
@@ -904,6 +906,11 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 		s_bt_disconnect_reboot_timer.context = nullptr;
 		btstack_run_loop_set_timer(&s_bt_disconnect_reboot_timer, 500);
 		btstack_run_loop_add_timer(&s_bt_disconnect_reboot_timer);
+		/* Custom fix: the reboot above is a run-loop timer on the BT core, which never fires
+		 * if that core hangs while the pads go away (seen with the disconnect combo, and a
+		 * suspected freeze after turning a Joy-Con pair off). Arm the hardware watchdog too
+		 * (nothing feeds it), like the combo does, so the board always reboots. */
+		watchdog_enable(DISCONNECT_REBOOT_WATCHDOG_MS, true);
 		printf("[BP32] Pairing mode on — reboot in 500 ms for clean reconnect\n");
 	}
 }

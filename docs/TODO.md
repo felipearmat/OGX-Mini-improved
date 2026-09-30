@@ -19,6 +19,10 @@ Known issues in this fork, to fix later.
   fresh pairing (its link key had been dropped), both were turned off two minutes later, the
   dongle rebooted with both keys stored, and no connection came from either Joy-Con for 2 minutes
   of button presses; a sync press made the dongle find and connect them with the stored keys.
+  Also, the very first time (Release build, no log) the dongle seemed frozen after both Joy-Cons
+  were turned off and took minutes to start searching again. Suspect: the reboot after the last
+  pad disconnects (upstream #106) is a BT run-loop timer that never fires if the BT core hangs
+  during the teardown; a 3 s hardware watchdog is now armed with it as a safety net.
   Not reproduced afterwards: at 20:04 (disconnect combo) and 20:05 (quick sync press) both
   Joy-Cons reconnected on their own a few seconds after the reboot. Watch for it after a fresh
   pairing. Related: a failed L2CAP open makes Bluepad32 drop the pad's link key
