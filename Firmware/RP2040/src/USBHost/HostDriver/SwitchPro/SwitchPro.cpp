@@ -747,10 +747,12 @@ void SwitchProHost::apply_standard_input(Gamepad& gamepad, const uint8_t* report
         gp_in.buttons |= gamepad.MAP_BUTTON_LB;
     if (in_report->buttons[0] & SwitchPro::Buttons0::R)
         gp_in.buttons |= gamepad.MAP_BUTTON_RB;
+    /* Custom fix: SwitchPro::Buttons1::L3 / R3 now match the real layout (they used to be
+     * swapped, and this cross-mapping compensated for it). */
     if (in_report->buttons[1] & SwitchPro::Buttons1::L3)
-        gp_in.buttons |= gamepad.MAP_BUTTON_R3;
-    if (in_report->buttons[1] & SwitchPro::Buttons1::R3)
         gp_in.buttons |= gamepad.MAP_BUTTON_L3;
+    if (in_report->buttons[1] & SwitchPro::Buttons1::R3)
+        gp_in.buttons |= gamepad.MAP_BUTTON_R3;
     if (in_report->buttons[1] & SwitchPro::Buttons1::MINUS)
         gp_in.buttons |= gamepad.MAP_BUTTON_BACK;
     if (in_report->buttons[1] & SwitchPro::Buttons1::PLUS)
