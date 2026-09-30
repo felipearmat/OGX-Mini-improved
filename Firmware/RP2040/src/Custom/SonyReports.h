@@ -16,9 +16,9 @@ namespace sony_reports {
     /* ---- Host -> device (output reports) ------------------------------------------------ */
 
     /* Copy an output report body (bytes after the report ID) into a struct that starts with the
-     * ID field. The PS4 / STEAM drivers used to copy the body over the ID field (every setting
-     * one byte off), and the PS4 one also required the struct size after the ID (reports were
-     * dropped). Fails when the body is shorter than min_body. */
+     * ID field. The PS4 / STEAM drivers required the struct size (ID included) after the ID, so
+     * every USB output report was dropped, and a longer one would have been copied over the ID
+     * field (every setting one byte off). Fails when the body is shorter than min_body. */
     template <typename Out>
     bool copy_output_body(uint8_t report_id, const uint8_t* body, size_t len, size_t min_body, Out& out)
     {

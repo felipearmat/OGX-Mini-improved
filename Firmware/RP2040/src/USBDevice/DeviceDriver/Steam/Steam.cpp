@@ -198,8 +198,10 @@ void SteamDevice::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_
 		buf = &buffer[1];
 	}
 
-	/* Custom fix: buf is the report body after its ID; it used to be copied over the ID field,
-	 * reading every setting one byte off (see sony_reports::copy_output_body). */
+	/* Custom fix: buf is the report body after its ID. The old check required the struct size
+	 * (ID included) after the ID, so USB report 0x02 (47-byte body) was always dropped, and a
+	 * longer report would have been copied over the ID field, one byte off (see
+	 * sony_reports::copy_output_body). */
 	constexpr size_t kMinBody = offsetof(PS5::OutReport, lightbar_blue);
 	if ((rid == PS5::OutReportID::RUMBLE || rid == PS5::OutReportID::CONTROL) &&
 	    sony_reports::copy_output_body(rid, buf, len, kMinBody, report_out_)) {

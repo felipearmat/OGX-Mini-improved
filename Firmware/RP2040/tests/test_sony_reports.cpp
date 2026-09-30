@@ -4,7 +4,7 @@
 //    as a report ID); rumble fields were read one byte off, rumble never worked.
 //  - PS4: output reports were dropped (length check counted the report ID twice): no rumble,
 //    no lightbar.
-//  - STEAM (DualSense): output body copied over the ID field: rumble from the flags byte, no
+//  - STEAM (DualSense): output reports were dropped (same length check as PS4): no rumble, no
 //    lightbar.
 //  - PS4 / STEAM: a lightbar-only update carries zero motor bytes and stopped a running rumble.
 //  - GET_REPORT repeated the report ID TinyUSB already puts in front.
