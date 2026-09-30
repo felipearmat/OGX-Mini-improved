@@ -14,9 +14,6 @@ Known issues in this fork, to fix later.
 
 ## Rumble
 
-- **Joy-Con rumble intensity (f5dda2d) not yet checked on hardware.** Use
-  `rumbletest.py` (images folder): levels 10-100 %, one motor at a time, short pulses, 5 s hold.
-
 - **Joy-Cons do not reconnect by pressing a button after the dongle reboots** (2026-09-30,
   DebugLite log `joycon-hang.log`): after both were turned off (quick press of sync) the dongle
   rebooted (last pad disconnected), kept both link keys, but received no connection from either
