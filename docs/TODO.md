@@ -14,13 +14,14 @@ Known issues in this fork, to fix later.
 
 ## Rumble
 
-- **Joy-Cons do not reconnect by pressing a button after the dongle reboots** (2026-09-30,
-  DebugLite log `joycon-hang.log`): after both were turned off (quick press of sync) the dongle
-  rebooted (last pad disconnected), kept both link keys, but received no connection from either
-  Joy-Con for 2 minutes of button presses; pressing sync made the dongle find and connect them
-  with the stored keys. On 2026-09-29 builds the Joy-Cons did reconnect on their own (incoming
-  connections in `paddisc.log`). Suspect: continuous BR/EDR inquiry after boot leaving no page
-  scan window. Also: a failed L2CAP open makes Bluepad32 drop the pad's link key
+- **Joy-Cons once did not reconnect by pressing a button after the dongle rebooted**
+  (2026-09-30, DebugLite log `joycon-hang.log`, 19:42-19:45): the right Joy-Con had just done a
+  fresh pairing (its link key had been dropped), both were turned off two minutes later, the
+  dongle rebooted with both keys stored, and no connection came from either Joy-Con for 2 minutes
+  of button presses; a sync press made the dongle find and connect them with the stored keys.
+  Not reproduced afterwards: at 20:04 (disconnect combo) and 20:05 (quick sync press) both
+  Joy-Cons reconnected on their own a few seconds after the reboot. Watch for it after a fresh
+  pairing. Related: a failed L2CAP open makes Bluepad32 drop the pad's link key
   (`uni_bt_bredr.c`), so the pad then needs a fresh sync.
 
 - **Steam trigger test doesn't rumble with a solo Joy-Con in Switch Pro mode.**
