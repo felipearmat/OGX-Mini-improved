@@ -17,16 +17,6 @@ Known issues in this fork, to fix later.
     pulse may land on a frequency the Joy-Con barely plays.
   - Also check the Joy-Con solo vs. paired paths in the feedback loop.
 
-- **Rumble intensity control.** Bluepad32's Switch parser encodes rumble with a
-  fixed amplitude (500) and maps the requested magnitude to frequency
-  (`weak << 2`, `weak`), so the strength doesn't follow what the host asks for.
-  Map the magnitude to the amplitude table instead, at fixed frequencies (e.g.
-  160 Hz low band and 320 Hz high band). The host side is already decoded as a
-  0-255 intensity (`Custom/HdRumble`). Consider passing the host's HD rumble
-  through unchanged when both ends are Switch pads. DS4Windows (SwitchProDevice.cs,
-  PrepareRumbleData) does exactly this: fixed 320 Hz in both bands, amplitude from the
-  table indexed by the requested strength, capped at 800 of 1003.
-
 - **Far Cry 6 ignores gyro aiming in PS4 mode** (Steam Input gyro as mouse or as joystick,
   Steam Input forced on). Steam reads the DS4 motion correctly (its calibration and test view
   track rotation), and the same DS4 aims fine in Switch Pro mode. Likely Proton handing the game

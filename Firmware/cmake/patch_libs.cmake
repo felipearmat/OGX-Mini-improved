@@ -47,6 +47,9 @@ endfunction()
 # - pair IMU: a merged Joy-Con pair keeps (and parses) only the selected half's IMU;
 # - idle rumble refresh: neutral rumble re-sent while idle, so a lost "stop" can't leave
 #   the motor on.
+# - rumble intensity: map the requested magnitude to the amplitude table at a fixed
+#   frequency (DS4Windows's SwitchProDevice.PrepareRumbleData approach) instead of
+#   encoding the magnitude as frequency with a fixed amplitude.
 # Shared by the firmware build and the host tests (Firmware/RP2040/tests).
 function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
     ogxm_apply_patch_series("Bluepad32 Switch parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
@@ -54,7 +57,8 @@ function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
         "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_idle_rumble_refresh.diff")
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_idle_rumble_refresh.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_rumble_intensity.diff")
 endfunction()
 
 function(apply_lib_patches EXTERNAL_DIR)

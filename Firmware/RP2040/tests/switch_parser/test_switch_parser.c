@@ -7,7 +7,8 @@
 //  - wiped parser timers left linked in the run loop -> cleanup unlinks them;
 //  - request_sleep sends subcommand 0x06 with arg 0x00;
 //  - rumble stuck on after a lost "stop": idle refresh re-sends neutral rumble;
-//  - a merged Joy-Con pair keeps only the selected half's IMU on (right by default).
+//  - a merged Joy-Con pair keeps only the selected half's IMU on (right by default);
+//  - rumble magnitude was encoded as frequency (fixed amplitude) instead of amplitude.
 #include <stdio.h>
 #include <string.h>
 
@@ -232,6 +233,44 @@ static void test_long_rumble_not_interrupted(void) {
     CHECK(count_neutral_rumble(0) == neutral_before + 1);
 }
 
+// Last rumble-only packet's left-motor bytes (offset 3..6 in the sent report, see
+// count_neutral_rumble/count_rumble_on above), or NULL if none was sent.
+static const uint8_t* last_left_rumble_bytes(int dev_idx) {
+    for (int i = fake_sent_count() - 1; i >= 0; i--) {
+        const fake_sent_t* p = fake_sent(i);
+        if (p->dev_idx == dev_idx && p->len >= 11 && p->bytes[1] == 0x10)
+            return &p->bytes[3];
+    }
+    return NULL;
+}
+
+// Regression for the rumble intensity bug: switch_play_dual_rumble_now used to encode the
+// requested 0-255 magnitude as a *frequency* (with a fixed amplitude), so raising the
+// magnitude changed the pitch, not the strength. The fix keeps the frequency fixed and maps
+// magnitude to the amplitude table instead (DS4Windows's approach) -- assert that directly:
+// the frequency-derived byte stays constant across magnitudes, while the amplitude-derived
+// bytes grow with it.
+static void test_rumble_intensity_tracks_magnitude(void) {
+    fake_reset();
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 40, 40);
+    const uint8_t* low = last_left_rumble_bytes(0);
+    CHECK(low != NULL);
+    uint8_t low_freq_byte = low[0];
+    uint8_t low_amp_byte = low[1];
+
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 220, 220);
+    const uint8_t* high = last_left_rumble_bytes(0);
+    CHECK(high != NULL);
+    uint8_t high_freq_byte = high[0];
+    uint8_t high_amp_byte = high[1];
+
+    CHECK(low_freq_byte == high_freq_byte);   // frequency fixed regardless of magnitude
+    CHECK(high_amp_byte > low_amp_byte);      // amplitude grows with the requested magnitude
+}
+
 static void test_request_sleep(void) {
     fake_reset();
     start_joycon(0, JCL);
@@ -258,6 +297,7 @@ int main(void) {
         {"cleanup_unlinks_timers", test_cleanup_unlinks_timers},
         {"idle_rumble_refresh", test_idle_rumble_refresh},
         {"long_rumble_not_interrupted", test_long_rumble_not_interrupted},
+        {"rumble_intensity_tracks_magnitude", test_rumble_intensity_tracks_magnitude},
         {"request_sleep", test_request_sleep},
     };
     int failed = 0;
