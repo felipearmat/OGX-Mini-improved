@@ -33,9 +33,15 @@ jobs:
             Firmware/external/bluepad32 Firmware/external/libfixmath Firmware/external/tinyusb
 
       - name: Install toolchain
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+            -o DPkg::Lock::Timeout=120
         run: |
-          .github/scripts/retry.sh 5 5m -- sudo apt-get update
-          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y cmake ninja-build gcc-multilib g++-multilib
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get $APT_OPTS update'
+          .github/scripts/retry.sh 5 5m -- bash -c '
+            sudo dpkg --configure -a &&
+            sudo apt-get $APT_OPTS install -y cmake ninja-build gcc-multilib g++-multilib'
 
       - name: Build and run tests
         run: |
@@ -88,11 +94,19 @@ jobs:
             git clone --depth 1 --branch ${PICO_SDK_TAG} https://github.com/raspberrypi/pico-sdk.git Firmware/external/pico-sdk &&
             git -C Firmware/external/pico-sdk submodule update --init --depth 1"
 
+      # apt-get install is the step seen hanging on runners: apt's own retries and timeouts,
+      # finish any install a killed attempt left half-configured, 5 minutes per attempt.
       - name: Install toolchain
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+            -o DPkg::Lock::Timeout=120
         run: |
-          .github/scripts/retry.sh 5 5m -- sudo apt-get update
-          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi \
-            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get $APT_OPTS update'
+          .github/scripts/retry.sh 5 5m -- bash -c '
+            sudo dpkg --configure -a &&
+            sudo apt-get $APT_OPTS install -y cmake ninja-build gcc-arm-none-eabi \
+              libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3'
 
       - name: Build ${{ matrix.name }}
         env:
