@@ -59,13 +59,25 @@ namespace sony_reports {
     constexpr uint8_t kDs5Valid0CompatibleVibration = 0x01;
     constexpr uint8_t kDs5Valid0HapticsSelect = 0x02;
     constexpr uint8_t kDs5Valid1Lightbar = 0x04;
+    constexpr uint8_t kDs5Valid2CompatibleVibration2 = 0x04;   // "improved rumble" (SDL, kernel v2)
 
     // A lightbar-only update carries zero motor bytes: only take rumble the host marked valid.
     inline bool ds4_rumble_valid(uint8_t flags) { return (flags & kDs4ValidRumble) != 0; }
     inline bool ds4_led_valid(uint8_t flags) { return (flags & kDs4ValidLed) != 0; }
-    inline bool ds5_rumble_valid(uint8_t flag0)
+    /* DualSense rumble, following SDL, Linux hid-playstation and inputtino (Sunshine):
+     *  - motor bytes are valid with compatible vibration (flag0 bit 0) or its v2 form (flag2
+     *    bit 2, which SDL uses on firmware it takes for 2.24+, including ours: version 0);
+     *  - a report with every valid flag clear is SDL's "stop rumble" (it clears the rumble bits
+     *    once the rumble ends), so it stops the motors;
+     *  - anything else (e.g. a lightbar-only update) leaves the current rumble alone. */
+    inline bool ds5_rumble_valid(uint8_t flag0, uint8_t flag2)
     {
-        return (flag0 & (kDs5Valid0CompatibleVibration | kDs5Valid0HapticsSelect)) != 0;
+        return (flag0 & kDs5Valid0CompatibleVibration) != 0 ||
+               (flag2 & kDs5Valid2CompatibleVibration2) != 0;
+    }
+    inline bool ds5_rumble_stop(uint8_t flag0, uint8_t flag1, uint8_t flag2)
+    {
+        return flag0 == 0 && flag1 == 0 && flag2 == 0;
     }
     inline bool ds5_lightbar_valid(uint8_t flag1) { return (flag1 & kDs5Valid1Lightbar) != 0; }
 

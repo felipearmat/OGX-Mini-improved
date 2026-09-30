@@ -139,11 +139,16 @@ void SteamDevice::process(const uint8_t idx, Gamepad& gamepad)
 	if (new_report_out_) {
 		/* Custom: only take what the host marked valid. A lightbar-only update carries zero
 		 * motor bytes, which used to stop a running rumble. */
-		if (sony_reports::ds5_rumble_valid(report_out_.control_flag[0])) {
+		const uint8_t flag0 = report_out_.control_flag[0];
+		const uint8_t flag1 = report_out_.control_flag[1];
+		const uint8_t flag2 = report_out_.led_control_flag;   // valid_flag2
+		if (sony_reports::ds5_rumble_valid(flag0, flag2)) {
 			Gamepad::PadOut gp_out;
 			gp_out.rumble_l = report_out_.motor_left;
 			gp_out.rumble_r = report_out_.motor_right;
 			gamepad.set_pad_out(gp_out);
+		} else if (sony_reports::ds5_rumble_stop(flag0, flag1, flag2)) {
+			gamepad.set_pad_out(Gamepad::PadOut());
 		}
 		if (sony_reports::ds5_lightbar_valid(report_out_.control_flag[1])) {
 			gamepad.set_host_lightbar(report_out_.lightbar_red, report_out_.lightbar_green,

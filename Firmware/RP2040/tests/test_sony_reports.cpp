@@ -108,14 +108,22 @@ TEST(ds5_output_body_is_aligned) {
     CHECK_EQ(out.lightbar_red, 128);
     CHECK_EQ(out.lightbar_green, 0);
     CHECK_EQ(out.lightbar_blue, 255);
-    CHECK(sr::ds5_rumble_valid(out.control_flag[0]));
+    CHECK(sr::ds5_rumble_valid(out.control_flag[0], out.led_control_flag));
     CHECK(sr::ds5_lightbar_valid(out.control_flag[1]));
 }
 
-TEST(ds5_lightbar_only_update_is_not_rumble) {
-    CHECK(!sr::ds5_rumble_valid(0x00));
-    CHECK(sr::ds5_rumble_valid(0x02));       // haptics select (vibration v2)
-    CHECK(!sr::ds5_lightbar_valid(0x00));
+TEST(ds5_rumble_flags_as_hosts_send_them) {
+    // SDL, rumbling on firmware it takes for 2.24+ (ours reports 0): haptics select in flag0,
+    // "improved rumble" in flag2 (it used to be ignored: no rumble from Steam).
+    CHECK(sr::ds5_rumble_valid(0x02, 0x04));
+    // SDL on older firmware, and Linux hid-playstation v1: compatible vibration in flag0.
+    CHECK(sr::ds5_rumble_valid(0x03, 0x00));
+    // SDL stopping: every flag clear with zero motors. It used to be ignored (rumble stuck on).
+    CHECK(!sr::ds5_rumble_valid(0x00, 0x00));
+    CHECK(sr::ds5_rumble_stop(0x00, 0x00, 0x00));
+    // Lightbar-only update (Linux): neither rumble nor stop, the running rumble stays.
+    CHECK(!sr::ds5_rumble_valid(0x00, 0x00));
+    CHECK(!sr::ds5_rumble_stop(0x00, sr::kDs5Valid1Lightbar, 0x00));
 }
 
 // ---- GET_REPORT ------------------------------------------------------------------------------
