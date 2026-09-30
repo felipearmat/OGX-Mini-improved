@@ -18,7 +18,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 83e2514 | Switch Pro output: decode host HD rumble properly | pr #116 | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Adds `Custom/HdRumble` (rename to fit upstream layout). |
 | 2c6d768 | PS3 output: rumble from Linux hosts (hid-sony report 0x01 one byte short) | pr #112 | TinyUSB strips the 0x01 padding byte as a report ID. Small. |
 | 40c26bc | Bluetooth: per-pad state arrays overflowed by Bluetooth slot 1 | pr #111 | Memory corruption on every disconnect of the second slot (right Joy-Con of a pair). High priority. |
-| dacb85b | PS4 output: real motion sensor clock | todo | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
+| dacb85b | PS4 output: real motion sensor clock | pr #122 | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
 | 7e188c2 | NVSTool: park the other core for every flash write (flash_safe_execute) | pr #119 | Only the mode-change path stopped Core1. |
 | 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | pr #118 | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
 | 332aed6 | Switch pads: rumble stuck on, stop/restart in long rumble | pr #115 | Idle neutral refresh (Bluepad32 patch) + 350 ms duration. |
