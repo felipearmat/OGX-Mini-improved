@@ -15,18 +15,18 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | Commit | Change | Status | Notes |
 |---|---|---|---|
 | 44147f1 | Switch Pro output: L3/R3 swapped | pr #110 | Every pad showed stick clicks inverted in Switch Pro mode. Small, with test. |
-| 83e2514 | Switch Pro output: decode host HD rumble properly | todo | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Adds `Custom/HdRumble` (rename to fit upstream layout). |
+| 83e2514 | Switch Pro output: decode host HD rumble properly | pr #116 | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Adds `Custom/HdRumble` (rename to fit upstream layout). |
 | 2c6d768 | PS3 output: rumble from Linux hosts (hid-sony report 0x01 one byte short) | pr #112 | TinyUSB strips the 0x01 padding byte as a report ID. Small. |
 | 40c26bc | Bluetooth: per-pad state arrays overflowed by Bluetooth slot 1 | pr #111 | Memory corruption on every disconnect of the second slot (right Joy-Con of a pair). High priority. |
 | dacb85b | PS4 output: real motion sensor clock | todo | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
-| 7e188c2 | NVSTool: park the other core for every flash write (flash_safe_execute) | todo | Only the mode-change path stopped Core1. |
-| 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | todo | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
+| 7e188c2 | NVSTool: park the other core for every flash write (flash_safe_execute) | pr #119 | Only the mode-change path stopped Core1. |
+| 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | pr #118 | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
 | 332aed6 | Switch pads: rumble stuck on, stop/restart in long rumble | pr #115 | Idle neutral refresh (Bluepad32 patch) + 350 ms duration. |
 | 7d1f0b3 | Switch parser: enable vibration during setup | pr #115 | Joy-Cons never vibrated (subcommand 0x48). Also for Bluepad32 upstream. |
 | 4b1fd60 | Switch parser: robust setup, sleep request | pr #115 | Per-step timeouts, stale replies, one pad in setup at a time, timer cleanup. Also for Bluepad32 upstream. |
-| 721c322 | Mode switch: park Core1 before flash write, watchdog | todo | Pico W / Pico 2 W froze on mode change. |
-| e0629c9 (NVSTool part) | Flash writes with interrupts disabled, buffer off the stack, sector offset | todo | Split from the mode indicator (fork feature) before sending. |
-| e18b8ea | Web App: send pad input in the legacy 23-byte layout | todo | Web app never showed live input. |
+| 721c322 | Mode switch: park Core1 before flash write, watchdog | pr #119 | Pico W / Pico 2 W froze on mode change. |
+| e0629c9 (NVSTool part) | Flash writes with interrupts disabled, buffer off the stack, sector offset | pr #119 | Split from the mode indicator (fork feature) before sending. |
+| e18b8ea | Web App: send pad input in the legacy 23-byte layout | pr #120 | Web app never showed live input. |
 | bd9aa29 | Disconnect combo: BT-core deadlock (set_led in HCI event) | pr #115 | Deadlock is an upstream bug. The 3 s hold and reboot-after are behaviour changes: offer separately or as options. |
 | 6335503 (combo part) | Disconnect combo deferred to a run-loop timer | pr #115 | Tearing the pair down while parsing its report hung the BT core. |
 | eada5e5 | PS4 output: host output reports dropped (no rumble / lightbar) | pr #113 (output fix only) | Length check counted the report ID twice. Small, standalone. |
@@ -35,7 +35,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | bda2bdf | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). |
 | c8b8a73 | Switch Pro wired input: follow the L3/R3 constant fix | pr #110 | Goes with 44147f1 (same PR); the wired Pro host driver compensated for the old values. |
 | 8bc9c22 | STEAM output: DualSense rumble flags as SDL / Steam send them | pr #114 | Goes with the STEAM output-report PR. |
-| 49ab92c | DInput output: analog button pressure from the wrong buttons | todo | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
+| 49ab92c | DInput output: analog button pressure from the wrong buttons | pr #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
 
 ## Features (offer, upstream may or may not want them)
 
@@ -46,7 +46,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | e0629c9 (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
 | 0703a2d | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
-| b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | todo | Small build fix. |
+| b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | pr #121 | Small build fix. |
 
 ## Other projects
 
