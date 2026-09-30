@@ -12,6 +12,7 @@ These documents are **informational / planning** surveys. For day-to-day use (mo
 
 **Firmware guides & references:** [Firmware/RP2040/docs/README.md](../Firmware/RP2040/docs/README.md)  
 **Build from source:** [Building_From_Source.md](../Firmware/RP2040/docs/Building_From_Source.md)  
+**Unit tests (OGX-Mini-improved):** [TESTING.md](TESTING.md)  
 **Architecture / extending drivers:** [Firmware_Architecture.md](../Firmware/RP2040/docs/Firmware_Architecture.md)  
 **Project overview / build:** [README.md](../README.md)  
 **Release history:** [CHANGELOG.md](../CHANGELOG.md)

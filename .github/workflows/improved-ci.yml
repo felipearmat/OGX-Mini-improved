@@ -1,5 +1,7 @@
 # OGX-Mini-improved CI: host unit tests + Pico 2 W firmware builds.
 # Kept separate from the upstream build.yml so upstream merges stay conflict-free.
+# Runs on every pull request: a PR is ready to merge only when both jobs pass
+# (how to run the tests locally: docs/TESTING.md).
 name: OGX-Mini-improved CI
 
 on:
@@ -8,11 +10,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A new push to the same PR / branch cancels the run it replaces.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   PICO_SDK_TAG: "2.1.0"
 
 jobs:
   host-tests:
+    name: Unit tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +28,7 @@ jobs:
       - name: Checkout required submodules
         run: |
           git submodule update --init --recursive --depth 1 \
-            Firmware/external/bluepad32 Firmware/external/libfixmath
+            Firmware/external/bluepad32 Firmware/external/libfixmath Firmware/external/tinyusb
 
       - name: Install toolchain
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc-multilib g++-multilib
@@ -32,6 +40,7 @@ jobs:
           ctest --test-dir build-tests --output-on-failure
 
   firmware:
+    name: Firmware (${{ matrix.name }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false

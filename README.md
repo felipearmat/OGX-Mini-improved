@@ -17,12 +17,16 @@ fork changes behaviour.
 - **STEAM mode:** the same for any pad (DS4, Joy-Cons...), not only a real DualSense: motion,
   touchpad (also as desktop mouse), battery, lightbar, rumble.
 - **PS3 mode:** rumble from Linux hosts.
+- **DInput mode:** analog button pressure from the right buttons (pressure-sensitive pads).
 - **Joy-Cons:** vibration, robust pairing, sleep on mode change / disconnect combo.
 - **Stability:** mode switch no longer freezes (Core1 parked), flash writes park the other core,
   memory corruption on Bluetooth slot 1 fixed, disconnect combo deadlock fixed.
 - **Mode indicator:** the board LED blinks the mode number at boot and a DS4 / DualSense lightbar
   shows the mode colour (replaced by the colour the host asks for).
-- **Adapter Options** in the web app (below), host unit tests and CI.
+- **Adapter Options** in the web app (below).
+- **Unit tests and CI:** every fixed bug has a host-side test where it can have one; CI runs them
+  and the firmware builds on every push and pull request. How to run them:
+  [docs/TESTING.md](docs/TESTING.md).
 
 **Output modes** (combos held ~3 s; on a DS4, Start = Options, LB = L1; on Joy-Cons, Start = +):
 

@@ -35,7 +35,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | bda2bdf | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). |
 | c8b8a73 | Switch Pro wired input: follow the L3/R3 constant fix | pr #110 | Goes with 44147f1 (same PR); the wired Pro host driver compensated for the old values. |
 | 8bc9c22 | STEAM output: DualSense rumble flags as SDL / Steam send them | pr #114 | Goes with the STEAM output-report PR. |
-| 49ab92c | DInput output: analog button pressure from the wrong buttons | todo | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Not tested on hardware. |
+| 49ab92c | DInput output: analog button pressure from the wrong buttons | todo | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
 
 ## Features (offer, upstream may or may not want them)
 

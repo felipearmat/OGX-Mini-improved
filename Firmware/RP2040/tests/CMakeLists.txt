@@ -65,6 +65,28 @@ ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)
 
+# USB device drivers (DInput, PS3, PS4, STEAM) built from the firmware sources, with the TinyUSB
+# calls stubbed in the test: output reports in through set_report_cb, input reports captured.
+set(DEV ${FW_SRC}/USBDevice/DeviceDriver)
+ogxm_add_test(test_device_reports test_device_reports.cpp
+    ${DEV}/DInput/DInput.cpp
+    ${DEV}/PS3/PS3.cpp
+    ${DEV}/PS4/PS4.cpp
+    ${DEV}/Steam/Steam.cpp
+    ${DEV}/Steam/SteamTouchpad.cpp
+    ${FW_SRC}/UserSettings/UserProfile.cpp
+    ${FW_SRC}/UserSettings/JoystickSettings.cpp
+    ${FW_SRC}/UserSettings/TriggerSettings.cpp
+    ${FW_SRC}/Custom/DongleSettings.cpp
+    ${FW_SRC}/Custom/ReportedMac.cpp)
+target_include_directories(test_device_reports PRIVATE ${EXTERNAL_DIR}/tinyusb/src)
+target_compile_definitions(test_device_reports PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1 MAX_GAMEPADS=1
+    CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED)
+target_compile_definitions(test_device_reports PRIVATE TUP_DCD_ENDPOINT_MAX=8)
+# Warnings from the TinyUSB headers and unused virtual parameters, not from the code under test.
+target_compile_options(test_device_reports PRIVATE -Wno-unused-parameter -Wno-volatile)
+target_link_libraries(test_device_reports PRIVATE fixmath)
+
 # Bluepad32 Switch parser with the OGX-Mini-improved patch series (applied here if needed). Built 32-bit so struct layouts match the RP2350 (the parser's instance
 # must fit in 256 bytes of parser_data).
 set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)
