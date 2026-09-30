@@ -2,7 +2,29 @@
 
 Known issues in this fork, to fix later.
 
+## Motion
+
+- **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
+  camera / aim moves much faster than the real rotation, and Steam's "gyro stabilization"
+  option has to be turned on to make it usable (same for a DS4). Check that the synthesized
+  DualSense motion units (`Custom/SonyImu.h`) and the calibration report 0x05 agree, for Joy-Con
+  (Switch units, `Custom/SwitchImu`) and DS4 sources; compare with a real DualSense's degrees per
+  count in Steam's calibration view; check whether the noise floor (not only the scale) is what
+  the stabilization option hides.
+
 ## Rumble
+
+- **Joy-Con rumble intensity (f5dda2d) not yet checked on hardware.** Use
+  `rumbletest.py` (images folder): levels 10-100 %, one motor at a time, short pulses, 5 s hold.
+
+- **Joy-Cons do not reconnect by pressing a button after the dongle reboots** (2026-09-30,
+  DebugLite log `joycon-hang.log`): after both were turned off (quick press of sync) the dongle
+  rebooted (last pad disconnected), kept both link keys, but received no connection from either
+  Joy-Con for 2 minutes of button presses; pressing sync made the dongle find and connect them
+  with the stored keys. On 2026-09-29 builds the Joy-Cons did reconnect on their own (incoming
+  connections in `paddisc.log`). Suspect: continuous BR/EDR inquiry after boot leaving no page
+  scan window. Also: a failed L2CAP open makes Bluepad32 drop the pad's link key
+  (`uni_bt_bredr.c`), so the pad then needs a fresh sync.
 
 - **Steam trigger test doesn't rumble with a solo Joy-Con in Switch Pro mode.**
   In Steam's controller settings, pressing ZL/ZR makes Steam send short pulses:
