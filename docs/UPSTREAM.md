@@ -54,6 +54,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | e0629c9 (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
 | 0703a2d | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
+| (CI) | `build.yml`: job timeout and Pico SDK cache | merged #124 | Hung jobs were cancelled, but that board lost its UF2. |
+| (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | pr #125 | Also used by `improved-ci.yml` in the fork. |
 | b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | pr #121 | Small build fix. |
 
 ## Other projects

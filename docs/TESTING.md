@@ -7,7 +7,9 @@ bug is back.
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
 `host-tests`), together with the Pico 2 W firmware builds. A PR is only ready to merge when both
-jobs pass.
+jobs pass. Steps that hang or depend on the network (submodules, apt, Pico SDK, configure + build)
+are retried up to 5 times, each attempt under its own time limit (`.github/scripts/retry.sh`), so a
+stuck download does not cost a whole image.
 
 ## Running them
 

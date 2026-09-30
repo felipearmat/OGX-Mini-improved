@@ -22,16 +22,20 @@ jobs:
   host-tests:
     name: Unit tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
+      # Network steps retry (up to 5 attempts, each with a time limit; .github/scripts/retry.sh).
       - name: Checkout required submodules
         run: |
-          git submodule update --init --recursive --depth 1 \
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --recursive --depth 1 \
             Firmware/external/bluepad32 Firmware/external/libfixmath Firmware/external/tinyusb
 
       - name: Install toolchain
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc-multilib g++-multilib
+        run: |
+          .github/scripts/retry.sh 5 5m -- sudo apt-get update
+          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y cmake ninja-build gcc-multilib g++-multilib
 
       - name: Build and run tests
         run: |
@@ -42,6 +46,8 @@ jobs:
   firmware:
     name: Firmware (${{ matrix.name }})
     runs-on: ubuntu-24.04
+    # Steps retry on their own (up to 5 attempts each); this only bounds the worst case.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -58,13 +64,18 @@ jobs:
 
       - name: Checkout required submodules
         run: |
-          git submodule update --init --recursive --depth 1 \
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --recursive --depth 1 \
             Firmware/external/bluepad32 Firmware/external/tinyusb \
             Firmware/external/Pico-PIO-USB Firmware/external/libfixmath
 
+      # A slow cache download gives up after a few minutes and the SDK is cloned instead.
       - name: Cache Pico SDK
         id: sdk-cache
         uses: actions/cache@v4
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
         with:
           path: Firmware/external/pico-sdk
           key: pico-sdk-${{ env.PICO_SDK_TAG }}
@@ -72,23 +83,26 @@ jobs:
       - name: Get Pico SDK
         if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch ${PICO_SDK_TAG} https://github.com/raspberrypi/pico-sdk.git Firmware/external/pico-sdk
-          git -C Firmware/external/pico-sdk submodule update --init --depth 1
+          .github/scripts/retry.sh 5 10m -- bash -c "
+            rm -rf Firmware/external/pico-sdk &&
+            git clone --depth 1 --branch ${PICO_SDK_TAG} https://github.com/raspberrypi/pico-sdk.git Firmware/external/pico-sdk &&
+            git -C Firmware/external/pico-sdk submodule update --init --depth 1"
 
       - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi libnewlib-arm-none-eabi \
-            libstdc++-arm-none-eabi-newlib python3
+          .github/scripts/retry.sh 5 5m -- sudo apt-get update
+          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3
 
       - name: Build ${{ matrix.name }}
         env:
           CXXFLAGS: ${{ matrix.cxxflags }}
         run: |
-          cmake -S Firmware/RP2040 -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=PI_PICO2W -DMAX_GAMEPADS=1 \
-            ${{ matrix.flags }}
-          cmake --build build
+          .github/scripts/retry.sh 5 15m -- bash -c "
+            cmake -S Firmware/RP2040 -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=PI_PICO2W -DMAX_GAMEPADS=1 \
+              ${{ matrix.flags }} &&
+            cmake --build build"
           mkdir -p out
           for f in build/*.uf2; do cp "$f" "out/$(basename "${f%.uf2}")-${{ matrix.name }}-${GITHUB_SHA::7}.uf2"; done
 
