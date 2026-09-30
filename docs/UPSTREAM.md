@@ -37,6 +37,13 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 8bc9c22 | STEAM output: DualSense rumble flags as SDL / Steam send them | pr #114 | Goes with the STEAM output-report PR. |
 | 49ab92c | DInput output: analog button pressure from the wrong buttons | pr #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
 
+## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
+
+| Commit (OGX-Mini-improved-WebApp) | Change | Status | Notes |
+|---|---|---|---|
+| fdc03ec | Output modes: add Wii U, PS4 and STEAM to the mode lists | pr #2 | Firmware accepts them; multi-controller builds could not pick Wii U. |
+| 00ed399, 277f936 | Adapter Options panel | todo | Goes with the dongle options feature (0703a2d). `serve.sh` and the README are fork-only. |
+
 ## Features (offer, upstream may or may not want them)
 
 | Commit | Change | Status | Notes |
