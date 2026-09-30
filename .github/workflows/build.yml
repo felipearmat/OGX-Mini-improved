@@ -54,14 +54,23 @@ jobs:
           .github/scripts/retry.sh 5 10m -- \
             git submodule update --init --recursive --depth 1
 
+      # apt-get install is the step seen hanging (10+ min) on runners. Each attempt: apt's own
+      # network retries/timeouts, finish any install a killed attempt left half-configured, then
+      # install. A normal install takes 1-2 minutes.
       - name: Install toolchain
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+            -o DPkg::Lock::Timeout=120
         run: |
-          .github/scripts/retry.sh 5 5m -- sudo apt-get update
-          .github/scripts/retry.sh 5 10m -- sudo apt-get install -y \
-            cmake ninja-build \
-            gcc-arm-none-eabi \
-            libnewlib-arm-none-eabi \
-            libstdc++-arm-none-eabi-newlib
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get $APT_OPTS update'
+          .github/scripts/retry.sh 5 5m -- bash -c '
+            sudo dpkg --configure -a &&
+            sudo apt-get $APT_OPTS install -y \
+              cmake ninja-build \
+              gcc-arm-none-eabi \
+              libnewlib-arm-none-eabi \
+              libstdc++-arm-none-eabi-newlib'
 
       # A slow cache download gives up after a few minutes and the SDK is cloned instead.
       - name: Cache Pico SDK
