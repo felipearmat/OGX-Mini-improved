@@ -18,15 +18,15 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 83e2514 | Switch Pro output: decode host HD rumble properly | merged #116 | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Upstream placed it in `Switch/HdRumble`; the fork follows since the 2026-09-30 sync. |
 | 2c6d768 | PS3 output: rumble from Linux hosts (hid-sony report 0x01 one byte short) | merged #112 | TinyUSB strips the 0x01 padding byte as a report ID. Small. |
 | 40c26bc | Bluetooth: per-pad state arrays overflowed by Bluetooth slot 1 | merged #111 | Memory corruption on every disconnect of the second slot (right Joy-Con of a pair). High priority. |
-| dacb85b | PS4 output: real motion sensor clock | pr #122 | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
-| 7e188c2 | NVSTool: park the other core for every flash write (flash_safe_execute) | pr #119 | Only the mode-change path stopped Core1. |
-| 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | pr #118 | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
+| dacb85b | PS4 output: real motion sensor clock | merged #122 | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
+| 7e188c2 | NVSTool: park the other core for every flash write (flash_safe_execute) | merged #119 | Only the mode-change path stopped Core1. |
+| 9adde01 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | merged #118 | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
 | 332aed6 | Switch pads: rumble stuck on, stop/restart in long rumble | merged #115 | Idle neutral refresh (Bluepad32 patch) + 350 ms duration. |
 | 7d1f0b3 | Switch parser: enable vibration during setup | merged #115 | Joy-Cons never vibrated (subcommand 0x48). Also for Bluepad32 upstream. |
 | 4b1fd60 | Switch parser: robust setup, sleep request | merged #115 | Per-step timeouts, stale replies, one pad in setup at a time, timer cleanup. Also for Bluepad32 upstream. |
-| 721c322 | Mode switch: park Core1 before flash write, watchdog | pr #119 | Pico W / Pico 2 W froze on mode change. |
-| e0629c9 (NVSTool part) | Flash writes with interrupts disabled, buffer off the stack, sector offset | pr #119 | Split from the mode indicator (fork feature) before sending. |
-| e18b8ea | Web App: send pad input in the legacy 23-byte layout | pr #120 | Web app never showed live input. |
+| 721c322 | Mode switch: park Core1 before flash write, watchdog | merged #119 | Pico W / Pico 2 W froze on mode change. |
+| e0629c9 (NVSTool part) | Flash writes with interrupts disabled, buffer off the stack, sector offset | merged #119 | Split from the mode indicator (fork feature) before sending. |
+| e18b8ea | Web App: send pad input in the legacy 23-byte layout | merged #120 | Web app never showed live input. |
 | bd9aa29 | Disconnect combo: BT-core deadlock (set_led in HCI event) | merged #115 | Deadlock is an upstream bug. The 3 s hold and reboot-after are behaviour changes: offer separately or as options. |
 | 6335503 (combo part) | Disconnect combo deferred to a run-loop timer | merged #115 | Tearing the pair down while parsing its report hung the BT core. |
 | eada5e5 | PS4 output: host output reports dropped (no rumble / lightbar) | merged #113 (output fix only) | Length check counted the report ID twice. Small, standalone. |
@@ -57,8 +57,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 12a7c2a | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
 | 0703a2d | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
 | (CI) | `build.yml`: job timeout and Pico SDK cache | merged #124 | Hung jobs were cancelled, but that board lost its UF2. |
-| (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | pr #125 | Also used by `improved-ci.yml` in the fork. |
-| b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | pr #121 | Small build fix. |
+| (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | merged #125 | Also used by `improved-ci.yml` in the fork. |
+| b2dc5ba | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
 
 ## Other projects
 

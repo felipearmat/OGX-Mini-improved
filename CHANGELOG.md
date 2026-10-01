@@ -8,7 +8,7 @@ Features and fixes added in this fork. For the latest firmware improvements (PS3
 
 Changes kept in [felipearmat/OGX-Mini-improved](https://github.com/felipearmat/OGX-Mini-improved). Each entry says what was wrong, what changed and how it was verified. **Hardware** = Raspberry Pi Pico 2 W, Release build (`MAX_GAMEPADS=1`), controllers over Bluetooth, Linux host (kernel `hid-playstation` / `hid-sony` / `hid-nintendo`) and Steam, unless stated otherwise. **Unit test** = host test in `Firmware/RP2040/tests` (runs in CI; each one fails when its bug is put back). Commits to offer upstream: [docs/UPSTREAM.md](docs/UPSTREAM.md); open issues: [docs/TODO.md](docs/TODO.md).
 
-**Upstream status (2026-09-30):** merged in MegaCadeDev/OGX-Mini-2026 — #110 (L3/R3), #111 (Bluetooth slot arrays), #112 (PS3 Linux rumble), #113 (PS4 output reports), #114 (STEAM output reports), #115 (Switch pads over Bluetooth), #116 (HD rumble), #117 (DInput pressure); open — #118 to #122; web app output modes: OGX-Mini-2026-WebApp#2. The fork is synced with upstream `develop` after those merges.
+**Upstream status (2026-10-01):** merged in MegaCadeDev/OGX-Mini-2026 — #110 (L3/R3), #111 (Bluetooth slot arrays), #112 (PS3 Linux rumble), #113 (PS4 output reports), #114 (STEAM output reports), #115 (Switch pads over Bluetooth), #116 (HD rumble), #117 (DInput pressure), #118 (short rumble pulses), #119 (safe flash writes, mode-switch watchdog), #120 (web app pad layout), #121 (GATT header), #122 (PS4 sensor clock), #124 / #125 (CI); open — web app output modes: OGX-Mini-2026-WebApp#2. The fork is synced with upstream `develop` after those merges.
 
 ### Fixes
 
