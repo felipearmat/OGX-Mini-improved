@@ -43,8 +43,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 
 | Commit (OGX-Mini-improved-WebApp) | Change | Status | Notes |
 |---|---|---|---|
-| fdc03ec | Output modes: add Wii U, PS4 and STEAM to the mode lists | pr #2 | Firmware accepts them; multi-controller builds could not pick Wii U. |
-| 00ed399, 277f936 | Adapter Options panel | todo | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
+| be79a54 | Output modes: add Wii U, PS4 and STEAM to the mode lists | pr #2 | Firmware accepts them; multi-controller builds could not pick Wii U. |
+| 508fe48, 3b249fe | Adapter Options panel | todo | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
 
 ## Features (offer, upstream may or may not want them)
 
