@@ -244,12 +244,16 @@ static const uint8_t* last_left_rumble_bytes(int dev_idx) {
     return NULL;
 }
 
-// Regression for the rumble intensity bug: switch_play_dual_rumble_now used to encode the
-// requested 0-255 magnitude as a *frequency* (with a fixed amplitude), so raising the
-// magnitude changed the pitch, not the strength. The fix keeps the frequency fixed and maps
-// magnitude to the amplitude table instead (DS4Windows's approach) -- assert that directly:
-// the frequency-derived byte stays constant across magnitudes, while the amplitude-derived
-// bytes grow with it.
+// Rumble intensity: both actuators get the same data, like SDL (HIDAPI_DriverSwitch_ActuallyRumbleJoystick):
+// weak sets the high-band amplitude, strong the low-band amplitude, both bands at ~150 Hz.
+// Before, the magnitude was encoded as a frequency with a fixed amplitude (every rumble about
+// the same strength); then weak went to the left actuator and strong to the right one only, so
+// a single Joy-Con ignored one of them.
+static const uint8_t* last_right_rumble_bytes(int dev_idx) {
+    const uint8_t* left = last_left_rumble_bytes(dev_idx);
+    return left ? left + 4 : NULL;
+}
+
 static void test_rumble_intensity_tracks_magnitude(void) {
     fake_reset();
     start_joycon(0, JCL);
@@ -258,17 +262,49 @@ static void test_rumble_intensity_tracks_magnitude(void) {
     uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 40, 40);
     const uint8_t* low = last_left_rumble_bytes(0);
     CHECK(low != NULL);
-    uint8_t low_freq_byte = low[0];
-    uint8_t low_amp_byte = low[1];
+    uint8_t low_bytes[4];
+    memcpy(low_bytes, low, sizeof(low_bytes));
 
     uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 220, 220);
     const uint8_t* high = last_left_rumble_bytes(0);
     CHECK(high != NULL);
-    uint8_t high_freq_byte = high[0];
-    uint8_t high_amp_byte = high[1];
 
-    CHECK(low_freq_byte == high_freq_byte);   // frequency fixed regardless of magnitude
-    CHECK(high_amp_byte > low_amp_byte);      // amplitude grows with the requested magnitude
+    CHECK(low_bytes[0] == high[0]);    // high-band frequency fixed regardless of magnitude
+    CHECK(high[1] > low_bytes[1]);     // high-band amplitude grows with weak
+    // Low-band amplitude: byte 3, plus a half step in bit 7 of byte 2.
+    const int low_band_low = low_bytes[3] * 2 + (low_bytes[2] >> 7);
+    const int low_band_high = high[3] * 2 + (high[2] >> 7);
+    CHECK(low_band_high > low_band_low);   // low-band amplitude grows with strong
+}
+
+// SDL's bytes for a full single-motor request (checked on Joy-Con L and R hardware).
+static void test_rumble_single_magnitude_drives_both_actuators(void) {
+    fake_reset();
+    start_joycon(0, JCR);
+    fake_joycon_run_setup(0, JCR, 50);
+
+    static const uint8_t weak_only[4] = {0x74, 0xc8, 0x3d, 0x40};
+    static const uint8_t strong_only[4] = {0x74, 0x00, 0x3d, 0x72};
+
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 255, 0);
+    CHECK(last_left_rumble_bytes(0) != NULL);
+    CHECK(memcmp(last_left_rumble_bytes(0), weak_only, 4) == 0);
+    CHECK(memcmp(last_right_rumble_bytes(0), weak_only, 4) == 0);
+
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 0, 255);
+    CHECK(memcmp(last_left_rumble_bytes(0), strong_only, 4) == 0);
+    CHECK(memcmp(last_right_rumble_bytes(0), strong_only, 4) == 0);
+}
+
+static void test_rumble_same_data_on_both_actuators(void) {
+    fake_reset();
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 90, 170);
+    const uint8_t* left = last_left_rumble_bytes(0);
+    CHECK(left != NULL);
+    CHECK(memcmp(left, left + 4, 4) == 0);
 }
 
 static void test_request_sleep(void) {
@@ -298,6 +334,8 @@ int main(void) {
         {"idle_rumble_refresh", test_idle_rumble_refresh},
         {"long_rumble_not_interrupted", test_long_rumble_not_interrupted},
         {"rumble_intensity_tracks_magnitude", test_rumble_intensity_tracks_magnitude},
+        {"rumble_single_magnitude_drives_both_actuators", test_rumble_single_magnitude_drives_both_actuators},
+        {"rumble_same_data_on_both_actuators", test_rumble_same_data_on_both_actuators},
         {"request_sleep", test_request_sleep},
     };
     int failed = 0;
