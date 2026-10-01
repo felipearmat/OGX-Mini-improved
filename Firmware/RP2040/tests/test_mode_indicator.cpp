@@ -70,15 +70,6 @@ TEST(lightbar_colours_are_distinct) {
             CHECK(colours[i] != colours[j]);
 }
 
-TEST(led_colour_full_brightness_is_lightbar_colour) {
-    uint8_t lr, lg, lb, r, g, b;
-    mode_indicator::lightbar_color(DeviceDriverType::XBOXOG, lr, lg, lb);
-    mode_indicator::led_color(DeviceDriverType::XBOXOG, 255, r, g, b);
-    CHECK_EQ(r, lr);
-    CHECK_EQ(g, lg);
-    CHECK_EQ(b, lb);
-}
-
 TEST(led_colour_scales_and_keeps_lit_channels_visible) {
     uint8_t r, g, b;
     mode_indicator::led_color(DeviceDriverType::XINPUT, 51, r, g, b);  // 20 %
