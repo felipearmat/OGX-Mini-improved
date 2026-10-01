@@ -32,7 +32,7 @@ Known issues in this fork, to fix later.
   In Steam's controller settings, pressing ZL/ZR makes Steam send short pulses:
   about 6 rumble-only reports `74 88 3d 62` per motor, then the neutral `00 01 40 40`, in about 200 ms.
   The dongle decodes them (intensity ~127) and holds the peak until the next
-  Bluepad32 feedback tick (commit 9adde01), but the solo Joy-Con still doesn't
+  Bluepad32 feedback tick (commit 7b0b669), but the solo Joy-Con still doesn't
   vibrate. Paired Joy-Cons and DS4 don't rumble on this screen either. Rumble
   commands from games and apps do work. Next steps:
   - Capture a DebugLite log (`serialog.py`) and check that `set_rumble` runs for the pulse.
@@ -62,7 +62,7 @@ Known issues in this fork, to fix later.
 
 ## Debug builds
 
-- **DebugLite hangs at boot in Switch Pro mode** (seen after bda2bdf, which shifts
+- **DebugLite hangs at boot in Switch Pro mode** (seen after f259b0f, which shifts
   boot timing slightly). The Switch driver's USB-init logging (core 0, OGXM_LOG with its
   own mutex) collides with Bluepad32's banner/printf (core 1): both stop mid-line and the
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
