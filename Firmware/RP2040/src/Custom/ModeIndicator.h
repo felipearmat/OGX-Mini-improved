@@ -11,6 +11,7 @@
  *    mode number, pauses, and repeats the code REPEATS times. Normal LED behaviour
  *    (blink while searching / solid when connected) resumes afterwards.
  *  - DualShock 4 / DualSense lightbar: colour per mode, applied shortly after connect.
+ *  - External WS2812 LED (Pico 2 W): the same blink code and LED states, in the mode colour.
  */
 namespace mode_indicator {
 
@@ -19,6 +20,10 @@ namespace mode_indicator {
 
     // Lightbar colour for the mode.
     void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b);
+
+    // Mode colour for a status LED, scaled to brightness (0..255). A lit channel never
+    // rounds down to 0, so dim colours (PS3 dark blue) stay visible.
+    void led_color(DeviceDriverType driver, uint8_t brightness, uint8_t& r, uint8_t& g, uint8_t& b);
 
     // Start the boot blink code for this mode.
     void begin(DeviceDriverType driver);

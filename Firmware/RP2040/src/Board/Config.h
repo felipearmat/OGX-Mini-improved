@@ -47,6 +47,14 @@
     #ifndef PIO_USB_SWAP_DP_DM
     #define PIO_USB_SWAP_DP_DM  0  // set 1 if controller powers but does not enumerate
     #endif
+    #if defined(CONFIG_OGXM_BOARD_PI_PICO2W) && defined(OGXM_EXT_RGB_PIN)
+    // Custom: external WS2812 status LED (CMake OGXM_EXT_RGB_*). pio2 because pio0 / pio1
+    // belong to PIO USB and the GPIO modes; the RP2350 has a third PIO block.
+    #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
+    #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
+    #define RGB_PXL_PIO         pio2
+    #define RGB_BRIGHTNESS      OGXM_EXT_RGB_BRIGHTNESS
+    #endif
 
 #elif defined(CONFIG_OGXM_BOARD_RP2040_ZERO)
     #define OGXM_BOARD          RP2040_ZERO

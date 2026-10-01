@@ -54,7 +54,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_dongle_settings` | Adapter Options defaults and wire / flash format. |
 | `test_joycon_settings` | Joy-Con motion defaults and sideways rotation. |
 | `test_reported_mac` | MAC address reported by the emulated DS4 / DualSense. |
-| `test_mode_indicator` | Boot blink code and lightbar colour per output mode. |
+| `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct). |
 
 Checked at build time instead: the Bluetooth per-pad arrays stay sized for every Bluetooth slot
 (`static_assert`s in `Bluepad32.cpp`).

@@ -26,6 +26,7 @@
 #include "Board/ogxm_log.h"
 #include "Bluepad32/Bluepad32.h"
 #include "BLEServer/BLEServer.h"
+#include "Custom/ModeIndicator.h"
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "Custom/ReportedMac.h"
@@ -464,6 +465,13 @@ void pico_w::initialize() {
     OGXM_LOG("PicoW init: flash inited, driver=" + OGXM_TO_STRING(user_settings.get_current_driver()) + "\n");
 #else
     OGXM_LOG("PicoW init: flash inited\n");
+#endif
+
+#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
+    /* Custom: the RGB status LED lights in the output mode colour. */
+    uint8_t led_r, led_g, led_b;
+    mode_indicator::led_color(user_settings.get_current_driver(), RGB_BRIGHTNESS, led_r, led_g, led_b);
+    board_api::set_led_color(led_r, led_g, led_b);
 #endif
 
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {

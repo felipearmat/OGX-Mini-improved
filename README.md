@@ -23,6 +23,8 @@ fork changes behaviour.
   memory corruption on Bluetooth slot 1 fixed, disconnect combo deadlock fixed.
 - **Mode indicator:** the board LED blinks the mode number at boot and a DS4 / DualSense lightbar
   shows the mode colour (replaced by the colour the host asks for).
+- **External RGB status LED (Pico 2 W):** an optional WS2812B on GP6 shows the same blink code and
+  LED states in the mode colour. Wiring: [hardware/README.md](hardware/README.md#pico-2-w-external-rgb-status-led).
 - **Adapter Options** in the web app (below).
 - **Unit tests and CI:** every fixed bug has a host-side test where it can have one; CI runs them
   and the firmware builds on every push and pull request. How to run them:
@@ -363,7 +365,7 @@ Use one of these values for **`OGXM_BOARD`** in a manual build, or pick the same
 - ```ESP32_BLUERETRO_I2C``` 
 - ```EXTERNAL_4CH_I2C```
 
-You can also set ```MAX_GAMEPADS``` (1–4; default **1**). **Multi-controller use is not supported for most output modes** — see [Multi-controller builds](#multi-controller-builds-max_gamepads--1). **Optional:** ```OGXM_FIXED_DRIVER``` to lock output mode (e.g. ```XINPUT```, ```PS3```, ```STEAM```, ```PS4```); ```OGXM_FIXED_DRIVER_ALLOW_COMBOS=ON``` to keep combos when fixed. ```MAIN_LOOP_DELAY_US``` (default ```0```) sets main-loop delay for lower CPU use (e.g. ```250```). This fork adds the defaults of the Adapter Options (```OGXM_DISCONNECT_PADS_ON_MODE_CHANGE```, ```OGXM_JOYCON_PAIR_IMU_SIDE```, ```OGXM_JOYCON_PAIR_ORIENTATION```, ```OGXM_JOYCON_SOLO_ORIENTATION```, ```OGXM_MAC_PER_CONTROLLER```, ```OGXM_PS4_LEGACY_MOTION_SCALE```; see [About this fork](#about-this-fork)).
+You can also set ```MAX_GAMEPADS``` (1–4; default **1**). **Multi-controller use is not supported for most output modes** — see [Multi-controller builds](#multi-controller-builds-max_gamepads--1). **Optional:** ```OGXM_FIXED_DRIVER``` to lock output mode (e.g. ```XINPUT```, ```PS3```, ```STEAM```, ```PS4```); ```OGXM_FIXED_DRIVER_ALLOW_COMBOS=ON``` to keep combos when fixed. ```MAIN_LOOP_DELAY_US``` (default ```0```) sets main-loop delay for lower CPU use (e.g. ```250```). This fork adds the defaults of the Adapter Options (```OGXM_DISCONNECT_PADS_ON_MODE_CHANGE```, ```OGXM_JOYCON_PAIR_IMU_SIDE```, ```OGXM_JOYCON_PAIR_ORIENTATION```, ```OGXM_JOYCON_SOLO_ORIENTATION```, ```OGXM_MAC_PER_CONTROLLER```, ```OGXM_PS4_LEGACY_MOTION_SCALE```; see [About this fork](#about-this-fork)). Pico 2 W external RGB status LED: ```OGXM_EXT_RGB_PIN``` (default ```6```, ```-1``` = none), ```OGXM_EXT_RGB_COUNT``` (1–4, default ```1```), ```OGXM_EXT_RGB_BRIGHTNESS``` (1–255, default ```48```).
 
 ### Multi-controller builds (`MAX_GAMEPADS` > 1)
 

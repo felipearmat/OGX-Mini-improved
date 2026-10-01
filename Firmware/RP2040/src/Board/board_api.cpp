@@ -57,6 +57,10 @@ namespace board_api {
 
 mutex_t gpio_mutex_;
 
+/* Custom: RGB LED colour for set_led(true), see set_led_color(). Guarded by gpio_mutex_. */
+static bool rgb_color_set_ = false;
+static uint8_t rgb_color_[3] = {0, 0, 0};
+
 bool usb::host_connected() {
     if (board_api_usbh::host_connected) {
         return board_api_usbh::host_connected();
@@ -118,9 +122,24 @@ void set_led(bool state) {
         board_api_bt::set_led(state);
     }
     if (board_api_rgb::set_led) {
-        board_api_rgb::set_led(state ? 0x00 : 0xFF, state ? 0xFF : 0x00, 0x00);
+        if (rgb_color_set_) {
+            board_api_rgb::set_led(state ? rgb_color_[0] : 0x00,
+                                   state ? rgb_color_[1] : 0x00,
+                                   state ? rgb_color_[2] : 0x00);
+        } else {
+            board_api_rgb::set_led(state ? 0x00 : 0xFF, state ? 0xFF : 0x00, 0x00);
+        }
     }
 
+    mutex_exit(&gpio_mutex_);
+}
+
+void set_led_color(uint8_t r, uint8_t g, uint8_t b) {
+    mutex_enter_blocking(&gpio_mutex_);
+    rgb_color_[0] = r;
+    rgb_color_[1] = g;
+    rgb_color_[2] = b;
+    rgb_color_set_ = true;
     mutex_exit(&gpio_mutex_);
 }
 

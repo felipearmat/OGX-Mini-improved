@@ -46,6 +46,24 @@ void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
     }
 }
 
+static uint8_t scale(uint8_t value, uint8_t brightness)
+{
+    if (value == 0 || brightness == 0)
+    {
+        return 0;
+    }
+    const uint16_t scaled = static_cast<uint16_t>(value) * brightness / 255;
+    return scaled == 0 ? 1 : static_cast<uint8_t>(scaled);
+}
+
+void led_color(DeviceDriverType driver, uint8_t brightness, uint8_t& r, uint8_t& g, uint8_t& b)
+{
+    lightbar_color(driver, r, g, b);
+    r = scale(r, brightness);
+    g = scale(g, brightness);
+    b = scale(b, brightness);
+}
+
 void begin(DeviceDriverType driver)
 {
     s_count = blink_count(driver);

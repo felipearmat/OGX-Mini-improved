@@ -70,4 +70,46 @@ TEST(lightbar_colours_are_distinct) {
             CHECK(colours[i] != colours[j]);
 }
 
+TEST(led_colour_full_brightness_is_lightbar_colour) {
+    uint8_t lr, lg, lb, r, g, b;
+    mode_indicator::lightbar_color(DeviceDriverType::XBOXOG, lr, lg, lb);
+    mode_indicator::led_color(DeviceDriverType::XBOXOG, 255, r, g, b);
+    CHECK_EQ(r, lr);
+    CHECK_EQ(g, lg);
+    CHECK_EQ(b, lb);
+}
+
+TEST(led_colour_scales_and_keeps_lit_channels_visible) {
+    uint8_t r, g, b;
+    mode_indicator::led_color(DeviceDriverType::XINPUT, 51, r, g, b);  // 20 %
+    CHECK_EQ(r, 0);
+    CHECK_EQ(g, 51);
+    CHECK_EQ(b, 0);
+    // PS3 dark blue (0x50) would round to 0 at very low brightness.
+    mode_indicator::led_color(DeviceDriverType::PS3, 2, r, g, b);
+    CHECK_EQ(r, 0);
+    CHECK_EQ(g, 0);
+    CHECK_EQ(b, 1);
+    mode_indicator::led_color(DeviceDriverType::PS3, 0, r, g, b);
+    CHECK_EQ(b, 0);
+}
+
+TEST(led_colours_stay_distinct_at_default_brightness) {
+    const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
+                                      DeviceDriverType::DINPUT, DeviceDriverType::PS4,
+                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
+                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU};
+    constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
+    uint32_t colours[kModes];
+    for (int i = 0; i < kModes; ++i) {
+        uint8_t r, g, b;
+        mode_indicator::led_color(modes[i], 48, r, g, b);
+        colours[i] = (uint32_t(r) << 16) | (uint32_t(g) << 8) | b;
+        CHECK(colours[i] != 0);
+    }
+    for (int i = 0; i < kModes; ++i)
+        for (int j = i + 1; j < kModes; ++j)
+            CHECK(colours[i] != colours[j]);
+}
+
 TEST_MAIN()
