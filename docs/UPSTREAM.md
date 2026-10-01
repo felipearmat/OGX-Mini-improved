@@ -30,14 +30,15 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 297c863 | Disconnect combo: BT-core deadlock (set_led in HCI event) | merged #115 | Deadlock is an upstream bug. The 3 s hold and reboot-after are behaviour changes: offer separately or as options. |
 | c7a6f2d (combo part) | Disconnect combo deferred to a run-loop timer | merged #115 | Tearing the pair down while parsing its report hung the BT core. |
 | e091b01 | PS4 output: host output reports dropped (no rumble / lightbar) | merged #113 (output fix only) | Length check counted the report ID twice. Small, standalone. |
-| 9cf4831 | PS4 output: motion in real DS4 units (16 per deg/s, 8192 per g) | todo | Steam read the Brook-style scaling as DS4 units (gyro 8x). Needs a check with a Brook auth dongle on a PS4 console before offering. |
-| a189ac8 | STEAM output: complete DualSense emulation for non-DualSense pads (motion, touch, battery, features, rumble/lightbar output fix) | merged #114 (output fix only) | Output reports were dropped (same length check as PS4). Output fix sent as #114; the rest is a feature. |
-| f259b0f | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). |
+| 9cf4831 | PS4 output: motion in real DS4 units (16 per deg/s, 8192 per g) | todo | Steam read the Brook-style scaling as DS4 units (gyro 8x). Needs a check with a Brook auth dongle on a PS4 console before offering. Offered as a feature (Brook-style scale kept as the Legacy PS4 motion scale option). |
+| a189ac8 | STEAM output: complete DualSense emulation for non-DualSense pads (motion, touch, battery, features, rumble/lightbar output fix) | merged #114 (output fix only), pr #130 (rest) | Output reports were dropped (same length check as PS4). Output fix sent as #114; the rest is a feature. |
+| f259b0f | PS4 output: complete DS4 emulation for PC hosts (feature reports, touchpad, battery, lightbar) | todo | Calibration/pairing/firmware features were all zero (gyro 8x on Steam, phantom touches). Includes Bluepad32 patch bluepad32_ds4_touchpad.diff (also for Bluepad32 upstream). Offered as a feature (Brook-style scale kept as the Legacy PS4 motion scale option). |
 | ba53db2 | Switch Pro wired input: follow the L3/R3 constant fix | merged #110 | Goes with 802537e (same PR); the wired Pro host driver compensated for the old values. |
-| 7f61088 | Reboot after the last pad disconnects: arm a hardware watchdog too | todo | Upstream #106 reboots from a BT run-loop timer; if the BT core hangs during teardown it never fires (suspected freeze with a Joy-Con pair). Same safety net as the combo. Not confirmed with a log. |
-| 3f0a574 | Switch pads: rumble intensity follows the requested magnitude (amplitude, not frequency) | todo | Bluepad32 patch, DS4Windows recipe. Checked on hardware (rumbletest.py, Joy-Con pair). Also for Bluepad32 upstream. |
+| 7f61088 | Reboot after the last pad disconnects: arm a hardware watchdog too | pr #127 | Upstream #106 reboots from a BT run-loop timer; if the BT core hangs during teardown it never fires (suspected freeze with a Joy-Con pair). Same safety net as the combo. Not confirmed with a log. |
+| 3f0a574 | Switch pads: rumble intensity follows the requested magnitude (amplitude, not frequency) | pr #126 | Bluepad32 patch, DS4Windows recipe. Checked on hardware (rumbletest.py, Joy-Con pair). Also for Bluepad32 upstream. |
 | 77f69f3 | STEAM output: DualSense rumble flags as SDL / Steam send them | merged #114 | Goes with the STEAM output-report PR. |
 | dd957f9 | DInput output: analog button pressure from the wrong buttons | merged #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
+| b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | pr #129 | Treated as a fix: Switch output had no motion at all. Includes the three Joy-Con adapter options (CMake defaults), on top of #128. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 
@@ -50,12 +51,11 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 
 | Commit | Change | Status | Notes |
 |---|---|---|---|
-| b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | todo | README upstream says Switch output has no motion. Joy-Con pair IMU side / orientation options. |
 | c7a6f2d (option), 037b5bf | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE`: every BT pad is turned off before a mode-change reboot (Joy-Cons asked to sleep, others disconnected) | todo | ON in this fork; offer upstream as OFF by default. Now a runtime dongle option (web app). |
 | 6e3d25b (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 0720fea | Pico 2 W external WS2812 status LED in the mode colour (`OGXM_EXT_RGB_*`) | todo | Builds on the mode indicator; send after it. Not tested on hardware yet. |
 | f0ab2f2 | Host unit tests (CTest) | todo | CI workflow is fork-specific. Tests could go with the fixes they cover. |
-| a0e7cba | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | todo | Needs the web app side too (OGX-Mini-improved-WebApp: Adapter Options panel), PR to MegaCadeDev/OGX-Mini-2026-WebApp. |
+| a0e7cba | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | pr #128 (mechanism only) | Each option goes with the PR of the feature that uses it (Joy-Con options in #129). Web app side (Adapter Options panel) to MegaCadeDev/OGX-Mini-2026-WebApp once options exist upstream. |
 | (CI) | `build.yml`: job timeout and Pico SDK cache | merged #124 | Hung jobs were cancelled, but that board lost its UF2. |
 | (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | merged #125 | Also used by `improved-ci.yml` in the fork. |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
@@ -63,7 +63,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
-- GP2040-CE: its PS3 driver copies output report 0x01 the way OGX-Mini did before 727ceb0; the Linux rumble fix could be offered there.
+- GP2040-CE: its PS3 driver copied output report 0x01 the way OGX-Mini did before 727ceb0 (motor bytes one off, right motor on with any report from Linux): OpenStickCommunity/GP2040-CE#1740.
 
 ## Fork only (not for upstream)
 
