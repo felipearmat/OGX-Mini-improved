@@ -33,13 +33,12 @@ Known issues in this fork, to fix later.
   about 6 rumble-only reports `74 88 3d 62` per motor, then the neutral `00 01 40 40`, in about 200 ms.
   The dongle decodes them (intensity ~127) and holds the peak until the next
   Bluepad32 feedback tick (commit 7b0b669), but the solo Joy-Con still doesn't
-  vibrate. Paired Joy-Cons and DS4 don't rumble on this screen either. Rumble
-  commands from games and apps do work. Next steps:
+  vibrate. Paired Joy-Cons and DS4 don't rumble on this screen either, so it is not Joy-Con
+  specific. Steam's own rumble test does vibrate a solo Joy-Con (2026-10-02, with the rumble
+  intensity fix), as do games and apps. Next steps:
   - Capture a DebugLite log (`serialog.py`) and check that `set_rumble` runs for the pulse.
-  - Check how the Switch parser encodes the pulse: `switch_encode_rumble` gets a
-    frequency derived from the magnitude and a fixed amplitude, so a mid-level
-    pulse may land on a frequency the Joy-Con barely plays.
-  - Also check the Joy-Con solo vs. paired paths in the feedback loop.
+  - Check whether the ~200 ms pulse survives the 250 ms feedback sampling and the 350 ms
+    Bluepad32 rumble duration for every pad type (DS4 too).
 
 - **Far Cry 6 ignores gyro aiming in PS4 mode** (Steam Input gyro as mouse or as joystick,
   Steam Input forced on). Steam reads the DS4 motion correctly (its calibration and test view
@@ -59,13 +58,6 @@ Known issues in this fork, to fix later.
   A solo Joy-Con (L) was not checked. Look at how the merged pair builds its
   buttons in the Switch parser (the Capture bit comes from the left Joy-Con)
   and at the mapping to `SwitchPro::Btn::CAPTURE`.
-
-- **Mode change is impossible with a single Joy-Con.** Every mode combo needs the D-pad (STEAM =
-  Start + LB + Up), but a single Joy-Con held sideways has none: the Bluepad32 parser maps the left
-  Joy-Con's arrow buttons to A / B / X / Y, and its only directional input is the stick (Start =
-  Capture, Select = -, LB / RB = SL / SR). Found 2026-10-01 on hardware. Option: for a single
-  Joy-Con only, treat the stick pushed to the edge as the D-pad in combo detection
-  (`UserSettings::check_for_driver_change`).
 
 ## Debug builds
 
