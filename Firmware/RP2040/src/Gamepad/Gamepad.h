@@ -448,6 +448,11 @@ public:
     void set_stick_y_positive_is_up(bool v) { stick_y_positive_is_up_ = v; }
     bool stick_y_positive_is_up() const { return stick_y_positive_is_up_; }
 
+    /* Custom: set by Bluetooth for a lone Joy-Con (no D-pad); mode combos then read the left
+     * stick held at the edge as the D-pad (UserSettings::check_for_driver_change). */
+    void set_combo_stick_as_dpad(bool v) { combo_stick_as_dpad_.store(v); }
+    bool combo_stick_as_dpad() const { return combo_stick_as_dpad_.load(); }
+
     inline void reset_pad_in()
     {
 		bt_pad_middle_state_.fetch_and(BT_PAD_MAILBOX_INDEX_MASK, std::memory_order_acq_rel);
@@ -610,6 +615,7 @@ private:
     bool profile_analog_enabled_{false};
 
     bool stick_y_positive_is_up_{false};  // true for Xbox (positive Y = up), false for Wii U/Nintendo
+    std::atomic<bool> combo_stick_as_dpad_{false};
 
     JoystickSettings joy_settings_l_;
     JoystickSettings joy_settings_r_;

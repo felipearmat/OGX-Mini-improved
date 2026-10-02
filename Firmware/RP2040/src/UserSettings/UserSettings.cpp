@@ -31,6 +31,20 @@ static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& d
     return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
 }
 
+/* Custom: D-pad direction of a stick held near the edge along one axis (PadIn Y is negative
+ * up); diagonals and partial pushes give none, so a combo cannot fire by accident. */
+static uint8_t stick_edge_as_dpad(int16_t x, int16_t y)
+{
+    static constexpr int32_t EDGE = 26000;  // ~80% of full deflection
+    const int32_t ax = x < 0 ? -static_cast<int32_t>(x) : x;
+    const int32_t ay = y < 0 ? -static_cast<int32_t>(y) : y;
+    if (ay >= EDGE && ax < EDGE / 2)
+        return y < 0 ? Gamepad::DPAD_UP : Gamepad::DPAD_DOWN;
+    if (ax >= EDGE && ay < EDGE / 2)
+        return x < 0 ? Gamepad::DPAD_LEFT : Gamepad::DPAD_RIGHT;
+    return 0;
+}
+
 /** Required buttons/dpad pressed (extra face buttons or triggers do not block the combo). */
 static bool combo_matches(uint32_t current, uint32_t expected)
 {
@@ -203,7 +217,12 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
     static uint32_t last_button_combo = 0;
     static uint8_t call_count = 0;
 
-    const uint32_t current_button_combo = BUTTON_COMBO(gp_in.buttons, gp_in.dpad);
+    /* Custom: a lone Joy-Con has no D-pad; its stick at the edge stands in for one. */
+    uint8_t combo_dpad = gp_in.dpad;
+    if (combo_dpad == 0 && gamepad.combo_stick_as_dpad())
+        combo_dpad = stick_edge_as_dpad(gp_in.joystick_lx, gp_in.joystick_ly);
+
+    const uint32_t current_button_combo = BUTTON_COMBO(gp_in.buttons, combo_dpad);
     const uint32_t active_combo = find_matching_combo(current_button_combo);
 
     if (!(current_button_combo & (static_cast<uint32_t>(Gamepad::BUTTON_START) << 16)) ||

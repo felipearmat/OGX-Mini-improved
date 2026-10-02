@@ -862,6 +862,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
         if (pad_for_reset < CONFIG_BLUEPAD32_MAX_DEVICES &&
             bt_devices_[pad_for_reset].gamepad != nullptr) {
             bt_devices_[pad_for_reset].gamepad->reset_pad_in();
+            bt_devices_[pad_for_reset].gamepad->set_combo_stick_as_dpad(false);
         }
     } else if (pad_for_reset >= 0) {
 #if defined(CONFIG_OGXM_DEBUG)
@@ -1398,6 +1399,9 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
             SteamTouchpad::apply_to_passthrough(gp_in.touch_raw, gp_in.touchpad_click != 0);
     }
 
+    /* Custom: a lone Joy-Con has no D-pad, so mode combos use its stick instead. */
+    gamepad->set_combo_stick_as_dpad(bp32_is_switch_joycon(device) &&
+                                     bp32_get_pair_partner_idx(device) < 0);
     gamepad->set_pad_in_from_bluetooth(gp_in);
 
 #if defined(CONFIG_OGXM_DEBUG)
