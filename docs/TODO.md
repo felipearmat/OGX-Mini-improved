@@ -2,6 +2,17 @@
 
 Known issues in this fork, to fix later.
 
+## Release builds
+
+- **Release builds hang the Bluetooth core with a Joy-Con pair (Pico 2 W).** Found 2026-10-01: the
+  left Joy-Con connects (weak connection rumble), the right one never pairs, and the left one drops
+  a few minutes later; USB keeps running. Debug / DebugLite builds of the same code work, and so
+  does upstream's Release (develop-latest, 416a01b). Bisected with Release builds made in the
+  same environment: f0ab2f2 works, b3b200f ("Phase 2a: motion in Switch Pro output mode") hangs,
+  and every later Release hangs. Next: split b3b200f (Joy-Cons as motion source vs Switch Pro IMU
+  output vs pair_imu patch) and capture a log of a failing build without the timing changes of
+  Debug.
+
 ## Motion
 
 - **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
@@ -59,6 +70,13 @@ Known issues in this fork, to fix later.
   A solo Joy-Con (L) was not checked. Look at how the merged pair builds its
   buttons in the Switch parser (the Capture bit comes from the left Joy-Con)
   and at the mapping to `SwitchPro::Btn::CAPTURE`.
+
+- **Mode change is impossible with a single Joy-Con.** Every mode combo needs the D-pad (STEAM =
+  Start + LB + Up), but a single Joy-Con held sideways has none: the Bluepad32 parser maps the left
+  Joy-Con's arrow buttons to A / B / X / Y, and its only directional input is the stick (Start =
+  Capture, Select = -, LB / RB = SL / SR). Found 2026-10-01 on hardware. Option: for a single
+  Joy-Con only, treat the stick pushed to the edge as the D-pad in combo detection
+  (`UserSettings::check_for_driver_change`).
 
 ## Debug builds
 
