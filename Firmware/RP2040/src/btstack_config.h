@@ -6,7 +6,9 @@
 #define ENABLE_LE_CENTRAL
 #define ENABLE_L2CAP_LE_CREDIT_BASED_FLOW_CONTROL_MODE
 
-#ifndef OGXM_DEBUG
+/* Custom fix: BTstack log calls in Debug builds only (was #ifndef, so only Release compiled them
+ * in; no HCI dump output is set up, so Release paid for calls that printed nothing). */
+#if defined(OGXM_DEBUG)
 #define ENABLE_LOG_INFO
 #define ENABLE_LOG_ERROR
 #endif
