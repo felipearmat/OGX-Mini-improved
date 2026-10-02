@@ -2,17 +2,6 @@
 
 Known issues in this fork, to fix later.
 
-## Release builds
-
-- **Release builds hang the Bluetooth core with a Joy-Con pair (Pico 2 W).** Found 2026-10-01: the
-  left Joy-Con connects (weak connection rumble), the right one never pairs, and the left one drops
-  a few minutes later; USB keeps running. Debug / DebugLite builds of the same code work, and so
-  does upstream's Release (develop-latest, 416a01b). Bisected with Release builds made in the
-  same environment: f0ab2f2 works, b3b200f ("Phase 2a: motion in Switch Pro output mode") hangs,
-  and every later Release hangs. Next: split b3b200f (Joy-Cons as motion source vs Switch Pro IMU
-  output vs pair_imu patch) and capture a log of a failing build without the timing changes of
-  Debug.
-
 ## Motion
 
 - **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
