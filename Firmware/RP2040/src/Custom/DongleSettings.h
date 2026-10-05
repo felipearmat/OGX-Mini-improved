@@ -12,6 +12,7 @@
  *    OGXM_JOYCON_SOLO_ORIENTATION          VERTICAL | HORIZONTAL
  *    OGXM_MAC_PER_CONTROLLER               OFF  report the connected pad's address, not the dongle's
  *    OGXM_PS4_LEGACY_MOTION_SCALE          OFF  PS4 mode: old Brook-style motion scale
+ *    OGXM_SINGLE_CONTROLLER                OFF  accept one Bluetooth controller (no Joy-Con pair)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
  *  8 bytes, a version byte then one byte per option (0 / 1).
@@ -29,7 +30,7 @@ namespace dongle_settings {
         uint8_t joycon_solo_horizontal;
         uint8_t mac_per_controller;
         uint8_t ps4_legacy_motion_scale;
-        uint8_t reserved;
+        uint8_t single_controller;
     };
 #pragma pack(pop)
     static_assert(sizeof(Settings) == 8, "dongle_settings::Settings is a wire format");

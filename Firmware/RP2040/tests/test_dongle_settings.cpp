@@ -13,6 +13,7 @@ TEST(defaults_follow_the_build) {
     CHECK_EQ(d.joycon_solo_horizontal, 1);
     CHECK_EQ(d.mac_per_controller, 0);
     CHECK_EQ(d.ps4_legacy_motion_scale, 0);
+    CHECK_EQ(d.single_controller, 0);
 }
 
 TEST(decode_normalises_flags) {
@@ -25,7 +26,7 @@ TEST(decode_normalises_flags) {
     CHECK_EQ(s.joycon_solo_horizontal, 0);
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(s.ps4_legacy_motion_scale, 1);
-    CHECK_EQ(s.reserved, 0);
+    CHECK_EQ(s.single_controller, 1);
 }
 
 TEST(decode_rejects_other_versions_and_short_buffers) {

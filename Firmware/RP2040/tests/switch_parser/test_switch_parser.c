@@ -7,6 +7,8 @@
 //  - wiped parser timers left linked in the run loop -> cleanup unlinks them;
 //  - request_sleep sends subcommand 0x06 with arg 0x00;
 //  - a merged Joy-Con pair keeps only the selected half's IMU on (right by default);
+//  - with Joy-Con pairing off (single controller option) a lone Joy-Con neither waits for nor
+//    merges with a second one;
 //  - rumble magnitude was encoded as frequency (fixed amplitude) instead of amplitude.
 #include <stdio.h>
 #include <string.h>
@@ -154,6 +156,24 @@ static void test_pair_keeps_left_imu(void) {
     CHECK(last_imu_arg(0) == 1);  // left keeps motion for the merged pad
     CHECK(last_imu_arg(1) == 0);  // right is switched off
     uni_hid_parser_switch_set_pair_imu_side(true);  // restore the default
+}
+
+static void test_pairing_off_keeps_joycons_solo(void) {
+    fake_reset();
+    uni_hid_parser_switch_set_joycon_pairing(false);
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+    CHECK(fake_device_ready(0));
+    CHECK(!uni_hid_parser_switch_solo_needs_partner(fake_device(0)));
+    CHECK(!uni_hid_parser_switch_any_awaiting_partner());
+    start_joycon(1, JCR);
+    fake_joycon_run_setup(1, JCR, 50);
+    CHECK(uni_hid_parser_switch_get_pair_partner_idx(fake_device(0)) < 0);  // not merged
+    uni_hid_parser_switch_set_joycon_pairing(true);  // restore the default
+    fake_reset();
+    start_joycon(0, JCL);
+    fake_joycon_run_setup(0, JCL, 50);
+    CHECK(uni_hid_parser_switch_solo_needs_partner(fake_device(0)));  // waits again by default
 }
 
 static void test_stale_owner_does_not_block_forever(void) {
@@ -310,6 +330,7 @@ int main(void) {
         {"stale_owner_does_not_block_forever", test_stale_owner_does_not_block_forever},
         {"pair_imu_defaults_to_right", test_pair_imu_defaults_to_right},
         {"pair_keeps_left_imu", test_pair_keeps_left_imu},
+        {"pairing_off_keeps_joycons_solo", test_pairing_off_keeps_joycons_solo},
         {"cleanup_unlinks_timers", test_cleanup_unlinks_timers},
         {"long_rumble_not_interrupted", test_long_rumble_not_interrupted},
         {"rumble_intensity_tracks_magnitude", test_rumble_intensity_tracks_magnitude},

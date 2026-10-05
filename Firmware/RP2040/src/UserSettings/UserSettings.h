@@ -64,6 +64,7 @@ public:
 
 private:
     void load_dongle_settings();
+    void set_single_controller(Gamepad& gamepad, bool on);
 
     UserSettings() = default;
     ~UserSettings() = default;

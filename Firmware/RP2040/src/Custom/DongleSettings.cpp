@@ -18,6 +18,9 @@
 #ifndef OGXM_PS4_LEGACY_MOTION_SCALE
 #define OGXM_PS4_LEGACY_MOTION_SCALE 0
 #endif
+#ifndef OGXM_SINGLE_CONTROLLER
+#define OGXM_SINGLE_CONTROLLER 0
+#endif
 
 namespace dongle_settings {
 
@@ -46,6 +49,7 @@ Settings defaults()
     s.joycon_solo_horizontal = flag(OGXM_JOYCON_SOLO_HORIZONTAL);
     s.mac_per_controller = flag(OGXM_MAC_PER_CONTROLLER);
     s.ps4_legacy_motion_scale = flag(OGXM_PS4_LEGACY_MOTION_SCALE);
+    s.single_controller = flag(OGXM_SINGLE_CONTROLLER);
     return s;
 }
 
@@ -61,6 +65,7 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
     s.joycon_solo_horizontal = flag(data[4]);
     s.mac_per_controller = flag(data[5]);
     s.ps4_legacy_motion_scale = flag(data[6]);
+    s.single_controller = flag(data[7]);
     out = s;
     return true;
 }

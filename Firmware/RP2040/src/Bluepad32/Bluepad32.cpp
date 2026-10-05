@@ -27,6 +27,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
+#include "Custom/DongleSettings.h"
 #include "Custom/JoyConSettings.h"
 #include "Custom/ModeIndicator.h"
 #include "Bluepad32/RumbleTiming.h"
@@ -221,6 +222,21 @@ struct BTDevice {
 };
 
 BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
+
+/* Custom: "single controller" dongle option — one Bluetooth pad only (a lone Joy-Con does not
+ * wait for its other half), so dongles next to each other do not take each other's Joy-Cons. */
+static bool single_controller_mode() {
+    return dongle_settings::get().single_controller != 0;
+}
+
+static bool other_pad_ready(int idx) {
+    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+        if (i != idx && bt_devices_[i].connected)
+            return true;
+    }
+    return false;
+}
+
 btstack_timer_source_t feedback_timer_;
 btstack_timer_source_t led_timer_;
 bool led_timer_set_{false};
@@ -525,8 +541,11 @@ static void check_led_cb(btstack_timer_source *ts)
 #else
     const bool wired_host_pad = false;
 #endif
-    /* Solid LED when a BT pad is connected or a wired USB host controller is active (Pico W mux). */
-    board_api::set_led((any_connected() || wired_host_pad) ? true : led_state);
+    /* Solid LED when a BT pad is connected or a wired USB host controller is active (Pico W mux).
+     * Custom: a lone Joy-Con still waiting for its other half keeps the LED blinking, so the
+     * dongle shows it still takes a second controller (see the single controller option). */
+    const bool pad_active = (any_connected() && !uni_hid_parser_switch_any_awaiting_partner()) || wired_host_pad;
+    board_api::set_led(pad_active ? true : led_state);
 
     btstack_run_loop_set_timer(ts, LED_CHECK_TIME_MS);
     btstack_run_loop_add_timer(ts);
@@ -558,6 +577,11 @@ static uni_error_t device_discovered_cb(bd_addr_t addr, const char* name, uint16
     if (!(minor & (UNI_BT_COD_MINOR_GAMEPAD |
                    UNI_BT_COD_MINOR_JOYSTICK |
                    UNI_BT_COD_MINOR_REMOTE_CONTROL))) {
+        return UNI_ERROR_IGNORE_DEVICE;
+    }
+
+    /* Custom: single controller option — leave other pads for other dongles. */
+    if (single_controller_mode() && other_pad_ready(-1)) {
         return UNI_ERROR_IGNORE_DEVICE;
     }
 
@@ -768,6 +792,7 @@ static void ensure_idle_pairing_scans(int disconnected_idx) {
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
     ogxm_resume_ble_ads_if_no_acl_pad(disconnected_idx);
+    gap_connectable_control(1);  // Custom: the single controller option turns it off
     if (!uni_bt_enable_new_connections_is_enabled())
         uni_bt_enable_new_connections_unsafe(true);
 }
@@ -811,6 +836,7 @@ static void restore_bt_pairing_mode(int disconnected_idx) {
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
     ogxm_resume_ble_ads_if_no_acl_pad(disconnected_idx);
+    gap_connectable_control(1);  // Custom: the single controller option turns it off
     uni_bt_enable_new_connections_unsafe(true);
 #endif
 }
@@ -972,6 +998,12 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         return UNI_ERROR_SUCCESS;
     }
 
+    /* Custom: single controller option — a second pad (e.g. a Joy-Con paged in) is refused. */
+    if (single_controller_mode() && other_pad_ready(idx)) {
+        OGXM_LOG("BT: single controller option, refusing a second pad\n");
+        return UNI_ERROR_NO_SLOTS;
+    }
+
     /* Custom: "MAC address per controller" dongle option (PS4 / STEAM pairing info). */
     reported_mac::on_pad_ready(device->conn.btaddr);
 
@@ -1031,6 +1063,12 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         }
     }
 #endif
+    /* Custom: single controller option — stop looking for pads and refuse pages until this one
+     * disconnects (ensure_idle_pairing_scans turns both back on). */
+    if (single_controller_mode()) {
+        uni_bt_enable_new_connections_unsafe(false);
+        gap_connectable_control(0);
+    }
     const uint32_t tnow = to_ms_since_boot(get_absolute_time());
     /* pad_idx already resolved above to avoid USB-owned OGX slots. */
     s_last_bt_input_ms[pad_idx] = tnow;
@@ -1088,8 +1126,9 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &off);
     }
 
-    /* Custom: let the boot mode blink code finish; check_led_cb goes solid afterwards. */
-    if (led_timer_set_ && !mode_indicator::active()) {
+    /* Custom: let the boot mode blink code finish; check_led_cb goes solid afterwards. A lone
+     * Joy-Con waiting for its other half keeps the pairing blink too. */
+    if (led_timer_set_ && !mode_indicator::active() && !uni_hid_parser_switch_any_awaiting_partner()) {
         led_timer_set_ = false;
         btstack_run_loop_remove_timer(&led_timer_);
         board_api::set_led(true);
@@ -1644,6 +1683,8 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
     uni_init(0, nullptr);
     /* Custom: which half of a merged Joy-Con pair provides motion. */
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
+    /* Custom: single controller option — a lone Joy-Con does not wait for its other half. */
+    uni_hid_parser_switch_set_joycon_pairing(!single_controller_mode());
 
     mode_indicator::begin(UserSettings::get_instance().get_current_driver());
     led_timer_set_ = true;

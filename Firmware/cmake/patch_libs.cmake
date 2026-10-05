@@ -57,7 +57,8 @@ function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
         "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_rumble_intensity.diff")
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_rumble_intensity.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_joycon_pairing_toggle.diff")
 endfunction()
 
 # Bluepad32 output queue: byte-stream ring buffer (backport of ricardoquesada/bluepad32 b6531db).
