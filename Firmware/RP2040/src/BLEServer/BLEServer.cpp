@@ -28,6 +28,8 @@ namespace Handle {
     static constexpr uint16_t GAMEPAD  = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789050_01_VALUE_HANDLE;
     /* Custom: dongle options (Custom/DongleSettings). */
     static constexpr uint16_t DONGLE_SETTINGS = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789060_01_VALUE_HANDLE;
+    /* Custom: mouse + keyboard mode mapping (Custom/KbmSettings, 48 bytes). */
+    static constexpr uint16_t KBM_SETTINGS = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789070_01_VALUE_HANDLE;
 }
 
 namespace ADV {
@@ -190,6 +192,38 @@ static int verify_write(const uint16_t buffer_size, const uint16_t expected_size
     return 0;
 }
 
+/* Custom: KBM settings can be longer than one ATT packet: reads go out in blobs (offset) and a
+ * long write arrives as prepared writes, gathered here until the execute. */
+static uint8_t s_kbm_write_buf[sizeof(kbm_settings::Settings)];
+static uint16_t s_kbm_write_len = 0;
+
+static int kbm_settings_write(uint16_t transaction_mode, uint16_t offset, const uint8_t* buffer, uint16_t buffer_size) {
+    if (transaction_mode == ATT_TRANSACTION_MODE_CANCEL) {
+        s_kbm_write_len = 0;
+        return 0;
+    }
+    if (transaction_mode == ATT_TRANSACTION_MODE_NONE || transaction_mode == ATT_TRANSACTION_MODE_ACTIVE) {
+        if (transaction_mode == ATT_TRANSACTION_MODE_NONE)
+            s_kbm_write_len = 0;
+        if (static_cast<size_t>(offset) + buffer_size > sizeof(s_kbm_write_buf))
+            return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
+        std::memcpy(&s_kbm_write_buf[offset], buffer, buffer_size);
+        if (offset + buffer_size > s_kbm_write_len)
+            s_kbm_write_len = static_cast<uint16_t>(offset + buffer_size);
+        if (transaction_mode == ATT_TRANSACTION_MODE_ACTIVE)
+            return 0;  // wait for the execute
+    }
+    kbm_settings::Settings settings{};
+    const bool ok = kbm_settings::decode(s_kbm_write_buf, s_kbm_write_len, settings);
+    s_kbm_write_len = 0;
+    if (!ok)
+        return ATT_ERROR_VALUE_NOT_ALLOWED;
+    /* Stored and applied from Core0; no reboot. */
+    TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1, false,
+        [settings] { UserSettings::get_instance().store_kbm_settings(settings); });
+    return 0;
+}
+
 static void disconnect_client_cb(btstack_timer_source_t *ts) {
     hci_con_handle_t connection_handle = *static_cast<hci_con_handle_t*>(ts->context);
     hci_send_cmd(&hci_disconnect, connection_handle);
@@ -254,6 +288,13 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
             }
             return static_cast<uint16_t>(sizeof(dongle_settings::Settings));
 
+        case Handle::KBM_SETTINGS:
+        {
+            const kbm_settings::Settings& settings = kbm_settings::get();
+            return att_read_callback_handle_blob(reinterpret_cast<const uint8_t*>(&settings),
+                                                 sizeof(settings), offset, buffer, buffer_size);
+        }
+
         case Handle::GAMEPAD:
             /* Custom fix: legacy 23-byte layout expected by the web app (PadIn grew IMU and
              * touchpad fields), and never copy more than the ATT buffer holds. */
@@ -277,6 +318,12 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
                                 uint8_t *buffer,
                                 uint16_t buffer_size) {
     int ret = 0;
+
+    /* Custom: BTstack ends a long (prepared) write with handle 0; finish a pending KBM write. */
+    if (att_handle == 0 && (transaction_mode == ATT_TRANSACTION_MODE_EXECUTE ||
+                            transaction_mode == ATT_TRANSACTION_MODE_CANCEL)) {
+        return s_kbm_write_len > 0 ? kbm_settings_write(transaction_mode, 0, nullptr, 0) : 0;
+    }
 
     switch (att_handle) {
         case Handle::SETUP_READ:
@@ -319,6 +366,10 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
                 [settings] { UserSettings::get_instance().store_dongle_settings(settings); });
             break;
         }
+
+        case Handle::KBM_SETTINGS:
+            ret = kbm_settings_write(transaction_mode, offset, buffer, buffer_size);
+            break;
 
         default:
             break;

@@ -29,6 +29,7 @@ TEST(blink_count_per_mode) {
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG), 6);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG_SB), 6);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS3), 7);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::KBM), 8);
 }
 
 TEST(code_is_played_twice_then_stops) {
@@ -56,7 +57,8 @@ TEST(lightbar_colours_are_distinct) {
     const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
                                       DeviceDriverType::DINPUT, DeviceDriverType::PS4,
                                       DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU};
+                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU,
+                                      DeviceDriverType::KBM};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -89,7 +91,8 @@ TEST(led_colours_stay_distinct_at_default_brightness) {
     const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
                                       DeviceDriverType::DINPUT, DeviceDriverType::PS4,
                                       DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU};
+                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU,
+                                      DeviceDriverType::KBM};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {

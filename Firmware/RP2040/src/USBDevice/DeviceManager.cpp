@@ -10,6 +10,7 @@
 #include "USBDevice/DeviceDriver/PS3/PS3.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
+#include "USBDevice/DeviceDriver/KBM/KBM.h"
 #include "USBDevice/DeviceDriver/Steam/SteamActive.h"
 #include "USBDevice/DeviceDriver/MotionOutputActive.h"
 #include "USBDevice/DeviceDriver/XboxOG/XboxOG_GP.h"
@@ -57,6 +58,10 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
             printf("STEAM Loaded\n");
             has_analog = true;
             device_driver_ = std::make_unique<SteamDevice>();
+            break;
+        case DeviceDriverType::KBM:
+            printf("KBM Loaded\n");
+            device_driver_ = std::make_unique<KBMDevice>();
             break;
         case DeviceDriverType::PSCLASSIC:
             printf("PSCLASSIC Loaded\n"); 

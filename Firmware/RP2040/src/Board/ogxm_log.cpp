@@ -22,6 +22,7 @@ std::ostream& operator<<(std::ostream& os, DeviceDriverType type) {
         case DeviceDriverType::PS3:           os << "PS3"; break;
         case DeviceDriverType::PS4:           os << "PS4"; break;
         case DeviceDriverType::STEAM:         os << "STEAM"; break;
+        case DeviceDriverType::KBM:           os << "KBM"; break;
         case DeviceDriverType::DINPUT:        os << "DINPUT"; break;
         case DeviceDriverType::PSCLASSIC:     os << "PSCLASSIC"; break;
         case DeviceDriverType::SWITCH:        os << "SWITCH"; break;

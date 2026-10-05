@@ -72,6 +72,9 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/PS4/PS4.cpp
     ${SRC}/USBDevice/DeviceDriver/Steam/Steam.cpp
     ${SRC}/USBDevice/DeviceDriver/Steam/SteamTouchpad.cpp
+    ${SRC}/USBDevice/DeviceDriver/KBM/KBM.cpp
+    ${SRC}/Custom/KbmSettings.cpp
+    ${SRC}/Custom/KbmMapper.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/Custom/SwitchImu.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp

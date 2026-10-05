@@ -8,6 +8,8 @@
 //  - PS4 / STEAM: a lightbar-only update stopped a running rumble; SDL's stop (every valid flag
 //    clear) must stop it.
 //  - PS4 / STEAM: input GET_REPORT with a report ID repeated the ID TinyUSB already adds.
+//  - KBM (mouse + keyboard mode): pad buttons / sticks reach the keyboard, mouse and media-key
+//    interfaces; reports only go out on change; the descriptors match TinyUSB's boot layouts.
 #include <cstring>
 #include <vector>
 
@@ -16,6 +18,8 @@
 #include "USBDevice/DeviceDriver/PS3/PS3.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
+#include "USBDevice/DeviceDriver/KBM/KBM.h"
+#include "Descriptors/KBM.h"
 #include "test.h"
 
 /* ---- TinyUSB stubs ------------------------------------------------------------------------ */
@@ -25,6 +29,12 @@ uint64_t mock_time_us = 0;
 namespace {
 std::vector<uint8_t> g_last_report;
 uint8_t g_last_report_itf = 0xFF;
+int g_keyboard_reports = 0;
+uint8_t g_keyboard_mods = 0;
+uint8_t g_keyboard_keys[6]{};
+int g_mouse_reports = 0;
+int g_mouse_x = 0, g_mouse_y = 0, g_mouse_wheel = 0;
+uint8_t g_mouse_buttons = 0;
 }
 
 extern "C" {
@@ -36,6 +46,20 @@ bool tud_hid_n_report(uint8_t instance, uint8_t report_id, void const* report, u
         g_last_report.push_back(report_id);
     const uint8_t* p = static_cast<const uint8_t*>(report);
     g_last_report.insert(g_last_report.end(), p, p + len);
+    return true;
+}
+bool tud_hid_n_keyboard_report(uint8_t, uint8_t, uint8_t modifier, const uint8_t keycode[6]) {
+    ++g_keyboard_reports;
+    g_keyboard_mods = modifier;
+    std::memcpy(g_keyboard_keys, keycode, 6);
+    return true;
+}
+bool tud_hid_n_mouse_report(uint8_t, uint8_t, uint8_t buttons, int8_t x, int8_t y, int8_t v, int8_t) {
+    ++g_mouse_reports;
+    g_mouse_buttons = buttons;
+    g_mouse_x += x;
+    g_mouse_y += y;
+    g_mouse_wheel += v;
     return true;
 }
 bool tud_suspended(void) { return false; }
@@ -229,6 +253,90 @@ TEST(steam_input_get_report_does_not_repeat_the_id) {
     CHECK_EQ(g_last_report[0], 0x01);
     CHECK(n <= g_last_report.size() - 1);
     CHECK(std::memcmp(buf, g_last_report.data() + 1, n) == 0);
+}
+
+/* ---- KBM (mouse + keyboard) ---------------------------------------------------------------- */
+
+TEST(kbm_pad_drives_keyboard_mouse_and_media_keys) {
+    kbm_settings::set(kbm_settings::defaults());
+    Gamepad gp;
+    KBMDevice dev;
+    dev.initialize();
+    g_keyboard_reports = g_mouse_reports = 0;
+    g_mouse_x = g_mouse_y = g_mouse_wheel = 0;
+    mock_time_us = 1000000;
+
+    Gamepad::PadIn in;
+    in.buttons = Gamepad::BUTTON_A;  // Enter
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_keyboard_reports, 1);
+    CHECK_EQ(g_keyboard_keys[0], 0x28);
+    dev.process(0, gp);  // unchanged: no new report
+    CHECK_EQ(g_keyboard_reports, 1);
+
+    in.buttons = Gamepad::BUTTON_SYS;  // Home media key
+    gp.set_pad_in(in);
+    g_last_report_itf = 0xFF;
+    dev.process(0, gp);
+    CHECK_EQ(g_keyboard_reports, 2);  // Enter released
+    CHECK_EQ(g_keyboard_keys[0], 0);
+    CHECK_EQ(g_last_report_itf, KBM::ITF_MEDIA);
+    CHECK_EQ(g_last_report[0] | (g_last_report[1] << 8), 0x0223);
+
+    in.buttons = 0;
+    in.joystick_rx = 32767;  // pointer right
+    in.trigger_r = 255;      // left click
+    gp.set_pad_in(in);
+    for (int i = 0; i < 20; ++i) {
+        mock_time_us += 1000;
+        dev.process(0, gp);
+    }
+    CHECK(g_mouse_x > 0);
+    CHECK_EQ(g_mouse_buttons, 0x01);
+
+    in.joystick_rx = 0;
+    in.trigger_r = 0;
+    in.joystick_ly = -32767;  // scroll up
+    gp.set_pad_in(in);
+    for (int i = 0; i < 200; ++i) {
+        mock_time_us += 1000;
+        dev.process(0, gp);
+    }
+    CHECK(g_mouse_wheel > 0);
+    CHECK_EQ(g_mouse_buttons, 0);
+
+    // A stall (e.g. a flash write) does not make the pointer jump.
+    in.joystick_ly = 0;
+    in.joystick_rx = 32767;
+    gp.set_pad_in(in);
+    const int before = g_mouse_x;
+    mock_time_us += 5000000;
+    dev.process(0, gp);
+    for (int i = 0; i < 5; ++i)
+        dev.process(0, gp);  // drain what is left of the step (int8 per report)
+    CHECK(g_mouse_x - before <= 100);
+}
+
+TEST(kbm_descriptors) {
+    KBMDevice dev;
+    dev.initialize();
+    const uint8_t* cfg = dev.get_descriptor_configuration_cb(0);
+    CHECK_EQ(cfg[2] | (cfg[3] << 8), sizeof(KBM::CONFIGURATION_DESCRIPTORS));
+    CHECK_EQ(cfg[4], 3);  // interfaces
+    // Interface descriptors: keyboard and mouse are boot devices, media keys are not.
+    const uint8_t* itf = cfg + TUD_CONFIG_DESC_LEN;
+    CHECK_EQ(itf[6], HID_SUBCLASS_BOOT);
+    CHECK_EQ(itf[7], HID_ITF_PROTOCOL_KEYBOARD);
+    itf += TUD_HID_DESC_LEN;
+    CHECK_EQ(itf[7], HID_ITF_PROTOCOL_MOUSE);
+    itf += TUD_HID_DESC_LEN;
+    CHECK_EQ(itf[6], HID_SUBCLASS_NONE);
+    CHECK(std::memcmp(dev.get_hid_descriptor_report_cb(KBM::ITF_MOUSE), KBM::MOUSE_REPORT_DESCRIPTORS,
+                      sizeof(KBM::MOUSE_REPORT_DESCRIPTORS)) == 0);
+    CHECK(std::memcmp(dev.get_hid_descriptor_report_cb(KBM::ITF_MEDIA), KBM::MEDIA_REPORT_DESCRIPTORS,
+                      sizeof(KBM::MEDIA_REPORT_DESCRIPTORS)) == 0);
+    CHECK(dev.get_descriptor_string_cb(9, 0x0409) == nullptr);  // out of range
 }
 
 TEST_MAIN()

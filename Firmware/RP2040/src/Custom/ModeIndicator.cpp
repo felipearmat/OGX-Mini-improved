@@ -25,6 +25,7 @@ uint8_t blink_count(DeviceDriverType driver)
         case DeviceDriverType::XBOXOG:
         case DeviceDriverType::XBOXOG_SB:
         case DeviceDriverType::XBOXOG_XR: return 6;
+        case DeviceDriverType::KBM:    return 8;
         default: return 7;
     }
 }
@@ -39,6 +40,7 @@ void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
         case DeviceDriverType::PS4:    r = 0x00; g = 0xFF; b = 0xFF; break; // light blue (hue 180)
         case DeviceDriverType::PS3:    r = 0x00; g = 0x00; b = 0x50; break; // dark blue
         case DeviceDriverType::STEAM:  r = 0x80; g = 0x00; b = 0xFF; break; // purple
+        case DeviceDriverType::KBM:    r = 0xFF; g = 0x50; b = 0x00; break; // orange
         case DeviceDriverType::XBOXOG:
         case DeviceDriverType::XBOXOG_SB:
         case DeviceDriverType::XBOXOG_XR: r = 0xFF; g = 0xB0; b = 0x00; break; // yellow

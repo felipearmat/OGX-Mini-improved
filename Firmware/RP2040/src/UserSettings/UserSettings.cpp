@@ -10,6 +10,7 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
+#include "Custom/KbmSettings.h"
 #if defined(CONFIG_EN_BLUETOOTH)
 #include "Bluepad32/Bluepad32.h"
 #endif
@@ -27,6 +28,8 @@ static void prepare_bt_for_mode_change_reboot()
 
 /* Custom: flash key of the dongle options (Custom/DongleSettings). */
 static const std::string DONGLE_SETTINGS_KEY = "dongle_cfg";
+/* Custom: flash key of the mouse + keyboard mode mapping (Custom/KbmSettings). */
+static const std::string KBM_SETTINGS_KEY = "kbm_cfg";
 
 static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0) {
     return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
@@ -73,6 +76,8 @@ namespace ButtonCombo {
     static constexpr uint32_t DREAMCAST = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_Y);
     static constexpr uint32_t N64       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB);
     static constexpr uint32_t WEBAPP    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB);
+    /* Custom: mouse + keyboard output mode. */
+    static constexpr uint32_t KBM       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB, Gamepad::DPAD_UP);
     // WII is build-option only (OGXM_FIXED_DRIVER=WII), not in combo map
 };
 
@@ -116,6 +121,7 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
     DeviceDriverType::DREAMCAST,
     DeviceDriverType::N64,
     DeviceDriverType::XINPUT,
+    DeviceDriverType::KBM,
     #if defined(XREMOTE_ROM_AVAILABLE)
     DeviceDriverType::XBOXOG_XR,
     #endif
@@ -129,11 +135,12 @@ struct ComboMap {
 };
 
 // GAMECUBE and N64 are build-only (fixed driver), not in combo map; use -DOGXM_FIXED_DRIVER=GAMECUBE or N64.
-static constexpr std::array<ComboMap, 14> BUTTON_COMBO_MAP = {{
+static constexpr std::array<ComboMap, 15> BUTTON_COMBO_MAP = {{
     { ButtonCombo::XBOXOG,    DeviceDriverType::XBOXOG    },
     { ButtonCombo::XBOXOG_SB, DeviceDriverType::XBOXOG_SB },
     { ButtonCombo::XBOXOG_XR, DeviceDriverType::XBOXOG_XR },
     { ButtonCombo::WEBAPP,    DeviceDriverType::WEBAPP    },
+    { ButtonCombo::KBM,       DeviceDriverType::KBM       },
     { ButtonCombo::DINPUT,    DeviceDriverType::DINPUT    },
     { ButtonCombo::SWITCH,    DeviceDriverType::SWITCH    },
     { ButtonCombo::WIIU,      DeviceDriverType::WIIU      },
@@ -617,6 +624,7 @@ void UserSettings::initialize_flash()
     {
         OGXM_LOG("Flash already initialized: %i\n", read_init_flag);
         load_dongle_settings();
+        load_kbm_settings();
         return;
     }
 
@@ -660,6 +668,7 @@ void UserSettings::initialize_flash()
 
     OGXM_LOG("Flash initialized\n");
     load_dongle_settings();
+    load_kbm_settings();
 }
 
 /* Custom: dongle options from flash; build-time defaults when missing or of another version. */
@@ -700,6 +709,23 @@ void UserSettings::set_single_controller(Gamepad& gamepad, bool on)
 
     prepare_bt_for_mode_change_reboot();
     store_dongle_settings(settings);
+}
+
+/* Custom: mouse + keyboard mapping from flash; defaults when missing or of another version. */
+void UserSettings::load_kbm_settings()
+{
+    kbm_settings::Settings settings = kbm_settings::defaults();
+    uint8_t stored[sizeof(kbm_settings::Settings)]{};
+    if (nvs_tool_.read(KBM_SETTINGS_KEY, stored, sizeof(stored)))
+        kbm_settings::decode(stored, sizeof(stored), settings);
+    kbm_settings::set(settings);
+}
+
+/* Custom: stored and applied right away, no reboot (the mapping can be tuned while in use). */
+void UserSettings::store_kbm_settings(const kbm_settings::Settings& settings)
+{
+    nvs_tool_.write(KBM_SETTINGS_KEY, &settings, sizeof(settings));
+    kbm_settings::set(settings);
 }
 
 bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settings)

@@ -32,6 +32,10 @@ private:
         /* Custom (OGX-Mini-improved): dongle options (Custom/DongleSettings, 8 bytes). */
         GET_DONGLE_SETTINGS = 0x70,
         SET_DONGLE_SETTINGS = 0x71,
+        /* Custom: mouse + keyboard mode mapping (Custom/KbmSettings, 48 bytes). SET answers with
+         * GET_KBM_SETTINGS once stored. */
+        GET_KBM_SETTINGS = 0x72,
+        SET_KBM_SETTINGS = 0x73,
         SET_GP_IN = 0x80,
         SET_GP_OUT = 0x81,
         RESP_ERROR = 0xFF
@@ -72,6 +76,7 @@ private:
     bool write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in);
     void write_error();
     bool write_dongle_settings();
+    bool write_kbm_settings();
 };
 
 #endif // _WEBAAPP_DEVICE_H_

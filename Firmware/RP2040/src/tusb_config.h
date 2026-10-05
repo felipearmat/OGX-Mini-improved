@@ -104,8 +104,9 @@
 //------------- CLASS -------------//
 #define CFG_TUD_CDC     1
 #define CFG_TUD_MSC     0
-/* +1 HID interface for Steam mode composite mouse (unused by other output drivers). */
-#define CFG_TUD_HID     (MAX_GAMEPADS + 1)
+/* +1 HID interface for Steam mode composite mouse (unused by other output drivers); at least 3
+ * for the mouse + keyboard mode (keyboard, mouse, media keys). */
+#define CFG_TUD_HID     ((MAX_GAMEPADS + 1) > 3 ? (MAX_GAMEPADS + 1) : 3)
 #define CFG_TUD_MIDI    0
 #define CFG_TUD_VENDOR  0
 #define CFG_TUD_XID     1

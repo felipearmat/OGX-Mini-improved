@@ -230,6 +230,21 @@ bool WebAppDevice::write_dongle_settings()
     return write_packet(packet_in);
 }
 
+/* Custom: mouse + keyboard mapping, one packet (version byte first). */
+bool WebAppDevice::write_kbm_settings()
+{
+    static_assert(sizeof(kbm_settings::Settings) <= sizeof(Packet::data), "KBM settings fit one packet");
+    Packet packet_in;
+    const kbm_settings::Settings& settings = kbm_settings::get();
+    packet_in.header.packet_id = PacketID::GET_KBM_SETTINGS;
+    packet_in.header.max_gamepads = MAX_GAMEPADS;
+    packet_in.header.chunks_total = 1;
+    packet_in.header.chunk_idx = 0;
+    packet_in.header.chunk_len = sizeof(settings);
+    std::memcpy(packet_in.data.data(), &settings, sizeof(settings));
+    return write_packet(packet_in);
+}
+
 void WebAppDevice::write_error()
 {
     Packet packet_in;
@@ -324,6 +339,31 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     return;
                 }
                 user_settings_.store_dongle_settings(settings);  // reboots
+                break;
+            }
+
+            case PacketID::GET_KBM_SETTINGS:
+                if (!write_kbm_settings())
+                {
+                    write_error();
+                    return;
+                }
+                break;
+
+            case PacketID::SET_KBM_SETTINGS:
+            {
+                kbm_settings::Settings settings{};
+                if (!kbm_settings::decode(packet_out.data.data(), packet_out.header.chunk_len, settings))
+                {
+                    write_error();
+                    return;
+                }
+                user_settings_.store_kbm_settings(settings);
+                if (!write_kbm_settings())
+                {
+                    write_error();
+                    return;
+                }
                 break;
             }
 
