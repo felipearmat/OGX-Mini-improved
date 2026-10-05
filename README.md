@@ -100,6 +100,11 @@ can be pointer, scroll, arrow keys or WASD; pointer / scroll speed, deadzone and
 adjustable, and motion (Joy-Con, DS4, DualSense, Switch Pro) can move the pointer. Changes apply
 right away, without a restart. The mode combos keep working inside this mode.
 
+**Control the whole PC from the controller:** in this mode the controller can wake the PC from
+sleep (when the PC allows wake-up by USB), navigate the BIOS / UEFI setup (map a button to Del /
+F2 in the web app) and power the PC on (when the BIOS has "power on by USB keyboard" and keeps USB
+powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X.
+
 ---
 
 # OGX-Mini 2026 (original documentation)
