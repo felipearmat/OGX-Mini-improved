@@ -77,7 +77,7 @@ namespace ButtonCombo {
     static constexpr uint32_t N64       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB);
     static constexpr uint32_t WEBAPP    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB);
     /* Custom: mouse + keyboard output mode. */
-    static constexpr uint32_t KBM       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB, Gamepad::DPAD_UP);
+    static constexpr uint32_t KBM       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_UP);
     // WII is build-option only (OGXM_FIXED_DRIVER=WII), not in combo map
 };
 
@@ -153,12 +153,11 @@ static constexpr std::array<ComboMap, 15> BUTTON_COMBO_MAP = {{
     { ButtonCombo::DREAMCAST, DeviceDriverType::DREAMCAST },
 }};
 
-/* Custom: single controller dongle option (UserSettings::set_single_controller): Start + RB + Up
- * turns it on, Start + RB + Down turns it off (free spots next to the mode combos). */
-static constexpr uint32_t SINGLE_CONTROLLER_ON_COMBO =
-    BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_UP);
+/* Custom: single controller dongle option (UserSettings::set_single_controller): Start + L3 turns
+ * it on, Start + L3 + LB turns it off. No mode combo uses L3, so these never take over one. */
+static constexpr uint32_t SINGLE_CONTROLLER_ON_COMBO = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3);
 static constexpr uint32_t SINGLE_CONTROLLER_OFF_COMBO =
-    BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_DOWN);
+    BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3 | Gamepad::BUTTON_LB);
 
 /** Prefer the combo that requires the most buttons (e.g. STEAM over XInput when LB is held). */
 static uint32_t find_matching_combo(uint32_t current)
@@ -239,7 +238,7 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
 
     const uint32_t current_button_combo = BUTTON_COMBO(gp_in.buttons, combo_dpad);
 
-    /* Custom: Start + RB + Up (on) / Start + RB + Down (off) held 3 s set the single controller dongle
+    /* Custom: Start + L3 (on) / Start + L3 + LB (off) held 3 s set the single controller dongle
      * option. Not in Wii mode: there Bluetooth is the Wii link, not the controller input. */
     static uint32_t last_single_combo = 0;
     static uint8_t single_controller_count = 0;

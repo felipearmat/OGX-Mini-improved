@@ -50,12 +50,12 @@ fork changes behaviour.
 | STEAM | Start + LB + Up | DualSense + mouse | purple | 5 |
 | Original Xbox (and Steel Battalion / XRemote) | Start + Right (+ RB / + LB) | Xbox controller | yellow | 6 |
 | PS3 | Start + Left | DualShock 3 | dark blue | 7 |
-| Mouse + Keyboard | Start + LB + RB + Up | keyboard + mouse + media keys | orange | 8 |
+| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | orange | 8 |
 | Wii U, PS Classic, Web App, GPIO modes | see [Changing platforms](#changing-platforms) | | white | 7 |
 
 Disconnect combo: **Start + Select** for 3 s (Options + Share on a DS4, + and − on Joy-Cons).
 
-Single controller option: **Start + RB + Up** turns it on, **Start + RB + Down** off (one rumble
+Single controller option: **Start + L3** turns it on, **Start + L3 + LB** off (one rumble
 for on, two for off; a change restarts the adapter).
 
 With a single Joy-Con held sideways (no D-pad), the stick pushed to the edge counts as the D-pad
@@ -214,7 +214,7 @@ Start = Plus (Switch) = Options (Dualsense/DS4)
 - Web Application Mode
     - Start + Left Bumper + Right Bumper
 - Mouse + Keyboard (OGX-Mini-improved)
-    - Start + Left Bumper + Right Bumper + D-pad **Up**
+    - Start + Right Bumper + D-pad **Up**
 
 **Wii, GameCube, and N64 are not selectable by combo.** Use a dedicated build for those modes:
 
