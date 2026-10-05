@@ -106,8 +106,6 @@ F2 in the web app) and power the PC on (when the BIOS has "power on by USB keybo
 powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X. Setup and the
 other modes: [Waking the PC from the controller](#waking-the-pc-from-the-controller).
 
----
-
 ### Waking the PC from the controller
 
 The adapter can wake a sleeping PC over USB, but only if the PC allows that device to wake it.
@@ -168,6 +166,8 @@ computer*.
 
 **Powering on from off** works only if the BIOS / UEFI has an option such as *Power on by USB
 keyboard* and keeps USB powered while the PC is off, so in practice only in Mouse + Keyboard mode.
+
+---
 
 # OGX-Mini 2026 (original documentation)
 
