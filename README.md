@@ -17,6 +17,15 @@ fork changes behaviour.
 - **STEAM mode:** the same for any pad (DS4, Joy-Cons...), not only a real DualSense: motion,
   touchpad (also as desktop mouse), battery, lightbar, rumble.
 - **PS3 mode:** rumble from Linux hosts.
+- **Mouse + Keyboard mode:** the pad drives a USB keyboard, mouse and media keys, for hosts
+  without gamepad navigation (PCs without Steam, smart TVs, consoles that take a mouse and
+  keyboard). Steam's desktop layout by default (A = Enter, B = Esc, right stick = pointer, left
+  stick = scroll, RT / LT = clicks); every input is remappable in the web app, plus touchpad and
+  motion as pointer. Details: [Mouse + Keyboard mode](#mouse--keyboard-mode).
+- **Single Joy-Con:** mode combos work with one Joy-Con (stick pushed to the edge = D-pad);
+  the *Single controller* option keeps a lone Joy-Con from waiting for its other half, so several
+  adapters can sit next to each other. While a lone Joy-Con waits for its other half, the LED
+  keeps blinking.
 - **DInput mode:** analog button pressure from the right buttons (pressure-sensitive pads).
 - **Joy-Cons:** vibration, robust pairing, sleep on mode change / disconnect combo.
 - **Stability:** mode switch no longer freezes (Core1 parked), flash writes park the other core,
@@ -41,9 +50,16 @@ fork changes behaviour.
 | STEAM | Start + LB + Up | DualSense + mouse | purple | 5 |
 | Original Xbox (and Steel Battalion / XRemote) | Start + Right (+ RB / + LB) | Xbox controller | yellow | 6 |
 | PS3 | Start + Left | DualShock 3 | dark blue | 7 |
+| Mouse + Keyboard | Start + LB + RB + Up | keyboard + mouse + media keys | orange | 8 |
 | Wii U, PS Classic, Web App, GPIO modes | see [Changing platforms](#changing-platforms) | | white | 7 |
 
 Disconnect combo: **Start + Select** for 3 s (Options + Share on a DS4, + and − on Joy-Cons).
+
+Single controller option: **Start + RB + Up** turns it on, **Start + RB + Down** off (one rumble
+for on, two for off; a change restarts the adapter).
+
+With a single Joy-Con held sideways (no D-pad), the stick pushed to the edge counts as the D-pad
+in these combos; Start = Capture (left Joy-Con) or + (right), LB / RB = SL / SR.
 
 **Adapter Options** — changeable from the [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/)
 (source: [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp)); the
@@ -57,6 +73,32 @@ CMake option sets the default:
 | Single Joy-Con orientation | `OGXM_JOYCON_SOLO_ORIENTATION` = HORIZONTAL |
 | Use a MAC address per controller (PS4 / STEAM) | `OGXM_MAC_PER_CONTROLLER` = OFF |
 | Legacy PS4 motion scale (Brook auth adapters) | `OGXM_PS4_LEGACY_MOTION_SCALE` = OFF |
+| Single controller (no Joy-Con pair) | `OGXM_SINGLE_CONTROLLER` = OFF |
+
+### Mouse + Keyboard mode
+
+Three USB HID interfaces, each a boot-protocol device where it can be (keyboard, mouse with wheel
+and horizontal scroll, media keys), so BIOS menus, smart TVs and consoles accept it. Only the
+first controller drives it. Default layout (Steam's desktop layout where it has one):
+
+| Input | Sends |
+|---|---|
+| Right stick | Mouse pointer (acceleration curve) |
+| Left stick | Scroll wheel (vertical and horizontal) |
+| D-pad | Arrow keys |
+| A / B / X / Y | Enter / Esc / Backspace / Space |
+| RT / LT | Left / right click |
+| RB / LB | Tab / Shift + Tab |
+| L3 / R3 | Ctrl / Shift (held) |
+| Start / Select | Menu key / Windows (Super) key |
+| Home / Guide | Media "Home" |
+| DS4 / DualSense touchpad | Pointer (click = left click) |
+
+In the web app (**Mouse + Keyboard Mode** panel) each input can send any key (with Ctrl / Shift /
+Alt / Win held), a mouse button or a media key (home, back, volume, playback, search); each stick
+can be pointer, scroll, arrow keys or WASD; pointer / scroll speed, deadzone and acceleration are
+adjustable, and motion (Joy-Con, DS4, DualSense, Switch Pro) can move the pointer. Changes apply
+right away, without a restart. The mode combos keep working inside this mode.
 
 ---
 
@@ -171,6 +213,8 @@ Start = Plus (Switch) = Options (Dualsense/DS4)
       - Start + Left Bumper + D-Pad Down
 - Web Application Mode
     - Start + Left Bumper + Right Bumper
+- Mouse + Keyboard (OGX-Mini-improved)
+    - Start + Left Bumper + Right Bumper + D-pad **Up**
 
 **Wii, GameCube, and N64 are not selectable by combo.** Use a dedicated build for those modes:
 

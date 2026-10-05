@@ -60,6 +60,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | a0e7cba | Dongle options: runtime settings editable from the web app (6 options, CMake defaults) | pr #128 (mechanism only) | Each option goes with the PR of the feature that uses it (Joy-Con options in #129). Web app side (Adapter Options panel) to MegaCadeDev/OGX-Mini-2026-WebApp once options exist upstream. |
 | (CI) | `build.yml`: job timeout and Pico SDK cache | merged #124 | Hung jobs were cancelled, but that board lost its UF2. |
 | (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | merged #125 | Also used by `improved-ci.yml` in the fork. |
+| 5505280 | Single controller option (one Bluetooth pad, lone Joy-Con does not wait for a partner), Start + RB + Up / Down, LED blinks while a lone Joy-Con waits | todo | Feature. Includes a Bluepad32 patch (pairing toggle) that only applies on top of MegaCadeDev/bluepad32's Joy-Con pairing. After the fixes are accepted. |
+| fed21e8 | Mouse + Keyboard output mode (keyboard, mouse, media keys; mapping from the web app) | todo | Feature; web app side in OGX-Mini-improved-WebApp. After the fixes are accepted. |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
 
