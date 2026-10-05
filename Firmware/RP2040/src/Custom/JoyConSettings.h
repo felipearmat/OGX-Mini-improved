@@ -21,7 +21,19 @@ namespace joycon_settings {
         bool pair_imu_right;
         Orientation pair_orientation;
         Orientation solo_orientation;
+        bool pair_rumble_per_side;
     };
+
+    // Rumble for one half of a merged Joy-Con pair, in the Switch parser's terms (weak = high
+    // band, strong = low band). rumble_l / rumble_r are the host's left (strong) and right (weak)
+    // motors. Per side, as SDL / Steam / Linux drive a pair: the left Joy-Con plays the left motor
+    // in the low band and the right one the right motor in the high band. Otherwise both halves
+    // get the same request.
+    struct HalfRumble {
+        uint8_t weak;
+        uint8_t strong;
+    };
+    HalfRumble pair_half_rumble(bool left_joycon, bool per_side, uint8_t rumble_l, uint8_t rumble_r);
 
     Settings get();
 

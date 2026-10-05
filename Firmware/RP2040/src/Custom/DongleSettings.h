@@ -13,13 +13,18 @@
  *    OGXM_MAC_PER_CONTROLLER               OFF  report the connected pad's address, not the dongle's
  *    OGXM_PS4_LEGACY_MOTION_SCALE          OFF  PS4 mode: old Brook-style motion scale
  *    OGXM_SINGLE_CONTROLLER                OFF  accept one Bluetooth controller (no Joy-Con pair)
+ *    OGXM_JOYCON_PAIR_RUMBLE               PER_SIDE | BOTH  (merged pair: strong motor on the left
+ *                                          Joy-Con and weak on the right, as SDL / Steam / Linux
+ *                                          do, or both motors on both Joy-Cons)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
- *  8 bytes, a version byte then one byte per option (0 / 1).
+ *  16 bytes, a version byte then one byte per option (0 / 1), unused bytes zero. Version 1 was
+ *  the first 8 bytes alone; it is still accepted (newer options take their defaults).
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 1;
+    constexpr uint8_t kVersion = 2;
+    constexpr size_t kV1Length = 8;
 
 #pragma pack(push, 1)
     struct Settings {
@@ -31,15 +36,18 @@ namespace dongle_settings {
         uint8_t mac_per_controller;
         uint8_t ps4_legacy_motion_scale;
         uint8_t single_controller;
+        // Version 2
+        uint8_t joycon_pair_rumble_per_side;
+        uint8_t reserved[7];
     };
 #pragma pack(pop)
-    static_assert(sizeof(Settings) == 8, "dongle_settings::Settings is a wire format");
+    static_assert(sizeof(Settings) == 16, "dongle_settings::Settings is a wire format");
 
     // Build-time defaults.
     Settings defaults();
 
-    // Parse stored / received bytes. False (out untouched) for a short buffer or another
-    // version; option bytes are normalised to 0 / 1.
+    // Parse stored / received bytes, version 2 or 1. False (out untouched) for a short buffer or
+    // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

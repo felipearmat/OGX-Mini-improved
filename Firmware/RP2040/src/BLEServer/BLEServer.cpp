@@ -353,7 +353,9 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
         case Handle::DONGLE_SETTINGS:
         {
             dongle_settings::Settings settings{};
-            if ((ret = verify_write(buffer_size, sizeof(settings))) != 0) {
+            /* Version 2 record, or version 1 from an older web app. */
+            if (buffer_size != sizeof(settings) && buffer_size != dongle_settings::kV1Length) {
+                ret = ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
                 break;
             }
             if (!dongle_settings::decode(buffer, buffer_size, settings)) {

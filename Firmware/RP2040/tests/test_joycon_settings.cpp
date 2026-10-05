@@ -42,4 +42,29 @@ TEST(rotation_keeps_the_vector_length) {
     CHECK_EQ(a[0] * a[0] + a[1] * a[1] + a[2] * a[2], 169);
 }
 
+TEST(pair_rumble_per_side_by_default) {
+    CHECK(joycon_settings::get().pair_rumble_per_side);
+}
+
+TEST(pair_rumble_per_side_splits_the_motors) {
+    // Host left motor (strong) -> left Joy-Con, low band only; right motor (weak) -> right, high band.
+    auto l = joycon_settings::pair_half_rumble(true, true, 200, 50);
+    CHECK_EQ(l.weak, 0);
+    CHECK_EQ(l.strong, 200);
+    auto r = joycon_settings::pair_half_rumble(false, true, 200, 50);
+    CHECK_EQ(r.weak, 50);
+    CHECK_EQ(r.strong, 0);
+    // Only the left motor requested: the right Joy-Con stays silent.
+    r = joycon_settings::pair_half_rumble(false, true, 200, 0);
+    CHECK_EQ(r.weak + r.strong, 0);
+}
+
+TEST(pair_rumble_both_gives_each_half_the_whole_request) {
+    for (bool left : {true, false}) {
+        auto h = joycon_settings::pair_half_rumble(left, false, 200, 50);
+        CHECK_EQ(h.weak, 200);
+        CHECK_EQ(h.strong, 50);
+    }
+}
+
 TEST_MAIN()

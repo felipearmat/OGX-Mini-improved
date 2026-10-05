@@ -21,6 +21,9 @@
 #ifndef OGXM_SINGLE_CONTROLLER
 #define OGXM_SINGLE_CONTROLLER 0
 #endif
+#ifndef OGXM_JOYCON_PAIR_RUMBLE_PER_SIDE
+#define OGXM_JOYCON_PAIR_RUMBLE_PER_SIDE 1
+#endif
 
 namespace dongle_settings {
 
@@ -50,15 +53,19 @@ Settings defaults()
     s.mac_per_controller = flag(OGXM_MAC_PER_CONTROLLER);
     s.ps4_legacy_motion_scale = flag(OGXM_PS4_LEGACY_MOTION_SCALE);
     s.single_controller = flag(OGXM_SINGLE_CONTROLLER);
+    s.joycon_pair_rumble_per_side = flag(OGXM_JOYCON_PAIR_RUMBLE_PER_SIDE);
     return s;
 }
 
 bool decode(const uint8_t* data, size_t len, Settings& out)
 {
-    if (data == nullptr || len < sizeof(Settings) || data[0] != kVersion)
+    if (data == nullptr || len < 1)
         return false;
-    Settings s{};
-    s.version = kVersion;
+    const bool v2 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v1 = data[0] == 1 && len >= kV1Length;
+    if (!v2 && !v1)
+        return false;
+    Settings s = defaults();  // a version 1 record leaves the newer options at their defaults
     s.disconnect_pads_on_mode_change = flag(data[1]);
     s.joycon_pair_imu_right = flag(data[2]);
     s.joycon_pair_horizontal = flag(data[3]);
@@ -66,6 +73,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
     s.mac_per_controller = flag(data[5]);
     s.ps4_legacy_motion_scale = flag(data[6]);
     s.single_controller = flag(data[7]);
+    if (v2)
+        s.joycon_pair_rumble_per_side = flag(data[8]);
     out = s;
     return true;
 }

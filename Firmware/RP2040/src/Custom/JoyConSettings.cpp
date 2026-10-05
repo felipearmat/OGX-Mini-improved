@@ -10,7 +10,15 @@ Settings get()
         d.joycon_pair_imu_right != 0,
         d.joycon_pair_horizontal ? Orientation::Horizontal : Orientation::Vertical,
         d.joycon_solo_horizontal ? Orientation::Horizontal : Orientation::Vertical,
+        d.joycon_pair_rumble_per_side != 0,
     };
+}
+
+HalfRumble pair_half_rumble(bool left_joycon, bool per_side, uint8_t rumble_l, uint8_t rumble_r)
+{
+    if (!per_side)
+        return HalfRumble{rumble_l, rumble_r};  // same call as a single pad (Bluepad32.cpp set_rumble)
+    return left_joycon ? HalfRumble{0, rumble_l} : HalfRumble{rumble_r, 0};
 }
 
 void apply_orientation(bool left_joycon, Orientation orientation, int32_t accel[3], int32_t gyro[3])

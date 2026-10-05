@@ -52,6 +52,15 @@ Known issues in this fork, to fix later.
   pointer, and Steam's desktop layout works), but the extra mouse interface only helps on Windows.
   Options: expose the mouse on a separate VID/PID configuration, or drop it on Linux hosts.
 
+- **Bluetooth pads: host motors swapped (left / right).** Found 2026-10-05. Output drivers store the
+  host's left (strong, low frequency) motor in `PadOut::rumble_l` and the right (weak) one in
+  `rumble_r`, but `set_rumble()` (`Bluepad32.cpp`) passes them to Bluepad32's
+  `*_play_dual_rumble(weak, strong)` as `(rumble_l, rumble_r)`: the strong request plays on a DS4 /
+  DualSense / DS3 / Xbox One pad's small motor and vice versa, and on Switch pads in the high band.
+  Inherited from the original OGX-Mini. Fix: pass `(rumble_r, rumble_l)`; check on hardware with a
+  DS4 and Joy-Cons. Not applied yet (waiting for the go-ahead). The Joy-Con pair *per side* option
+  already uses the right meaning.
+
 ## Buttons
 
 - **Capture button not read with paired Joy-Cons** (Switch Pro output mode).

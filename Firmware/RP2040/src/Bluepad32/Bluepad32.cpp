@@ -502,10 +502,30 @@ static void send_feedback_cb(btstack_timer_source *ts)
                 ;
             else if (!bp32_is_joycon_pair_secondary(bp_device))
             {
-                set_rumble(bp_device, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
                 const int partner = bp32_get_pair_partner_idx(bp_device);
-                if (partner >= 0 && partner < CONFIG_BLUEPAD32_MAX_DEVICES) {
-                    uni_hid_device_t* pd = uni_hid_device_get_instance_for_idx(partner);
+                uni_hid_device_t* pd = (partner >= 0 && partner < CONFIG_BLUEPAD32_MAX_DEVICES)
+                                           ? uni_hid_device_get_instance_for_idx(partner)
+                                           : nullptr;
+                if (pd && bp32_is_switch_joycon(bp_device))
+                {
+                    /* Custom: Joy-Con pair rumble dongle option. Per side (default), as SDL /
+                     * Steam / Linux drive a pair: left motor on the left Joy-Con, right motor on
+                     * the right one; a half with nothing to play is left alone (its own rumble
+                     * duration stops it). */
+                    const bool per_side = joycon_settings::get().pair_rumble_per_side;
+                    for (uni_hid_device_t* half : {bp_device, pd})
+                    {
+                        const auto h = joycon_settings::pair_half_rumble(
+                            half->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft, per_side,
+                            gp_out.rumble_l, gp_out.rumble_r);
+                        if (h.weak || h.strong)
+                            uni_hid_parser_switch_play_dual_rumble(half, 0, switch_rumble::kRumbleDurationMs,
+                                                                   h.weak, h.strong);
+                    }
+                }
+                else
+                {
+                    set_rumble(bp_device, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
                     if (pd)
                         set_rumble(pd, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
                 }

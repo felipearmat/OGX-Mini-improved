@@ -74,6 +74,7 @@ CMake option sets the default:
 | Use a MAC address per controller (PS4 / STEAM) | `OGXM_MAC_PER_CONTROLLER` = OFF |
 | Legacy PS4 motion scale (Brook auth adapters) | `OGXM_PS4_LEGACY_MOTION_SCALE` = OFF |
 | Single controller (no Joy-Con pair) | `OGXM_SINGLE_CONTROLLER` = OFF |
+| Joy-Con pair rumble: per side (as SDL / Steam) or both Joy-Cons | `OGXM_JOYCON_PAIR_RUMBLE` = PER_SIDE |
 
 ### Mouse + Keyboard mode
 
