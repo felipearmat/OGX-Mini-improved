@@ -102,6 +102,7 @@ void SteamDevice::process(const uint8_t idx, Gamepad& gamepad)
 	(void)idx;
 
 	const Gamepad::PadIn gp_in = gamepad.get_pad_in();
+	wake_host_on_press(gp_in);
 
 	if (!SteamPassthrough::input_has_touchpad) {
 		PS5::InReport rep{};

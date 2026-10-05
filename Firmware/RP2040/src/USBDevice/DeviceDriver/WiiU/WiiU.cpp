@@ -106,8 +106,7 @@ void WiiUDevice::process(const uint8_t idx, Gamepad& gamepad)
 	Gamepad::PadIn gp_in = gamepad.get_pad_in();
 	fill_port_block(in_report_.port_data[idx], gp_in, gamepad.stick_y_positive_is_up());
 
-	if (tud_suspended())
-		tud_remote_wakeup();
+	wake_host_on_press(gp_in);
 
 	// Send once per frame after the last port, only when init received (or WIIU_SKIP_INIT_GATE) and endpoint ready.
 	// Real adapter does not send reports until host sends Start Polling (0x13).

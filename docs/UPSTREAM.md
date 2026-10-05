@@ -62,6 +62,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | merged #125 | Also used by `improved-ci.yml` in the fork. |
 | aae625d | Single controller option (one Bluetooth pad, lone Joy-Con does not wait for a partner), Start + L3 (on) / Start + L3 + LB (off), LED blinks while a lone Joy-Con waits | todo | Feature. Includes a Bluepad32 patch (pairing toggle) that only applies on top of MegaCadeDev/bluepad32's Joy-Con pairing. After the fixes are accepted. |
 | e9b8735 | Mouse + Keyboard output mode (keyboard, mouse, media keys; mapping from the web app) | todo | Feature; web app side in OGX-Mini-improved-WebApp. After the fixes are accepted. |
+| (next) | PC wake: Switch / DInput / Wii U / PS Classic woke the PC on every loop while suspended; XInput / STEAM never woke it | todo | Bug fix (the first part is an upstream bug: the PC wakes right after suspending). `wake_host_on_press()` in DeviceDriver.h + udev rule in Tools/linux. Verified on hardware (Ally X). |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
 

@@ -10,6 +10,8 @@
 //  - PS4 / STEAM: input GET_REPORT with a report ID repeated the ID TinyUSB already adds.
 //  - KBM (mouse + keyboard mode): pad buttons / sticks reach the keyboard, mouse and media-key
 //    interfaces; reports only go out on change; the descriptors match TinyUSB's boot layouts.
+//  - Remote wakeup: Switch / DInput / PS Classic / Wii U signalled it on every loop while suspended,
+//    so a host that enables wakeup woke right after suspending, with no press.
 #include <cstring>
 #include <vector>
 
@@ -35,6 +37,8 @@ uint8_t g_keyboard_keys[6]{};
 int g_mouse_reports = 0;
 int g_mouse_x = 0, g_mouse_y = 0, g_mouse_wheel = 0;
 uint8_t g_mouse_buttons = 0;
+bool g_suspended = false;
+int g_wakeups = 0;
 }
 
 extern "C" {
@@ -62,8 +66,8 @@ bool tud_hid_n_mouse_report(uint8_t, uint8_t, uint8_t buttons, int8_t x, int8_t 
     g_mouse_wheel += v;
     return true;
 }
-bool tud_suspended(void) { return false; }
-bool tud_remote_wakeup(void) { return true; }
+bool tud_suspended(void) { return g_suspended; }
+bool tud_remote_wakeup(void) { ++g_wakeups; return true; }
 bool tud_mounted(void) { return true; }
 bool tud_control_xfer(uint8_t, tusb_control_request_t const*, void*, uint16_t) { return true; }
 bool hidd_control_xfer_cb(uint8_t, uint8_t, tusb_control_request_t const*) { return true; }
@@ -92,6 +96,44 @@ void set_output(Driver& dev, uint8_t report_id, const std::vector<uint8_t>& body
 Gamepad::PadOut out_of(Gamepad& gp) { return gp.get_pad_out(); }
 
 }  // namespace
+
+/* ---- Remote wakeup ----------------------------------------------------------------------- */
+
+TEST(remote_wakeup_only_on_a_deliberate_press_once_per_suspend) {
+    Gamepad gp;
+    DInputDevice dev;
+    dev.initialize();
+    g_wakeups = 0;
+    g_suspended = true;
+
+    Gamepad::PadIn in{};
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_wakeups, 0);              // idle pad: no wake
+
+    in.joystick_lx = 30000;              // stick drift or a bump: no wake
+    in.trigger_l = 0x40;                 // light trigger touch: no wake
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_wakeups, 0);
+
+    in.buttons = Gamepad::BUTTON_A;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    dev.process(0, gp);                  // held: still one wake
+    CHECK_EQ(g_wakeups, 1);
+
+    g_suspended = false;                 // host resumed
+    dev.process(0, gp);
+    g_suspended = true;                  // and suspended again
+    in = Gamepad::PadIn{};
+    in.dpad = Gamepad::DPAD_UP;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_wakeups, 2);
+
+    g_suspended = false;
+}
 
 /* ---- DInput ------------------------------------------------------------------------------ */
 

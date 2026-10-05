@@ -200,6 +200,8 @@ void XInputDevice::process(const uint8_t idx, Gamepad& gamepad)
 	in_report_.buttons[0] = 0;
 	in_report_.buttons[1] = 0;
 	Gamepad::PadIn gp_in = gamepad.get_pad_in();
+	/* PC hosts suspend the bus normally (unlike Xbox 360 standby, handled below). */
+	wake_host_on_press(gp_in);
 
 	switch (gp_in.dpad)
 	{

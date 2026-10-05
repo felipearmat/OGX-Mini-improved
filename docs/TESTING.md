@@ -40,7 +40,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 
 | Test | Covers |
 |---|---|
-| `test_device_reports` | The real DInput, PS3, PS4 and STEAM device drivers with TinyUSB stubbed: DInput analog pressure from the right buttons; PS3 rumble from Linux (report one byte short); PS4 / STEAM output reports reach the pad (they were dropped), lightbar-only updates keep the rumble, SDL's stop stops it, input GET_REPORT does not repeat the ID. |
+| `test_device_reports` | The real DInput, PS3, PS4 and STEAM device drivers with TinyUSB stubbed: remote wakeup only on a deliberate press, once per suspend; DInput analog pressure from the right buttons; PS3 rumble from Linux (report one byte short); PS4 / STEAM output reports reach the pad (they were dropped), lightbar-only updates keep the rumble, SDL's stop stops it, input GET_REPORT does not repeat the ID. |
 | `test_sony_reports` | DS3 / DS4 / DualSense report helpers: output body alignment, rumble valid flags, touch points, battery, feature reports. |
 | `test_sony_imu` | DS4 / DualSense motion units against the calibration report hosts apply; PS4 sensor clock. |
 | `test_switch_pro_layout` | Switch Pro button bits against Linux `hid-nintendo` (L3 / R3 swapped). |

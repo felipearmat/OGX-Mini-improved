@@ -42,6 +42,30 @@ protected:
     usbd_class_driver_t class_driver_;
 
     uint16_t* get_string_descriptor(const char* value, uint8_t index);
+
+    /* USB remote wakeup on a deliberate press while the host is suspended: any button,
+     * the D-pad, or a trigger past half travel. Sticks are ignored so drift cannot wake
+     * the host. Signals once per suspend; call it every process(). */
+    void wake_host_on_press(const Gamepad::PadIn& gp_in)
+    {
+        if (!tud_suspended())
+        {
+            wake_sent_ = false;
+            return;
+        }
+        const bool pressed = gp_in.buttons != 0 ||
+                             gp_in.dpad != Gamepad::DPAD_NONE ||
+                             gp_in.trigger_l > 0x80 ||
+                             gp_in.trigger_r > 0x80;
+        if (pressed && !wake_sent_)
+        {
+            tud_remote_wakeup();
+            wake_sent_ = true;
+        }
+    }
+
+private:
+    bool wake_sent_{false};
 };
 
 #endif // _DEVICE_DRIVER_H_

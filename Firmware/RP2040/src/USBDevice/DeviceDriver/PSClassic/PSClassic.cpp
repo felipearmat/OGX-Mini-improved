@@ -110,10 +110,7 @@ void PSClassicDevice::process(const uint8_t idx, Gamepad& gamepad)
         if (gp_in.trigger_r) in_report_.buttons |= PSClassic::Buttons::R2;
     }
 
-    if (tud_suspended())
-    {
-        tud_remote_wakeup();
-    }
+    wake_host_on_press(gamepad.get_pad_in());
     if (tud_hid_n_ready(idx))
     {
         tud_hid_n_report(idx, 0, reinterpret_cast<uint8_t*>(&in_report_), sizeof(PSClassic::InReport));

@@ -1,0 +1,38 @@
+# OGX-Mini: wake this PC from suspend with a press on the controller.
+#
+# Linux disables USB wakeup for gamepads by default. This rule enables it whenever the
+# adapter enumerates, in every output mode that signals USB remote wakeup, and also on
+# every hub and USB controller above it: a wake request from a device behind a hub with
+# wakeup disabled never reaches the PC.
+#
+# Install:  sudo cp 99-ogx-mini-wakeup.rules /etc/udev/rules.d/
+#           sudo udevadm control --reload && sudo udevadm trigger -s usb -c add
+# Check:    cat /sys/bus/usb/devices/*/power/wakeup  (adapter and its hubs say "enabled")
+#
+# The IDs are the ones the adapter reports, so an original controller with the same
+# VID:PID plugged in by cable gets wakeup enabled as well.
+
+ACTION!="add|bind", GOTO="ogxm_wake_end"
+SUBSYSTEM!="usb", GOTO="ogxm_wake_end"
+ENV{DEVTYPE}!="usb_device", GOTO="ogxm_wake_end"
+
+# Switch Pro
+ATTR{idVendor}=="057e", ATTR{idProduct}=="2009", GOTO="ogxm_wake"
+# XInput
+ATTR{idVendor}=="045e", ATTR{idProduct}=="028e", GOTO="ogxm_wake"
+# DInput
+ATTR{idVendor}=="2563", ATTR{idProduct}=="0575", GOTO="ogxm_wake"
+# PS4 (wakes with PS/Home, or Start held 3 s)
+ATTR{idVendor}=="054c", ATTR{idProduct}=="05c4", GOTO="ogxm_wake"
+# STEAM (DualSense identity)
+ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", GOTO="ogxm_wake"
+# PS3 (wakes with PS/Home, or Start held 3 s)
+ATTR{idVendor}=="054c", ATTR{idProduct}=="0268", GOTO="ogxm_wake"
+# PS Classic
+ATTR{idVendor}=="054c", ATTR{idProduct}=="0cda", GOTO="ogxm_wake"
+GOTO="ogxm_wake_end"
+
+LABEL="ogxm_wake"
+RUN+="/bin/sh -c 'd=/sys%p; while [ \"$${d#/sys/devices/}\" != \"$$d\" ]; do [ -w \"$$d/power/wakeup\" ] && echo enabled > \"$$d/power/wakeup\"; d=$${d%%/*}; done'"
+
+LABEL="ogxm_wake_end"

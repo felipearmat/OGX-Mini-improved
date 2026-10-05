@@ -117,14 +117,17 @@ What wakes the PC today, per output mode (USB IDs as the PC sees them):
 | Mode | USB ID | Wakes the PC with |
 |---|---|---|
 | Mouse + Keyboard | `1209:0001` | any key, click or pointer movement |
-| Switch Pro | `057e:2009` | any button |
-| DInput | `2563:0575` | any button |
-| Wii U | `057e:0337` | any button |
-| PS Classic | `054c:0cda` | any button |
+| Switch Pro | `057e:2009` | a press: any button, the D-pad or a trigger past half travel |
+| DInput | `2563:0575` | a press (as above) |
+| Wii U | `057e:0337` | a press (as above) |
+| PS Classic | `054c:0cda` | a press (as above) |
+| XInput | `045e:028e` | a press (as above); an Xbox 360 console still wakes with Guide |
+| STEAM | `054c:0ce6` (or the connected DualSense's ID) | a press (as above) |
 | PS3 | `054c:0268` | PS (Home) button, or Start held 3 s |
 | PS4 | `054c:05c4` | PS (Home) button, or Start held 3 s |
-| XInput | `045e:028e` | nothing yet (wakes an Xbox 360 console with Guide, not a PC) |
-| STEAM | `054c:0ce6` (or the connected DualSense's ID) | nothing yet |
+
+Sticks never wake the PC (drift or a bump in the bag would), and each sleep gets one wake request.
+Verified on an ASUS ROG Ally X (Bazzite, `s2idle`) with Joy-Cons in Switch Pro mode.
 
 If the controller fell asleep, the first press only reconnects it; press again a second or two later.
 
@@ -142,13 +145,14 @@ If the controller fell asleep, the first press only reconnects it; press again a
    ```
 
 3. Test: `systemctl suspend`, then press a button on the controller.
-4. Make it permanent with a udev rule (one line per mode you use; `/etc` is writable on Bazzite too):
+4. Make it permanent with the rule in [Tools/linux](Tools/linux/99-ogx-mini-wakeup.rules). It covers
+   every gamepad mode and also enables wakeup on the hubs and USB controller above the adapter (a
+   wake request behind a hub with wakeup disabled never reaches the PC). `/etc` is writable on
+   Bazzite too:
 
    ```sh
-   sudo tee /etc/udev/rules.d/90-ogx-mini-wakeup.rules <<'RULES'
-   ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="057e", ATTR{idProduct}=="2009", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
-   RULES
-   sudo udevadm control --reload-rules
+   sudo cp Tools/linux/99-ogx-mini-wakeup.rules /etc/udev/rules.d/
+   sudo udevadm control --reload && sudo udevadm trigger -s usb -c add
    ```
 
    The rule also applies to an original controller with the same ID.
@@ -163,6 +167,9 @@ so run it once).
 Device Manager → the adapter's entry (under *Human Interface Devices*, or *Keyboards* / *Mice* in
 Mouse + Keyboard mode) → *Properties* → *Power Management* → tick *Allow this device to wake the
 computer*.
+
+**Hibernation** is a power-off from the USB point of view: the controller cannot wake a hibernated
+PC (only from suspend), and on most PCs the adapter itself loses power.
 
 **Powering on from off** works only if the BIOS / UEFI has an option such as *Power on by USB
 keyboard* and keeps USB powered while the PC is off, so in practice only in Mouse + Keyboard mode.

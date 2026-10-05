@@ -122,10 +122,7 @@ void DInputDevice::process(const uint8_t idx, Gamepad& gamepad)
         in_report.r2_axis = gp_in.trigger_r;
     }
 
-    if (tud_suspended())
-    {
-        tud_remote_wakeup();
-    }
+    wake_host_on_press(gamepad.get_pad_in());
 
     if (tud_hid_n_ready(idx))
     {

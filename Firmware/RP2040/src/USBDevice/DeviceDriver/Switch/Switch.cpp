@@ -308,8 +308,7 @@ void SwitchDevice::process(const uint8_t idx, Gamepad& gamepad)
 	else
 		build_standard_report(switch_report_);
 
-	if (tud_suspended())
-		tud_remote_wakeup();
+	wake_host_on_press(gp_in);
 
 	// USB init: host reads 0x81 from interrupt IN after sending 0x80 0x01/0x02/ etc. Push it first.
 	if (has_pending_81_ && tud_hid_n_ready(0))
