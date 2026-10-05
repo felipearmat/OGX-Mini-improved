@@ -28,7 +28,7 @@ namespace joycon_settings {
     // band, strong = low band). rumble_l / rumble_r are the host's left (strong) and right (weak)
     // motors. Per side, as SDL / Steam / Linux drive a pair: the left Joy-Con plays the left motor
     // in the low band and the right one the right motor in the high band. Otherwise both halves
-    // get the same request.
+    // get the whole request (left motor in the low band, right motor in the high band).
     struct HalfRumble {
         uint8_t weak;
         uint8_t strong;

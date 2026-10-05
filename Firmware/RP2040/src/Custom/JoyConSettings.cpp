@@ -17,7 +17,7 @@ Settings get()
 HalfRumble pair_half_rumble(bool left_joycon, bool per_side, uint8_t rumble_l, uint8_t rumble_r)
 {
     if (!per_side)
-        return HalfRumble{rumble_l, rumble_r};  // same call as a single pad (Bluepad32.cpp set_rumble)
+        return HalfRumble{rumble_r, rumble_l};  // the whole request, as for a single pad
     return left_joycon ? HalfRumble{0, rumble_l} : HalfRumble{rumble_r, 0};
 }
 

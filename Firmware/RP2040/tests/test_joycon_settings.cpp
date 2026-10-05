@@ -62,8 +62,8 @@ TEST(pair_rumble_per_side_splits_the_motors) {
 TEST(pair_rumble_both_gives_each_half_the_whole_request) {
     for (bool left : {true, false}) {
         auto h = joycon_settings::pair_half_rumble(left, false, 200, 50);
-        CHECK_EQ(h.weak, 200);
-        CHECK_EQ(h.strong, 50);
+        CHECK_EQ(h.weak, 50);     // right (weak) motor -> high band
+        CHECK_EQ(h.strong, 200);  // left (strong) motor -> low band
     }
 }
 
