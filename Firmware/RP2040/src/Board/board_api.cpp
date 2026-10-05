@@ -147,8 +147,15 @@ void reboot() {
     OGXM_LOG("Rebooting\n");
     /* Watchdog reset is reliable from either core (BT runs on Core1). */
     watchdog_reboot(0, 0, 0);
+    /* Custom fix: the reset is immediate, so still running here means it did not happen (seen
+     * once on a Pico 2 W: the board stayed dark after "Rebooting" until it was replugged). Ask
+     * the core for a system reset instead of spinning forever, then keep retrying. */
     while (1) {
-        tight_loop_contents();
+        busy_wait_ms(100);
+        OGXM_LOG("Reboot fallback: system reset request\n");
+        *reinterpret_cast<volatile uint32_t*>(0xE000ED0Cu) = 0x05FA0004u;  // AIRCR: VECTKEY | SYSRESETREQ
+        busy_wait_ms(100);
+        watchdog_reboot(0, 0, 1);
     }
 }
 
