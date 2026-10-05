@@ -1,6 +1,7 @@
 #include "class/cdc/cdc_device.h"
 #include "bsp/board_api.h"
 
+#include "Board/board_api.h"
 #include "Board/ogxm_log.h"
 #include "Descriptors/CDCDev.h"
 #include "Gamepad/I2CWirePad.h"
@@ -255,6 +256,14 @@ void WebAppDevice::write_error()
 
 void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad) 
 {
+    /* Custom: end a rumble test once its time is up (the pad keeps the last request otherwise). */
+    if (rumble_test_until_ms_ != 0 &&
+        static_cast<int32_t>(board_api::ms_since_boot() - rumble_test_until_ms_) >= 0)
+    {
+        rumble_test_until_ms_ = 0;
+        gamepad.set_pad_out(Gamepad::PadOut());
+    }
+
     if (!tud_cdc_connected())
     {
         return;
@@ -364,6 +373,32 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     write_error();
                     return;
                 }
+                break;
+            }
+
+            case PacketID::SET_GP_OUT:
+            {
+                /* Custom: rumble test, played through the same path as host rumble. */
+                if (packet_out.header.chunk_len < 4)
+                {
+                    write_error();
+                    return;
+                }
+                static constexpr uint16_t MAX_TEST_MS = 10000;
+                uint16_t duration = static_cast<uint16_t>(packet_out.data[2] | (packet_out.data[3] << 8));
+                if (duration > MAX_TEST_MS)
+                    duration = MAX_TEST_MS;
+                Gamepad::PadOut gp_out;
+                gp_out.rumble_l = packet_out.data[0];
+                gp_out.rumble_r = packet_out.data[1];
+                gamepad.set_pad_out(gp_out);
+                const uint32_t until = board_api::ms_since_boot() + duration;
+                rumble_test_until_ms_ = until != 0 ? until : 1;
+                Packet ack;
+                ack.header.packet_id = PacketID::SET_GP_OUT;
+                ack.header.chunks_total = 1;
+                ack.header.chunk_len = 0;
+                write_packet(ack);
                 break;
             }
 

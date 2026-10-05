@@ -37,6 +37,8 @@ private:
         GET_KBM_SETTINGS = 0x72,
         SET_KBM_SETTINGS = 0x73,
         SET_GP_IN = 0x80,
+        /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
+         * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
         SET_GP_OUT = 0x81,
         RESP_ERROR = 0xFF
     };
@@ -65,6 +67,8 @@ private:
     #pragma pack(pop)
 
     UserSettings& user_settings_{UserSettings::get_instance()};
+    /* Custom: rumble test end time (ms since boot), 0 = none running. */
+    uint32_t rumble_test_until_ms_{0};
     UserProfile profile_;
 
     bool read_profile(UserProfile& profile);
