@@ -29,6 +29,10 @@ public:
     virtual const uint8_t* get_descriptor_configuration_cb(uint8_t index) = 0;
     virtual const uint8_t* get_descriptor_device_qualifier_cb() = 0;
 
+    /* Custom: called before a mode change takes the device off the bus. A driver whose host keeps
+     * acting on the last report (a held key repeats) sends its neutral state here. */
+    virtual void release_inputs() {}
+
     virtual void line_state_cb(uint8_t itf, bool dtr, bool rts) {};
     virtual void line_coding_cb(uint8_t itf, cdc_line_coding_t const* p_line_coding) {};
     

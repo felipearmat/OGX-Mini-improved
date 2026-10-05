@@ -445,6 +445,15 @@ void set_gp_check_timer(uint32_t task_id) {
     [&user_settings] {
         //Check gamepad inputs for button combo to change usb device driver
         if (user_settings.check_for_driver_change(_gamepads[0])) {
+            /* Custom: let the driver send its neutral state first (mouse + keyboard mode: the
+             * combo's keys would stay held on the host while the mode change runs). */
+            if (DeviceDriver* driver = DeviceManager::get_instance().get_driver()) {
+                driver->release_inputs();
+                for (int i = 0; i < 10; ++i) {
+                    tud_task();
+                    sleep_ms(1);
+                }
+            }
             //This will store the new mode and reboot the pico
             user_settings.store_driver_type(user_settings.get_current_driver());
         }

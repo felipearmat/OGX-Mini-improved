@@ -318,6 +318,27 @@ TEST(kbm_pad_drives_keyboard_mouse_and_media_keys) {
     CHECK(g_mouse_x - before <= 100);
 }
 
+TEST(kbm_release_inputs_lets_go_of_held_keys) {
+    kbm_settings::set(kbm_settings::defaults());
+    Gamepad gp;
+    KBMDevice dev;
+    dev.initialize();
+    mock_time_us = 2000000;
+    Gamepad::PadIn in;
+    in.buttons = Gamepad::BUTTON_START;  // held for a mode combo
+    in.dpad = Gamepad::DPAD_UP;
+    in.trigger_r = 255;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK(g_keyboard_keys[0] != 0);
+    CHECK_EQ(g_mouse_buttons, 0x01);
+    dev.release_inputs();
+    for (uint8_t k : g_keyboard_keys)
+        CHECK_EQ(k, 0);
+    CHECK_EQ(g_keyboard_mods, 0);
+    CHECK_EQ(g_mouse_buttons, 0);
+}
+
 TEST(kbm_descriptors) {
     KBMDevice dev;
     dev.initialize();

@@ -1532,7 +1532,6 @@ void set_pico_w_pio_usb_mux_tick(void (*tick_cb)(void)) {
  * Disconnecting them first makes them sleep cleanly and reconnect on a button press. Other pads
  * are disconnected too: they turn off at once (LED off, a visible sign the mode changed)
  * instead of paging a rebooting adapter. */
-static btstack_context_callback_registration_t s_reboot_disc_reg;
 static btstack_timer_source_t s_reboot_disc_poll_timer;
 /* gap_disconnect() on a live Joy-Con link never completed (links still open after 2 s), so
  * first ask a Joy-Con to disconnect itself and sleep; fall back to gap_disconnect() later.
@@ -1573,9 +1572,16 @@ static void reboot_disc_poll_cb(btstack_timer_source_t* ts)
     s_reboot_disc_done.store(true, std::memory_order_release);
 }
 
-static void reboot_disconnect_pads_on_bt_main(void* ctx)
+/* Custom fix: Core0 only raises this flag; the BT core picks it up from its own timer. Core0 used
+ * to queue the work with btstack_run_loop_execute_on_main_thread(), which takes the BT stack's
+ * lock from the other core: now and then that call never returned and the mode change froze
+ * with USB still up (the mode was not saved, a key stayed held in mouse + keyboard mode). */
+static std::atomic<bool> s_reboot_disc_request{false};
+static btstack_timer_source_t s_reboot_disc_request_timer;
+static constexpr uint32_t REBOOT_DISC_REQUEST_POLL_MS = 20;
+
+static void reboot_disconnect_pads_on_bt_main()
 {
-    (void)ctx;
     s_reboot_disc_count = 0;
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
@@ -1598,6 +1604,16 @@ static void reboot_disconnect_pads_on_bt_main(void* ctx)
     btstack_run_loop_add_timer(&s_reboot_disc_poll_timer);
 }
 
+static void reboot_disc_request_timer_cb(btstack_timer_source_t* ts)
+{
+    if (s_reboot_disc_request.exchange(false, std::memory_order_acq_rel)) {
+        reboot_disconnect_pads_on_bt_main();
+        return;  // one shot: the board reboots next
+    }
+    btstack_run_loop_set_timer(ts, REBOOT_DISC_REQUEST_POLL_MS);
+    btstack_run_loop_add_timer(ts);
+}
+
 /* Read from Core0 while Core1 owns the table: only used to skip the wait when idle. */
 static bool any_pad_link_open()
 {
@@ -1617,9 +1633,7 @@ void disconnect_pads_before_reboot()
         return;
 
     s_reboot_disc_done.store(false, std::memory_order_release);
-    s_reboot_disc_reg.callback = reboot_disconnect_pads_on_bt_main;
-    s_reboot_disc_reg.context = nullptr;
-    btstack_run_loop_execute_on_main_thread(&s_reboot_disc_reg);
+    s_reboot_disc_request.store(true, std::memory_order_release);
 
     const uint32_t start = board_api::ms_since_boot();
     while (!s_reboot_disc_done.load(std::memory_order_acquire) &&
@@ -1706,6 +1720,11 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
         btstack_run_loop_set_timer(&s_pico_w_usb_mux_timer_, 1);
         btstack_run_loop_add_timer(&s_pico_w_usb_mux_timer_);
     }
+
+    s_reboot_disc_request_timer.process = reboot_disc_request_timer_cb;
+    s_reboot_disc_request_timer.context = nullptr;
+    btstack_run_loop_set_timer(&s_reboot_disc_request_timer, REBOOT_DISC_REQUEST_POLL_MS);
+    btstack_run_loop_add_timer(&s_reboot_disc_request_timer);
 
 #if defined(CONFIG_EN_BLUETOOTH) && defined(CONFIG_TARGET_PICO_W)
     s_pairing_watchdog_timer.process = pairing_watchdog_cb;
