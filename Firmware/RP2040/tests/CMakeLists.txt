@@ -45,7 +45,6 @@ ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/Joy
 
 ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
 
-ogxm_add_test(test_rumble_refresh test_rumble_refresh.cpp ${FW_SRC}/Bluepad32/RumbleRefresh.cpp)
 
 ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)
 
@@ -92,6 +91,9 @@ target_link_libraries(test_device_reports PRIVATE fixmath)
 set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/patch_libs.cmake)
 ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})  # same series as the firmware build
+ogxm_apply_output_queue_patch(${EXTERNAL_DIR})
+ogxm_add_test(test_output_queue test_output_queue.cpp ${BP32}/uni_circular_buffer.c)
+target_include_directories(test_output_queue PRIVATE ${BP32}/include)
 include(CheckCSourceCompiles)
 set(CMAKE_REQUIRED_FLAGS -m32)
 check_c_source_compiles("int main(void){return 0;}" OGXM_HAVE_M32)

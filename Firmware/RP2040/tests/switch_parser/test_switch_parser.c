@@ -6,7 +6,6 @@
 //  - two Joy-Cons reconnecting together collided -> one pad in setup at a time;
 //  - wiped parser timers left linked in the run loop -> cleanup unlinks them;
 //  - request_sleep sends subcommand 0x06 with arg 0x00;
-//  - rumble stuck on after a lost "stop": idle refresh re-sends neutral rumble;
 //  - a merged Joy-Con pair keeps only the selected half's IMU on (right by default);
 //  - rumble magnitude was encoded as frequency (fixed amplitude) instead of amplitude.
 #include <stdio.h>
@@ -186,24 +185,6 @@ static int count_neutral_rumble(int dev_idx) {
     return n;
 }
 
-static void test_idle_rumble_refresh(void) {
-    fake_reset();
-    start_joycon(0, JCL);
-    uni_hid_parser_switch_refresh_idle_rumble(fake_device(0));
-    CHECK(count_neutral_rumble(0) == 0);  // not ready yet: nothing sent
-    fake_joycon_run_setup(0, JCL, 50);
-
-    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 250, 200, 200);
-    const int before = count_neutral_rumble(0);
-    uni_hid_parser_switch_refresh_idle_rumble(fake_device(0));
-    CHECK(count_neutral_rumble(0) == before);  // rumble playing: refresh must not cut it
-
-    fake_advance_ms(300);  // duration over: the parser's own single "stop"
-    CHECK(count_neutral_rumble(0) == before + 1);
-    uni_hid_parser_switch_refresh_idle_rumble(fake_device(0));
-    CHECK(count_neutral_rumble(0) == before + 2);  // idle refresh re-sends neutral
-}
-
 static int count_rumble_on(int dev_idx) {
     int n = 0;
     for (int i = 0; i < fake_sent_count(); i++) {
@@ -215,8 +196,8 @@ static int count_rumble_on(int dev_idx) {
 }
 
 // A 3 s rumble (cutscene) refreshed every 250 ms, as the OGX feedback loop does with a
-// 350 ms duration, and the idle refresh called on every tick (worst case): no stop and no
-// neutral packet may go out until the rumble really ends, then exactly one stop.
+// 350 ms duration: no stop and no neutral packet may go out until the rumble really ends,
+// then exactly one stop.
 static void test_long_rumble_not_interrupted(void) {
     fake_reset();
     start_joycon(0, JCL);
@@ -224,7 +205,6 @@ static void test_long_rumble_not_interrupted(void) {
     const int neutral_before = count_neutral_rumble(0);
     for (int t = 0; t < 3000; t += 250) {
         uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 350, 200, 200);
-        uni_hid_parser_switch_refresh_idle_rumble(fake_device(0));
         fake_advance_ms(250);
     }
     CHECK(count_neutral_rumble(0) == neutral_before);  // never stopped mid-rumble
@@ -331,7 +311,6 @@ int main(void) {
         {"pair_imu_defaults_to_right", test_pair_imu_defaults_to_right},
         {"pair_keeps_left_imu", test_pair_keeps_left_imu},
         {"cleanup_unlinks_timers", test_cleanup_unlinks_timers},
-        {"idle_rumble_refresh", test_idle_rumble_refresh},
         {"long_rumble_not_interrupted", test_long_rumble_not_interrupted},
         {"rumble_intensity_tracks_magnitude", test_rumble_intensity_tracks_magnitude},
         {"rumble_single_magnitude_drives_both_actuators", test_rumble_single_magnitude_drives_both_actuators},

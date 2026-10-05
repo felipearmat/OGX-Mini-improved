@@ -439,7 +439,6 @@ if(EN_BLUETOOTH)
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${SRC}/Custom/ModeIndicator.cpp
         ${SRC}/Custom/JoyConSettings.cpp
-        ${SRC}/Bluepad32/RumbleRefresh.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp

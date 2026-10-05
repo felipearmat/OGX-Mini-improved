@@ -57,8 +57,14 @@ function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
         "${EXTERNAL_DIR}/patches/bluepad32_switch_setup_robustness.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_idle_rumble_refresh.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_rumble_intensity.diff")
+endfunction()
+
+# Bluepad32 output queue: byte-stream ring buffer (backport of ricardoquesada/bluepad32 b6531db).
+# The old 32-slot queue dropped packets when full, a rumble "stop" among them.
+function(ogxm_apply_output_queue_patch EXTERNAL_DIR)
+    ogxm_apply_patch_series("Bluepad32 output queue (upstream b6531db)" "${EXTERNAL_DIR}/bluepad32"
+        "${EXTERNAL_DIR}/patches/bluepad32_output_ring_buffer.diff")
 endfunction()
 
 function(apply_lib_patches EXTERNAL_DIR)
@@ -193,6 +199,7 @@ function(apply_lib_patches EXTERNAL_DIR)
     endif ()
 
     ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})
+    ogxm_apply_output_queue_patch(${EXTERNAL_DIR})
     # DS4 parser (OGX-Mini-improved): keep the latest touch points for touchpad passthrough.
     ogxm_apply_patch_series("Bluepad32 DS4 parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
         "${EXTERNAL_DIR}/patches/bluepad32_ds4_touchpad.diff")
