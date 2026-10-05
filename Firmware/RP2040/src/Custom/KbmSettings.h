@@ -54,7 +54,6 @@ namespace kbm_settings {
 
     enum Flag : uint8_t {
         FLAG_POINTER_ACCEL = 0x01,  // pointer speed grows with the square of the stick push
-        FLAG_GYRO_POINTER = 0x02,   // motion moves the pointer (pads with motion)
         FLAG_TOUCHPAD = 0x04,       // DS4 / DualSense touchpad moves the pointer, click = left
         FLAG_INVERT_SCROLL = 0x08,
     };
@@ -89,8 +88,7 @@ namespace kbm_settings {
         uint8_t scroll_speed;   // 1..20
         uint8_t deadzone;       // percent of full push, 0..50
         uint8_t flags;          // Flag
-        uint8_t gyro_speed;     // 1..20
-        uint8_t reserved[4];
+        uint8_t reserved[5];
     };
 #pragma pack(pop)
     static_assert(sizeof(Settings) == 48, "kbm_settings::Settings is a wire format");

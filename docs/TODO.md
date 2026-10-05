@@ -67,6 +67,15 @@ Known issues in this fork, to fix later.
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
   every printf, or a ring buffer drained by one core).
 
+## Features for a later version
+
+- **Mouse + Keyboard mode: motion (gyro) as pointer.** Turn the pad to move the pointer (Joy-Con,
+  DS4, DualSense, Switch Pro), as an option in the web app next to the touchpad one. Left out of
+  the first version (decided 2026-10-02): needs the axis signs checked per pad type on hardware
+  (`MotionImu::remap_to_ds4_playing_frame` gives the DS4 playing frame; yaw = pointer X, pitch =
+  pointer Y), a drift deadband and a speed setting. The settings record has 5 reserved bytes and
+  flag bit 0x02 free for it.
+
 ## Protocol completeness (from the 2026-09-30 reference review)
 
 - Switch Pro output: subcommands 0x50 (battery voltage) and 0x43 (read IMU registers) are

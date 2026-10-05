@@ -69,7 +69,7 @@ TEST(decode_sanitises) {
     CHECK_EQ(s.pointer_speed, 1);
     CHECK_EQ(s.scroll_speed, 20);
     CHECK_EQ(s.deadzone, 50);
-    CHECK_EQ(s.flags, FLAG_POINTER_ACCEL | FLAG_GYRO_POINTER | FLAG_TOUCHPAD | FLAG_INVERT_SCROLL);
+    CHECK_EQ(s.flags, FLAG_POINTER_ACCEL | FLAG_TOUCHPAD | FLAG_INVERT_SCROLL);  // unknown bits dropped
     CHECK_EQ(s.reserved[0], 0);
 }
 
@@ -208,26 +208,6 @@ TEST(stick_as_arrows_and_wasd) {
     in.ry = 0;
     m.update(in, s, MS);
     CHECK_EQ(key_count(m.keyboard()), 0);
-}
-
-TEST(gyro_pointer_with_deadband) {
-    Settings s = defaults();
-    s.right_stick = STICK_NONE;
-    s.flags = FLAG_GYRO_POINTER;
-    s.gyro_speed = 8;  // 12 px per degree
-    kbm::Mapper m;
-    kbm::Input in;
-    in.has_gyro = true;
-    in.gyro[1] = 8;  // 0.5 deg/s: drift, ignored
-    m.update(in, s, 1000 * MS);
-    CHECK(!m.mouse_pending());
-    in.gyro[1] = 16 * 11;  // 11 deg/s -> 10 deg/s past the deadband, for 0.1 s = 1 degree
-    m.update(in, s, 100 * MS);
-    const kbm::MouseReport r = m.take_mouse();
-    CHECK(r.x >= -12 && r.x <= -11);
-    s.flags = 0;  // off: no movement
-    m.update(in, s, 100 * MS);
-    CHECK(!m.mouse_pending());
 }
 
 TEST(touchpad_moves_pointer_and_clicks) {

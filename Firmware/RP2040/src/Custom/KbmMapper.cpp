@@ -13,9 +13,6 @@ constexpr uint8_t TRIGGER_PRESSED = 64;     // of 255
 constexpr float STICK_KEY_THRESHOLD = 0.5f;  // of full push, arrows / WASD stick modes
 constexpr float POINTER_PX_PER_S = 150.0f;   // per speed step, at full push
 constexpr float SCROLL_STEPS_PER_S = 1.5f;   // per speed step, at full push
-constexpr float GYRO_UNITS_PER_DEG_S = 16.0f;
-constexpr float GYRO_DEADBAND_DEG_S = 1.0f;  // ignore drift of a pad lying still
-constexpr float GYRO_PX_PER_DEG = 1.5f;      // per speed step
 constexpr float TOUCH_SCALE = 0.6f / 8.0f;   // per pointer speed step
 
 constexpr uint8_t KEY_UP = 0x52, KEY_DOWN = 0x51, KEY_LEFT = 0x50, KEY_RIGHT = 0x4F;
@@ -83,16 +80,6 @@ float stick_push(int16_t raw_x, int16_t raw_y, uint8_t deadzone_pct, float& ux, 
     uy = y / mag;
     const float push = (mag - dz) / (1.0f - dz);
     return push > 1.0f ? 1.0f : push;
-}
-
-float gyro_rate(int32_t raw)
-{
-    const float deg_s = static_cast<float>(raw) / GYRO_UNITS_PER_DEG_S;
-    if (deg_s > GYRO_DEADBAND_DEG_S)
-        return deg_s - GYRO_DEADBAND_DEG_S;
-    if (deg_s < -GYRO_DEADBAND_DEG_S)
-        return deg_s + GYRO_DEADBAND_DEG_S;
-    return 0.0f;
 }
 
 int8_t take(float& acc)
@@ -174,12 +161,6 @@ void Mapper::update(const Input& in, const Settings& s, uint32_t dt_us)
             default:
                 break;
         }
-    }
-
-    if ((s.flags & FLAG_GYRO_POINTER) && in.has_gyro) {
-        const float px_per_deg = s.gyro_speed * GYRO_PX_PER_DEG;
-        acc_x_ += -gyro_rate(in.gyro[1]) * px_per_deg * dt;  // yaw: turn left = pointer left
-        acc_y_ += -gyro_rate(in.gyro[0]) * px_per_deg * dt;  // pitch: tilt up = pointer up
     }
 
     if (s.flags & FLAG_TOUCHPAD) {

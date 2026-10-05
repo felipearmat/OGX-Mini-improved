@@ -5,7 +5,6 @@
 
 #include "Custom/KbmSettings.h"
 #include "Descriptors/KBM.h"
-#include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
 
 static_assert(kbm::BTN_A == Gamepad::BUTTON_A && kbm::BTN_B == Gamepad::BUTTON_B &&
@@ -36,17 +35,6 @@ kbm::Input to_kbm_input(const Gamepad::PadIn& gp_in)
     in.ly = gp_in.joystick_ly;
     in.rx = gp_in.joystick_rx;
     in.ry = gp_in.joystick_ry;
-    in.has_gyro = gp_in.has_motion();
-    if (in.has_gyro) {
-        int32_t accel[3], gyro[3];  // aligned copies: PadIn is packed
-        for (int i = 0; i < 3; ++i) {
-            accel[i] = gp_in.accel[i];
-            gyro[i] = gp_in.gyro[i];
-        }
-        MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
-        for (int i = 0; i < 3; ++i)
-            in.gyro[i] = gyro[i];
-    }
     in.touch_valid = gp_in.touchpad_valid != 0;
     std::memcpy(in.touch_point, gp_in.touch_raw, sizeof(in.touch_point));
     in.touch_click = gp_in.touchpad_click != 0;
@@ -109,6 +97,21 @@ void KBMDevice::process(const uint8_t idx, Gamepad& gamepad)
         if (tud_hid_n_report(KBM::ITF_MEDIA, 0, &usage, sizeof(usage)))
             sent_media_ = usage;
     }
+}
+
+/* Everything released: the mode combo itself holds keys (Start, a direction), and the host would
+ * keep repeating them until the device leaves the bus. */
+void KBMDevice::release_inputs()
+{
+    static const uint8_t no_keys[6] = {};
+    static const uint16_t no_media = 0;
+    if (tud_hid_n_ready(KBM::ITF_KEYBOARD) && tud_hid_n_keyboard_report(KBM::ITF_KEYBOARD, 0, 0, no_keys))
+        sent_keyboard_ = kbm::KeyboardReport{};
+    if (tud_hid_n_ready(KBM::ITF_MOUSE))
+        tud_hid_n_mouse_report(KBM::ITF_MOUSE, 0, 0, 0, 0, 0, 0);
+    if (tud_hid_n_ready(KBM::ITF_MEDIA) && tud_hid_n_report(KBM::ITF_MEDIA, 0, &no_media, sizeof(no_media)))
+        sent_media_ = 0;
+    mapper_.reset();
 }
 
 uint16_t KBMDevice::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)

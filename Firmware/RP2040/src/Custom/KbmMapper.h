@@ -23,8 +23,6 @@ namespace kbm {
         uint8_t trigger_l{0};
         uint8_t trigger_r{0};
         int16_t lx{0}, ly{0}, rx{0}, ry{0};  // Y negative = up (Gamepad::PadIn convention)
-        bool has_gyro{false};
-        int32_t gyro[3]{};                    // DS4 playing frame, about 16 units per deg/s
         bool touch_valid{false};
         uint8_t touch_point[4]{};             // first touch point, DS4 / DualSense wire format
         bool touch_click{false};

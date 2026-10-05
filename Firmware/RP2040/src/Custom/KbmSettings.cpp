@@ -87,7 +87,6 @@ Settings defaults()
     s.scroll_speed = DEFAULT_SPEED;
     s.deadzone = DEFAULT_DEADZONE;
     s.flags = FLAG_POINTER_ACCEL | FLAG_TOUCHPAD;
-    s.gyro_speed = DEFAULT_SPEED;
     return s;
 }
 
@@ -105,10 +104,9 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
         s.right_stick = STICK_NONE;
     s.pointer_speed = clamp_speed(s.pointer_speed);
     s.scroll_speed = clamp_speed(s.scroll_speed);
-    s.gyro_speed = clamp_speed(s.gyro_speed);
     if (s.deadzone > MAX_DEADZONE)
         s.deadzone = MAX_DEADZONE;
-    s.flags &= FLAG_POINTER_ACCEL | FLAG_GYRO_POINTER | FLAG_TOUCHPAD | FLAG_INVERT_SCROLL;
+    s.flags &= FLAG_POINTER_ACCEL | FLAG_TOUCHPAD | FLAG_INVERT_SCROLL;
     std::memset(s.reserved, 0, sizeof(s.reserved));
     out = s;
     return true;

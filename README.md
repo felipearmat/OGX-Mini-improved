@@ -20,8 +20,8 @@ fork changes behaviour.
 - **Mouse + Keyboard mode:** the pad drives a USB keyboard, mouse and media keys, for hosts
   without gamepad navigation (PCs without Steam, smart TVs, consoles that take a mouse and
   keyboard). Steam's desktop layout by default (A = Enter, B = Esc, right stick = pointer, left
-  stick = scroll, RT / LT = clicks); every input is remappable in the web app, plus touchpad and
-  motion as pointer. Details: [Mouse + Keyboard mode](#mouse--keyboard-mode).
+  stick = scroll, RT / LT = clicks); every input is remappable in the web app, plus the
+  touchpad as pointer. Details: [Mouse + Keyboard mode](#mouse--keyboard-mode).
 - **Single Joy-Con:** mode combos work with one Joy-Con (stick pushed to the edge = D-pad);
   the *Single controller* option keeps a lone Joy-Con from waiting for its other half, so several
   adapters can sit next to each other. While a lone Joy-Con waits for its other half, the LED
@@ -97,7 +97,7 @@ first controller drives it. Default layout (Steam's desktop layout where it has 
 In the web app (**Mouse + Keyboard Mode** panel) each input can send any key (with Ctrl / Shift /
 Alt / Win held), a mouse button or a media key (home, back, volume, playback, search); each stick
 can be pointer, scroll, arrow keys or WASD; pointer / scroll speed, deadzone and acceleration are
-adjustable, and motion (Joy-Con, DS4, DualSense, Switch Pro) can move the pointer. Changes apply
+adjustable. Changes apply
 right away, without a restart. The mode combos keep working inside this mode.
 
 **Control the whole PC from the controller:** in this mode the controller can wake the PC from
