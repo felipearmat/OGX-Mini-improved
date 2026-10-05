@@ -103,9 +103,71 @@ right away, without a restart. The mode combos keep working inside this mode.
 **Control the whole PC from the controller:** in this mode the controller can wake the PC from
 sleep (when the PC allows wake-up by USB), navigate the BIOS / UEFI setup (map a button to Del /
 F2 in the web app) and power the PC on (when the BIOS has "power on by USB keyboard" and keeps USB
-powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X.
+powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X. Setup and the
+other modes: [Waking the PC from the controller](#waking-the-pc-from-the-controller).
 
 ---
+
+### Waking the PC from the controller
+
+The adapter can wake a sleeping PC over USB, but only if the PC allows that device to wake it.
+Linux allows it by default only for keyboards, so out of the box only **Mouse + Keyboard** mode
+wakes a Linux PC (Bazzite, SteamOS, ...); the gamepad modes need the one-time setup below.
+
+What wakes the PC today, per output mode (USB IDs as the PC sees them):
+
+| Mode | USB ID | Wakes the PC with |
+|---|---|---|
+| Mouse + Keyboard | `1209:0001` | any key, click or pointer movement |
+| Switch Pro | `057e:2009` | any button |
+| DInput | `2563:0575` | any button |
+| Wii U | `057e:0337` | any button |
+| PS Classic | `054c:0cda` | any button |
+| PS3 | `054c:0268` | PS (Home) button, or Start held 3 s |
+| PS4 | `054c:05c4` | PS (Home) button, or Start held 3 s |
+| XInput | `045e:028e` | nothing yet (wakes an Xbox 360 console with Guide, not a PC) |
+| STEAM | `054c:0ce6` (or the connected DualSense's ID) | nothing yet |
+
+If the controller fell asleep, the first press only reconnects it; press again a second or two later.
+
+**Linux (Bazzite, SteamOS, other distros)**
+
+1. With the adapter in the mode you use, find its ID: `lsusb` (for example
+   `057e:2009 Nintendo Co., Ltd Pro Controller` in Switch Pro mode).
+2. Allow it to wake the PC (until the next reboot or replug); use your mode's ID:
+
+   ```sh
+   for d in /sys/bus/usb/devices/*; do
+     [ "$(cat $d/idVendor 2>/dev/null)" = "057e" ] && [ "$(cat $d/idProduct 2>/dev/null)" = "2009" ] && \
+     echo enabled | sudo tee $d/power/wakeup && echo "$d: wakeup enabled"
+   done
+   ```
+
+3. Test: `systemctl suspend`, then press a button on the controller.
+4. Make it permanent with a udev rule (one line per mode you use; `/etc` is writable on Bazzite too):
+
+   ```sh
+   sudo tee /etc/udev/rules.d/90-ogx-mini-wakeup.rules <<'RULES'
+   ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="057e", ATTR{idProduct}=="2009", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
+   RULES
+   sudo udevadm control --reload-rules
+   ```
+
+   The rule also applies to an original controller with the same ID.
+
+If it still does not wake, the PC's USB controller itself may not be allowed to wake the system:
+`grep -i xhc /proc/acpi/wakeup`. If its line says `*disabled`, enable it with
+`echo XHC0 | sudo tee /proc/acpi/wakeup` (use the exact name from that line; the command toggles,
+so run it once).
+
+**Windows**
+
+Device Manager → the adapter's entry (under *Human Interface Devices*, or *Keyboards* / *Mice* in
+Mouse + Keyboard mode) → *Properties* → *Power Management* → tick *Allow this device to wake the
+computer*.
+
+**Powering on from off** works only if the BIOS / UEFI has an option such as *Power on by USB
+keyboard* and keeps USB powered while the PC is off, so in practice only in Mouse + Keyboard mode.
 
 # OGX-Mini 2026 (original documentation)
 
