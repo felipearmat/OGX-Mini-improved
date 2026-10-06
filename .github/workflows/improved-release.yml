@@ -1,0 +1,196 @@
+# OGX-Mini-improved releases: one UF2 per board on the fork's Releases page.
+# Kept separate from the upstream build.yml (whose release job only runs in the original
+# repository) so upstream merges stay conflict-free.
+#
+# Release: push a tag named improved-vX.Y.Z (git tag improved-v1.0.0 && git push origin improved-v1.0.0),
+# or run this workflow by hand from the Actions tab with an existing tag. Host unit tests must pass first.
+name: OGX-Mini-improved Release
+
+on:
+  push:
+    tags: ["improved-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (improved-vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: improved-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PICO_SDK_TAG: "2.1.0"
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  host-tests:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Checkout required submodules
+        run: |
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --recursive --depth 1 \
+            Firmware/external/bluepad32 Firmware/external/libfixmath Firmware/external/tinyusb
+
+      - name: Install toolchain
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+            -o DPkg::Lock::Timeout=120
+        run: |
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get $APT_OPTS update'
+          .github/scripts/retry.sh 5 5m -- bash -c '
+            sudo dpkg --configure -a &&
+            sudo apt-get $APT_OPTS install -y cmake ninja-build gcc-multilib g++-multilib'
+
+      - name: Build and run tests
+        run: |
+          cmake -S Firmware/RP2040/tests -B build-tests -G Ninja
+          cmake --build build-tests
+          ctest --test-dir build-tests --output-on-failure
+
+  build:
+    name: Build ${{ matrix.board }}
+    needs: host-tests
+    runs-on: ubuntu-24.04
+    # Steps retry on their own (up to 5 attempts each); this only bounds the worst case.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - PI_PICO2W
+          - PI_PICOW
+          - PI_PICO
+          - PI_PICO2
+          - RP2040_ZERO
+          - RP2350_ZERO
+          - RP2350_USB_A
+          - RP2040_XIAO
+          - RP2354
+          - OGX_LIVE
+          - ADAFRUIT_FEATHER
+          - EXTERNAL_4CH_I2C
+          - ESP32_BLUEPAD32_I2C
+          - ESP32_BLUERETRO_I2C
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Checkout submodules
+        run: |
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --recursive --depth 1
+
+      - name: Install toolchain
+        env:
+          APT_OPTS: >-
+            -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+            -o DPkg::Lock::Timeout=120
+        run: |
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get $APT_OPTS update'
+          .github/scripts/retry.sh 5 5m -- bash -c '
+            sudo dpkg --configure -a &&
+            sudo apt-get $APT_OPTS install -y cmake ninja-build gcc-arm-none-eabi \
+              libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3'
+
+      # A slow cache download gives up after a few minutes and the SDK is cloned instead.
+      - name: Cache Pico SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
+        with:
+          path: Firmware/external/pico-sdk
+          key: pico-sdk-${{ env.PICO_SDK_TAG }}
+
+      - name: Get Pico SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          .github/scripts/retry.sh 5 10m -- bash -c "
+            rm -rf Firmware/external/pico-sdk &&
+            git clone --depth 1 --branch ${PICO_SDK_TAG} --recurse-submodules \
+              https://github.com/raspberrypi/pico-sdk.git Firmware/external/pico-sdk"
+
+      - name: Build ${{ matrix.board }}
+        run: |
+          set -euo pipefail
+          .github/scripts/retry.sh 5 15m -- bash -c "
+            cmake -S Firmware/RP2040 -B build -G Ninja \
+              -DPICO_SDK_PATH=$PWD/Firmware/external/pico-sdk \
+              -DCMAKE_BUILD_TYPE=Release -DOGXM_BOARD=${{ matrix.board }} -DMAX_GAMEPADS=1 &&
+            cmake --build build"
+          UF2=$(find build -maxdepth 1 -name '*.uf2' | head -n 1)
+          if [ -z "$UF2" ]; then
+            echo "No UF2 produced for ${{ matrix.board }}"
+            exit 1
+          fi
+          mkdir -p out
+          cp -v "$UF2" "out/OGX-Mini-improved-${RELEASE_TAG#improved-}-${{ matrix.board }}.uf2"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uf2-${{ matrix.board }}
+          path: out/*.uf2
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          find artifacts -type f -name '*.uf2' -exec cp -v {} release-files/ \;
+          VERSION="${RELEASE_TAG#improved-}"
+          echo "name=OGX-Mini-improved ${VERSION}" >> "$GITHUB_OUTPUT"
+          SHA=$(git rev-parse --short HEAD)
+          {
+            echo "OGX-Mini-improved ${VERSION} (commit \`${SHA}\`), a fork of MegaCadeDev/OGX-Mini-2026."
+            echo
+            echo "**What changed:** [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${RELEASE_TAG}/CHANGELOG.md)."
+            echo "Tested on a **Raspberry Pi Pico 2 W**; the other boards are built from the same code but not tested on hardware."
+            echo
+            echo "**Install:** hold BOOTSEL while plugging the board in, then copy the UF2 for your board to the drive that appears."
+            echo "Bluetooth features (Joy-Cons, DS4 / DualSense, Mouse + Keyboard over Bluetooth pads...) need a Pico W or Pico 2 W."
+            echo "The ESP32 boards' files are the RP2040 side only."
+            echo
+            echo "| Board | File |"
+            echo "|---|---|"
+            for f in release-files/*.uf2; do
+              b=$(basename "$f" .uf2); b=${b#"OGX-Mini-improved-${VERSION}-"}
+              echo "| ${b} | \`$(basename "$f")\` |"
+            done
+          } > release-notes.md
+          cat release-notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ steps.notes.outputs.name }}
+          body_path: release-notes.md
+          files: release-files/*.uf2
+          fail_on_unmatched_files: true
+          make_latest: true

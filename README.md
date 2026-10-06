@@ -7,6 +7,11 @@ fork changes behaviour.
 
 ## About this fork
 
+**Download:** the [Releases](https://github.com/felipearmat/OGX-Mini-improved/releases) page has one UF2 per
+board (hold BOOTSEL while plugging the board in, then copy the file to the drive that appears).
+Tested on a Raspberry Pi Pico 2 W; the other boards are built from the same code. Maintainers: a
+release is built and published by pushing a tag `improved-vX.Y.Z` (workflow `improved-release.yml`).
+
 **What it adds or fixes** (full list, with the commits to offer upstream: [docs/UPSTREAM.md](docs/UPSTREAM.md); known issues: [docs/TODO.md](docs/TODO.md)):
 
 - **Switch Pro mode:** gyro / accelerometer from Joy-Cons (single or pair), DS4 and DualSense;
