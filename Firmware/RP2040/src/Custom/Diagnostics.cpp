@@ -287,7 +287,9 @@ void write_link(Writer& w, const Link& l, bool le)
 void init(const BoardInfo& info)
 {
     if (!s_lock_ready) {
-        critical_section_init(&s_lock);
+        /* A shared ("striped") spin lock, as the SDK's mutexes use: the claimable ones (24-31)
+         * are all taken by TaskQueue, TinyUSB and ReportedMac, and claiming a ninth panics. */
+        critical_section_init_with_lock_num(&s_lock, next_striped_spin_lock_num());
         s_lock_ready = true;
     }
     Lock l;
