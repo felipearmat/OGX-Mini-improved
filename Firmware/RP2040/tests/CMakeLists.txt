@@ -45,6 +45,8 @@ ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/Joy
 
 ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
 
+ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Custom/Diagnostics.cpp)
+
 ogxm_add_test(test_kbm test_kbm.cpp ${FW_SRC}/Custom/KbmSettings.cpp ${FW_SRC}/Custom/KbmMapper.cpp)
 
 ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)

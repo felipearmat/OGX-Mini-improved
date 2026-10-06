@@ -1,0 +1,103 @@
+#ifndef _OGXM_CUSTOM_DIAGNOSTICS_H_
+#define _OGXM_CUSTOM_DIAGNOSTICS_H_
+
+#include <cstddef>
+#include <cstdint>
+
+/*  Diagnostics (custom addition, not upstream): what a user can send us without a serial adapter.
+ *
+ *  Kept in RAM (no flash writes while playing). For each Bluetooth controller: what it is (name,
+ *  IDs, address prefix, Bluetooth chip vendor and version, firmware strings), its link (Classic or
+ *  LE, LE interval / latency / timeout, RSSI, channels in use, failed contacts) and its input
+ *  timing (reports per second, typical interval, late reports, largest gap, reports lost by the
+ *  controller's own counter). The same timing for wired USB controllers, the USB output side, and
+ *  a ring of recent events. The web app asks for it in Web App mode (GET_DIAGNOSTICS) and saves
+ *  a report.
+ *
+ *  Measurements of the mode actually used for playing would be lost by the reboot into Web App
+ *  mode, so a short summary of the session is written to flash with the mode change
+ *  (session_capture) and shown as "previous_session".
+ *
+ *  Producers run on both cores; every access takes one critical section.
+ */
+namespace diag {
+
+    constexpr size_t kSlots = 4;          // >= CONFIG_BLUEPAD32_MAX_DEVICES (checked in Bluepad32.cpp)
+    constexpr size_t kUsbDevices = 4;
+    constexpr size_t kEvents = 64;
+    constexpr size_t kEventText = 72;
+    constexpr size_t kNameLength = 32;
+    constexpr size_t kInfoText = 24;
+    constexpr uint32_t kGapWindowMs = 5000;  // windows for gaps / late reports: last 5-10 s
+    constexpr size_t kSessionBytes = 96;
+
+    struct BoardInfo {
+        const char* firmware_version;
+        const char* board;
+        const char* chip;
+        uint32_t clock_mhz;
+        const char* build_type;
+        const char* output_mode;
+        const char* reset_reason;
+        uint8_t max_gamepads;
+    };
+
+    void init(const BoardInfo& info);
+
+    // Recent events ring (oldest dropped). printf-style, truncated to kEventText.
+    void event(uint32_t now_ms, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+
+    // ---- Bluetooth controllers, by slot ----
+    void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid, uint16_t pid,
+                        uint8_t controller_type, bool le, uint16_t con_handle, const uint8_t address[6]);
+    void slot_disconnected(size_t slot, uint32_t now_ms);
+    void slot_report(size_t slot, uint32_t now_ms);
+    // The controller's own report counter (bits wide); lost reports are the skipped values.
+    void slot_counter(size_t slot, uint32_t value, uint8_t bits);
+    void slot_battery(size_t slot, uint8_t level_0_255);
+    void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor);
+
+    // ---- Bluetooth link, by connection handle (may arrive before the slot is ready) ----
+    void le_parameters(uint16_t con_handle, uint16_t interval, uint16_t latency, uint16_t timeout);
+    void remote_version(uint16_t con_handle, uint8_t bt_version, uint16_t company_id, uint16_t subversion);
+    void device_information(uint16_t con_handle, const char* field, const char* value);
+    void pnp_id(uint16_t con_handle, uint8_t source, uint16_t vid, uint16_t pid, uint16_t version);
+    void rssi(uint16_t con_handle, int8_t dbm);
+    void channels(uint16_t con_handle, uint8_t used, uint8_t total);
+    void failed_contacts(uint16_t con_handle, uint16_t count);
+    void searching(bool searching_new_controllers);
+
+    // ---- Wired USB controllers (USB host), by device address ----
+    void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,
+                     uint8_t speed, const char* driver);
+    void usb_set_bcd_device(uint8_t address, uint16_t bcd_device);
+    void usb_unmounted(uint8_t address);
+    void usb_report(uint8_t address, uint32_t now_ms);
+
+    // ---- USB output (to the console / PC) ----
+    void usb_output_state(uint32_t now_ms, bool configured, bool suspended);
+    void usb_report_sent();
+    // Input-to-use latency of the output driver, for the session summary.
+    void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us);
+
+    // Once a second or more often: rates and windows roll over.
+    void tick(uint32_t now_ms);
+
+    // ---- Session summary kept across the mode-change reboot ----
+    size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms);
+    void set_previous_session(const uint8_t* data, size_t len);
+
+    // JSON report. Returns the length written (always NUL-terminated, truncated if needed).
+    size_t report_json(char* out, size_t out_len, uint32_t now_ms);
+
+    // Bluetooth SIG company name for the chip vendor IDs seen in controllers, or nullptr.
+    const char* company_name(uint16_t company_id);
+    // Known 2.4 GHz receivers (they look like wired controllers on USB).
+    bool is_wireless_receiver(uint16_t vid, uint16_t pid);
+
+    // Test hook: forget everything.
+    void reset_for_tests();
+
+} // namespace diag
+
+#endif // _OGXM_CUSTOM_DIAGNOSTICS_H_

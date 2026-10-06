@@ -64,10 +64,13 @@ public:
     bool store_dongle_settings(const dongle_settings::Settings& settings);
     /** Custom: mouse + keyboard mode mapping (web app). Stores and applies it; call from Core0. */
     void store_kbm_settings(const kbm_settings::Settings& settings);
+    /** Custom: previous session's diagnostics summary into the diagnostics module (at boot). */
+    void load_diag_session();
 
 private:
     void load_dongle_settings();
     void load_kbm_settings();
+    void store_diag_session();
     void set_single_controller(Gamepad& gamepad, bool on);
 
     UserSettings() = default;

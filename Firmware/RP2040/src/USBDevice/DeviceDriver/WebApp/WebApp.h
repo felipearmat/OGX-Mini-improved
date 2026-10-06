@@ -36,6 +36,8 @@ private:
          * GET_KBM_SETTINGS once stored. */
         GET_KBM_SETTINGS = 0x72,
         SET_KBM_SETTINGS = 0x73,
+        /* Custom: diagnostics report (Custom/Diagnostics), JSON text over as many chunks as needed. */
+        GET_DIAGNOSTICS = 0x74,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -81,6 +83,7 @@ private:
     void write_error();
     bool write_dongle_settings();
     bool write_kbm_settings();
+    bool write_diagnostics();
 };
 
 #endif // _WEBAAPP_DEVICE_H_

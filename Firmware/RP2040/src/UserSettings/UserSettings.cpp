@@ -12,6 +12,8 @@
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
 #include "Custom/KbmSettings.h"
+#include "Custom/Diagnostics.h"
+#include "Custom/DiagnosticsBoard.h"
 #if defined(CONFIG_EN_BLUETOOTH)
 #include "Bluepad32/Bluepad32.h"
 #endif
@@ -314,6 +316,11 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
     }
 
     current_driver_ = new_driver;
+    {
+        /* Custom: the session's input-to-use latency goes into the summary kept across the reboot. */
+        const Gamepad::LatencyStats lat = gamepad.latency_stats();
+        diag::pipeline_latency(lat.samples, lat.avg_us, lat.max_us);
+    }
     OGXM_LOG("WII driver check: returning true, new_driver=" + OGXM_TO_STRING(new_driver) + "\n");
     return true;
 #endif
@@ -389,11 +396,13 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver)
     }
 
     OGXM_LOG("Storing new driver type: " + OGXM_TO_STRING(new_driver) + "\n");
+    diag::event(board_api::ms_since_boot(), "mode change to %s", diag::driver_name(new_driver));
 
     prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
+    store_diag_session();
 
     board_api::reboot();
 }
@@ -410,6 +419,7 @@ void UserSettings::store_driver_type_and_reboot(DeviceDriverType new_driver)
     OGXM_LOG("Storing new driver type and rebooting: " + OGXM_TO_STRING(new_driver) + "\n");
 
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
+    store_diag_session();
 
     board_api::reboot();
 }
@@ -427,6 +437,7 @@ bool UserSettings::store_driver_type_only(DeviceDriverType new_driver)
     OGXM_LOG("Storing new driver type (flash only): " + OGXM_TO_STRING(new_driver) + "\n");
 
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
+    store_diag_session();
     current_driver_ = new_driver;
 
     return true;
@@ -717,6 +728,24 @@ void UserSettings::set_single_controller(Gamepad& gamepad, bool on)
     store_dongle_settings(settings);
 }
 
+/* Custom: diagnostics session summary, written with the mode change (Custom/Diagnostics.h). */
+static const std::string DIAG_SESSION_KEY = "diag_last";
+
+void UserSettings::store_diag_session()
+{
+    uint8_t blob[diag::kSessionBytes]{};
+    const size_t n = diag::session_capture(blob, sizeof(blob), board_api::ms_since_boot());
+    if (n)
+        nvs_tool_.write(DIAG_SESSION_KEY, blob, sizeof(blob));
+}
+
+void UserSettings::load_diag_session()
+{
+    uint8_t blob[diag::kSessionBytes]{};
+    if (nvs_tool_.read(DIAG_SESSION_KEY, blob, sizeof(blob)))
+        diag::set_previous_session(blob, sizeof(blob));
+}
+
 /* Custom: mouse + keyboard mapping from flash; defaults when missing or of another version. */
 void UserSettings::load_kbm_settings()
 {
@@ -730,12 +759,14 @@ void UserSettings::load_kbm_settings()
 /* Custom: stored and applied right away, no reboot (the mapping can be tuned while in use). */
 void UserSettings::store_kbm_settings(const kbm_settings::Settings& settings)
 {
+    diag::event(board_api::ms_since_boot(), "mouse + keyboard mapping saved");
     nvs_tool_.write(KBM_SETTINGS_KEY, &settings, sizeof(settings));
     kbm_settings::set(settings);
 }
 
 bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settings)
 {
+    diag::event(board_api::ms_since_boot(), "adapter options saved");
     board_api::usb::disconnect_all();
     nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
     board_api::reboot();

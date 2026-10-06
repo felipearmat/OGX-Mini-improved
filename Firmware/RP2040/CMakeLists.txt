@@ -79,6 +79,8 @@ set(SOURCES_BOARD
     ${SRC}/Custom/SwitchImu.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
     ${SRC}/Custom/DongleSettings.cpp
+    ${SRC}/Custom/Diagnostics.cpp
+    ${SRC}/Custom/DiagnosticsBoard.cpp
     ${SRC}/Custom/ReportedMac.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
@@ -546,6 +548,7 @@ string(TIMESTAMP CURRENT_DATETIME "%Y-%m-%d %H:%M:%S")
 add_compile_definitions(BUILD_DATETIME="${CURRENT_DATETIME}")
 add_compile_definitions(FIRMWARE_NAME="${FW_NAME}")
 add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}")
+add_compile_definitions(OGXM_BOARD_NAME="${OGXM_BOARD}")
 add_compile_definitions(PICO_FLASH_SIZE_BYTES=${FLASH_SIZE_MB}*1024*1024)
 add_compile_definitions(NVS_SECTORS=4)
 

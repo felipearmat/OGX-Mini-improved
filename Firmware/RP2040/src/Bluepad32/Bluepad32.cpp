@@ -27,6 +27,8 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
+#include "Custom/Diagnostics.h"
+#include "uni_diag_hooks.h"
 #include "Custom/DongleSettings.h"
 #include "Custom/JoyConSettings.h"
 #include "Custom/ModeIndicator.h"
@@ -222,6 +224,10 @@ struct BTDevice {
 };
 
 BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
+
+/* Custom: diagnostics — remote version still to ask, and the periodic link queries. */
+static bool s_diag_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+static void diag_query_links(uint32_t now_ms);
 
 /* Custom: "single controller" dongle option — one Bluetooth pad only (a lone Joy-Con does not
  * wait for its other half), so dongles next to each other do not take each other's Joy-Cons. */
@@ -539,6 +545,9 @@ static void send_feedback_cb(btstack_timer_source *ts)
         }
         apply_host_lightbar(bp_device, i, bt_devices_[gp_idx].gamepad->get_host_lightbar(), now_ms);
     }
+    /* Custom: diagnostics rates roll over; link queries for each connected pad. */
+    diag::tick(now_ms);
+    diag_query_links(now_ms);
     if (feedback_timer_set_)
 	{
         btstack_run_loop_set_timer(ts, FEEDBACK_TIME_MS);
@@ -872,6 +881,11 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     if (idx >= CONFIG_BLUEPAD32_MAX_DEVICES || idx < 0) {
         return;
     }
+    {
+        const uint32_t now = to_ms_since_boot(get_absolute_time());
+        diag::slot_disconnected(static_cast<size_t>(idx), now);
+        diag::event(now, "slot %d disconnected: %s", idx, device->name);
+    }
 
     if (uni_hid_parser_switch2_is_ble_device(device)) {
         OGXM_LOG("SW2: disconnected slot %d\n", idx);
@@ -1058,6 +1072,17 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     }
 
     bt_devices_[idx].connected = true;
+    {
+        /* Custom: diagnostics (Custom/Diagnostics.h). */
+        const bool le = gap_get_connection_type(device->conn.handle) == GAP_CONNECTION_LE;
+        const uint32_t now = to_ms_since_boot(get_absolute_time());
+        diag::slot_connected(static_cast<size_t>(idx), now, device->name, device->vendor_id,
+                             device->product_id, static_cast<uint8_t>(device->controller_type), le,
+                             device->conn.handle, device->conn.btaddr);
+        s_diag_version_pending[idx] = true;
+        diag::event(now, "slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
+                    device->product_id, le ? "LE" : "Classic");
+    }
     s_bt_slot_was_ready[idx] = true;
     flydigi_apex4_bt_on_ready(device);
     gamesir_cyclone2_bt_on_ready(device);
@@ -1195,6 +1220,11 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
 
     uni_gamepad_t *uni_gp = &controller->gamepad;
     const int bt_slot = uni_hid_device_get_idx_for_instance(device);
+    if (bt_slot >= 0) {  /* Custom: input timing and battery for the web app's diagnostics */
+        diag::slot_report(static_cast<size_t>(bt_slot), to_ms_since_boot(get_absolute_time()));
+        if (controller->battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
+            diag::slot_battery(static_cast<size_t>(bt_slot), controller->battery);
+    }
     int idx = bp32_get_gamepad_output_idx(device);
     if (idx < 0)
         idx = bt_slot;
@@ -1712,6 +1742,206 @@ void on_usb_device_resume() {
 #endif
 }
 
+/* Custom: LE connection parameters, RSSI and disconnect reasons for the diagnostics. */
+static_assert(CONFIG_BLUEPAD32_MAX_DEVICES <= diag::kSlots, "diagnostics slots");
+static btstack_packet_callback_registration_t s_diag_hci_cb;
+
+/* Read AFH Channel Map (Status Parameters, OCF 0x0006): not in BTstack's command table. */
+static const hci_cmd_t s_hci_read_afh_channel_map = {HCI_OPCODE(0x05, 0x0006), "H"};
+static uint8_t count_bits(const uint8_t* map, unsigned bits)
+{
+    uint8_t n = 0;
+    for (unsigned i = 0; i < bits; ++i)
+        if (map[i / 8] & (1u << (i % 8)))
+            ++n;
+    return n;
+}
+
+/* One HCI query per pass, rotating (remote version once per pad; then RSSI, channel map and
+ * failed contacts), so diagnostics never crowd the command queue. */
+static void diag_query_links(uint32_t now_ms)
+{
+    static uint32_t s_last_ms = 0;
+    static uint8_t s_step = 0;
+    if (now_ms - s_last_ms < 700)
+        return;
+    s_last_ms = now_ms;
+    diag::searching(uni_bt_enable_new_connections_is_enabled());
+    for (uint8_t n = 0; n < CONFIG_BLUEPAD32_MAX_DEVICES; ++n) {
+        const uint8_t i = static_cast<uint8_t>((s_step / 3 + n) % CONFIG_BLUEPAD32_MAX_DEVICES);
+        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+        if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
+            continue;
+        if (!hci_can_send_command_packet_now())
+            return;
+        const hci_con_handle_t h = d->conn.handle;
+        const bool le = gap_get_connection_type(h) == GAP_CONNECTION_LE;
+        uint8_t major = 0, minor = 0;
+        if (uni_hid_parser_switch_get_firmware_version(d, &major, &minor))
+            diag::slot_switch_firmware(i, major, minor);
+        if (s_diag_version_pending[i]) {
+            s_diag_version_pending[i] = false;
+            hci_send_cmd(&hci_read_remote_version_information, h);
+            return;
+        }
+        switch (s_step++ % 3) {
+            case 0: gap_read_rssi(h); break;
+            case 1:
+                if (le) hci_send_cmd(&hci_le_read_channel_map, h);
+                else hci_send_cmd(&s_hci_read_afh_channel_map, h);
+                break;
+            default:
+                if (!le) hci_send_cmd(&hci_read_failed_contact_counter, h);
+                break;
+        }
+        return;
+    }
+}
+
+static void diag_hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size)
+{
+    (void)channel;
+    (void)size;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    const uint32_t now = to_ms_since_boot(get_absolute_time());
+    switch (hci_event_packet_get_type(packet)) {
+        case HCI_EVENT_LE_META:
+            switch (hci_event_le_meta_get_subevent_code(packet)) {
+                case HCI_SUBEVENT_LE_CONNECTION_COMPLETE:
+                    if (hci_subevent_le_connection_complete_get_status(packet) == 0) {
+                        const uint16_t h = hci_subevent_le_connection_complete_get_connection_handle(packet);
+                        const uint16_t iv = hci_subevent_le_connection_complete_get_conn_interval(packet);
+                        const uint16_t lat = hci_subevent_le_connection_complete_get_conn_latency(packet);
+                        const uint16_t to = hci_subevent_le_connection_complete_get_supervision_timeout(packet);
+                        diag::le_parameters(h, iv, lat, to);
+                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
+                    }
+                    break;
+                case HCI_SUBEVENT_LE_ENHANCED_CONNECTION_COMPLETE_V1:
+                    if (hci_subevent_le_enhanced_connection_complete_v1_get_status(packet) == 0) {
+                        const uint16_t h = hci_subevent_le_enhanced_connection_complete_v1_get_connection_handle(packet);
+                        const uint16_t iv = hci_subevent_le_enhanced_connection_complete_v1_get_conn_interval(packet);
+                        const uint16_t lat = hci_subevent_le_enhanced_connection_complete_v1_get_conn_latency(packet);
+                        const uint16_t to = hci_subevent_le_enhanced_connection_complete_v1_get_supervision_timeout(packet);
+                        diag::le_parameters(h, iv, lat, to);
+                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
+                    }
+                    break;
+                case HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE:
+                    if (hci_subevent_le_connection_update_complete_get_status(packet) == 0) {
+                        const uint16_t h = hci_subevent_le_connection_update_complete_get_connection_handle(packet);
+                        const uint16_t iv = hci_subevent_le_connection_update_complete_get_conn_interval(packet);
+                        const uint16_t lat = hci_subevent_le_connection_update_complete_get_conn_latency(packet);
+                        const uint16_t to = hci_subevent_le_connection_update_complete_get_supervision_timeout(packet);
+                        diag::le_parameters(h, iv, lat, to);
+                        diag::event(now, "LE updated 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case HCI_EVENT_READ_REMOTE_VERSION_INFORMATION_COMPLETE:
+            if (hci_event_read_remote_version_information_complete_get_status(packet) == 0) {
+                const uint16_t h = hci_event_read_remote_version_information_complete_get_connection_handle(packet);
+                const uint16_t company = hci_event_read_remote_version_information_complete_get_manufacturer_name(packet);
+                diag::remote_version(h, hci_event_read_remote_version_information_complete_get_version(packet), company,
+                                     hci_event_read_remote_version_information_complete_get_subversion(packet));
+                const char* vendor = diag::company_name(company);
+                diag::event(now, "link 0x%04x: Bluetooth chip %s (0x%04x)", h, vendor ? vendor : "?", company);
+            }
+            break;
+        case HCI_EVENT_COMMAND_COMPLETE: {
+            const uint16_t op = hci_event_command_complete_get_command_opcode(packet);
+            const uint8_t* r = hci_event_command_complete_get_return_parameters(packet);
+            if (r[0] != 0)  // status
+                break;
+            const uint16_t h = little_endian_read_16(r, 1);
+            if (op == s_hci_read_afh_channel_map.opcode)
+                diag::channels(h, count_bits(&r[4], 79), 79);  // status, handle, mode, map[10]
+            else if (op == hci_le_read_channel_map.opcode)
+                diag::channels(h, count_bits(&r[3], 37), 37);  // status, handle, map[5]
+            else if (op == hci_read_failed_contact_counter.opcode)
+                diag::failed_contacts(h, little_endian_read_16(r, 3));
+            break;
+        }
+        case GAP_EVENT_RSSI_MEASUREMENT:
+            diag::rssi(gap_event_rssi_measurement_get_con_handle(packet),
+                       static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet)));
+            break;
+        case HCI_EVENT_DISCONNECTION_COMPLETE:
+            diag::event(now, "link 0x%04x closed, reason 0x%02x",
+                        hci_event_disconnection_complete_get_connection_handle(packet),
+                        hci_event_disconnection_complete_get_reason(packet));
+            break;
+        default:
+            break;
+    }
+}
+
+} // namespace bluepad32
+
+/* Custom: Bluepad32 diagnostics hooks (bluepad32_diagnostics_hooks.diff). */
+extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len)
+{
+    const int slot = uni_hid_device_get_idx_for_instance(d);
+    if (slot < 0 || !report || len == 0)
+        return;
+    /* The pads' own report counters: DS4 report 0x11 (6 bits, byte 9), DualSense 0x31 (byte 8). */
+    if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len >= 10)
+        diag::slot_counter(static_cast<size_t>(slot), report[9] >> 2, 6);
+    else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len >= 9)
+        diag::slot_counter(static_cast<size_t>(slot), report[8], 8);
+}
+
+extern "C" void uni_diag_on_device_information(const uint8_t* packet, uint16_t size)
+{
+    (void)size;
+    switch (hci_event_gattservice_meta_get_subevent_code(packet)) {
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_MANUFACTURER_NAME:
+            if (gattservice_subevent_device_information_manufacturer_name_get_att_status(packet) == 0)
+                diag::device_information(gattservice_subevent_device_information_manufacturer_name_get_con_handle(packet),
+                                         "manufacturer", gattservice_subevent_device_information_manufacturer_name_get_value(packet));
+            break;
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_MODEL_NUMBER:
+            if (gattservice_subevent_device_information_model_number_get_att_status(packet) == 0)
+                diag::device_information(gattservice_subevent_device_information_model_number_get_con_handle(packet),
+                                         "model", gattservice_subevent_device_information_model_number_get_value(packet));
+            break;
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_FIRMWARE_REVISION:
+            if (gattservice_subevent_device_information_firmware_revision_get_att_status(packet) == 0)
+                diag::device_information(gattservice_subevent_device_information_firmware_revision_get_con_handle(packet),
+                                         "firmware", gattservice_subevent_device_information_firmware_revision_get_value(packet));
+            break;
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_HARDWARE_REVISION:
+            if (gattservice_subevent_device_information_hardware_revision_get_att_status(packet) == 0)
+                diag::device_information(gattservice_subevent_device_information_hardware_revision_get_con_handle(packet),
+                                         "hardware", gattservice_subevent_device_information_hardware_revision_get_value(packet));
+            break;
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_SOFTWARE_REVISION:
+            if (gattservice_subevent_device_information_software_revision_get_att_status(packet) == 0)
+                diag::device_information(gattservice_subevent_device_information_software_revision_get_con_handle(packet),
+                                         "software", gattservice_subevent_device_information_software_revision_get_value(packet));
+            break;
+        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_PNP_ID:
+            if (gattservice_subevent_device_information_pnp_id_get_att_status(packet) == 0)
+                diag::pnp_id(gattservice_subevent_device_information_pnp_id_get_con_handle(packet),
+                             gattservice_subevent_device_information_pnp_id_get_vendor_source_id(packet),
+                             gattservice_subevent_device_information_pnp_id_get_vendor_id(packet),
+                             gattservice_subevent_device_information_pnp_id_get_product_id(packet),
+                             gattservice_subevent_device_information_pnp_id_get_product_version(packet));
+            break;
+        default:
+            break;
+    }
+}
+
+namespace bluepad32 {
+
 void init(Gamepad(&gamepads)[MAX_GAMEPADS])
 {
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
@@ -1721,6 +1951,8 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
 
     uni_platform_set_custom(get_driver());
     uni_init(0, nullptr);
+    s_diag_hci_cb.callback = &diag_hci_handler;
+    hci_add_event_handler(&s_diag_hci_cb);
     /* Custom: which half of a merged Joy-Con pair provides motion. */
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
     /* Custom: single controller option — a lone Joy-Con does not wait for its other half. */

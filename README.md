@@ -112,6 +112,24 @@ F2 in the web app) and power the PC on (when the BIOS has "power on by USB keybo
 powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X. Setup and the
 other modes: [Waking the PC from the controller](#waking-the-pc-from-the-controller).
 
+### Diagnostics and log report (lag, disconnects)
+
+To report lag, stutter or disconnects without a serial adapter:
+
+1. Play in your usual mode for a few minutes with the problem happening.
+2. Without unplugging the adapter, switch it to **Web App** mode with the combo, open the
+   [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) and connect over USB.
+3. Keep the controller connected and move the sticks for 10 seconds, then press
+   **Generate log report** in the *Diagnostics* panel and send the downloaded `.json` file.
+
+The report has, per controller: what it is (IDs, Bluetooth chip vendor and version, firmware
+strings), how it is connected (Bluetooth Classic or LE and its connection interval, signal,
+radio channels in use, wired or a known 2.4 GHz receiver, USB speed) and how its input arrives
+(reports per second, late reports, largest gap, reports lost by the controller's own counter on
+DS4 / DualSense). It also has a summary of the session before the switch to Web App mode and the
+last events (connects, disconnects with their reason, mode changes). It has no full Bluetooth
+address (only the manufacturer part) and no personal data.
+
 ### Waking the PC from the controller
 
 The adapter can wake a sleeping PC over USB, but only if the PC allows that device to wake it.

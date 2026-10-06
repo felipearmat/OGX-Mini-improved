@@ -58,7 +58,8 @@ function(ogxm_apply_switch_parser_patches EXTERNAL_DIR)
         "${EXTERNAL_DIR}/patches/bluepad32_switch_request_sleep.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_pair_imu.diff"
         "${EXTERNAL_DIR}/patches/bluepad32_switch_rumble_intensity.diff"
-        "${EXTERNAL_DIR}/patches/bluepad32_switch_joycon_pairing_toggle.diff")
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_joycon_pairing_toggle.diff"
+        "${EXTERNAL_DIR}/patches/bluepad32_switch_firmware_version.diff")
 endfunction()
 
 # Bluepad32 output queue: byte-stream ring buffer (backport of ricardoquesada/bluepad32 b6531db).
@@ -201,6 +202,9 @@ function(apply_lib_patches EXTERNAL_DIR)
 
     ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})
     ogxm_apply_output_queue_patch(${EXTERNAL_DIR})
+    # Diagnostics hooks (OGX-Mini-improved): raw input reports and BLE Device Information values.
+    ogxm_apply_patch_series("Bluepad32 diagnostics hooks (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
+        "${EXTERNAL_DIR}/patches/bluepad32_diagnostics_hooks.diff")
     # DS4 parser (OGX-Mini-improved): keep the latest touch points for touchpad passthrough.
     ogxm_apply_patch_series("Bluepad32 DS4 parser (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
         "${EXTERNAL_DIR}/patches/bluepad32_ds4_touchpad.diff")

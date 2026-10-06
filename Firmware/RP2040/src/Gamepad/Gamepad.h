@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <pico/mutex.h>
+#include <pico/time.h>
 
 #include "libfixmath/fix16.hpp"
 
@@ -244,8 +245,16 @@ public:
             pad_in_head_ = (pad_in_head_ + 1) % PAD_IN_QUEUE_SIZE;
             pad_in_count_--;
             last_pad_in_ = pad_in;
-            if (pad_in_count_ == 0)
+            if (pad_in_count_ == 0) {
                 new_pad_in_.store(false);
+                /* Custom: diagnostics — time from the newest input's arrival to its use. */
+                const uint32_t lat = static_cast<uint32_t>(time_us_64()) -
+                                     pad_in_arrival_us_.load(std::memory_order_relaxed);
+                ++latency_count_;
+                latency_sum_us_ += lat;
+                if (lat > latency_max_us_)
+                    latency_max_us_ = lat;
+            }
         } else {
             pad_in = last_pad_in_;
         }
@@ -351,6 +360,7 @@ public:
             pad_in_tail_ = (pad_in_tail_ + 1) % PAD_IN_QUEUE_SIZE;
         }
         last_pad_in_ = pad_in;
+        pad_in_arrival_us_.store(static_cast<uint32_t>(time_us_64()), std::memory_order_relaxed);
         new_pad_in_.store(true);
         mutex_exit(&pad_in_mutex_);
     }
@@ -367,6 +377,7 @@ public:
         pad_in_tail_ = 1;
         pad_in_count_ = 1;
         last_pad_in_ = pad_in;
+        pad_in_arrival_us_.store(static_cast<uint32_t>(time_us_64()), std::memory_order_relaxed);
         new_pad_in_.store(true);
         mutex_exit(&pad_in_mutex_);
     }
@@ -404,6 +415,7 @@ public:
             pad_in_count_++;
         }
         last_pad_in_ = pad_in;
+        pad_in_arrival_us_.store(static_cast<uint32_t>(time_us_64()), std::memory_order_relaxed);
         new_pad_in_.store(true);
         mutex_exit(&pad_in_mutex_);
     }
@@ -424,6 +436,7 @@ public:
 		bt_pad_write_index_ =
 			previous_middle & BT_PAD_MAILBOX_INDEX_MASK;
 
+		pad_in_arrival_us_.store(static_cast<uint32_t>(time_us_64()), std::memory_order_relaxed);
 		new_pad_in_.store(true, std::memory_order_release);
 	}
 
@@ -442,6 +455,23 @@ public:
         mutex_enter_blocking(&chatpad_in_mutex_);
         chatpad_in_ = chatpad_in;
         mutex_exit(&chatpad_in_mutex_);
+    }
+
+    /* Custom: diagnostics. How long the newest controller input waited before the output driver
+     * (or anything else) read it: samples, average and largest wait in microseconds. */
+    struct LatencyStats {
+        uint32_t samples;
+        uint32_t avg_us;
+        uint32_t max_us;
+    };
+    LatencyStats latency_stats()
+    {
+        mutex_enter_blocking(&pad_in_mutex_);
+        const LatencyStats st{latency_count_,
+                              latency_count_ ? static_cast<uint32_t>(latency_sum_us_ / latency_count_) : 0,
+                              latency_max_us_};
+        mutex_exit(&pad_in_mutex_);
+        return st;
     }
 
     // Wii U GC adapter: set by host when controller uses positive Y for physical up (e.g. Xbox One/360)
@@ -606,6 +636,11 @@ private:
     ChatpadIn chatpad_in_{0};
 
     std::atomic<bool> new_pad_in_{false};
+    /* Custom: diagnostics, input-to-use latency (see latency_stats()). */
+    std::atomic<uint32_t> pad_in_arrival_us_{0};
+    uint32_t latency_count_{0};
+    uint64_t latency_sum_us_{0};
+    uint32_t latency_max_us_{0};
     std::atomic<bool> new_pad_out_{false};
 
     std::atomic<bool> analog_enabled_{false};
