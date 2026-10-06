@@ -73,9 +73,29 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
     s.mac_per_controller = flag(data[5]);
     s.ps4_legacy_motion_scale = flag(data[6]);
     s.single_controller = flag(data[7]);
-    if (v2)
+    if (v2) {
         s.joycon_pair_rumble_per_side = flag(data[8]);
+        s.combo_disabled_modes = static_cast<uint32_t>(data[12]) | (static_cast<uint32_t>(data[13]) << 8) |
+                                 (static_cast<uint32_t>(data[14]) << 16) | (static_cast<uint32_t>(data[15]) << 24);
+    }
     out = s;
+    return true;
+}
+
+bool mode_combo_enabled(const Settings& settings, uint8_t driver)
+{
+    return driver >= 32 || (settings.combo_disabled_modes & (1u << driver)) == 0;
+}
+
+bool same_except_combos(const Settings& a, const Settings& b)
+{
+    Settings x = a;
+    Settings y = b;
+    x.combo_disabled_modes = y.combo_disabled_modes = 0;
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);
+    const uint8_t* q = reinterpret_cast<const uint8_t*>(&y);
+    for (size_t i = 0; i < sizeof(Settings); ++i)
+        if (p[i] != q[i]) return false;
     return true;
 }
 

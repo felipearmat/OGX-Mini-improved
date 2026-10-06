@@ -69,12 +69,21 @@ TEST(counter_losses_and_untrusted_counter) {
     }
     std::string r = report(10);
     CHECK(has(r, "\"lost_reports_pct\":4.7"));  // 10 lost of 211
+    CHECK(has(r, "\"counter_usual_step\":\"1\""));
     setup();
     diag::slot_connected(0, 0, "pad", 1, 2, 0, false, 0x0b, kAddr);
     for (uint32_t i = 0; i < 100; ++i)
-        diag::slot_counter(0, i * 7, 8);  // not a per-report counter
+        diag::slot_counter(0, i * 131, 8);  // not a counter: jumps of half the range or more
     r = report(10);
     CHECK(has(r, "\"lost_reports_pct\":null"));
+    // Half of the reports lost (the DS4 on a link that drops them): every other value received.
+    setup();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    for (uint32_t i = 0; i < 200; ++i)
+        diag::slot_counter(0, i * 2, 6);
+    r = report(10);
+    CHECK(has(r, "\"lost_reports_pct\":49.8"));  // 199 lost of 399
+    CHECK(has(r, "\"counter_usual_step\":\"2\""));
 }
 
 TEST(link_details_arrive_before_and_after_the_slot) {
@@ -190,6 +199,24 @@ TEST(report_is_truncated_safely) {
     const size_t n = diag::report_json(small, sizeof(small), 5);
     CHECK(n < sizeof(small));
     CHECK_EQ(small[n], '\0');
+}
+
+TEST(session_frozen_before_the_pads_go_and_web_app_sessions_not_kept) {
+    setup();  // XINPUT
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    for (uint32_t t = 10; t <= 5000; t += 10) diag::slot_report(0, t);
+    diag::session_freeze(5000);           // mode change starts
+    diag::slot_disconnected(0, 5100);     // pads turned off
+    uint8_t blob[diag::kSessionBytes];
+    const size_t n = diag::session_capture(blob, sizeof(blob), 5200);
+    CHECK(n > 0);
+    diag::reset_for_tests();
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "WEBAPP", "reboot", 1});
+    diag::set_previous_session(blob, n);
+    CHECK(has(report(5), "\"previous_session\":{\"mode\":\"XINPUT\""));
+    CHECK(has(report(5), "\"vid\":\"054c\",\"pid\":\"09cc\",\"link\":\"Classic\",\"reports_per_s\":100"));
+    uint8_t again[diag::kSessionBytes];
+    CHECK_EQ(diag::session_capture(again, sizeof(again), 6000), 0u);  // leaving Web App keeps it
 }
 
 TEST_MAIN()

@@ -89,6 +89,10 @@ namespace diag {
     void tick(uint32_t now_ms);
 
     // ---- Session summary kept across the mode-change reboot ----
+    // Snapshot taken when a mode change starts, before the pads are turned off; session_capture()
+    // then returns it. A session in Web App mode is not kept (capture returns 0), so the summary
+    // of the last mode used for playing survives a visit to the web app.
+    void session_freeze(uint32_t now_ms);
     size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms);
     void set_previous_session(const uint8_t* data, size_t len);
 

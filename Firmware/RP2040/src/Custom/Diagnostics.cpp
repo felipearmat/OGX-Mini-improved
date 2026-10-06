@@ -105,7 +105,8 @@ struct Slot {
     uint8_t switch_fw_major, switch_fw_minor;
     // Controller's own counter.
     bool counter_seen;
-    uint32_t counter_last, counter_received, counter_lost, counter_steps_of_one, counter_steps;
+    uint32_t counter_last, counter_received, counter_lost, counter_steps, counter_big_steps;
+    uint32_t counter_step_hist[5];  // steps of 1, 2, 3, 4, 5 or more
     Link link;
 };
 
@@ -263,8 +264,9 @@ void write_timing(Writer& w, const Timing& t)
 
 uint32_t counter_lost_x10(const Slot& s, bool& usable)
 {
-    // A wrong counter offset shows up as mostly non-unit steps: then the counter is not trusted.
-    usable = s.counter_steps >= 50 && s.counter_steps_of_one * 2 >= s.counter_steps;
+    // Lost reports skip counter values (steps of 2, 3...). A byte that is not a counter jumps
+    // around (steps of half the range or more): then it is not trusted.
+    usable = s.counter_steps >= 50 && s.counter_big_steps * 10 < s.counter_steps;
     const uint32_t total = s.counter_received + s.counter_lost;
     return (usable && total) ? s.counter_lost * 1000 / total : 0;
 }
@@ -386,8 +388,12 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits)
         const uint32_t step = (value - s.counter_last) & mask;
         if (step == 0) return;  // repeated report
         ++s.counter_steps;
-        if (step == 1) ++s.counter_steps_of_one;
-        else if (step < (mask + 1) / 2) s.counter_lost += step - 1;
+        if (step >= (mask + 1) / 2) {
+            ++s.counter_big_steps;
+        } else {
+            s.counter_lost += step - 1;
+            ++s.counter_step_hist[step < 5 ? step - 1 : 4];
+        }
     }
     s.counter_seen = true;
     s.counter_last = value;
@@ -591,10 +597,39 @@ void tick(uint32_t now_ms)
     }
 }
 
+namespace {
+Session s_frozen{};
+bool s_frozen_valid = false;
+
+bool web_app_session()
+{
+    return s_info.output_mode && std::strcmp(s_info.output_mode, "WEBAPP") == 0;
+}
+
+Session build_session(uint32_t now_ms);
+} // namespace
+
+void session_freeze(uint32_t now_ms)
+{
+    Lock l;
+    if (s_frozen_valid) return;
+    s_frozen = build_session(now_ms);
+    s_frozen_valid = true;
+}
+
 size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
 {
     if (!out || out_len < sizeof(Session)) return 0;
     Lock l;
+    if (web_app_session()) return 0;
+    const Session ss = s_frozen_valid ? s_frozen : build_session(now_ms);
+    std::memcpy(out, &ss, sizeof(ss));
+    return sizeof(ss);
+}
+
+namespace {
+Session build_session(uint32_t now_ms)
+{
     Session ss{};
     ss.version = kSessionVersion;
     copy_text(ss.mode, sizeof(ss.mode), s_info.output_mode);
@@ -637,9 +672,9 @@ size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
         ss.wired_reports_per_s = static_cast<uint16_t>(secs ? u.timing.reports / secs : u.timing.rate_hz);
         ss.wired_max_gap_ms = static_cast<uint16_t>(u.timing.gap_max > 0xFFFF ? 0xFFFF : u.timing.gap_max);
     }
-    std::memcpy(out, &ss, sizeof(ss));
-    return sizeof(ss);
+    return ss;
 }
+} // namespace
 
 void set_previous_session(const uint8_t* data, size_t len)
 {
@@ -691,8 +726,16 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
         if (s.counter_seen) {
             bool usable = false;
             const uint32_t lost = counter_lost_x10(s, usable);
-            if (usable) w.pct("lost_reports_pct", lost);
-            else w.raw(",\"lost_reports_pct\":null");
+            if (usable) {
+                w.pct("lost_reports_pct", lost);
+                // How many values the counter usually advances between received reports (1 = none lost).
+                uint32_t mode = 0;
+                for (uint32_t i = 1; i < 5; ++i)
+                    if (s.counter_step_hist[i] > s.counter_step_hist[mode]) mode = i;
+                w.raw(",\"counter_usual_step\":\"%lu%s\"", static_cast<unsigned long>(mode + 1), mode == 4 ? "+" : "");
+            } else {
+                w.raw(",\"lost_reports_pct\":null");
+            }
         }
         write_link(w, s.link, s.le);
         w.raw("}");
@@ -823,6 +866,8 @@ void reset_for_tests()
     s_lat_samples = s_lat_avg = s_lat_max = 0;
     s_previous = Session{};
     s_previous_valid = false;
+    s_frozen = Session{};
+    s_frozen_valid = false;
 }
 
 } // namespace diag

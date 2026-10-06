@@ -29,6 +29,7 @@ static void prepare_bt_for_mode_change_reboot()
      * step that talks to the other core, so a stall anywhere reboots the board instead of
      * leaving it frozen (board_api::usb::disconnect_all() re-arms it for the flash write). */
     watchdog_enable(MODE_CHANGE_WATCHDOG_MS, true);
+    diag::session_freeze(board_api::ms_since_boot());  // Custom: before the pads are turned off
 #if defined(CONFIG_EN_BLUETOOTH)
     if (dongle_settings::get().disconnect_pads_on_mode_change)
         bluepad32::disconnect_pads_before_reboot();
@@ -302,6 +303,13 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
             new_driver = combo_map.driver;
             break;
         }
+    }
+
+    /* Custom: modes whose combo is turned off in the web app (Web App mode always stays on). */
+    if (new_driver != DeviceDriverType::NONE && new_driver != DeviceDriverType::WEBAPP &&
+        !dongle_settings::mode_combo_enabled(dongle_settings::get(), static_cast<uint8_t>(new_driver)))
+    {
+        return false;
     }
 
     if (new_driver == DeviceDriverType::NONE || new_driver == current_driver_)
@@ -733,9 +741,6 @@ static const std::string DIAG_SESSION_KEY = "diag_last";
 
 void UserSettings::store_diag_session()
 {
-    /* Leaving Web App mode keeps the summary of the last mode used for playing. */
-    if (current_driver_ == DeviceDriverType::WEBAPP)
-        return;
     uint8_t blob[diag::kSessionBytes]{};
     const size_t n = diag::session_capture(blob, sizeof(blob), board_api::ms_since_boot());
     if (n)
@@ -770,6 +775,13 @@ void UserSettings::store_kbm_settings(const kbm_settings::Settings& settings)
 bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settings)
 {
     diag::event(board_api::ms_since_boot(), "adapter options saved");
+    /* Custom: the mode combo list alone is applied right away, no restart. */
+    if (dongle_settings::same_except_combos(settings, dongle_settings::get()))
+    {
+        nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
+        dongle_settings::set(settings);
+        return false;
+    }
     board_api::usb::disconnect_all();
     nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
     board_api::reboot();

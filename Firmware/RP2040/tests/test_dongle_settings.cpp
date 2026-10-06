@@ -66,4 +66,28 @@ TEST(set_replaces_current) {
     dongle_settings::set(dongle_settings::defaults());
 }
 
+TEST(mode_combo_mask_in_bytes_12_to_15) {
+    uint8_t bytes[16] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
+    Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.combo_disabled_modes, 0u);  // older records: every combo on
+    CHECK(dongle_settings::mode_combo_enabled(s, 4));
+    bytes[12] = 0x10;  // bit 4 (XInput) off
+    bytes[14] = 0x02;  // bit 17 (Mouse + Keyboard) off
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK(!dongle_settings::mode_combo_enabled(s, 4));
+    CHECK(!dongle_settings::mode_combo_enabled(s, 17));
+    CHECK(dongle_settings::mode_combo_enabled(s, 8));
+    CHECK(dongle_settings::mode_combo_enabled(s, 100));  // Web App: outside the mask, always on
+}
+
+TEST(a_change_of_the_combo_mask_alone_needs_no_restart) {
+    Settings a = dongle_settings::defaults();
+    Settings b = a;
+    b.combo_disabled_modes = 0x10;
+    CHECK(dongle_settings::same_except_combos(a, b));
+    b.single_controller = !a.single_controller;
+    CHECK(!dongle_settings::same_except_combos(a, b));
+}
+
 TEST_MAIN()
