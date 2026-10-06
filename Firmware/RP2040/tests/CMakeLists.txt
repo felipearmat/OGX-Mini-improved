@@ -60,7 +60,10 @@ ogxm_add_test(test_sony_imu test_sony_imu.cpp)
 
 ogxm_add_test(test_sony_reports test_sony_reports.cpp)
 
-ogxm_add_test(test_gamepad_out test_gamepad_out.cpp)
+ogxm_add_test(test_gamepad_out test_gamepad_out.cpp
+    ${FW_SRC}/UserSettings/UserProfile.cpp
+    ${FW_SRC}/UserSettings/JoystickSettings.cpp
+    ${FW_SRC}/UserSettings/TriggerSettings.cpp)
 target_compile_definitions(test_gamepad_out PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_gamepad_out PRIVATE fixmath)
 

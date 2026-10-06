@@ -65,4 +65,22 @@ TEST(host_lightbar) {
     CHECK(!gp.get_host_lightbar().valid);
 }
 
+
+// Web App mode shows the controller's own buttons: the stored profile's mapping is not applied
+// (the web app lights up each mapping row for its physical input).
+TEST(web_app_mode_ignores_the_profile_mapping) {
+    UserProfile swapped;
+    swapped.button_a = Gamepad::BUTTON_B;
+    swapped.button_b = Gamepad::BUTTON_A;
+    swapped.dpad_up = Gamepad::DPAD_DOWN;
+    Gamepad gp;
+    gp.set_profile(swapped, DeviceDriverType::XINPUT);
+    CHECK_EQ(gp.MAP_BUTTON_A, Gamepad::BUTTON_B);
+    CHECK_EQ(gp.MAP_DPAD_UP, Gamepad::DPAD_DOWN);
+    gp.set_profile(swapped, DeviceDriverType::WEBAPP);
+    CHECK_EQ(gp.MAP_BUTTON_A, Gamepad::BUTTON_A);
+    CHECK_EQ(gp.MAP_BUTTON_B, Gamepad::BUTTON_B);
+    CHECK_EQ(gp.MAP_DPAD_UP, Gamepad::DPAD_UP);
+}
+
 TEST_MAIN()
