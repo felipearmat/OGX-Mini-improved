@@ -104,8 +104,16 @@ TEST(classic_switch_battery_and_disconnect) {
     diag::slot_battery(0, 255);
     diag::slot_switch_firmware(0, 4, 33);
     diag::failed_contacts(0x0b, 3);
+    diag::rssi(0x0b, 0);
+    diag::link_mode(0x0b, 2, 106);  // sniff, 66.25 ms
     std::string r = report(10);
     CHECK(has(r, "\"link\":\"Classic\""));
+    CHECK(has(r, "\"rssi_golden_range_db\":0"));  // Classic RSSI is relative, not dBm
+    CHECK(!has(r, "rssi_dbm"));
+    CHECK(has(r, "\"link_mode\":\"sniff\",\"sniff_interval_ms\":66.25,\"link_mode_changes\":0"));
+    diag::link_mode(0x0b, 0, 0);
+    CHECK(has(report(11), "\"link_mode\":\"active\""));
+    CHECK(has(report(11), "\"link_mode_changes\":1"));
     CHECK(!has(r, "le_interval_ms"));
     CHECK(has(r, "\"battery_pct\":100"));
     CHECK(has(r, "\"switch_firmware\":\"4.33\""));
@@ -113,6 +121,16 @@ TEST(classic_switch_battery_and_disconnect) {
     diag::slot_disconnected(0, 20);
     r = report(30);
     CHECK(has(r, "\"controllers\":[]"));
+}
+
+TEST(bredr_inquiry_running_only_while_inquiries_complete) {
+    setup();
+    diag::searching(true);
+    std::string r = report(1000);
+    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"accepting_new_controllers\":true}"));
+    diag::inquiry_complete(2000);
+    CHECK(has(report(9000), "\"bredr_inquiry_running\":true,\"bredr_inquiries\":1"));
+    CHECK(has(report(30000), "\"bredr_inquiry_running\":false"));
 }
 
 TEST(wired_controllers_and_receivers) {

@@ -15,7 +15,8 @@ critical_section_t& lock()
     static critical_section_t cs;
     static bool initialized = false;
     if (!initialized) {
-        critical_section_init(&cs);
+        /* Shared ("striped") spin lock: the claimable ones are all in use (test_spin_lock_budget). */
+        critical_section_init_with_lock_num(&cs, next_striped_spin_lock_num());
         initialized = true;
     }
     return cs;

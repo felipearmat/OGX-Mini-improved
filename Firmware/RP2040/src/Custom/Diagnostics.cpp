@@ -85,6 +85,10 @@ struct Link {
     uint8_t channels_used, channels_total;  // 0 total = unknown
     bool failed_valid;
     uint16_t failed_contacts;
+    bool mode_known;
+    uint8_t mode;              // 0 active, 1 hold, 2 sniff, 3 park
+    uint16_t sniff_interval;   // 0.625 ms slots
+    uint16_t mode_changes;
 };
 
 struct Slot {
@@ -126,6 +130,8 @@ struct SessionCtrl {
     uint16_t lost_pct_x10;  // 0xFFFF unknown
     uint16_t max_gap_ms;
     uint8_t channels_used, channels_total;
+    uint8_t mode;              // 0xFF unknown
+    uint16_t sniff_interval;
 };
 struct Session {
     uint8_t version;
@@ -141,7 +147,7 @@ struct Session {
 };
 #pragma pack(pop)
 static_assert(sizeof(Session) <= kSessionBytes, "session summary fits its flash entry");
-constexpr uint8_t kSessionVersion = 1;
+constexpr uint8_t kSessionVersion = 2;
 
 critical_section_t s_lock;
 bool s_lock_ready = false;
@@ -154,6 +160,10 @@ Link s_pending[kSlots];
 UsbDevice s_usb[kUsbDevices];
 bool s_searching = false;
 bool s_searching_known = false;
+bool s_inquiry_seen = false;
+uint32_t s_last_inquiry_ms = 0;
+uint32_t s_inquiries = 0;
+constexpr uint32_t kInquiryRecentMs = 15000;  // periodic inquiry: one every 5-10 s while searching
 uint32_t s_second_start = 0;
 uint32_t s_window_start = 0;
 // USB output
@@ -227,6 +237,11 @@ struct Writer {
     }
     void key_str(const char* key, const char* value) { raw(",\"%s\":", key); str(value); }
     void pct(const char* key, uint32_t x10) { raw(",\"%s\":%lu.%lu", key, static_cast<unsigned long>(x10 / 10), static_cast<unsigned long>(x10 % 10)); }
+    void ms_0_625(const char* key, uint16_t slots)
+    {
+        const uint32_t t = static_cast<uint32_t>(slots) * 625;
+        raw(",\"%s\":%lu.%02lu", key, static_cast<unsigned long>(t / 1000), static_cast<unsigned long>(t % 1000 / 10));
+    }
     void ms_1_25(const char* key, uint16_t units)
     {
         const uint32_t h = static_cast<uint32_t>(units) * 125;
@@ -277,9 +292,16 @@ void write_link(Writer& w, const Link& l, bool le)
     if (l.pnp_valid)
         w.raw(",\"pnp\":{\"source\":%u,\"vid\":\"%04x\",\"pid\":\"%04x\",\"version\":\"%04x\"}",
               l.pnp_source, l.pnp_vid, l.pnp_pid, l.pnp_version);
-    if (l.rssi_valid) w.raw(",\"rssi_dbm\":%d", l.rssi);
+    // LE: dBm. Classic: dB from the receiver's golden range (0 = inside it, i.e. a good signal).
+    if (l.rssi_valid) w.raw(le ? ",\"rssi_dbm\":%d" : ",\"rssi_golden_range_db\":%d", l.rssi);
     if (l.channels_total) w.raw(",\"channels_in_use\":%u,\"channels_total\":%u", l.channels_used, l.channels_total);
     if (l.failed_valid) w.raw(",\"failed_contacts\":%u", l.failed_contacts);
+    if (l.mode_known) {
+        static const char* const kModes[] = {"active", "hold", "sniff", "park"};
+        w.key_str("link_mode", l.mode < 4 ? kModes[l.mode] : "?");
+        if (l.mode == 2) w.ms_0_625("sniff_interval_ms", l.sniff_interval);
+        w.raw(",\"link_mode_changes\":%u", l.mode_changes);
+    }
 }
 
 } // namespace
@@ -288,7 +310,7 @@ void init(const BoardInfo& info)
 {
     if (!s_lock_ready) {
         /* A shared ("striped") spin lock, as the SDK's mutexes use: the claimable ones (24-31)
-         * are all taken by TaskQueue, TinyUSB and ReportedMac, and claiming a ninth panics. */
+         * are reserved for TaskQueue and TinyUSB, and running out panics (test_spin_lock_budget). */
         critical_section_init_with_lock_num(&s_lock, next_striped_spin_lock_num());
         s_lock_ready = true;
     }
@@ -460,11 +482,30 @@ void failed_contacts(uint16_t con_handle, uint16_t count)
     }
 }
 
-void searching(bool searching_new_controllers)
+void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots)
 {
     Lock l;
-    s_searching = searching_new_controllers;
+    if (Link* k = link_for_handle(con_handle, true)) {
+        if (k->mode_known && k->mode != mode) ++k->mode_changes;
+        k->mode_known = true;
+        k->mode = mode;
+        k->sniff_interval = interval_slots;
+    }
+}
+
+void searching(bool accepting_new_controllers)
+{
+    Lock l;
+    s_searching = accepting_new_controllers;
     s_searching_known = true;
+}
+
+void inquiry_complete(uint32_t now_ms)
+{
+    Lock l;
+    s_inquiry_seen = true;
+    s_last_inquiry_ms = now_ms;
+    ++s_inquiries;
 }
 
 void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,
@@ -584,6 +625,8 @@ size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
         c.max_gap_ms = static_cast<uint16_t>(s.timing.gap_max > 0xFFFF ? 0xFFFF : s.timing.gap_max);
         c.channels_used = s.link.channels_used;
         c.channels_total = s.link.channels_total;
+        c.mode = s.link.mode_known ? s.link.mode : 0xFF;
+        c.sniff_interval = s.link.sniff_interval;
     }
     for (const auto& u : s_usb) {
         if (!u.active || ss.wired) continue;
@@ -620,8 +663,12 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.key_str("output_mode", s_info.output_mode);
     w.raw(",\"max_gamepads\":%u,\"uptime_ms\":%lu", s_info.max_gamepads, static_cast<unsigned long>(now_ms));
     w.key_str("last_reset", s_info.reset_reason);
+    w.raw(",\"bluetooth\":{\"bredr_inquiry_running\":%s,\"bredr_inquiries\":%lu",
+          s_inquiry_seen && now_ms - s_last_inquiry_ms < kInquiryRecentMs ? "true" : "false",
+          static_cast<unsigned long>(s_inquiries));
     if (s_searching_known)
-        w.raw(",\"bluetooth\":{\"searching_new_controllers\":%s}", s_searching ? "true" : "false");
+        w.raw(",\"accepting_new_controllers\":%s", s_searching ? "true" : "false");
+    w.raw("}");
     w.raw(",\"usb_output\":{\"configured\":%s,\"suspended\":%s,\"reports_sent\":%lu,\"reports_sent_per_s\":%lu}",
           s_usb_configured ? "true" : "false", s_usb_suspended ? "true" : "false",
           static_cast<unsigned long>(s_usb_sent), static_cast<unsigned long>(s_usb_sent_rate));
@@ -688,7 +735,12 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
             if (c.lost_pct_x10 != 0xFFFF) w.pct("lost_reports_pct", c.lost_pct_x10);
             w.raw(",\"max_gap_ms\":%u", c.max_gap_ms);
             if (c.le && c.interval) w.ms_1_25("le_interval_ms", c.interval);
-            if (c.rssi != -128) w.raw(",\"rssi_dbm\":%d", c.rssi);
+            if (c.rssi != -128) w.raw(c.le ? ",\"rssi_dbm\":%d" : ",\"rssi_golden_range_db\":%d", c.rssi);
+            if (c.mode == 0) w.raw(",\"link_mode\":\"active\"");
+            if (c.mode == 2) {
+                w.raw(",\"link_mode\":\"sniff\"");
+                w.ms_0_625("sniff_interval_ms", c.sniff_interval);
+            }
             if (c.channels_total) w.raw(",\"channels_in_use\":%u,\"channels_total\":%u", c.channels_used, c.channels_total);
             w.raw("}");
         }
@@ -761,6 +813,9 @@ void reset_for_tests()
     for (auto& p : s_pending) p = Link{};
     for (auto& u : s_usb) u = UsbDevice{};
     s_searching = s_searching_known = false;
+    s_inquiry_seen = false;
+    s_last_inquiry_ms = 0;
+    s_inquiries = 0;
     s_second_start = s_window_start = 0;
     s_usb_configured = s_usb_suspended = false;
     s_usb_configured_since = s_usb_configured_ms = 0;

@@ -733,6 +733,9 @@ static const std::string DIAG_SESSION_KEY = "diag_last";
 
 void UserSettings::store_diag_session()
 {
+    /* Leaving Web App mode keeps the summary of the last mode used for playing. */
+    if (current_driver_ == DeviceDriverType::WEBAPP)
+        return;
     uint8_t blob[diag::kSessionBytes]{};
     const size_t n = diag::session_capture(blob, sizeof(blob), board_api::ms_since_boot());
     if (n)

@@ -65,7 +65,12 @@ namespace diag {
     void rssi(uint16_t con_handle, int8_t dbm);
     void channels(uint16_t con_handle, uint8_t used, uint8_t total);
     void failed_contacts(uint16_t con_handle, uint16_t count);
-    void searching(bool searching_new_controllers);
+    // Classic link mode (HCI Mode Change): 0 active, 1 hold, 2 sniff, 3 park; interval in 0.625 ms slots.
+    void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots);
+    // Whether new controllers are accepted (Bluepad32's flag), and each finished BR/EDR inquiry
+    // (the radio really searching, which costs the connected pads air time).
+    void searching(bool accepting_new_controllers);
+    void inquiry_complete(uint32_t now_ms);
 
     // ---- Wired USB controllers (USB host), by device address ----
     void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,

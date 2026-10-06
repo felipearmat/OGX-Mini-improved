@@ -1220,8 +1220,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
 
     uni_gamepad_t *uni_gp = &controller->gamepad;
     const int bt_slot = uni_hid_device_get_idx_for_instance(device);
-    if (bt_slot >= 0) {  /* Custom: input timing and battery for the web app's diagnostics */
-        diag::slot_report(static_cast<size_t>(bt_slot), to_ms_since_boot(get_absolute_time()));
+    if (bt_slot >= 0) {  /* Custom: battery for the web app's diagnostics (timing: uni_diag_on_input_report) */
         if (controller->battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
             diag::slot_battery(static_cast<size_t>(bt_slot), controller->battery);
     }
@@ -1873,6 +1872,20 @@ static void diag_hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* pac
             diag::rssi(gap_event_rssi_measurement_get_con_handle(packet),
                        static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet)));
             break;
+        case HCI_EVENT_MODE_CHANGE:
+            if (hci_event_mode_change_get_status(packet) == 0) {
+                const uint16_t h = hci_event_mode_change_get_handle(packet);
+                const uint8_t mode = hci_event_mode_change_get_mode(packet);
+                const uint16_t iv = hci_event_mode_change_get_interval(packet);
+                diag::link_mode(h, mode, iv);
+                diag::event(now, "link 0x%04x: %s mode, interval %u.%03u ms", h,
+                            mode == 2 ? "sniff" : mode == 0 ? "active" : mode == 1 ? "hold" : "park",
+                            iv * 625 / 1000, iv * 625 % 1000);
+            }
+            break;
+        case HCI_EVENT_INQUIRY_COMPLETE:
+            diag::inquiry_complete(now);
+            break;
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             diag::event(now, "link 0x%04x closed, reason 0x%02x",
                         hci_event_disconnection_complete_get_connection_handle(packet),
@@ -1891,6 +1904,11 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
     const int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || !report || len == 0)
         return;
+    /* Input timing per physical device (each half of a merged Joy-Con pair on its own); Switch
+     * subcommand replies (0x21) are not input. */
+    if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+          d->controller_type == CONTROLLER_TYPE_SwitchProController) || report[0] != 0x21)
+        diag::slot_report(static_cast<size_t>(slot), to_ms_since_boot(get_absolute_time()));
     /* The pads' own report counters: DS4 report 0x11 (6 bits, byte 9), DualSense 0x31 (byte 8). */
     if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len >= 10)
         diag::slot_counter(static_cast<size_t>(slot), report[9] >> 2, 6);
