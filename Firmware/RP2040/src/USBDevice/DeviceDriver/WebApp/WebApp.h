@@ -42,6 +42,9 @@ private:
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
         SET_GP_OUT = 0x81,
+        /* Custom: DS4 / DualSense touchpad, sent after SET_GP_IN while the pad reports it. Data:
+         * the two touch points as the pads send them (4 bytes each), then the touchpad click. */
+        GP_TOUCH = 0x82,
         RESP_ERROR = 0xFF
     };
     
@@ -84,6 +87,7 @@ private:
     bool write_dongle_settings();
     bool write_kbm_settings();
     bool write_diagnostics();
+    bool write_touch(uint8_t index, const Gamepad::PadIn& pad_in);
 };
 
 #endif // _WEBAAPP_DEVICE_H_

@@ -164,6 +164,7 @@ bool s_searching_known = false;
 bool s_inquiry_seen = false;
 uint32_t s_last_inquiry_ms = 0;
 uint32_t s_inquiries = 0;
+uint32_t s_adv_count = 0, s_adv_rate = 0;
 constexpr uint32_t kInquiryRecentMs = 15000;  // periodic inquiry: one every 5-10 s while searching
 uint32_t s_second_start = 0;
 uint32_t s_window_start = 0;
@@ -506,6 +507,12 @@ void searching(bool accepting_new_controllers)
     s_searching_known = true;
 }
 
+void le_adv_report()
+{
+    Lock l;
+    ++s_adv_count;
+}
+
 void inquiry_complete(uint32_t now_ms)
 {
     Lock l;
@@ -588,6 +595,8 @@ void tick(uint32_t now_ms)
         for (auto& u : s_usb) u.timing.second();
         s_usb_sent_rate = s_usb_sent_count;
         s_usb_sent_count = 0;
+        s_adv_rate = s_adv_count;
+        s_adv_count = 0;
         s_second_start = now_ms;
     }
     if (now_ms - s_window_start >= kGapWindowMs) {
@@ -701,6 +710,7 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"bluetooth\":{\"bredr_inquiry_running\":%s,\"bredr_inquiries\":%lu",
           s_inquiry_seen && now_ms - s_last_inquiry_ms < kInquiryRecentMs ? "true" : "false",
           static_cast<unsigned long>(s_inquiries));
+    w.raw(",\"le_scan_adv_reports_per_s\":%lu", static_cast<unsigned long>(s_adv_rate));
     if (s_searching_known)
         w.raw(",\"accepting_new_controllers\":%s", s_searching ? "true" : "false");
     w.raw("}");
@@ -859,6 +869,7 @@ void reset_for_tests()
     s_inquiry_seen = false;
     s_last_inquiry_ms = 0;
     s_inquiries = 0;
+    s_adv_count = s_adv_rate = 0;
     s_second_start = s_window_start = 0;
     s_usb_configured = s_usb_suspended = false;
     s_usb_configured_since = s_usb_configured_ms = 0;

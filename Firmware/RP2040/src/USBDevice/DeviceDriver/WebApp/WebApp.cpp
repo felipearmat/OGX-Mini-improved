@@ -218,6 +218,21 @@ bool WebAppDevice::write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in)
     return true;
 }
 
+/* Custom: touchpad for the web app's tracking view (GP_TOUCH). */
+bool WebAppDevice::write_touch(uint8_t index, const Gamepad::PadIn& pad_in)
+{
+    Packet packet_in;
+    packet_in.header.packet_id = PacketID::GP_TOUCH;
+    packet_in.header.max_gamepads = MAX_GAMEPADS;
+    packet_in.header.player_idx = index;
+    packet_in.header.chunks_total = 1;
+    packet_in.header.chunk_idx = 0;
+    packet_in.header.chunk_len = sizeof(pad_in.touch_raw) + 1;
+    std::memcpy(packet_in.data.data(), pad_in.touch_raw, sizeof(pad_in.touch_raw));
+    packet_in.data[sizeof(pad_in.touch_raw)] = pad_in.touchpad_click;
+    return write_packet(packet_in);
+}
+
 /* Custom: dongle options, one packet (version byte first). */
 bool WebAppDevice::write_dongle_settings()
 {
@@ -448,6 +463,8 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
         OGXM_LOG("Writing gamepad input\n");
         Gamepad::PadIn gp_in = gamepad.get_pad_in();
         write_gamepad(idx, gp_in);
+        if (gp_in.touchpad_valid)
+            write_touch(idx, gp_in);
     }
 }
 

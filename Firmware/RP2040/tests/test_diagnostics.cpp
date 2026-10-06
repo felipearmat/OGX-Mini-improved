@@ -136,10 +136,13 @@ TEST(bredr_inquiry_running_only_while_inquiries_complete) {
     setup();
     diag::searching(true);
     std::string r = report(1000);
-    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"accepting_new_controllers\":true}"));
+    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true}"));
     diag::inquiry_complete(2000);
     CHECK(has(report(9000), "\"bredr_inquiry_running\":true,\"bredr_inquiries\":1"));
     CHECK(has(report(30000), "\"bredr_inquiry_running\":false"));
+    for (int i = 0; i < 40; ++i) diag::le_adv_report();
+    diag::tick(31000);
+    CHECK(has(report(31000), "\"le_scan_adv_reports_per_s\":40"));
 }
 
 TEST(wired_controllers_and_receivers) {

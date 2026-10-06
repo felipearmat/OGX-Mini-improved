@@ -1886,6 +1886,10 @@ static void diag_hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* pac
         case HCI_EVENT_INQUIRY_COMPLETE:
             diag::inquiry_complete(now);
             break;
+        case GAP_EVENT_ADVERTISING_REPORT:
+        case GAP_EVENT_EXTENDED_ADVERTISING_REPORT:
+            diag::le_adv_report();
+            break;
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             diag::event(now, "link 0x%04x closed, reason 0x%02x",
                         hci_event_disconnection_complete_get_connection_handle(packet),

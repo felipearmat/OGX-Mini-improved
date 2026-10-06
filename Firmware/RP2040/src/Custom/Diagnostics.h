@@ -71,6 +71,8 @@ namespace diag {
     // (the radio really searching, which costs the connected pads air time).
     void searching(bool accepting_new_controllers);
     void inquiry_complete(uint32_t now_ms);
+    // Each BLE advertising report: the LE scan is running (it shares the radio with the pads).
+    void le_adv_report();
 
     // ---- Wired USB controllers (USB host), by device address ----
     void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,
