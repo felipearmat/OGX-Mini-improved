@@ -371,6 +371,7 @@ bool UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_typ
     prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
+    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), reinterpret_cast<const uint8_t*>(&new_driver_type), sizeof(new_driver_type));
     nvs_tool_.write(ACTIVE_PROFILE_KEY(index), &profile.id, sizeof(uint8_t));
     nvs_tool_.write(PROFILE_KEY(profile.id), &profile, sizeof(UserProfile));
@@ -395,6 +396,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver)
     prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
+    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
 
     board_api::reboot();
@@ -411,6 +413,7 @@ void UserSettings::store_driver_type_and_reboot(DeviceDriverType new_driver)
 
     OGXM_LOG("Storing new driver type and rebooting: " + OGXM_TO_STRING(new_driver) + "\n");
 
+    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
 
     board_api::reboot();
@@ -710,20 +713,24 @@ void UserSettings::stop_search(Gamepad& gamepad)
 /* Custom: diagnostics session summary, written with the mode change (Custom/Diagnostics.h). */
 static const std::string DIAG_SESSION_KEY = "diag_last";
 
-static const std::string DIAG_SESSION_OLDER_KEY = "diag_prev";
+/* Session summaries (Custom/Diagnostics.h). A mode change keeps the new session in RAM and
+ * writes only the one it replaces, if that one was not stored yet; the last controller going
+ * away (turned off, the disconnect combo) writes the current one, so it survives unplugging the
+ * adapter. One flash entry; Web App and short, controller-less sessions are never kept. */
+void UserSettings::keep_diag_session()
+{
+    diag::session_freeze(board_api::ms_since_boot());
+    uint8_t blob[diag::kSessionBytes]{};
+    if (diag::take_replaced_session(blob, sizeof(blob)))
+        nvs_tool_.write(DIAG_SESSION_KEY, blob, sizeof(blob));
+}
 
-/* Stores the session summary in flash, keeping the one before as the older one: only when the
- * last controller disconnected (a controller turned off, the disconnect combo), so a mode change,
- * e.g. into Web App mode to read the report, never replaces it (it keeps it in RAM instead). */
 void UserSettings::store_diag_session_and_reboot()
 {
     uint8_t blob[diag::kSessionBytes]{};
-    const size_t n = diag::session_capture(blob, sizeof(blob), board_api::ms_since_boot());
-    if (n) {
-        uint8_t newest[diag::kSessionBytes]{};
-        if (nvs_tool_.read(DIAG_SESSION_KEY, newest, sizeof(newest)))
-            nvs_tool_.write(DIAG_SESSION_OLDER_KEY, newest, sizeof(newest));
+    if (diag::session_capture(blob, sizeof(blob), board_api::ms_since_boot())) {
         nvs_tool_.write(DIAG_SESSION_KEY, blob, sizeof(blob));
+        diag::mark_session_stored();
     }
     board_api::reboot();
 }
@@ -732,9 +739,7 @@ void UserSettings::load_diag_session()
 {
     uint8_t blob[diag::kSessionBytes]{};
     if (nvs_tool_.read(DIAG_SESSION_KEY, blob, sizeof(blob)))
-        diag::set_stored_session(0, blob, sizeof(blob));
-    if (nvs_tool_.read(DIAG_SESSION_OLDER_KEY, blob, sizeof(blob)))
-        diag::set_stored_session(1, blob, sizeof(blob));
+        diag::set_stored_session(blob, sizeof(blob));
 
     /* A crash during the previous boot is stored once, so it is still in the report after a
      * power cycle; the same crash again (a crash loop) is not written again. */

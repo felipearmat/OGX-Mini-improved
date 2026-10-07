@@ -129,7 +129,7 @@ To report lag, stutter or disconnects without a serial adapter:
 
 It also keeps the events and the session summary from before the switch to Web App mode (the
 RAM survives that reboot, not unplugging the adapter); turning the controller off (or Start +
-Select) before unplugging stores the session summary, so it is still in the report later and, if the firmware ever crashed, where it stopped (the adapter now
+Select) before unplugging stores the session summary in flash, so it is still in the report later and, if the firmware ever crashed, where it stopped (the adapter now
 restarts by itself after a crash instead of freezing). The report has, per controller: what it is (IDs, Bluetooth chip vendor and version, firmware
 strings), how it is connected (Bluetooth Classic or LE and its connection interval, signal,
 radio channels in use, wired or a known 2.4 GHz receiver, USB speed) and how its input arrives

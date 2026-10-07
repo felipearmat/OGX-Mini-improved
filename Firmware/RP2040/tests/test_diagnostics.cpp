@@ -171,17 +171,17 @@ TEST(session_summary_stored_in_flash_is_reported) {
     const size_t n = diag::session_capture(blob, sizeof(blob), 10000);
     CHECK(n > 0);
     setup();  // a power cycle: only flash is left
-    diag::set_stored_session(0, blob, n);
+    diag::set_stored_session(blob, n);
     const std::string r = report(5);
     CHECK(!has(r, "previous_session"));
-    CHECK(has(r, "\"stored_sessions\":[{\"mode\":\"XINPUT\",\"uptime_s\":10,\"usb_configured_s\":10,\"usb_reports_sent\":5000"));
+    CHECK(has(r, "\"stored_session\":{\"mode\":\"XINPUT\",\"uptime_s\":10,\"usb_configured_s\":10,\"usb_reports_sent\":5000"));
     CHECK(has(r, "\"usb_reports_sent_per_s\":500"));
     CHECK(has(r, "\"input_to_output_latency\":{\"samples\":900,\"avg_us\":1200,\"max_us\":4800}"));
     CHECK(has(r, "\"reports_per_s\":100"));
     CHECK(has(r, "\"le_interval_ms\":30.00"));
     blob[0] = 99;  // another format version is ignored
-    diag::set_stored_session(0, blob, n);
-    CHECK(!has(report(6), "stored_sessions"));
+    diag::set_stored_session(blob, n);
+    CHECK(!has(report(6), "stored_session"));
 }
 
 TEST(events_keep_the_latest_in_order_and_are_escaped) {
@@ -220,24 +220,46 @@ TEST(mode_change_keeps_the_session_in_ram_across_the_reboot) {
     CHECK(has(r, "\"vid\":\"054c\",\"pid\":\"09cc\",\"link\":\"Classic\",\"reports_per_s\":100"));
     uint8_t again[diag::kSessionBytes];
     CHECK_EQ(diag::session_capture(again, sizeof(again), 6000), 0u);  // a Web App session is not kept
-    // Leaving Web App mode (another reboot) does not replace it with a Web App session.
+    // Leaving Web App mode (another reboot) does not replace it with a Web App session: it stays.
     diag::session_freeze(7000);
     diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "reboot", 1});
-    r = report(5);
-    CHECK(!has(r, "previous_session"));  // the Web App boot had none of its own
+    CHECK(has(report(5), "\"previous_session\":{\"mode\":\"XINPUT\""));
+    CHECK_EQ(diag::take_replaced_session(again, sizeof(again)), 0u);  // nothing written
 }
 
-TEST(stored_sessions_newest_first) {
-    setup();
+TEST(a_new_session_sends_the_one_in_ram_to_flash_once) {
+    setup();  // XINPUT
     diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
-    uint8_t a[diag::kSessionBytes], b[diag::kSessionBytes];
-    CHECK(diag::session_capture(a, sizeof(a), 30000) > 0);
-    CHECK(diag::session_capture(b, sizeof(b), 90000) > 0);
+    diag::session_freeze(40000);  // session A ends (mode change)
+    uint8_t blob[diag::kSessionBytes];
+    CHECK_EQ(diag::take_replaced_session(blob, sizeof(blob)), 0u);  // the RAM was empty
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "SWITCH", "reboot", 1});
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    diag::session_freeze(50000);  // session B ends: A goes to flash, B to RAM
+    CHECK(diag::take_replaced_session(blob, sizeof(blob)) > 0);
+    CHECK_EQ(blob[1], 'X');  // A was the XINPUT one
+    CHECK_EQ(diag::take_replaced_session(blob, sizeof(blob)), 0u);
+    // B stored by turning the controller off: the next session does not write it again.
+    CHECK(diag::session_capture(blob, sizeof(blob), 50000) > 0);
+    diag::mark_session_stored();
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "reboot", 1});
+    diag::set_stored_session(blob, sizeof(blob));
+    CHECK(!has(report(5), "stored_session"));  // same as the RAM one: shown once
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    diag::session_freeze(60000);
+    CHECK_EQ(diag::take_replaced_session(blob, sizeof(blob)), 0u);
+}
+
+TEST(short_sessions_without_a_controller_are_not_kept) {
     setup();
-    diag::set_stored_session(0, b, sizeof(b));
-    diag::set_stored_session(1, a, sizeof(a));
-    const std::string r = report(5);
-    CHECK(r.find("\"uptime_s\":90") < r.find("\"uptime_s\":30"));
+    diag::session_freeze(10000);  // 10 s, no controller: passing through a mode
+    uint8_t blob[diag::kSessionBytes];
+    CHECK_EQ(diag::session_capture(blob, sizeof(blob), 10000), 0u);
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "WEBAPP", "reboot", 1});
+    CHECK(!has(report(5), "previous_session"));
+    setup();
+    diag::session_freeze(45000);  // 45 s: kept even without a controller
+    CHECK(diag::session_capture(blob, sizeof(blob), 45000) > 0);
 }
 
 TEST(events_survive_a_reboot_that_keeps_the_ram) {
@@ -292,12 +314,13 @@ TEST(a_panic_keeps_its_message) {
 
 TEST(session_keeps_its_last_events) {
     setup();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
     for (int i = 0; i < 6; ++i) diag::event(static_cast<uint32_t>(1000 + i), "event %d", i);
     uint8_t blob[diag::kSessionBytes];
     const size_t n = diag::session_capture(blob, sizeof(blob), 2000);
     CHECK(n > 0 && n <= diag::kSessionBytes);
     setup();
-    diag::set_stored_session(0, blob, n);
+    diag::set_stored_session(blob, n);
     const std::string r = report(5);
     CHECK(has(r, "\"last_events\":[{\"ms\":1002,\"text\":\"event 2\"}"));
     CHECK(has(r, "{\"ms\":1005,\"text\":\"event 5\"}]"));

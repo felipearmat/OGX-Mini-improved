@@ -68,6 +68,8 @@ public:
     void load_diag_session();
     // Custom: the last controller disconnected — store the session summary, then reboot (Core0).
     void store_diag_session_and_reboot();
+    // Custom: a mode change — keep the session summary (RAM; flash for the one it replaces).
+    void keep_diag_session();
 
 private:
     void load_dongle_settings();

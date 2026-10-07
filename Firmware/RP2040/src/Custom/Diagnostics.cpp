@@ -174,7 +174,8 @@ struct Persist {
     uint32_t crash_magic;
     CrashInfo crash;
     uint32_t session_magic;
-    Session session;  // the session before the reboot (frozen when it started)
+    uint32_t session_stored;  // already written to flash
+    Session session;  // the latest relevant session, kept until a newer one replaces it
     Event events[kEvents];
 };
 DIAG_PERSISTENT Persist s_p;
@@ -208,10 +209,17 @@ bool s_usb_configured = false, s_usb_suspended = false;
 uint32_t s_usb_configured_since = 0, s_usb_configured_ms = 0;
 uint32_t s_usb_sent = 0, s_usb_sent_rate = 0, s_usb_sent_count = 0;
 uint32_t s_lat_samples = 0, s_lat_avg = 0, s_lat_max = 0;
-/* Sessions for the report: [0] the one before the last reboot (kept in RAM), [1] and [2] the
- * last two stored in flash when the last controller disconnected (newest first). */
-Session s_sessions[3]{};
-bool s_sessions_valid[3]{};
+/* Sessions for the report: [0] the latest relevant one, kept in RAM across reboots; [1] the one
+ * stored in flash. */
+Session s_sessions[2]{};
+bool s_sessions_valid[2]{};
+bool s_ram_session_stored = false;  // [0] is already in flash
+// The RAM session a newer one replaced at this reboot, still to be stored in flash.
+Session s_replaced{};
+bool s_replaced_pending = false;
+// The session that just ended (frozen before the pads go away); one per boot.
+Session s_frozen{};
+bool s_frozen_valid = false;
 
 struct Lock {
     Lock() { if (s_lock_ready) critical_section_enter_blocking(&s_lock); }
@@ -362,11 +370,16 @@ void init(const BoardInfo& info)
     s_last_crash = CrashInfo{};
     s_last_crash_valid = s_last_crash_previous_boot = false;
     for (bool& v : s_sessions_valid) v = false;
+    s_replaced_pending = false;
+    s_frozen_valid = false;
     if (kept && s_p.session_magic == kSessionMagic && s_p.session.version == kSessionVersion) {
-        s_sessions[0] = s_p.session;
+        s_sessions[0] = s_p.session;  // stays in RAM until a newer relevant session replaces it
         s_sessions_valid[0] = true;
+        s_ram_session_stored = s_p.session_stored != 0;
+    } else {
+        s_p.session_magic = 0;
+        s_ram_session_stored = false;
     }
-    s_p.session_magic = 0;
     if (kept && s_p.crash_magic == kCrashMagic) {
         s_last_crash = s_p.crash;
         s_last_crash_valid = true;
@@ -705,8 +718,15 @@ void tick(uint32_t now_ms)
 }
 
 namespace {
-Session s_frozen{};
-bool s_frozen_valid = false;
+
+bool web_app_session();
+
+/* Worth keeping: not a Web App session, and a controller was in it or it lasted 30 s or more (a
+ * mode passed through on the way to another one is not). */
+bool session_relevant(const Session& ss)
+{
+    return !web_app_session() && (ss.controllers > 0 || ss.wired || ss.uptime_s >= 30);
+}
 
 bool web_app_session()
 {
@@ -714,6 +734,7 @@ bool web_app_session()
 }
 
 Session build_session(uint32_t now_ms);
+bool session_relevant(const Session& ss);
 } // namespace
 
 void session_freeze(uint32_t now_ms)
@@ -722,18 +743,23 @@ void session_freeze(uint32_t now_ms)
     if (s_frozen_valid) return;
     s_frozen = build_session(now_ms);
     s_frozen_valid = true;
-    if (!web_app_session()) {  // kept across the reboot in RAM; no flash write
-        s_p.session = s_frozen;
-        s_p.session_magic = kSessionMagic;
+    if (!session_relevant(s_frozen))
+        return;  // the RAM keeps the latest relevant session
+    if (s_sessions_valid[0] && !s_ram_session_stored) {
+        s_replaced = s_sessions[0];  // to flash: take_replaced_session()
+        s_replaced_pending = true;
     }
+    s_p.session = s_frozen;  // kept across the reboot in RAM
+    s_p.session_magic = kSessionMagic;
+    s_p.session_stored = 0;
 }
 
 size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
 {
     if (!out || out_len < sizeof(Session)) return 0;
     Lock l;
-    if (web_app_session()) return 0;
     const Session ss = s_frozen_valid ? s_frozen : build_session(now_ms);
+    if (!session_relevant(ss)) return 0;
     std::memcpy(out, &ss, sizeof(ss));
     return sizeof(ss);
 }
@@ -793,13 +819,27 @@ Session build_session(uint32_t now_ms)
 }
 } // namespace
 
-void set_stored_session(size_t index, const uint8_t* data, size_t len)
+void set_stored_session(const uint8_t* data, size_t len)
 {
-    if (index > 1) return;
     Lock l;
     const bool ok = data && len >= sizeof(Session) && data[0] == kSessionVersion;
-    s_sessions_valid[1 + index] = ok;
-    if (ok) std::memcpy(&s_sessions[1 + index], data, sizeof(Session));
+    s_sessions_valid[1] = ok;
+    if (ok) std::memcpy(&s_sessions[1], data, sizeof(Session));
+}
+
+size_t take_replaced_session(uint8_t* out, size_t out_len)
+{
+    Lock l;
+    if (!s_replaced_pending || !out || out_len < sizeof(Session)) return 0;
+    s_replaced_pending = false;
+    std::memcpy(out, &s_replaced, sizeof(Session));
+    return sizeof(Session);
+}
+
+void mark_session_stored()
+{
+    Lock l;
+    s_p.session_stored = 1;
 }
 
 
@@ -933,16 +973,11 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
         w.raw(",\"previous_session\":");
         write_session(w, s_sessions[0]);
     }
-    if (s_sessions_valid[1] || s_sessions_valid[2]) {
-        w.raw(",\"stored_sessions\":[");
-        bool first_session = true;
-        for (int k = 1; k <= 2; ++k) {
-            if (!s_sessions_valid[k]) continue;
-            if (!first_session) w.raw(",");
-            write_session(w, s_sessions[k]);
-            first_session = false;
-        }
-        w.raw("]");
+    // The flash copy, unless it is the same session as the one in RAM.
+    if (s_sessions_valid[1] &&
+        !(s_sessions_valid[0] && std::memcmp(&s_sessions[0], &s_sessions[1], sizeof(Session)) == 0)) {
+        w.raw(",\"stored_session\":");
+        write_session(w, s_sessions[1]);
     }
 
     if (s_last_crash_valid) {
@@ -1051,10 +1086,12 @@ void reset_for_tests()
     s_usb_configured_since = s_usb_configured_ms = 0;
     s_usb_sent = s_usb_sent_rate = s_usb_sent_count = 0;
     s_lat_samples = s_lat_avg = s_lat_max = 0;
-    for (int k = 0; k < 3; ++k) {
+    for (int k = 0; k < 2; ++k) {
         s_sessions[k] = Session{};
         s_sessions_valid[k] = false;
     }
+    s_ram_session_stored = false;
+    s_replaced_pending = false;
     s_frozen = Session{};
     s_frozen_valid = false;
 }

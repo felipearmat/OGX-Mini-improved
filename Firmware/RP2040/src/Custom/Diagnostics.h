@@ -15,8 +15,8 @@
  *  a report.
  *
  *  Measurements of the mode actually used for playing would be lost by the reboot into Web App
- *  mode, so a short summary of the session is written to flash with the mode change
- *  (session_capture) and shown as "previous_session".
+ *  mode, so a short summary of the session is kept in RAM across reboots and, at the moments
+ *  described with session_freeze() below, in flash.
  *
  *  Producers run on both cores; every access takes one critical section.
  */
@@ -124,14 +124,21 @@ namespace diag {
     void tick(uint32_t now_ms);
 
     // ---- Session summary kept across the mode-change reboot ----
-    // Snapshot taken before the pads are turned off (a mode change, the last controller going
-    // away); session_capture() then returns it. It is also kept in RAM across the reboot (the
-    // report's "previous_session", no flash write); flash gets it only when the last controller
-    // disconnects ("stored_sessions"). A session in Web App mode is never kept.
+    /* Sessions (a summary of a mode's use: rates, losses, last events). A session is kept when it
+     * is relevant (not Web App mode; a controller was in it or it lasted 30 s or more).
+     *  - session_freeze(): when the session ends (a mode change, the last controller going
+     *    away), before the pads are turned off. The latest relevant session is kept in RAM
+     *    across reboots ("previous_session", no flash write) until a newer one replaces it.
+     *  - take_replaced_session(): the RAM session that the new one just replaced, if it was not
+     *    stored yet; the caller writes it to flash (a mode change).
+     *  - session_capture(): the frozen session (0 if not relevant); the caller writes it to
+     *    flash when the last controller disconnected, then mark_session_stored().
+     *  - set_stored_session(): the one in flash, at boot ("stored_session"). */
     void session_freeze(uint32_t now_ms);
     size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms);
-    // Sessions stored in flash when the last controller disconnected: index 0 newest, 1 older.
-    void set_stored_session(size_t index, const uint8_t* data, size_t len);
+    size_t take_replaced_session(uint8_t* out, size_t out_len);
+    void mark_session_stored();
+    void set_stored_session(const uint8_t* data, size_t len);
 
     // JSON report. Returns the length written (always NUL-terminated, truncated if needed).
     size_t report_json(char* out, size_t out_len, uint32_t now_ms);
