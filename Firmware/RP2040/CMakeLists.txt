@@ -389,7 +389,7 @@ endif()
 # More dongle option defaults.
 option(OGXM_MAC_PER_CONTROLLER "Default: PS4/STEAM modes report the connected pad's Bluetooth address instead of the dongle's" OFF)
 option(OGXM_PS4_LEGACY_MOTION_SCALE "Default: PS4 mode uses the legacy Brook-style motion scale (gyro/8, accel/64) instead of real DS4 units" OFF)
-option(OGXM_SINGLE_CONTROLLER "Default: accept one Bluetooth controller only (a lone Joy-Con does not wait for its other half)" OFF)
+option(OGXM_SINGLE_CONTROLLER "Default: no search for new controllers once one is connected (both search times 0)" OFF)
 if(OGXM_MAC_PER_CONTROLLER)
     add_compile_definitions(OGXM_MAC_PER_CONTROLLER=1)
 endif()

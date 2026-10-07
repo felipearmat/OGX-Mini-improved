@@ -163,11 +163,9 @@ static constexpr std::array<ComboMap, 15> BUTTON_COMBO_MAP = {{
     { ButtonCombo::DREAMCAST, DeviceDriverType::DREAMCAST },
 }};
 
-/* Custom: single controller dongle option (UserSettings::set_single_controller): Start + L3 turns
- * it on, Start + L3 + LB turns it off. No mode combo uses L3, so these never take over one. */
-static constexpr uint32_t SINGLE_CONTROLLER_ON_COMBO = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3);
-static constexpr uint32_t SINGLE_CONTROLLER_OFF_COMBO =
-    BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3 | Gamepad::BUTTON_LB);
+/* Custom: Start + L3 stops the search for new controllers until a pad goes away
+ * (UserSettings::stop_search). No mode combo uses L3, so it never takes over one. */
+static constexpr uint32_t STOP_SEARCH_COMBO = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3);
 
 /** Prefer the combo that requires the most buttons (e.g. STEAM over XInput when LB is held). */
 static uint32_t find_matching_combo(uint32_t current)
@@ -248,32 +246,20 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
 
     const uint32_t current_button_combo = BUTTON_COMBO(gp_in.buttons, combo_dpad);
 
-    /* Custom: Start + L3 (on) / Start + L3 + LB (off) held 3 s set the single controller dongle
-     * option. Not in Wii mode: there Bluetooth is the Wii link, not the controller input. */
-    static uint32_t last_single_combo = 0;
-    static uint8_t single_controller_count = 0;
-    uint32_t single_combo = 0;
-    if (current_driver_ != DeviceDriverType::WII)
-    {
-        if (combo_matches(current_button_combo, SINGLE_CONTROLLER_OFF_COMBO))
-            single_combo = SINGLE_CONTROLLER_OFF_COMBO;
-        else if (combo_matches(current_button_combo, SINGLE_CONTROLLER_ON_COMBO))
-            single_combo = SINGLE_CONTROLLER_ON_COMBO;
-    }
-    if (single_combo != last_single_combo)
-        single_controller_count = 0;
-    last_single_combo = single_combo;
-    if (single_combo != 0)
+    /* Custom: Start + L3 held 3 s stops the search for new controllers (no restart). Not in Wii
+     * mode: there Bluetooth is the Wii link, not the controller input. */
+    static uint8_t stop_search_count = 0;
+    const bool stop_combo = current_driver_ != DeviceDriverType::WII &&
+                            combo_matches(current_button_combo, STOP_SEARCH_COMBO);
+    if (stop_combo)
     {
         last_button_combo = 0;
         call_count = 0;
-        if (++single_controller_count >= GP_CHECK_COUNT)
-        {
-            single_controller_count = 0;
-            set_single_controller(gamepad, single_combo == SINGLE_CONTROLLER_ON_COMBO);
-        }
+        if (++stop_search_count == GP_CHECK_COUNT)
+            stop_search(gamepad);  // once per hold
         return false;
     }
+    stop_search_count = 0;
     const uint32_t active_combo = find_matching_combo(current_button_combo);
 
     if (!(current_button_combo & (static_cast<uint32_t>(Gamepad::BUTTON_START) << 16)) ||
@@ -706,34 +692,22 @@ void UserSettings::load_dongle_settings()
     dongle_settings::set(settings);
 }
 
-/* Custom: set the single controller option. The pad rumbles once for on, twice for off (pulses
- * longer than the Bluetooth feedback tick, gaps long enough to stop); a change is then stored
- * and the dongle reboots like a mode change, while the current state only gets the rumble. */
-void UserSettings::set_single_controller(Gamepad& gamepad, bool on)
+/* Custom: stop the search for new controllers until a pad goes away (Custom/ScanPolicy.h); one
+ * rumble pulse confirms it (longer than the Bluetooth feedback tick). */
+void UserSettings::stop_search(Gamepad& gamepad)
 {
-    dongle_settings::Settings settings = dongle_settings::get();
-    const bool changed = (settings.single_controller != 0) != on;
-    settings.single_controller = on ? 1 : 0;
-    OGXM_LOG("Single controller option -> " + std::to_string(settings.single_controller) + "\n");
-
-    const int pulses = on ? 1 : 2;
-    for (int i = 0; i < pulses; ++i)
-    {
-        Gamepad::PadOut pad_out = gamepad.get_pad_out();
-        pad_out.rumble_l = 0xFF;
-        pad_out.rumble_r = 0xFF;
-        gamepad.set_pad_out(pad_out);
-        busy_wait_ms(400);
-        pad_out.rumble_l = 0;
-        pad_out.rumble_r = 0;
-        gamepad.set_pad_out(pad_out);
-        busy_wait_ms(700);
-    }
-    if (!changed)
-        return;
-
-    prepare_bt_for_mode_change_reboot();
-    store_dongle_settings(settings);
+    OGXM_LOG("Stop searching for new controllers\n");
+#if defined(CONFIG_EN_BLUETOOTH)
+    bluepad32::request_stop_search();
+#endif
+    Gamepad::PadOut pad_out = gamepad.get_pad_out();
+    pad_out.rumble_l = 0xFF;
+    pad_out.rumble_r = 0xFF;
+    gamepad.set_pad_out(pad_out);
+    busy_wait_ms(400);
+    pad_out.rumble_l = 0;
+    pad_out.rumble_r = 0;
+    gamepad.set_pad_out(pad_out);
 }
 
 /* Custom: diagnostics session summary, written with the mode change (Custom/Diagnostics.h). */

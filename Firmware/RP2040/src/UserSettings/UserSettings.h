@@ -71,7 +71,7 @@ private:
     void load_dongle_settings();
     void load_kbm_settings();
     void store_diag_session();
-    void set_single_controller(Gamepad& gamepad, bool on);
+    void stop_search(Gamepad& gamepad);
 
     UserSettings() = default;
     ~UserSettings() = default;

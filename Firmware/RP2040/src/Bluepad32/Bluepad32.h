@@ -26,6 +26,9 @@ namespace bluepad32 {
      * off (LED off) and reconnects with a button press. Blocks up to ~2 s. Call from Core0.
      */
     void disconnect_pads_before_reboot();
+    /* Custom: stop searching for new controllers until a pad goes away (Custom/ScanPolicy.h).
+     * Safe from Core0. */
+    void request_stop_search();
     /** Re-enable BT pairing after wired USB device unplugged. */
     void wired_usb_release_enable_bt_pairing();
     /** Pico W / Pico 2 W / RP2354 BT: restore pairing scans after USB host resume (e.g. Xbox 360 standby wake). */

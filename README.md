@@ -27,10 +27,10 @@ release is built and published by pushing a tag `improved-vX.Y.Z` (workflow `imp
   keyboard). Steam's desktop layout by default (A = Enter, B = Esc, right stick = pointer, left
   stick = scroll, RT / LT = clicks); every input is remappable in the web app, plus the
   touchpad as pointer. Details: [Mouse + Keyboard mode](#mouse--keyboard-mode).
-- **Single Joy-Con:** mode combos work with one Joy-Con (stick pushed to the edge = D-pad);
-  the *Single controller* option keeps a lone Joy-Con from waiting for its other half, so several
-  adapters can sit next to each other. While a lone Joy-Con waits for its other half, the LED
-  keeps blinking.
+- **Single Joy-Con:** mode combos work with one Joy-Con (stick pushed to the edge = D-pad).
+  How long the adapter keeps searching for new controllers once one is connected is set in the
+  web app (full search, then reduced search; both 0 = none), so several adapters can sit next to
+  each other; **Start + L3** stops the current search.
 - **DInput mode:** analog button pressure from the right buttons (pressure-sensitive pads).
 - **Joy-Cons:** vibration, robust pairing, sleep on mode change / disconnect combo.
 - **Stability:** mode switch no longer freezes (Core1 parked), flash writes park the other core,
@@ -65,8 +65,8 @@ release is built and published by pushing a tag `improved-vX.Y.Z` (workflow `imp
 
 Disconnect combo: **Start + Select** for 3 s (Options + Share on a DS4, + and − on Joy-Cons).
 
-Single controller option: **Start + L3** turns it on, **Start + L3 + LB** off (one rumble
-for on, two for off; a change restarts the adapter).
+Stop searching for new controllers: **Start + L3** for 3 s (one rumble; no restart). The search
+starts again when a controller goes away.
 
 With a single Joy-Con held sideways (no D-pad), the stick pushed to the edge counts as the D-pad
 in these combos; Start = Capture (left Joy-Con) or + (right), LB / RB = SL / SR.
@@ -83,7 +83,7 @@ CMake option sets the default:
 | Single Joy-Con orientation | `OGXM_JOYCON_SOLO_ORIENTATION` = HORIZONTAL |
 | Use a MAC address per controller (PS4 / STEAM) | `OGXM_MAC_PER_CONTROLLER` = OFF |
 | Legacy PS4 motion scale (Brook auth adapters) | `OGXM_PS4_LEGACY_MOTION_SCALE` = OFF |
-| Single controller (no Joy-Con pair) | `OGXM_SINGLE_CONTROLLER` = OFF |
+| No search for new controllers once one is connected (both search times 0) | `OGXM_SINGLE_CONTROLLER` = OFF |
 | Joy-Con pair rumble: per side (as SDL / Steam) or both Joy-Cons | `OGXM_JOYCON_PAIR_RUMBLE` = PER_SIDE |
 
 ### Mouse + Keyboard mode
