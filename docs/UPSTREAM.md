@@ -38,7 +38,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 77f69f3 | STEAM output: DualSense rumble flags as SDL / Steam send them | merged #114 | Goes with the STEAM output-report PR. |
 | dd957f9 | DInput output: analog button pressure from the wrong buttons | merged #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
 | b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | pr #129 (+ 6e63762) | Treated as a fix: Switch output had no motion at all. Includes the three Joy-Con adapter options (CMake defaults), on top of #128. 6e63762 (aligned copies for apply_orientation, Release hang) added to the PR 2026-10-02. |
-| 06238bd | Bluetooth pads: host motors swapped in `set_rumble()` (strong request on the small motor) | todo | Every BT pad with two motors; inherited from the original OGX-Mini. Needs a hardware check first. |
+| 06238bd | Bluetooth pads: host motors swapped in `set_rumble()` (strong request on the small motor) | open #136 (2026-10-07) | Every BT pad with two motors. Verified on hardware (DS4, web app Rumble Test). |
+| fefe680 | Web App mode: rumble test (`SET_GP_OUT`, 0x81) | open #135 (2026-10-07) | First of the firmware PRs the web app needs. |
 | 8c59260 | btstack_config: BTstack logs in Debug builds only (condition was inverted) | todo | Release compiled log calls with no output; Debug had none. Small. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
