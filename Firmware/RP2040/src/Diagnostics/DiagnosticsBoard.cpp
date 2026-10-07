@@ -1,10 +1,10 @@
-/* Custom: fills in the diagnostics board info at boot (Custom/Diagnostics.h). */
+/* Custom: fills in the diagnostics board info at boot (Diagnostics/Diagnostics.h). */
 #include <hardware/clocks.h>
 #include <hardware/watchdog.h>
 #include <pico/time.h>
 
-#include "Custom/Diagnostics.h"
-#include "Custom/DiagnosticsBoard.h"
+#include "Diagnostics/Diagnostics.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 #include "UserSettings/UserSettings.h"
 
 #ifndef OGXM_BOARD_NAME

@@ -5,7 +5,7 @@
 #include "Board/ogxm_log.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS3/PS3.h"
-#include "Custom/SonyReports.h"
+#include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 
 namespace {
 

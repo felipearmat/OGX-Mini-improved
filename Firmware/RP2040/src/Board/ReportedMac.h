@@ -5,7 +5,7 @@
 
 /*  MAC address reported by the emulated DS4 / DualSense pairing-info feature (custom addition).
  *
- *  Default: the dongle's own address (Custom/BoardMac). With the "MAC address per controller"
+ *  Default: the dongle's own address (Board/BoardMac). With the "MAC address per controller"
  *  dongle option, the Bluetooth address of the pad connected since boot instead, so hosts such
  *  as Steam keep separate settings per controller. Hosts read it once, when the device
  *  enumerates, and the pad connects after that: if the host already read another address, the

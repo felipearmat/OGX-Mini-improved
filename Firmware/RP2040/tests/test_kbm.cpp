@@ -1,9 +1,9 @@
-// Mouse + keyboard output mode: settings wire format (Custom/KbmSettings) and the pad-to-report
-// mapping (Custom/KbmMapper).
+// Mouse + keyboard output mode: settings wire format (USBDevice/DeviceDriver/KBM/KbmSettings) and the pad-to-report
+// mapping (USBDevice/DeviceDriver/KBM/KbmMapper).
 #include <cstring>
 
-#include "Custom/KbmMapper.h"
-#include "Custom/KbmSettings.h"
+#include "USBDevice/DeviceDriver/KBM/KbmMapper.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "test.h"
 
 using namespace kbm_settings;

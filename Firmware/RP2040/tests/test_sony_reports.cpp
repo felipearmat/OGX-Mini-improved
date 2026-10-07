@@ -1,4 +1,4 @@
-// Emulated DualShock 3 / 4 and DualSense report handling (Custom/SonyReports).
+// Emulated DualShock 3 / 4 and DualSense report handling (USBDevice/DeviceDriver/Sony/SonyReports).
 // Regressions covered, each found on hardware with Linux hosts:
 //  - PS3: hid-sony's output report arrived one byte short (TinyUSB strips the 0x01 padding byte
 //    as a report ID); rumble fields were read one byte off, rumble never worked.
@@ -13,7 +13,7 @@
 //    and clock at zero.
 #include <cstddef>
 
-#include "Custom/SonyReports.h"
+#include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 #include "Descriptors/PS3.h"
 #include "Descriptors/PS4.h"
 #include "Descriptors/PS5.h"

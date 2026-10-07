@@ -3,9 +3,9 @@
 #include <cstring>
 
 #include "pico/time.h"
-#include "Custom/ReportedMac.h"
-#include "Custom/SonyImu.h"
-#include "Custom/SonyReports.h"
+#include "Board/ReportedMac.h"
+#include "USBDevice/DeviceDriver/Sony/SonyImu.h"
+#include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/Steam/SteamPassthrough.h"

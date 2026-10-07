@@ -1,4 +1,4 @@
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 
 #include <cstdarg>
 #include <cstdio>

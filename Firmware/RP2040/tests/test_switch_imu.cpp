@@ -1,5 +1,5 @@
 // Motion conversion for the emulated Switch Pro Controller (Phase 2a).
-#include "Custom/SwitchImu.h"
+#include "USBDevice/DeviceDriver/Switch/SwitchImu.h"
 #include "test.h"
 
 namespace {

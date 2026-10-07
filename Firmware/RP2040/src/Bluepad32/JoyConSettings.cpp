@@ -1,5 +1,5 @@
-#include "Custom/JoyConSettings.h"
-#include "Custom/DongleSettings.h"
+#include "Bluepad32/JoyConSettings.h"
+#include "UserSettings/DongleSettings.h"
 
 namespace joycon_settings {
 

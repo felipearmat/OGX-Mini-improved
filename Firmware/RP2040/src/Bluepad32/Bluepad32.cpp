@@ -27,14 +27,14 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
-#include "Custom/ScanPolicy.h"
-#include "Custom/Diagnostics.h"
+#include "Bluepad32/ScanPolicy.h"
+#include "Diagnostics/Diagnostics.h"
 #include "uni_diag_hooks.h"
-#include "Custom/DongleSettings.h"
-#include "Custom/JoyConSettings.h"
-#include "Custom/ModeIndicator.h"
+#include "UserSettings/DongleSettings.h"
+#include "Bluepad32/JoyConSettings.h"
+#include "Board/ModeIndicator.h"
 #include "Bluepad32/RumbleTiming.h"
-#include "Custom/ReportedMac.h"
+#include "Board/ReportedMac.h"
 #include "Input/InputSlot.h"
 #include "UserSettings/UserSettings.h"
 #include "USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.h"
@@ -235,11 +235,11 @@ static void apply_scan_policy(int exclude_idx, bool force = false);
 static bool scan_reduced();
 
 /* Custom: Start + L3 on the controller (UserSettings) asks to stop the search for new controllers
- * until a pad goes away (Custom/ScanPolicy.h); set from Core0, read by the BT timers. */
+ * until a pad goes away (Bluepad32/ScanPolicy.h); set from Core0, read by the BT timers. */
 static std::atomic<bool> s_stop_search_request{false};
 
 /* Custom: the reboot after the last controller disconnects stores the session summary first
- * (Custom/Diagnostics.h). Flash is written from Core0 (the USB loop), which BT cannot park, so
+ * (Diagnostics/Diagnostics.h). Flash is written from Core0 (the USB loop), which BT cannot park, so
  * the BT core asks and Core0 stores and reboots; the watchdog armed for that reboot still fires
  * if Core0 does not. */
 static std::atomic<bool> s_store_session_and_reboot{false};
@@ -562,7 +562,7 @@ static void check_led_cb(btstack_timer_source *ts)
     static bool led_state = false;
     static int s_led_shown = -1;  // last LED state written, -1 = unknown
 
-    /* Custom: boot blink code showing the output mode (see Custom/ModeIndicator.h). */
+    /* Custom: boot blink code showing the output mode (see Board/ModeIndicator.h). */
     bool code_led_on = false;
     uint32_t code_step_ms = 0;
     if (mode_indicator::next_step(code_led_on, code_step_ms)) {
@@ -580,7 +580,7 @@ static void check_led_cb(btstack_timer_source *ts)
 #else
     const bool wired_host_pad = false;
 #endif
-    /* Custom: the LED shows the search for new controllers (Custom/ScanPolicy.h): fast blink =
+    /* Custom: the LED shows the search for new controllers (Bluepad32/ScanPolicy.h): fast blink =
      * full search, slow blink = reduced (a slot open for over a minute, e.g. a lone Joy-Con),
      * solid = no search (every slot in use, search times used up or stopped from the controller,
      * or a wired USB host controller active on the Pico W mux). */
@@ -756,7 +756,7 @@ static void maybe_restart_ble_scan_after_disconnect(int disconnected_idx) {
 #endif
 }
 
-/* Custom: search for new controllers only as hard as the free slots need (Custom/ScanPolicy.h):
+/* Custom: search for new controllers only as hard as the free slots need (Bluepad32/ScanPolicy.h):
  * a full-duty BLE scan next to a Classic pad cost a DS4 7 reports in 8. exclude_idx: a pad that
  * is going away. */
 static scan_policy::Scan s_scan_state = scan_policy::Scan::Full;
@@ -1234,7 +1234,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
 
     bt_devices_[idx].connected = true;
     {
-        /* Custom: diagnostics (Custom/Diagnostics.h). */
+        /* Custom: diagnostics (Diagnostics/Diagnostics.h). */
         const bool le = gap_get_connection_type(device->conn.handle) == GAP_CONNECTION_LE;
         const uint32_t now = to_ms_since_boot(get_absolute_time());
         diag::slot_connected(static_cast<size_t>(idx), now, device->name, device->vendor_id,

@@ -1,6 +1,6 @@
-// Search for new controllers while others are connected (Custom/ScanPolicy.h). Regression covered:
+// Search for new controllers while others are connected (Bluepad32/ScanPolicy.h). Regression covered:
 // Bluepad32 kept a 100% duty BLE scan next to a Classic pad, and a DS4 lost 7 reports in 8.
-#include "Custom/ScanPolicy.h"
+#include "Bluepad32/ScanPolicy.h"
 #include "test.h"
 
 using scan_policy::Scan;

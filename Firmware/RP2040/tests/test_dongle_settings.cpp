@@ -1,6 +1,6 @@
-// Dongle options (Custom/DongleSettings): build-time defaults and the 16-byte wire/flash format
+// Dongle options (UserSettings/DongleSettings): build-time defaults and the 16-byte wire/flash format
 // (version 3; version 2 and version 1 records, the first 8 bytes, are still accepted).
-#include "Custom/DongleSettings.h"
+#include "UserSettings/DongleSettings.h"
 #include "test.h"
 
 using dongle_settings::Settings;

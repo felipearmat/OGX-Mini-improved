@@ -26,10 +26,10 @@
 #include "Board/ogxm_log.h"
 #include "Bluepad32/Bluepad32.h"
 #include "BLEServer/BLEServer.h"
-#include "Custom/ModeIndicator.h"
+#include "Board/ModeIndicator.h"
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
-#include "Custom/ReportedMac.h"
+#include "Board/ReportedMac.h"
 
 #if defined(CONFIG_EN_USB_HOST)
 #include "host/hcd.h"

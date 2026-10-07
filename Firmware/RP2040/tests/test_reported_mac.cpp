@@ -1,9 +1,9 @@
-// MAC address reported by the emulated DS4 / DualSense (Custom/ReportedMac, dongle option
+// MAC address reported by the emulated DS4 / DualSense (Board/ReportedMac, dongle option
 // "MAC address per controller").
 #include <cstring>
 
-#include "Custom/DongleSettings.h"
-#include "Custom/ReportedMac.h"
+#include "UserSettings/DongleSettings.h"
+#include "Board/ReportedMac.h"
 #include "test.h"
 
 namespace {

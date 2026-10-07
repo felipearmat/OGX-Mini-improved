@@ -1,4 +1,4 @@
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 #include "tusb_option.h"
 #if (TUSB_OPT_DEVICE_ENABLED && CFG_TUD_XINPUT)
 

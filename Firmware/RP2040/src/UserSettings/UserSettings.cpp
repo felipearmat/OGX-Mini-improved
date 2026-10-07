@@ -11,9 +11,9 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
-#include "Custom/KbmSettings.h"
-#include "Custom/Diagnostics.h"
-#include "Custom/DiagnosticsBoard.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
+#include "Diagnostics/Diagnostics.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 #if defined(CONFIG_EN_BLUETOOTH)
 #include "Bluepad32/Bluepad32.h"
 #endif
@@ -36,9 +36,9 @@ static void prepare_bt_for_mode_change_reboot()
 #endif
 }
 
-/* Custom: flash key of the dongle options (Custom/DongleSettings). */
+/* Custom: flash key of the dongle options (UserSettings/DongleSettings). */
 static const std::string DONGLE_SETTINGS_KEY = "dongle_cfg";
-/* Custom: flash key of the mouse + keyboard mode mapping (Custom/KbmSettings). */
+/* Custom: flash key of the mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings). */
 static const std::string KBM_SETTINGS_KEY = "kbm_cfg";
 
 static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0) {
@@ -371,7 +371,7 @@ bool UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_typ
     prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
-    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
+    keep_diag_session();  // Custom: session summary (Diagnostics/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), reinterpret_cast<const uint8_t*>(&new_driver_type), sizeof(new_driver_type));
     nvs_tool_.write(ACTIVE_PROFILE_KEY(index), &profile.id, sizeof(uint8_t));
     nvs_tool_.write(PROFILE_KEY(profile.id), &profile, sizeof(UserProfile));
@@ -396,7 +396,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver)
     prepare_bt_for_mode_change_reboot();
     board_api::usb::disconnect_all();
 
-    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
+    keep_diag_session();  // Custom: session summary (Diagnostics/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
 
     board_api::reboot();
@@ -413,7 +413,7 @@ void UserSettings::store_driver_type_and_reboot(DeviceDriverType new_driver)
 
     OGXM_LOG("Storing new driver type and rebooting: " + OGXM_TO_STRING(new_driver) + "\n");
 
-    keep_diag_session();  // Custom: session summary (Custom/Diagnostics.h)
+    keep_diag_session();  // Custom: session summary (Diagnostics/Diagnostics.h)
     nvs_tool_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(uint8_t));
 
     board_api::reboot();
@@ -692,7 +692,7 @@ void UserSettings::load_dongle_settings()
     dongle_settings::set(settings);
 }
 
-/* Custom: stop the search for new controllers until a pad goes away (Custom/ScanPolicy.h); one
+/* Custom: stop the search for new controllers until a pad goes away (Bluepad32/ScanPolicy.h); one
  * rumble pulse confirms it (longer than the Bluetooth feedback tick). */
 void UserSettings::stop_search(Gamepad& gamepad)
 {
@@ -710,10 +710,10 @@ void UserSettings::stop_search(Gamepad& gamepad)
     gamepad.set_pad_out(pad_out);
 }
 
-/* Custom: diagnostics session summary, written with the mode change (Custom/Diagnostics.h). */
+/* Custom: diagnostics session summary, written with the mode change (Diagnostics/Diagnostics.h). */
 static const std::string DIAG_SESSION_KEY = "diag_last";
 
-/* Session summaries (Custom/Diagnostics.h). A mode change keeps the new session in RAM and
+/* Session summaries (Diagnostics/Diagnostics.h). A mode change keeps the new session in RAM and
  * writes only the one it replaces, if that one was not stored yet; the last controller going
  * away (turned off, the disconnect combo) writes the current one, so it survives unplugging the
  * adapter. One flash entry; Web App and short, controller-less sessions are never kept. */

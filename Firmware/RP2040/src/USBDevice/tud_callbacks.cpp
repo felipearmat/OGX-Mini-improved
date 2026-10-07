@@ -6,7 +6,7 @@
 #include "device/usbd_pvt.h"
 
 #include "Board/board_api.h"
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 #include "USBDevice/DeviceManager.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 
@@ -69,7 +69,7 @@ uint8_t const* tud_descriptor_device_qualifier_cb()
 	return DeviceManager::get_instance().get_driver()->get_descriptor_device_qualifier_cb();
 }
 
-/* Custom: USB bus events in the diagnostics log (Custom/Diagnostics.h). */
+/* Custom: USB bus events in the diagnostics log (Diagnostics/Diagnostics.h). */
 void tud_mount_cb(void) {
 	diag::usb_output_state(board_api::ms_since_boot(), true, false);
 	diag::event(board_api::ms_since_boot(), "USB configured by the host");

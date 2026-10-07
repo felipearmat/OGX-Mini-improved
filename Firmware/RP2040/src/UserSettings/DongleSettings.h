@@ -23,7 +23,7 @@
  *  Version 3:
  *    bytes 1-6, 8   options (0 / 1); byte 7 unused (was the single controller option)
  *    bytes 9-11     search for new controllers while a slot is open with a pad connected
- *                   (Custom/ScanPolicy.h): two 12-bit second counts, little-endian bit order —
+ *                   (Bluepad32/ScanPolicy.h): two 12-bit second counts, little-endian bit order —
  *                   full search = bits 0-11, reduced search = bits 12-23; 0-600 s, and 4095 for
  *                   the reduced search = no limit. Both 0 = no search once a pad is connected.
  *    bytes 12-15    output modes whose button combo is off, a little-endian bit mask indexed by

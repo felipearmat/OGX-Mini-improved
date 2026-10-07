@@ -1,4 +1,4 @@
-#include "Custom/DongleSettings.h"
+#include "UserSettings/DongleSettings.h"
 
 #ifndef OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
 #define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 0

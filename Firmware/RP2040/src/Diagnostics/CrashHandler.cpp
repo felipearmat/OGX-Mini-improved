@@ -1,4 +1,4 @@
-/* Custom: record a crash for the diagnostics report, then reboot (Custom/Diagnostics.h).
+/* Custom: record a crash for the diagnostics report, then reboot (Diagnostics/Diagnostics.h).
  *
  * A hard fault or a panic() used to leave the adapter frozen until it was unplugged, with
  * nothing to tell what happened (a Release build has no log output). Now the fault address and
@@ -15,7 +15,7 @@
 #include "pico/platform.h"
 #include "pico/time.h"
 
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 
 namespace {
 

@@ -26,9 +26,9 @@ namespace Handle {
     static constexpr uint16_t PROFILE  = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789040_01_VALUE_HANDLE;
 
     static constexpr uint16_t GAMEPAD  = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789050_01_VALUE_HANDLE;
-    /* Custom: dongle options (Custom/DongleSettings). */
+    /* Custom: dongle options (UserSettings/DongleSettings). */
     static constexpr uint16_t DONGLE_SETTINGS = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789060_01_VALUE_HANDLE;
-    /* Custom: mouse + keyboard mode mapping (Custom/KbmSettings, 48 bytes). */
+    /* Custom: mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings, 48 bytes). */
     static constexpr uint16_t KBM_SETTINGS = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789070_01_VALUE_HANDLE;
 }
 

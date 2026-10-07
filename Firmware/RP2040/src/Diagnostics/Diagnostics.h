@@ -58,7 +58,7 @@ namespace diag {
      * this. */
     void init(const BoardInfo& info);
 
-    // ---- Crashes (Custom/CrashHandler.cpp: hard fault, panic) ----
+    // ---- Crashes (Diagnostics/CrashHandler.cpp: hard fault, panic) ----
     struct CrashInfo {
         uint8_t kind;          // 1 = hard fault, 2 = panic
         uint8_t core;

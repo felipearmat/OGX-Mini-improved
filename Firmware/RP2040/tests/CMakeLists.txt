@@ -32,7 +32,7 @@ function(ogxm_add_test NAME)
     add_test(NAME ${NAME} COMMAND ${NAME})
 endfunction()
 
-ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_SRC}/Custom/ModeIndicator.cpp)
+ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_SRC}/Board/ModeIndicator.cpp)
 
 ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
@@ -41,18 +41,18 @@ ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_wire_pad PRIVATE fixmath)
 
-ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Custom/JoyConSettings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
+ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Bluepad32/JoyConSettings.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
 
-ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
+ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
 
-ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Custom/Diagnostics.cpp)
+ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagnostics.cpp)
 
 ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
 
 ogxm_add_test(test_scan_policy test_scan_policy.cpp)
 target_compile_definitions(test_spin_lock_budget PRIVATE OGXM_FW_SRC="${FW_SRC}")
 
-ogxm_add_test(test_kbm test_kbm.cpp ${FW_SRC}/Custom/KbmSettings.cpp ${FW_SRC}/Custom/KbmMapper.cpp)
+ogxm_add_test(test_kbm test_kbm.cpp ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp)
 
 ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)
 
@@ -69,9 +69,9 @@ ogxm_add_test(test_gamepad_out test_gamepad_out.cpp
 target_compile_definitions(test_gamepad_out PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_gamepad_out PRIVATE fixmath)
 
-ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Custom/ReportedMac.cpp ${FW_SRC}/Custom/DongleSettings.cpp)
+ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Board/ReportedMac.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
 
-ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/Custom/SwitchImu.cpp)
+ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)
 
@@ -85,13 +85,13 @@ ogxm_add_test(test_device_reports test_device_reports.cpp
     ${DEV}/Steam/Steam.cpp
     ${DEV}/Steam/SteamTouchpad.cpp
     ${DEV}/KBM/KBM.cpp
-    ${FW_SRC}/Custom/KbmSettings.cpp
-    ${FW_SRC}/Custom/KbmMapper.cpp
+    ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
+    ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp
     ${FW_SRC}/UserSettings/UserProfile.cpp
     ${FW_SRC}/UserSettings/JoystickSettings.cpp
     ${FW_SRC}/UserSettings/TriggerSettings.cpp
-    ${FW_SRC}/Custom/DongleSettings.cpp
-    ${FW_SRC}/Custom/ReportedMac.cpp)
+    ${FW_SRC}/UserSettings/DongleSettings.cpp
+    ${FW_SRC}/Board/ReportedMac.cpp)
 target_include_directories(test_device_reports PRIVATE ${EXTERNAL_DIR}/tinyusb/src)
 target_compile_definitions(test_device_reports PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1 MAX_GAMEPADS=1
     CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED)

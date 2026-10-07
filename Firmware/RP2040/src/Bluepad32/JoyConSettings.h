@@ -5,7 +5,7 @@
 
 /*  Joy-Con motion settings (custom addition, not upstream).
  *
- *  Views of the dongle settings (Custom/DongleSettings: web app, defaults from CMake
+ *  Views of the dongle settings (UserSettings/DongleSettings: web app, defaults from CMake
  *  OGXM_JOYCON_PAIR_IMU_SIDE, OGXM_JOYCON_PAIR_ORIENTATION, OGXM_JOYCON_SOLO_ORIENTATION).
  *
  *  Joy-Con motion arrives in the Pro Controller axes for a Joy-Con held upright

@@ -1,9 +1,9 @@
-// Diagnostics (Custom/Diagnostics): per-controller identity, link and input timing, wired
+// Diagnostics (Diagnostics/Diagnostics): per-controller identity, link and input timing, wired
 // controllers, USB output, the session summary kept across the mode change, and the JSON report.
 #include <cstring>
 #include <string>
 
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 #include "test.h"
 
 namespace {

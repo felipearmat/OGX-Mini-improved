@@ -3,10 +3,10 @@
 #include <algorithm>
 
 #include "pico/time.h"
-#include "Custom/ReportedMac.h"
-#include "Custom/DongleSettings.h"
-#include "Custom/SonyImu.h"
-#include "Custom/SonyReports.h"
+#include "Board/ReportedMac.h"
+#include "UserSettings/DongleSettings.h"
+#include "USBDevice/DeviceDriver/Sony/SonyImu.h"
+#include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 #include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "Descriptors/PS4Usb.h"
@@ -34,7 +34,7 @@ uint8_t joystick_to_u8(int16_t value, int16_t deadzone)
 
 /* int16 LE gyro @ 13–18, accel @ 19–24 in report id 1. Filled from DS4/DS5 BT, Switch Pro, or
  * wired DS4/DualSense USB host paths.
- * Custom (OGX-Mini-improved): real DS4 units (Custom/SonyImu). The old Brook-style scaling
+ * Custom (OGX-Mini-improved): real DS4 units (USBDevice/DeviceDriver/Sony/SonyImu). The old Brook-style scaling
  * (gyro/8, accel/64) only read right to hosts applying our calibration report; Steam treated it
  * as real DS4 units: gyro 8x too fast, gravity 64x too weak. */
 /* Dongle option: the legacy scale for auth adapters (Brook) that may expect it. */
@@ -72,7 +72,7 @@ void fill_calibration(uint8_t* report)
 }
 
 /* Pairing info: device MAC (LSB first) at [1..6]: the dongle's, or the pad's with the
- * "MAC address per controller" dongle option (Custom/ReportedMac). */
+ * "MAC address per controller" dongle option (Board/ReportedMac). */
 void fill_pairing_info(uint8_t* report)
 {
 	reported_mac::get_lsb_first(&report[1]);
@@ -248,7 +248,7 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 
 	apply_pad_imu_to_ps4_report(report_in_, gp_in);
 
-	/* Custom: battery and touchpad (Custom/SonyReports: status byte, idle touch points).
+	/* Custom: battery and touchpad (USBDevice/DeviceDriver/Sony/SonyReports: status byte, idle touch points).
 	 * DS4 and DualSense touch points share this format, so theirs are passed through. */
 	namespace ds4 = sony_reports::ds4;
 	report_in_[ds4::kStatus] = sony_reports::ds4_status(gp_in.battery);

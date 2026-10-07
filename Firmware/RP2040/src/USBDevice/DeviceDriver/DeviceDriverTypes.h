@@ -22,7 +22,7 @@ enum class DeviceDriverType : uint8_t
     N64,       // N64 controller over GPIO (single wire; no USB device; output to N64 console)
     PS4,       // DualShock 4 USB HID (CUH-ZCT1x-class descriptor)
     STEAM,     // SteamOS/Bazzite: DualSense USB gamepad + HID mouse (touchpad passthrough)
-    KBM,       // Custom: USB keyboard + mouse + media keys driven by the pad (Custom/KbmSettings)
+    KBM,       // Custom: USB keyboard + mouse + media keys driven by the pad (USBDevice/DeviceDriver/KBM/KbmSettings)
     WEBAPP = 100,
     UART_BRIDGE
 };

@@ -3,7 +3,7 @@
 
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 #include "Descriptors/CDCDev.h"
 #include "Gamepad/I2CWirePad.h"
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
@@ -265,7 +265,7 @@ bool WebAppDevice::write_kbm_settings()
 /* Custom: diagnostics report as JSON text, split over packets (up to 255 chunks). */
 bool WebAppDevice::write_diagnostics()
 {
-    /* Up to 255 chunks; the RP2350 keeps more events (Custom/Diagnostics.h kEvents). */
+    /* Up to 255 chunks; the RP2350 keeps more events (Diagnostics/Diagnostics.h kEvents). */
 #if defined(PICO_RP2350)
     static char report[255 * 55];
 #else

@@ -7,8 +7,8 @@ Known issues in this fork, to fix later.
 - **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
   camera / aim moves much faster than the real rotation, and Steam's "gyro stabilization"
   option has to be turned on to make it usable (same for a DS4). Check that the synthesized
-  DualSense motion units (`Custom/SonyImu.h`) and the calibration report 0x05 agree, for Joy-Con
-  (Switch units, `Custom/SwitchImu`) and DS4 sources; compare with a real DualSense's degrees per
+  DualSense motion units (`USBDevice/DeviceDriver/Sony/SonyImu.h`) and the calibration report 0x05 agree, for Joy-Con
+  (Switch units, `USBDevice/DeviceDriver/Switch/SwitchImu`) and DS4 sources; compare with a real DualSense's degrees per
   count in Steam's calibration view; check whether the noise floor (not only the scale) is what
   the stabilization option hides.
 

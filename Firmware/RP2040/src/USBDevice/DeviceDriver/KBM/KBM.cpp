@@ -3,7 +3,7 @@
 #include "class/hid/hid_device.h"
 #include "pico/time.h"
 
-#include "Custom/KbmSettings.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "Descriptors/KBM.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
 

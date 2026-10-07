@@ -1,5 +1,5 @@
 // Joy-Con motion settings: defaults and sideways ("horizontal") rotation.
-#include "Custom/JoyConSettings.h"
+#include "Bluepad32/JoyConSettings.h"
 #include "test.h"
 
 using joycon_settings::Orientation;

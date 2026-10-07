@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "Custom/SonyImu.h"
+#include "USBDevice/DeviceDriver/Sony/SonyImu.h"
 
 /*  Report handling shared by the emulated DualShock 3 / 4 and DualSense (custom addition), kept
  *  free of TinyUSB so host tests cover the fixes it carries. Offsets are within the full report,

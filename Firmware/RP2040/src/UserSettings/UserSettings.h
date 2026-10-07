@@ -9,8 +9,8 @@
 #include "UserSettings/UserProfile.h"
 #include "UserSettings/NVSTool.h"
 #include "Gamepad/Gamepad.h"
-#include "Custom/DongleSettings.h"
-#include "Custom/KbmSettings.h"
+#include "UserSettings/DongleSettings.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 
 /** Input source for gamepad 0: USB/BT (default) or GPIO (PS1/PS2, GameCube, or Dreamcast controller). */
 enum class HostInputSource : uint8_t

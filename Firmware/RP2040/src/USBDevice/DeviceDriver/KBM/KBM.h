@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "USBDevice/DeviceDriver/DeviceDriver.h"
-#include "Custom/KbmMapper.h"
+#include "USBDevice/DeviceDriver/KBM/KbmMapper.h"
 
 /*  Mouse + keyboard output mode (OGX-Mini-improved): the first pad drives a USB keyboard,
  *  mouse and media keys, mapped by kbm_settings (web app). For hosts without gamepad

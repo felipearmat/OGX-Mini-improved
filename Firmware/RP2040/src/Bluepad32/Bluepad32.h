@@ -26,7 +26,7 @@ namespace bluepad32 {
      * off (LED off) and reconnects with a button press. Blocks up to ~2 s. Call from Core0.
      */
     void disconnect_pads_before_reboot();
-    /* Custom: stop searching for new controllers until a pad goes away (Custom/ScanPolicy.h).
+    /* Custom: stop searching for new controllers until a pad goes away (Bluepad32/ScanPolicy.h).
      * Safe from Core0. */
     void request_stop_search();
     /* Custom: true once when the last controller disconnected and the adapter should store the

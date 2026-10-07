@@ -73,16 +73,16 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Steam/Steam.cpp
     ${SRC}/USBDevice/DeviceDriver/Steam/SteamTouchpad.cpp
     ${SRC}/USBDevice/DeviceDriver/KBM/KBM.cpp
-    ${SRC}/Custom/KbmSettings.cpp
-    ${SRC}/Custom/KbmMapper.cpp
+    ${SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
+    ${SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
-    ${SRC}/Custom/SwitchImu.cpp
+    ${SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
-    ${SRC}/Custom/DongleSettings.cpp
-    ${SRC}/Custom/Diagnostics.cpp
-    ${SRC}/Custom/DiagnosticsBoard.cpp
-    ${SRC}/Custom/CrashHandler.cpp
-    ${SRC}/Custom/ReportedMac.cpp
+    ${SRC}/UserSettings/DongleSettings.cpp
+    ${SRC}/Diagnostics/Diagnostics.cpp
+    ${SRC}/Diagnostics/DiagnosticsBoard.cpp
+    ${SRC}/Diagnostics/CrashHandler.cpp
+    ${SRC}/Board/ReportedMac.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
     ${SRC}/USBDevice/DeviceDriver/PS1PS2/PS1PS2.cpp
@@ -336,7 +336,7 @@ endif()
 set(MAIN_LOOP_DELAY_US 0 CACHE STRING "Main loop delay in microseconds; 0 = low latency (default)")
 add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 
-# Custom (OGX-Mini-improved): defaults of the dongle options (Custom/DongleSettings). Every one
+# Custom (OGX-Mini-improved): defaults of the dongle options (UserSettings/DongleSettings). Every one
 # can be changed at runtime from the web app (Adapter Options); these only set the defaults.
 # Disconnect every Bluetooth pad before a mode-change reboot: pads turn off (LED off, a visible
 # sign the mode changed) and reconnect on a button press; Joy-Cons no longer hang with the LED on.
@@ -454,8 +454,8 @@ if(EN_BLUETOOTH)
     list(APPEND SOURCES_BOARD
         ${SRC}/Bluepad32/Bluepad32.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
-        ${SRC}/Custom/ModeIndicator.cpp
-        ${SRC}/Custom/JoyConSettings.cpp
+        ${SRC}/Board/ModeIndicator.cpp
+        ${SRC}/Bluepad32/JoyConSettings.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp
@@ -550,7 +550,7 @@ add_compile_definitions(BUILD_DATETIME="${CURRENT_DATETIME}")
 add_compile_definitions(FIRMWARE_NAME="${FW_NAME}")
 add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}")
 add_compile_definitions(OGXM_BOARD_NAME="${OGXM_BOARD}")
-# Custom: panic() records the message for the diagnostics and reboots (Custom/CrashHandler.cpp).
+# Custom: panic() records the message for the diagnostics and reboots (Diagnostics/CrashHandler.cpp).
 add_compile_definitions(PICO_PANIC_FUNCTION=ogxm_panic)
 add_compile_definitions(PICO_FLASH_SIZE_BYTES=${FLASH_SIZE_MB}*1024*1024)
 add_compile_definitions(NVS_SECTORS=4)

@@ -1,5 +1,5 @@
-// Emulated DS4 / DualSense motion units vs. the calibration report hosts apply (Custom/SonyImu).
-#include "Custom/SonyImu.h"
+// Emulated DS4 / DualSense motion units vs. the calibration report hosts apply (USBDevice/DeviceDriver/Sony/SonyImu).
+#include "USBDevice/DeviceDriver/Sony/SonyImu.h"
 #include "test.h"
 
 namespace {

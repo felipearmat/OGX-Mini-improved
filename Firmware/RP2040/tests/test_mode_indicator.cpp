@@ -1,5 +1,5 @@
 // Boot blink code and lightbar colour per output mode.
-#include "Custom/ModeIndicator.h"
+#include "Board/ModeIndicator.h"
 #include "test.h"
 
 namespace {

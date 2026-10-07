@@ -1,4 +1,4 @@
-#include "Custom/SwitchImu.h"
+#include "USBDevice/DeviceDriver/Switch/SwitchImu.h"
 
 namespace switch_imu {
 

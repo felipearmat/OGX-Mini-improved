@@ -31,14 +31,14 @@ private:
         GET_PROFILE_BY_IDX = 0x55,
         SET_PROFILE_START = 0x60,
         SET_PROFILE = 0x61,
-        /* Custom (OGX-Mini-improved): dongle options (Custom/DongleSettings, 16 bytes; 8 = version 1). */
+        /* Custom (OGX-Mini-improved): dongle options (UserSettings/DongleSettings, 16 bytes; 8 = version 1). */
         GET_DONGLE_SETTINGS = 0x70,
         SET_DONGLE_SETTINGS = 0x71,
-        /* Custom: mouse + keyboard mode mapping (Custom/KbmSettings, 48 bytes). SET answers with
+        /* Custom: mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings, 48 bytes). SET answers with
          * GET_KBM_SETTINGS once stored. */
         GET_KBM_SETTINGS = 0x72,
         SET_KBM_SETTINGS = 0x73,
-        /* Custom: diagnostics report (Custom/Diagnostics), JSON text over as many chunks as needed. */
+        /* Custom: diagnostics report (Diagnostics/Diagnostics), JSON text over as many chunks as needed. */
         GET_DIAGNOSTICS = 0x74,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)

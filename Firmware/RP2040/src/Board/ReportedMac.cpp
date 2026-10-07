@@ -1,10 +1,10 @@
-#include "Custom/ReportedMac.h"
+#include "Board/ReportedMac.h"
 
 #include <cstring>
 
 #include "pico/critical_section.h"
-#include "Custom/BoardMac.h"
-#include "Custom/DongleSettings.h"
+#include "Board/BoardMac.h"
+#include "UserSettings/DongleSettings.h"
 
 namespace reported_mac {
 

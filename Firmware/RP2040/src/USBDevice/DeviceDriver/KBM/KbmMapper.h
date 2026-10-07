@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "Custom/KbmSettings.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 
 /*  Mouse + keyboard output mode (custom addition): turns pad state into keyboard, mouse and
  *  media-key reports following kbm_settings. Hardware-free so it runs in host tests; the USB

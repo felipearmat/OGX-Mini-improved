@@ -7,7 +7,7 @@
 
 #include "USBHost/HostDriver/XInput/tuh_xinput/tuh_xinput.h"
 #include "Board/board_api.h"
-#include "Custom/Diagnostics.h"
+#include "Diagnostics/Diagnostics.h"
 #include "USBHost/HostManager.h"
 #include "OGXMini/OGXMini.h"
 #include "Board/ogxm_log.h"
@@ -87,7 +87,7 @@ void tuh_umount_cb(uint8_t daddr) {
 }
 #endif
 
-/* Custom: wired controllers in the diagnostics (Custom/Diagnostics.h). bcdDevice (the
+/* Custom: wired controllers in the diagnostics (Diagnostics/Diagnostics.h). bcdDevice (the
  * controller's firmware version) comes from the device descriptor, read asynchronously. */
 static uint8_t s_diag_desc[18];
 
