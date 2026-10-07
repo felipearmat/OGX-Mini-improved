@@ -463,13 +463,56 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 return;
         }
     } 
-    else if (gamepad.new_pad_in())
+    else
     {
-        OGXM_LOG("Writing gamepad input\n");
-        Gamepad::PadIn gp_in = gamepad.get_pad_in();
-        write_gamepad(idx, gp_in);
-        if (gp_in.touchpad_valid)
-            write_touch(idx, gp_in);
+        send_live_input(idx, gamepad);
+    }
+}
+
+/* Custom: the newest input at most every kLiveIntervalMs (the last state is always sent, also
+ * when nothing new follows); the touchpad when it changes, or every kTouchRefreshMs. */
+void WebAppDevice::send_live_input(uint8_t idx, Gamepad& gamepad)
+{
+    if (idx >= MAX_GAMEPADS)
+        return;
+    if (gamepad.new_pad_in())
+    {
+        live_in_[idx] = gamepad.get_pad_in();
+        live_pending_[idx] = true;
+    }
+    const uint32_t now = board_api::ms_since_boot();
+    if (!live_pending_[idx] || now - live_sent_ms_[idx] < kLiveIntervalMs)
+        return;
+    const Gamepad::PadIn& gp_in = live_in_[idx];
+    if (!write_gamepad(idx, gp_in))
+        return;
+    live_pending_[idx] = false;
+    live_sent_ms_[idx] = now;
+    if (!gp_in.touchpad_valid)
+        return;
+    uint8_t touch[9];
+    std::memcpy(touch, gp_in.touch_raw, 8);
+    touch[8] = gp_in.touchpad_click;
+    if (std::memcmp(touch, touch_sent_[idx], sizeof(touch)) != 0 || now - touch_sent_ms_[idx] >= kTouchRefreshMs)
+    {
+        if (write_touch(idx, gp_in))
+        {
+            std::memcpy(touch_sent_[idx], touch, sizeof(touch));
+            touch_sent_ms_[idx] = now;
+        }
+    }
+}
+
+/* Custom: when the page opens the port, drop what is left in the transmit FIFO (the tail of a
+ * packet cut when the port last closed), so the page starts on a packet boundary. */
+void WebAppDevice::line_state_cb(uint8_t itf, bool dtr, bool rts)
+{
+    (void)rts;
+    if (dtr)
+    {
+        tud_cdc_n_write_clear(itf);
+        for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
+            live_pending_[i] = true;  // send the current state right away
     }
 }
 

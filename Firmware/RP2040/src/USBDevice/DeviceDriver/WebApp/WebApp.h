@@ -21,6 +21,8 @@ public:
     const uint8_t* get_descriptor_configuration_cb(uint8_t index) override;
     const uint8_t* get_descriptor_device_qualifier_cb() override;
 
+    void line_state_cb(uint8_t itf, bool dtr, bool rts) override;
+
 private:
     enum class PacketID : uint8_t
     {
@@ -74,6 +76,18 @@ private:
     UserSettings& user_settings_{UserSettings::get_instance()};
     /* Custom: rumble test end time (ms since boot), 0 = none running. */
     uint32_t rumble_test_until_ms_{0};
+
+    /* Custom: live input to the web app is capped (kLiveIntervalMs) and the touchpad sent only
+     * when it changes: a 250 Hz controller plus its touchpad made ~32 KB/s, more than the page
+     * reads, and the browser dropped the serial port. */
+    static constexpr uint32_t kLiveIntervalMs = 10;
+    static constexpr uint32_t kTouchRefreshMs = 500;
+    Gamepad::PadIn live_in_[MAX_GAMEPADS]{};
+    bool live_pending_[MAX_GAMEPADS]{};
+    uint32_t live_sent_ms_[MAX_GAMEPADS]{};
+    uint8_t touch_sent_[MAX_GAMEPADS][9]{};
+    uint32_t touch_sent_ms_[MAX_GAMEPADS]{};
+    void send_live_input(uint8_t idx, Gamepad& gamepad);
     UserProfile profile_;
 
     bool read_profile(UserProfile& profile);
