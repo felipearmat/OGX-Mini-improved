@@ -770,6 +770,39 @@ static void maybe_restart_ble_scan_after_disconnect(int disconnected_idx) {
  * is going away. */
 static scan_policy::Scan s_scan_state = scan_policy::Scan::Full;
 
+/* Restart the periodic inquiry with new timing. gap_inquiry_stop() only asks the controller to
+ * leave periodic inquiry; gap_inquiry_periodic_start() refuses (COMMAND_DISALLOWED) until that is
+ * done, so the restart is retried from a timer until BTstack accepts it. */
+static btstack_timer_source_t s_inquiry_restart_timer;
+static uint8_t s_inquiry_restart_tries = 0;
+static uint16_t s_inquiry_min = scan_policy::kFullMinPeriod, s_inquiry_max = scan_policy::kFullMaxPeriod;
+
+static void inquiry_restart_cb(btstack_timer_source_t* ts)
+{
+    /* The search may have been turned off meanwhile (the other Joy-Con paired). */
+    if (s_scan_state == scan_policy::Scan::Off || !uni_bt_enable_new_connections_is_enabled())
+        return;
+    const uint8_t status = gap_inquiry_periodic_start(scan_policy::kInquiryLength, s_inquiry_max, s_inquiry_min);
+    if (status == ERROR_CODE_COMMAND_DISALLOWED && ++s_inquiry_restart_tries < 40) {
+        btstack_run_loop_set_timer(ts, 50);
+        btstack_run_loop_add_timer(ts);
+    }
+}
+
+static void restart_inquiry(uint16_t min_period, uint16_t max_period)
+{
+    s_inquiry_min = min_period;
+    s_inquiry_max = max_period;
+    uni_bt_set_gap_min_peridic_length(min_period);  // later starts by Bluepad32 use it too
+    uni_bt_set_gap_max_peridic_length(max_period);
+    gap_inquiry_stop();
+    btstack_run_loop_remove_timer(&s_inquiry_restart_timer);
+    s_inquiry_restart_tries = 0;
+    s_inquiry_restart_timer.process = inquiry_restart_cb;
+    btstack_run_loop_set_timer(&s_inquiry_restart_timer, 20);
+    btstack_run_loop_add_timer(&s_inquiry_restart_timer);
+}
+
 static bool scan_reduced()
 {
     return s_scan_state == scan_policy::Scan::Reduced;
@@ -821,8 +854,7 @@ static void apply_scan_policy(int exclude_idx)
             uni_bt_set_gap_max_peridic_length(scan_policy::kReducedMaxPeriod);
             if (awaiting) {
                 /* Lone Joy-Con: its path keeps the BLE scan off; the inquiry restarts slower. */
-                uni_bt_bredr_scan_stop();
-                uni_bt_bredr_scan_start();
+                restart_inquiry(scan_policy::kReducedMinPeriod, scan_policy::kReducedMaxPeriod);
             } else {
                 if (!uni_bt_enable_new_connections_is_enabled()) {
                     uni_bt_enable_new_connections_unsafe(true);
@@ -841,10 +873,8 @@ static void apply_scan_policy(int exclude_idx)
             gap_set_scan_parameters(0, scan_policy::kFullInterval, scan_policy::kFullWindow);
             uni_bt_set_gap_min_peridic_length(scan_policy::kFullMinPeriod);
             uni_bt_set_gap_max_peridic_length(scan_policy::kFullMaxPeriod);
-            if (awaiting && s_scan_state == scan_policy::Scan::Reduced) {
-                uni_bt_bredr_scan_stop();
-                uni_bt_bredr_scan_start();
-            }
+            if (awaiting && s_scan_state == scan_policy::Scan::Reduced)
+                restart_inquiry(scan_policy::kFullMinPeriod, scan_policy::kFullMaxPeriod);
             break;
     }
     s_scan_state = want;
