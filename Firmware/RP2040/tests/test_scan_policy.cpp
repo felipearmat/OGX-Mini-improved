@@ -28,6 +28,11 @@ TEST(a_lone_joycon_searches_fully_for_a_minute_then_reduced) {
     CHECK(decide(1, 1, true, 60000) == Scan::Reduced);  // not Off: it still needs its other half
 }
 
+TEST(full_search_time_is_configurable) {
+    CHECK(decide(1, 1, true, 14999, 15000) == Scan::Full);
+    CHECK(decide(1, 1, true, 15000, 15000) == Scan::Reduced);
+}
+
 TEST(reduced_scan_is_a_tenth_of_the_time) {
     CHECK_EQ(scan_policy::kReducedWindow * 10, scan_policy::kReducedInterval);
     CHECK_EQ(scan_policy::kFullWindow, scan_policy::kFullInterval);

@@ -23,10 +23,13 @@
  *  Bytes 12-15 (version 2): output modes whose button combo is off, a little-endian bit mask
  *  indexed by DeviceDriverType (bit n = mode n); zero, as older records have, turns all combos on.
  *  The Web App mode combo (value 100, outside the mask) is always on.
+ *  Byte 9 (version 2): seconds a slot left open (a lone Joy-Con, free slots) keeps the full search
+ *  for new controllers before it is reduced (Custom/ScanPolicy.h); 0, as older records have, = 60.
  */
 namespace dongle_settings {
 
     constexpr uint8_t kVersion = 2;
+    constexpr uint8_t kDefaultFullSearchS = 60;
     constexpr size_t kV1Length = 8;
 
 #pragma pack(push, 1)
@@ -41,7 +44,8 @@ namespace dongle_settings {
         uint8_t single_controller;
         // Version 2
         uint8_t joycon_pair_rumble_per_side;
-        uint8_t reserved[3];
+        uint8_t full_search_s;  // 0 = default (kDefaultFullSearchS)
+        uint8_t reserved[2];
         uint32_t combo_disabled_modes;
     };
 #pragma pack(pop)
@@ -57,8 +61,12 @@ namespace dongle_settings {
     // Whether the button combo may switch to this output mode (DeviceDriverType value).
     bool mode_combo_enabled(const Settings& settings, uint8_t driver);
 
-    // Same settings apart from the combo mask (a change of the mask alone needs no restart).
-    bool same_except_combos(const Settings& a, const Settings& b);
+    // Seconds of full search for an open slot (byte 9, 0 = default).
+    uint32_t full_search_ms(const Settings& settings);
+
+    // Same settings apart from the ones applied live (combo mask, full search time): a change of
+    // those alone needs no restart.
+    bool same_except_live(const Settings& a, const Settings& b);
 
     // Current settings (defaults until set() is called at boot with the stored ones).
     const Settings& get();

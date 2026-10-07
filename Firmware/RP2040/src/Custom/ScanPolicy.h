@@ -10,7 +10,7 @@
  *  off it delivered all 250, 4 ms apart. So:
  *   - Full: no pad connected, or a slot opened less than a minute ago: Bluepad32's normal search
  *     (BLE scan at 100%; periodic BR/EDR inquiry 3.84 s in every 5-6 s, about 70% of the time);
- *   - Reduced: a slot still open after a minute — a lone Joy-Con waiting for its other half, or
+ *   - Reduced: a slot still open after a minute (Adapter Options: 1-255 s) — a lone Joy-Con waiting for its other half, or
  *     free slots in builds with MAX_GAMEPADS > 1: BLE scan and BR/EDR inquiry at about 10%;
  *   - Off: every output slot in use (a Joy-Con pair is one): no inquiry, no BLE scan.
  *  Page scan always stays on: a pad that knows the adapter reconnects at once whatever the search
@@ -27,11 +27,12 @@ namespace scan_policy {
     constexpr int kInquiryLength = 3;
     constexpr int kFullMinPeriod = 4, kFullMaxPeriod = 5;
     constexpr int kReducedMinPeriod = 30, kReducedMaxPeriod = 31;
-    // How long an open slot keeps the full search.
+    // How long an open slot keeps the full search by default (Adapter Options can change it).
     constexpr unsigned kFullSearchMs = 60000;
 
     // ms_open: how long a slot has been open with pads connected (a lone Joy-Con, free slots).
-    inline Scan decide(int outputs_in_use, int max_gamepads, bool joycon_awaiting_partner, unsigned ms_open)
+    inline Scan decide(int outputs_in_use, int max_gamepads, bool joycon_awaiting_partner, unsigned ms_open,
+                       unsigned full_search_ms = kFullSearchMs)
     {
         if (!joycon_awaiting_partner) {
             if (outputs_in_use <= 0)
@@ -39,7 +40,7 @@ namespace scan_policy {
             if (outputs_in_use >= max_gamepads)
                 return Scan::Off;
         }
-        return ms_open < kFullSearchMs ? Scan::Full : Scan::Reduced;
+        return ms_open < full_search_ms ? Scan::Full : Scan::Reduced;
     }
 
 } // namespace scan_policy

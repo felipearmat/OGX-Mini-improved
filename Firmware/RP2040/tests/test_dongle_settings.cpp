@@ -81,13 +81,24 @@ TEST(mode_combo_mask_in_bytes_12_to_15) {
     CHECK(dongle_settings::mode_combo_enabled(s, 100));  // Web App: outside the mask, always on
 }
 
-TEST(a_change_of_the_combo_mask_alone_needs_no_restart) {
+TEST(a_change_of_the_combo_mask_or_search_time_alone_needs_no_restart) {
     Settings a = dongle_settings::defaults();
     Settings b = a;
     b.combo_disabled_modes = 0x10;
-    CHECK(dongle_settings::same_except_combos(a, b));
+    b.full_search_s = 120;
+    CHECK(dongle_settings::same_except_live(a, b));
     b.single_controller = !a.single_controller;
-    CHECK(!dongle_settings::same_except_combos(a, b));
+    CHECK(!dongle_settings::same_except_live(a, b));
+}
+
+TEST(full_search_time_in_byte_9_zero_is_60_s) {
+    uint8_t bytes[16] = {dongle_settings::kVersion};
+    Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(dongle_settings::full_search_ms(s), 60000u);
+    bytes[9] = 15;
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(dongle_settings::full_search_ms(s), 15000u);
 }
 
 TEST_MAIN()

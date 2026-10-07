@@ -840,7 +840,8 @@ static void apply_scan_policy(int exclude_idx)
         s_open_since = now;
     s_open = open;
     const scan_policy::Scan want =
-        scan_policy::decide(outputs, MAX_GAMEPADS, awaiting, open ? now - s_open_since : 0);
+        scan_policy::decide(outputs, MAX_GAMEPADS, awaiting, open ? now - s_open_since : 0,
+                            dongle_settings::full_search_ms(dongle_settings::get()));
     if (want == s_scan_state)
         return;
     switch (want) {
@@ -865,7 +866,8 @@ static void apply_scan_policy(int exclude_idx)
                 if (hogp) uni_bt_le_scan_stop();  // as device_ready does
                 if (classic || hogp) uni_bt_bredr_scan_stop();
             }
-            diag::event(now, "search for new controllers reduced (slot open for a minute)");
+            diag::event(now, "search for new controllers reduced (slot open for %lu s)",
+                        static_cast<unsigned long>(dongle_settings::full_search_ms(dongle_settings::get()) / 1000));
             break;
         case scan_policy::Scan::Full:
             /* Back to Bluepad32's timing; the existing paths (lone Joy-Con, no pad left) decide

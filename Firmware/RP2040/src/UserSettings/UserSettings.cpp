@@ -775,8 +775,8 @@ void UserSettings::store_kbm_settings(const kbm_settings::Settings& settings)
 bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settings)
 {
     diag::event(board_api::ms_since_boot(), "adapter options saved");
-    /* Custom: the mode combo list alone is applied right away, no restart. */
-    if (dongle_settings::same_except_combos(settings, dongle_settings::get()))
+    /* Custom: the mode combo list and the full search time alone apply right away, no restart. */
+    if (dongle_settings::same_except_live(settings, dongle_settings::get()))
     {
         nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
         dongle_settings::set(settings);
