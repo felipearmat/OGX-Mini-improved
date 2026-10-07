@@ -27,6 +27,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Bluepad32/ClassicPairingDebug.h"
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
+#include "Custom/ScanPolicy.h"
 #include "Custom/Diagnostics.h"
 #include "uni_diag_hooks.h"
 #include "Custom/DongleSettings.h"
@@ -228,6 +229,7 @@ BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
 /* Custom: diagnostics — remote version still to ask, and the periodic link queries. */
 static bool s_diag_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static void diag_query_links(uint32_t now_ms);
+static void apply_scan_policy(int exclude_idx);
 
 /* Custom: "single controller" dongle option — one Bluetooth pad only (a lone Joy-Con does not
  * wait for its other half), so dongles next to each other do not take each other's Joy-Cons. */
@@ -548,6 +550,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
     /* Custom: diagnostics rates roll over; link queries for each connected pad. */
     diag::tick(now_ms);
     diag_query_links(now_ms);
+    apply_scan_policy(-1);  // Custom: also catches a Joy-Con pair completed after device_ready
     if (feedback_timer_set_)
 	{
         btstack_run_loop_set_timer(ts, FEEDBACK_TIME_MS);
@@ -751,6 +754,89 @@ static void maybe_restart_ble_scan_after_disconnect(int disconnected_idx) {
 #endif
 }
 
+/* Custom: search for new controllers only as hard as the free slots need (Custom/ScanPolicy.h):
+ * a full-duty BLE scan next to a Classic pad cost a DS4 7 reports in 8. exclude_idx: a pad that
+ * is going away. */
+static scan_policy::Scan s_scan_state = scan_policy::Scan::Full;
+
+static void apply_scan_policy(int exclude_idx)
+{
+#if defined(CONFIG_TARGET_PICO_W)
+    if (single_controller_mode())
+        return;  // the single controller option already turns the search off with a pad
+    bool used[MAX_GAMEPADS]{};
+    int outputs = 0;
+    bool classic = false, hogp = false;
+    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+        if (i == exclude_idx || !bt_devices_[i].connected)
+            continue;
+        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+        if (!d)
+            continue;
+        if (device_is_ble_hogp(d)) hogp = true;
+        else if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL) classic = true;
+        const int out = bp32_get_gamepad_output_idx(d);
+        if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS) && !used[out]) {
+            used[out] = true;
+            ++outputs;
+        }
+    }
+    const bool awaiting = uni_hid_parser_switch_any_awaiting_partner();
+    const uint32_t now = to_ms_since_boot(get_absolute_time());
+    /* How long a slot has been open with pads connected (a lone Joy-Con, free slots). */
+    static bool s_open = false;
+    static uint32_t s_open_since = 0;
+    const bool open = awaiting || (outputs > 0 && outputs < static_cast<int>(MAX_GAMEPADS));
+    if (open && !s_open)
+        s_open_since = now;
+    s_open = open;
+    const scan_policy::Scan want =
+        scan_policy::decide(outputs, MAX_GAMEPADS, awaiting, open ? now - s_open_since : 0);
+    if (want == s_scan_state)
+        return;
+    switch (want) {
+        case scan_policy::Scan::Off:
+            uni_bt_enable_new_connections_unsafe(false);  // stops BR/EDR inquiry and the BLE scan
+            diag::event(now, "search for new controllers off: all %d slot(s) in use", outputs);
+            break;
+        case scan_policy::Scan::Reduced:
+            gap_set_scan_parameters(0, scan_policy::kReducedInterval, scan_policy::kReducedWindow);
+            uni_bt_set_gap_min_peridic_length(scan_policy::kReducedMinPeriod);
+            uni_bt_set_gap_max_peridic_length(scan_policy::kReducedMaxPeriod);
+            if (awaiting) {
+                /* Lone Joy-Con: its path keeps the BLE scan off; the inquiry restarts slower. */
+                uni_bt_bredr_scan_stop();
+                uni_bt_bredr_scan_start();
+            } else {
+                if (!uni_bt_enable_new_connections_is_enabled()) {
+                    uni_bt_enable_new_connections_unsafe(true);
+                } else {
+                    uni_bt_le_scan_stop();  // new parameters apply when the scan starts
+                    uni_bt_le_scan_start();
+                }
+                if (hogp) uni_bt_le_scan_stop();  // as device_ready does
+                if (classic || hogp) uni_bt_bredr_scan_stop();
+            }
+            diag::event(now, "search for new controllers reduced (slot open for a minute)");
+            break;
+        case scan_policy::Scan::Full:
+            /* Back to Bluepad32's timing; the existing paths (lone Joy-Con, no pad left) decide
+             * what runs. A lone Joy-Con coming back from Reduced restarts its inquiry. */
+            gap_set_scan_parameters(0, scan_policy::kFullInterval, scan_policy::kFullWindow);
+            uni_bt_set_gap_min_peridic_length(scan_policy::kFullMinPeriod);
+            uni_bt_set_gap_max_peridic_length(scan_policy::kFullMaxPeriod);
+            if (awaiting && s_scan_state == scan_policy::Scan::Reduced) {
+                uni_bt_bredr_scan_stop();
+                uni_bt_bredr_scan_start();
+            }
+            break;
+    }
+    s_scan_state = want;
+#else
+    (void)exclude_idx;
+#endif
+}
+
 /** Set in device_ready — only reboot after a fully working pad disconnects (not failed pair attempts). */
 static bool s_bt_slot_was_ready[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 
@@ -938,6 +1024,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
         btstack_run_loop_remove_timer(&feedback_timer_);
     }
 
+    apply_scan_policy(idx);  // Custom: a slot is free again
     if (any_other_connected)
         return;
 
@@ -1120,6 +1207,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         uni_bt_enable_new_connections_unsafe(false);
         gap_connectable_control(0);
     }
+    apply_scan_policy(-1);
     const uint32_t tnow = to_ms_since_boot(get_absolute_time());
     /* pad_idx already resolved above to avoid USB-owned OGX slots. */
     s_last_bt_input_ms[pad_idx] = tnow;

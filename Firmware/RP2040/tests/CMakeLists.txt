@@ -48,6 +48,8 @@ ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/Custom/Don
 ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Custom/Diagnostics.cpp)
 
 ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
+
+ogxm_add_test(test_scan_policy test_scan_policy.cpp)
 target_compile_definitions(test_spin_lock_budget PRIVATE OGXM_FW_SRC="${FW_SRC}")
 
 ogxm_add_test(test_kbm test_kbm.cpp ${FW_SRC}/Custom/KbmSettings.cpp ${FW_SRC}/Custom/KbmMapper.cpp)
