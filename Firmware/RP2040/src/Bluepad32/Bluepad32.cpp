@@ -189,6 +189,8 @@ static void schedule_disconnect_combo(int idx)
 static constexpr uint32_t FEEDBACK_TIME_MS = 250;
 static_assert(FEEDBACK_TIME_MS == switch_rumble::kFeedbackPeriodMs, "keep Bluepad32/RumbleTiming.h in sync");
 static constexpr uint32_t LED_CHECK_TIME_MS = 500;
+static constexpr uint32_t LED_FAST_BLINK_MS = 250;   // Custom: full search for new controllers
+static constexpr uint32_t LED_SLOW_BLINK_MS = 1000;  // Custom: reduced search
 /** Idle pairing health check — restarts BR/LE scan if they died during long USB suspend (e.g. 360 standby). */
 static constexpr uint32_t PAIRING_WATCHDOG_MS = 45000;
 /** If no HID input report reaches us for this long while "connected", the BT link is zombie
@@ -230,6 +232,7 @@ BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
 static bool s_diag_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static void diag_query_links(uint32_t now_ms);
 static void apply_scan_policy(int exclude_idx);
+static bool scan_reduced();
 
 /* Custom: "single controller" dongle option — one Bluetooth pad only (a lone Joy-Con does not
  * wait for its other half), so dongles next to each other do not take each other's Joy-Cons. */
@@ -561,12 +564,14 @@ static void send_feedback_cb(btstack_timer_source *ts)
 static void check_led_cb(btstack_timer_source *ts)
 {
     static bool led_state = false;
+    static int s_led_shown = -1;  // last LED state written, -1 = unknown
 
     /* Custom: boot blink code showing the output mode (see Custom/ModeIndicator.h). */
     bool code_led_on = false;
     uint32_t code_step_ms = 0;
     if (mode_indicator::next_step(code_led_on, code_step_ms)) {
         board_api::set_led(code_led_on);
+        s_led_shown = -1;
         btstack_run_loop_set_timer(ts, code_step_ms);
         btstack_run_loop_add_timer(ts);
         return;
@@ -579,13 +584,19 @@ static void check_led_cb(btstack_timer_source *ts)
 #else
     const bool wired_host_pad = false;
 #endif
-    /* Solid LED when a BT pad is connected or a wired USB host controller is active (Pico W mux).
-     * Custom: a lone Joy-Con still waiting for its other half keeps the LED blinking, so the
-     * dongle shows it still takes a second controller (see the single controller option). */
-    const bool pad_active = (any_connected() && !uni_hid_parser_switch_any_awaiting_partner()) || wired_host_pad;
-    board_api::set_led(pad_active ? true : led_state);
+    /* Custom: the LED shows the search for new controllers (Custom/ScanPolicy.h): fast blink =
+     * full search, slow blink = reduced (a slot open for over a minute, e.g. a lone Joy-Con),
+     * solid = no search (every slot in use, single controller option with its pad, or a wired
+     * USB host controller active on the Pico W mux). */
+    const bool searching = !wired_host_pad && uni_bt_enable_new_connections_is_enabled();
+    /* Only when it changes: on a Pico W the LED is on the CYW43, each change is a bus transfer. */
+    const int led = (searching ? led_state : true) ? 1 : 0;
+    if (led != s_led_shown) {
+        board_api::set_led(led != 0);
+        s_led_shown = led;
+    }
 
-    btstack_run_loop_set_timer(ts, LED_CHECK_TIME_MS);
+    btstack_run_loop_set_timer(ts, searching && scan_reduced() ? LED_SLOW_BLINK_MS : LED_FAST_BLINK_MS);
     btstack_run_loop_add_timer(ts);
 }
 
@@ -758,6 +769,11 @@ static void maybe_restart_ble_scan_after_disconnect(int disconnected_idx) {
  * a full-duty BLE scan next to a Classic pad cost a DS4 7 reports in 8. exclude_idx: a pad that
  * is going away. */
 static scan_policy::Scan s_scan_state = scan_policy::Scan::Full;
+
+static bool scan_reduced()
+{
+    return s_scan_state == scan_policy::Scan::Reduced;
+}
 
 static void apply_scan_policy(int exclude_idx)
 {
@@ -1265,13 +1281,8 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &off);
     }
 
-    /* Custom: let the boot mode blink code finish; check_led_cb goes solid afterwards. A lone
-     * Joy-Con waiting for its other half keeps the pairing blink too. */
-    if (led_timer_set_ && !mode_indicator::active() && !uni_hid_parser_switch_any_awaiting_partner()) {
-        led_timer_set_ = false;
-        btstack_run_loop_remove_timer(&led_timer_);
-        board_api::set_led(true);
-    }
+    /* Custom: the LED timer keeps running: check_led_cb shows the search state (solid once the
+     * search stops, after the boot mode blink code). */
     schedule_mode_lightbar(device, idx);
     if (!feedback_timer_set_) {
         feedback_timer_set_ = true;

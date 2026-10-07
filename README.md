@@ -37,6 +37,11 @@ release is built and published by pushing a tag `improved-vX.Y.Z` (workflow `imp
   memory corruption on Bluetooth slot 1 fixed, disconnect combo deadlock fixed.
 - **Mode indicator:** the board LED blinks the mode number at boot and a DS4 / DualSense lightbar
   shows the mode colour (replaced by the colour the host asks for).
+- **Search for new controllers on the LED:** after the boot blink code, a fast blink means the
+  adapter is searching for new Bluetooth controllers, a slow blink a reduced search (a slot open
+  for over a minute, e.g. a lone Joy-Con waiting for its other half), and solid means no search
+  (every slot in use). Searching takes radio time from the connected controllers, so the adapter
+  stops when it has all it can use; a controller it already knows reconnects either way.
 - **External RGB status LED (Pico 2 W):** an optional WS2812B on GP6 shows the same blink code and
   LED states in the mode colour. Wiring: [hardware/README.md](hardware/README.md#pico-2-w-external-rgb-status-led).
 - **Adapter Options** in the web app (below).
