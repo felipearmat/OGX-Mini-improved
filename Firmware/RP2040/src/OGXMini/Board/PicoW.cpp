@@ -613,6 +613,9 @@ void pico_w::run() {
                 sleep_ms(300);
                 tud_connect();
             }
+            /* Custom: the last controller disconnected: store the session summary, reboot. */
+            if (bluepad32::take_store_session_and_reboot())
+                UserSettings::get_instance().store_diag_session_and_reboot();
             HostInputSource input_src = UserSettings::get_instance().get_input_source();
             if (input_src == HostInputSource::PSX_GPIO) {
                 GPIOHost::psx_host_poll(_gamepads[0]);

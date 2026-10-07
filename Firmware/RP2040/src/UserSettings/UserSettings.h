@@ -66,11 +66,12 @@ public:
     void store_kbm_settings(const kbm_settings::Settings& settings);
     /** Custom: previous session's diagnostics summary into the diagnostics module (at boot). */
     void load_diag_session();
+    // Custom: the last controller disconnected — store the session summary, then reboot (Core0).
+    void store_diag_session_and_reboot();
 
 private:
     void load_dongle_settings();
     void load_kbm_settings();
-    void store_diag_session();
     void stop_search(Gamepad& gamepad);
 
     UserSettings() = default;

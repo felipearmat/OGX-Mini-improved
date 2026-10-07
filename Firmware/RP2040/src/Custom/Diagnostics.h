@@ -124,12 +124,14 @@ namespace diag {
     void tick(uint32_t now_ms);
 
     // ---- Session summary kept across the mode-change reboot ----
-    // Snapshot taken when a mode change starts, before the pads are turned off; session_capture()
-    // then returns it. A session in Web App mode is not kept (capture returns 0), so the summary
-    // of the last mode used for playing survives a visit to the web app.
+    // Snapshot taken before the pads are turned off (a mode change, the last controller going
+    // away); session_capture() then returns it. It is also kept in RAM across the reboot (the
+    // report's "previous_session", no flash write); flash gets it only when the last controller
+    // disconnects ("stored_sessions"). A session in Web App mode is never kept.
     void session_freeze(uint32_t now_ms);
     size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms);
-    void set_previous_session(const uint8_t* data, size_t len);
+    // Sessions stored in flash when the last controller disconnected: index 0 newest, 1 older.
+    void set_stored_session(size_t index, const uint8_t* data, size_t len);
 
     // JSON report. Returns the length written (always NUL-terminated, truncated if needed).
     size_t report_json(char* out, size_t out_len, uint32_t now_ms);

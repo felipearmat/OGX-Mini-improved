@@ -29,6 +29,9 @@ namespace bluepad32 {
     /* Custom: stop searching for new controllers until a pad goes away (Custom/ScanPolicy.h).
      * Safe from Core0. */
     void request_stop_search();
+    /* Custom: true once when the last controller disconnected and the adapter should store the
+     * session summary and reboot (Core0 does both). */
+    bool take_store_session_and_reboot();
     /** Re-enable BT pairing after wired USB device unplugged. */
     void wired_usb_release_enable_bt_pairing();
     /** Pico W / Pico 2 W / RP2354 BT: restore pairing scans after USB host resume (e.g. Xbox 360 standby wake). */

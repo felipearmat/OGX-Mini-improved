@@ -165,6 +165,7 @@ BoardInfo s_info{};
 #endif
 constexpr uint32_t kPersistMagic = 0x4F474443;  // "OGDC"
 constexpr uint32_t kCrashMagic = 0x43525348;    // "CRSH"
+constexpr uint32_t kSessionMagic = 0x53455353;  // "SESS"
 struct Persist {
     uint32_t magic;
     uint32_t boot;
@@ -172,6 +173,8 @@ struct Persist {
     uint32_t check;
     uint32_t crash_magic;
     CrashInfo crash;
+    uint32_t session_magic;
+    Session session;  // the session before the reboot (frozen when it started)
     Event events[kEvents];
 };
 DIAG_PERSISTENT Persist s_p;
@@ -205,8 +208,10 @@ bool s_usb_configured = false, s_usb_suspended = false;
 uint32_t s_usb_configured_since = 0, s_usb_configured_ms = 0;
 uint32_t s_usb_sent = 0, s_usb_sent_rate = 0, s_usb_sent_count = 0;
 uint32_t s_lat_samples = 0, s_lat_avg = 0, s_lat_max = 0;
-Session s_previous{};
-bool s_previous_valid = false;
+/* Sessions for the report: [0] the one before the last reboot (kept in RAM), [1] and [2] the
+ * last two stored in flash when the last controller disconnected (newest first). */
+Session s_sessions[3]{};
+bool s_sessions_valid[3]{};
 
 struct Lock {
     Lock() { if (s_lock_ready) critical_section_enter_blocking(&s_lock); }
@@ -356,6 +361,12 @@ void init(const BoardInfo& info)
     s_p.check = persist_check();
     s_last_crash = CrashInfo{};
     s_last_crash_valid = s_last_crash_previous_boot = false;
+    for (bool& v : s_sessions_valid) v = false;
+    if (kept && s_p.session_magic == kSessionMagic && s_p.session.version == kSessionVersion) {
+        s_sessions[0] = s_p.session;
+        s_sessions_valid[0] = true;
+    }
+    s_p.session_magic = 0;
     if (kept && s_p.crash_magic == kCrashMagic) {
         s_last_crash = s_p.crash;
         s_last_crash_valid = true;
@@ -711,6 +722,10 @@ void session_freeze(uint32_t now_ms)
     if (s_frozen_valid) return;
     s_frozen = build_session(now_ms);
     s_frozen_valid = true;
+    if (!web_app_session()) {  // kept across the reboot in RAM; no flash write
+        s_p.session = s_frozen;
+        s_p.session_magic = kSessionMagic;
+    }
 }
 
 size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
@@ -778,12 +793,65 @@ Session build_session(uint32_t now_ms)
 }
 } // namespace
 
-void set_previous_session(const uint8_t* data, size_t len)
+void set_stored_session(size_t index, const uint8_t* data, size_t len)
 {
+    if (index > 1) return;
     Lock l;
-    s_previous_valid = data && len >= sizeof(Session) && data[0] == kSessionVersion;
-    if (s_previous_valid) std::memcpy(&s_previous, data, sizeof(Session));
+    const bool ok = data && len >= sizeof(Session) && data[0] == kSessionVersion;
+    s_sessions_valid[1 + index] = ok;
+    if (ok) std::memcpy(&s_sessions[1 + index], data, sizeof(Session));
 }
+
+
+namespace {
+void write_session(Writer& w, const Session& p)
+{
+    w.raw("{\"mode\":");
+    w.str(p.mode);
+    w.raw(",\"uptime_s\":%lu,\"usb_configured_s\":%lu,\"usb_reports_sent\":%lu",
+          static_cast<unsigned long>(p.uptime_s), static_cast<unsigned long>(p.usb_configured_s),
+          static_cast<unsigned long>(p.usb_reports_sent));
+    if (p.usb_configured_s)
+        w.raw(",\"usb_reports_sent_per_s\":%lu", static_cast<unsigned long>(p.usb_reports_sent / p.usb_configured_s));
+    w.raw(",\"input_to_output_latency\":{\"samples\":%lu,\"avg_us\":%lu,\"max_us\":%lu},\"controllers\":[",
+          static_cast<unsigned long>(p.latency_samples), static_cast<unsigned long>(p.latency_avg_us),
+          static_cast<unsigned long>(p.latency_max_us));
+    for (uint8_t i = 0; i < p.controllers && i < 2; ++i) {
+        const SessionCtrl& c = p.ctrl[i];
+        w.raw("%s{\"vid\":\"%04x\",\"pid\":\"%04x\",\"link\":\"%s\",\"reports_per_s\":%u", i ? "," : "",
+              c.vid, c.pid, c.le ? "LE" : "Classic", c.reports_per_s);
+        w.pct("late_reports_pct", c.late_pct_x10);
+        if (c.lost_pct_x10 != 0xFFFF) w.pct("lost_reports_pct", c.lost_pct_x10);
+        w.raw(",\"max_gap_ms\":%u", c.max_gap_ms);
+        if (c.le && c.interval) w.ms_1_25("le_interval_ms", c.interval);
+        if (c.rssi != -128) w.raw(c.le ? ",\"rssi_dbm\":%d" : ",\"rssi_golden_range_db\":%d", c.rssi);
+        if (c.mode == 0) w.raw(",\"link_mode\":\"active\"");
+        if (c.mode == 2) {
+            w.raw(",\"link_mode\":\"sniff\"");
+            w.ms_0_625("sniff_interval_ms", c.sniff_interval);
+        }
+        if (c.channels_total) w.raw(",\"channels_in_use\":%u,\"channels_total\":%u", c.channels_used, c.channels_total);
+        w.raw("}");
+    }
+    w.raw("]");
+    if (p.wired)
+        w.raw(",\"wired\":{\"vid\":\"%04x\",\"pid\":\"%04x\",\"reports_per_s\":%u,\"max_gap_ms\":%u}",
+              p.wired_vid, p.wired_pid, p.wired_reports_per_s, p.wired_max_gap_ms);
+    w.raw(",\"last_events\":[");
+    bool first_ev = true;
+    for (size_t i = 0; i < kSessionEvents; ++i) {
+        if (!p.events[i].text[0]) continue;
+        char text[sizeof(p.events[i].text) + 1]{};
+        std::memcpy(text, p.events[i].text, sizeof(p.events[i].text));
+        w.raw("%s{\"ms\":%lu,\"text\":", first_ev ? "" : ",", static_cast<unsigned long>(p.events[i].ms));
+        w.str(text);
+        w.raw("}");
+        first_ev = false;
+    }
+    w.raw("]}");
+}
+
+} // namespace
 
 size_t report_json(char* out, size_t out_len, uint32_t now_ms)
 {
@@ -861,51 +929,20 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     }
     w.raw("]");
 
-    if (s_previous_valid) {
-        const Session& p = s_previous;
-        w.raw(",\"previous_session\":{\"mode\":");
-        w.str(p.mode);
-        w.raw(",\"uptime_s\":%lu,\"usb_configured_s\":%lu,\"usb_reports_sent\":%lu",
-              static_cast<unsigned long>(p.uptime_s), static_cast<unsigned long>(p.usb_configured_s),
-              static_cast<unsigned long>(p.usb_reports_sent));
-        if (p.usb_configured_s)
-            w.raw(",\"usb_reports_sent_per_s\":%lu", static_cast<unsigned long>(p.usb_reports_sent / p.usb_configured_s));
-        w.raw(",\"input_to_output_latency\":{\"samples\":%lu,\"avg_us\":%lu,\"max_us\":%lu},\"controllers\":[",
-              static_cast<unsigned long>(p.latency_samples), static_cast<unsigned long>(p.latency_avg_us),
-              static_cast<unsigned long>(p.latency_max_us));
-        for (uint8_t i = 0; i < p.controllers && i < 2; ++i) {
-            const SessionCtrl& c = p.ctrl[i];
-            w.raw("%s{\"vid\":\"%04x\",\"pid\":\"%04x\",\"link\":\"%s\",\"reports_per_s\":%u", i ? "," : "",
-                  c.vid, c.pid, c.le ? "LE" : "Classic", c.reports_per_s);
-            w.pct("late_reports_pct", c.late_pct_x10);
-            if (c.lost_pct_x10 != 0xFFFF) w.pct("lost_reports_pct", c.lost_pct_x10);
-            w.raw(",\"max_gap_ms\":%u", c.max_gap_ms);
-            if (c.le && c.interval) w.ms_1_25("le_interval_ms", c.interval);
-            if (c.rssi != -128) w.raw(c.le ? ",\"rssi_dbm\":%d" : ",\"rssi_golden_range_db\":%d", c.rssi);
-            if (c.mode == 0) w.raw(",\"link_mode\":\"active\"");
-            if (c.mode == 2) {
-                w.raw(",\"link_mode\":\"sniff\"");
-                w.ms_0_625("sniff_interval_ms", c.sniff_interval);
-            }
-            if (c.channels_total) w.raw(",\"channels_in_use\":%u,\"channels_total\":%u", c.channels_used, c.channels_total);
-            w.raw("}");
+    if (s_sessions_valid[0]) {
+        w.raw(",\"previous_session\":");
+        write_session(w, s_sessions[0]);
+    }
+    if (s_sessions_valid[1] || s_sessions_valid[2]) {
+        w.raw(",\"stored_sessions\":[");
+        bool first_session = true;
+        for (int k = 1; k <= 2; ++k) {
+            if (!s_sessions_valid[k]) continue;
+            if (!first_session) w.raw(",");
+            write_session(w, s_sessions[k]);
+            first_session = false;
         }
         w.raw("]");
-        if (p.wired)
-            w.raw(",\"wired\":{\"vid\":\"%04x\",\"pid\":\"%04x\",\"reports_per_s\":%u,\"max_gap_ms\":%u}",
-                  p.wired_vid, p.wired_pid, p.wired_reports_per_s, p.wired_max_gap_ms);
-        w.raw(",\"last_events\":[");
-        bool first_ev = true;
-        for (size_t i = 0; i < kSessionEvents; ++i) {
-            if (!p.events[i].text[0]) continue;
-            char text[sizeof(p.events[i].text) + 1]{};
-            std::memcpy(text, p.events[i].text, sizeof(p.events[i].text));
-            w.raw("%s{\"ms\":%lu,\"text\":", first_ev ? "" : ",", static_cast<unsigned long>(p.events[i].ms));
-            w.str(text);
-            w.raw("}");
-            first_ev = false;
-        }
-        w.raw("]}");
     }
 
     if (s_last_crash_valid) {
@@ -1014,8 +1051,10 @@ void reset_for_tests()
     s_usb_configured_since = s_usb_configured_ms = 0;
     s_usb_sent = s_usb_sent_rate = s_usb_sent_count = 0;
     s_lat_samples = s_lat_avg = s_lat_max = 0;
-    s_previous = Session{};
-    s_previous_valid = false;
+    for (int k = 0; k < 3; ++k) {
+        s_sessions[k] = Session{};
+        s_sessions_valid[k] = false;
+    }
     s_frozen = Session{};
     s_frozen_valid = false;
 }

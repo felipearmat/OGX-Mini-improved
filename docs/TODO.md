@@ -52,6 +52,17 @@ Known issues in this fork, to fix later.
   pointer, and Steam's desktop layout works), but the extra mouse interface only helps on Windows.
   Options: expose the mouse on a separate VID/PID configuration, or drop it on Linux hosts.
 
+## Wired USB host (Pico W / Pico 2 W)
+
+- **Panic "DMA channel 2 is already claimed" (on hold).** Recorded by the crash handler on
+  2026-10-07 (Pico 2 W, XInput mode, core 0, 233 s after boot; no wired controller plugged, only
+  GND / GP4 wired on the board). The Pico W host mux starts PIO USB (`tuh_init`, which claims DMA
+  channel 2, state machines and PIO program space) when it sees GP0 / GP1 high, and stops it with
+  `tuh_deinit` when the device goes away; TinyUSB's PIO USB HCD has no `hcd_deinit`, so nothing is
+  released and the next `tuh_init` claims the channel again and panics. Likely trigger here:
+  floating GP0 / GP1. Fix idea: initialise the PIO USB host once and reuse it (only reset
+  TinyUSB's state) on later plug-ins; also check why the line was seen high with nothing plugged.
+
 ## Buttons
 
 - **Capture button not read with paired Joy-Cons** (Switch Pro output mode).
