@@ -81,6 +81,7 @@ set(SOURCES_BOARD
     ${SRC}/Custom/DongleSettings.cpp
     ${SRC}/Custom/Diagnostics.cpp
     ${SRC}/Custom/DiagnosticsBoard.cpp
+    ${SRC}/Custom/CrashHandler.cpp
     ${SRC}/Custom/ReportedMac.cpp
     ${SRC}/USBDevice/DeviceDriver/WiiU/WiiU.cpp
     ${SRC}/USBDevice/DeviceDriver/Wii/Wii.cpp
@@ -549,6 +550,8 @@ add_compile_definitions(BUILD_DATETIME="${CURRENT_DATETIME}")
 add_compile_definitions(FIRMWARE_NAME="${FW_NAME}")
 add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}")
 add_compile_definitions(OGXM_BOARD_NAME="${OGXM_BOARD}")
+# Custom: panic() records the message for the diagnostics and reboots (Custom/CrashHandler.cpp).
+add_compile_definitions(PICO_PANIC_FUNCTION=ogxm_panic)
 add_compile_definitions(PICO_FLASH_SIZE_BYTES=${FLASH_SIZE_MB}*1024*1024)
 add_compile_definitions(NVS_SECTORS=4)
 

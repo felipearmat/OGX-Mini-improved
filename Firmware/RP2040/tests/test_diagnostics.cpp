@@ -222,4 +222,79 @@ TEST(session_frozen_before_the_pads_go_and_web_app_sessions_not_kept) {
     CHECK_EQ(diag::session_capture(again, sizeof(again), 6000), 0u);  // leaving Web App keeps it
 }
 
+TEST(events_survive_a_reboot_that_keeps_the_ram) {
+    setup();
+    diag::event(100, "before the reboot");
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "WEBAPP", "reboot", 1});  // RAM kept
+    diag::event(5, "after the reboot");
+    const std::string r = report(10);
+    CHECK(has(r, "{\"ms\":100,\"boot\":-1,\"text\":\"before the reboot\"}"));
+    CHECK(has(r, "{\"ms\":5,\"text\":\"after the reboot\"}"));
+    CHECK(r.find("before the reboot") < r.find("after the reboot"));
+}
+
+TEST(a_crash_is_reported_after_the_reboot_and_stored_once) {
+    setup();
+    diag::CrashInfo c{};
+    c.kind = 1;
+    c.core = 1;
+    c.pc = 0x10001234;
+    c.has_fault_regs = 1;
+    c.cfsr = 0x01000000;
+    diag::crash_record(c);
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "reboot", 1});
+    std::string r = report(10);
+    CHECK(has(r, "\"last_reset\":\"crash (see last_crash)\""));
+    CHECK(has(r, "\"last_crash\":{\"when\":\"previous boot\",\"kind\":\"hard fault\",\"core\":1"));
+    CHECK(has(r, "\"pc\":\"0x10001234\""));
+    CHECK(has(r, "\"cfsr\":\"0x01000000\""));
+    uint8_t blob[diag::kCrashBytes];
+    CHECK(diag::new_crash(blob, sizeof(blob)) > 0);  // to be stored in flash
+    // Next boot (RAM kept, no new crash): nothing new to store; the stored one is reported.
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "reboot", 1});
+    CHECK_EQ(diag::new_crash(blob, sizeof(blob)), 0u);
+    diag::reset_for_tests();
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "power-on", 1});
+    diag::set_stored_crash(blob, sizeof(blob));
+    CHECK(has(report(10), "\"when\":\"stored (an earlier boot)\""));
+}
+
+TEST(a_panic_keeps_its_message) {
+    setup();
+    diag::CrashInfo c{};
+    c.kind = 2;
+    std::snprintf(c.message, sizeof(c.message), "No spin locks are available");
+    diag::crash_record(c);
+    diag::init(diag::BoardInfo{"v", "PI_PICO2W", "RP2350", 150, "Release", "WEBAPP", "reboot", 1});
+    const std::string r = report(10);
+    CHECK(has(r, "\"kind\":\"panic\""));
+    CHECK(has(r, "\"message\":\"No spin locks are available\""));
+    CHECK(!has(r, "\"pc\""));
+}
+
+TEST(session_keeps_its_last_events) {
+    setup();
+    for (int i = 0; i < 6; ++i) diag::event(static_cast<uint32_t>(1000 + i), "event %d", i);
+    uint8_t blob[diag::kSessionBytes];
+    const size_t n = diag::session_capture(blob, sizeof(blob), 2000);
+    CHECK(n > 0 && n <= diag::kSessionBytes);
+    setup();
+    diag::set_previous_session(blob, n);
+    const std::string r = report(5);
+    CHECK(has(r, "\"last_events\":[{\"ms\":1002,\"text\":\"event 2\"}"));
+    CHECK(has(r, "{\"ms\":1005,\"text\":\"event 5\"}]"));
+}
+
+TEST(oldest_events_left_out_when_the_report_is_full) {
+    setup();
+    for (int i = 0; i < 64; ++i) diag::event(static_cast<uint32_t>(i), "a fairly long event text number %d to fill", i);
+    static char buf[2500];
+    diag::report_json(buf, sizeof(buf), 100);
+    const std::string r = buf;
+    CHECK(has(r, "event text number 63"));
+    CHECK(!has(r, "event text number 0 "));
+    CHECK(has(r, "\"events_left_out\":"));
+    CHECK_EQ(r.back(), '}');  // still valid JSON: closed
+}
+
 TEST_MAIN()

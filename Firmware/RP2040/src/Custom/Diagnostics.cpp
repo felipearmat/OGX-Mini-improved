@@ -14,6 +14,7 @@ constexpr size_t kHistBins = 102;  // 1 ms bins 0..100, then "more"
 
 struct Event {
     uint32_t ms;
+    uint8_t boot;  // low byte of the boot count when it was logged
     char text[kEventText];
 };
 
@@ -145,17 +146,48 @@ struct Session {
     uint8_t wired;
     SessionCtrl ctrl[2];
     uint16_t wired_vid, wired_pid, wired_reports_per_s, wired_max_gap_ms;
+    // Version 3: the last events of the session (kept in the same flash entry, no extra write).
+    struct { uint32_t ms; char text[32]; } events[kSessionEvents];
 };
 #pragma pack(pop)
 static_assert(sizeof(Session) <= kSessionBytes, "session summary fits its flash entry");
-constexpr uint8_t kSessionVersion = 2;
+constexpr uint8_t kSessionVersion = 3;
 
 critical_section_t s_lock;
 bool s_lock_ready = false;
 BoardInfo s_info{};
-Event s_events[kEvents];
-size_t s_event_next = 0;
-size_t s_event_count = 0;
+/* Kept across reboots that keep the RAM (see init()). On the device it sits in the SDK's
+ * .uninitialized_data section, which the C runtime never clears. */
+#if defined(PICO_ON_DEVICE) && PICO_ON_DEVICE
+#define DIAG_PERSISTENT __attribute__((section(".uninitialized_data")))
+#else
+#define DIAG_PERSISTENT
+#endif
+constexpr uint32_t kPersistMagic = 0x4F474443;  // "OGDC"
+constexpr uint32_t kCrashMagic = 0x43525348;    // "CRSH"
+struct Persist {
+    uint32_t magic;
+    uint32_t boot;
+    uint32_t next, count;
+    uint32_t check;
+    uint32_t crash_magic;
+    CrashInfo crash;
+    Event events[kEvents];
+};
+DIAG_PERSISTENT Persist s_p;
+Event* const s_events = s_p.events;
+uint32_t& s_event_next = s_p.next;
+uint32_t& s_event_count = s_p.count;
+
+uint32_t persist_check()
+{
+    return s_p.magic ^ s_p.boot ^ (s_p.next << 8) ^ (s_p.count << 16) ^ 0x5A5A5A5Au;
+}
+
+// Last crash for the report: from the boot before (recorded in RAM) or stored in flash.
+CrashInfo s_last_crash{};
+bool s_last_crash_valid = false;
+bool s_last_crash_previous_boot = false;
 Slot s_slots[kSlots];
 Link s_pending[kSlots];
 UsbDevice s_usb[kUsbDevices];
@@ -311,6 +343,30 @@ void write_link(Writer& w, const Link& l, bool le)
 
 void init(const BoardInfo& info)
 {
+    /* The ring and the crash record survive a reboot that keeps the RAM; after a power-on (or
+     * anything that left them inconsistent) they start empty. */
+    const bool kept = s_p.magic == kPersistMagic && s_p.next < kEvents && s_p.count <= kEvents &&
+                      s_p.check == persist_check();
+    if (kept) {
+        ++s_p.boot;
+    } else {
+        std::memset(&s_p, 0, sizeof(s_p));
+        s_p.magic = kPersistMagic;
+    }
+    s_p.check = persist_check();
+    s_last_crash = CrashInfo{};
+    s_last_crash_valid = s_last_crash_previous_boot = false;
+    if (kept && s_p.crash_magic == kCrashMagic) {
+        s_last_crash = s_p.crash;
+        s_last_crash_valid = true;
+        s_last_crash_previous_boot = true;
+    }
+    s_p.crash_magic = 0;
+
+    BoardInfo board = info;
+    if (s_last_crash_valid && s_last_crash_previous_boot)
+        board.reset_reason = "crash (see last_crash)";  // the crash handler reboots by watchdog
+
     if (!s_lock_ready) {
         /* A shared ("striped") spin lock, as the SDK's mutexes use: the claimable ones (24-31)
          * are reserved for TaskQueue and TinyUSB, and running out panics (test_spin_lock_budget). */
@@ -318,7 +374,7 @@ void init(const BoardInfo& info)
         s_lock_ready = true;
     }
     Lock l;
-    s_info = info;
+    s_info = board;
 }
 
 void event(uint32_t now_ms, const char* fmt, ...)
@@ -331,9 +387,40 @@ void event(uint32_t now_ms, const char* fmt, ...)
     Lock l;
     Event& e = s_events[s_event_next];
     e.ms = now_ms;
+    e.boot = static_cast<uint8_t>(s_p.boot);
     std::memcpy(e.text, text, sizeof(text));
     s_event_next = (s_event_next + 1) % kEvents;
     if (s_event_count < kEvents) ++s_event_count;
+    s_p.check = persist_check();
+}
+
+void crash_record(const CrashInfo& crash)
+{
+    s_p.crash = crash;
+    s_p.crash_magic = kCrashMagic;
+}
+
+size_t new_crash(uint8_t* out, size_t out_len)
+{
+    static_assert(sizeof(CrashInfo) <= kCrashBytes, "crash record fits its flash entry");
+    if (!out || out_len < sizeof(CrashInfo) || !s_last_crash_valid || !s_last_crash_previous_boot)
+        return 0;
+    std::memset(out, 0, out_len);
+    std::memcpy(out, &s_last_crash, sizeof(CrashInfo));
+    return sizeof(CrashInfo);
+}
+
+void set_stored_crash(const uint8_t* data, size_t len)
+{
+    if (!data || len < sizeof(CrashInfo) || s_last_crash_valid)
+        return;
+    CrashInfo c;
+    std::memcpy(&c, data, sizeof(c));
+    if (c.kind != 1 && c.kind != 2)
+        return;
+    s_last_crash = c;
+    s_last_crash_valid = true;
+    s_last_crash_previous_boot = false;
 }
 
 void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid, uint16_t pid,
@@ -681,6 +768,12 @@ Session build_session(uint32_t now_ms)
         ss.wired_reports_per_s = static_cast<uint16_t>(secs ? u.timing.reports / secs : u.timing.rate_hz);
         ss.wired_max_gap_ms = static_cast<uint16_t>(u.timing.gap_max > 0xFFFF ? 0xFFFF : u.timing.gap_max);
     }
+    const size_t n = s_event_count < kSessionEvents ? s_event_count : kSessionEvents;
+    for (size_t i = 0; i < n; ++i) {
+        const Event& e = s_events[(s_event_next + kEvents - n + i) % kEvents];
+        ss.events[i].ms = e.ms;
+        copy_text(ss.events[i].text, sizeof(ss.events[i].text), e.text);
+    }
     return ss;
 }
 } // namespace
@@ -801,18 +894,63 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
         if (p.wired)
             w.raw(",\"wired\":{\"vid\":\"%04x\",\"pid\":\"%04x\",\"reports_per_s\":%u,\"max_gap_ms\":%u}",
                   p.wired_vid, p.wired_pid, p.wired_reports_per_s, p.wired_max_gap_ms);
+        w.raw(",\"last_events\":[");
+        bool first_ev = true;
+        for (size_t i = 0; i < kSessionEvents; ++i) {
+            if (!p.events[i].text[0]) continue;
+            char text[sizeof(p.events[i].text) + 1]{};
+            std::memcpy(text, p.events[i].text, sizeof(p.events[i].text));
+            w.raw("%s{\"ms\":%lu,\"text\":", first_ev ? "" : ",", static_cast<unsigned long>(p.events[i].ms));
+            w.str(text);
+            w.raw("}");
+            first_ev = false;
+        }
+        w.raw("]}");
+    }
+
+    if (s_last_crash_valid) {
+        const CrashInfo& k = s_last_crash;
+        w.raw(",\"last_crash\":{\"when\":\"%s\",\"kind\":\"%s\",\"core\":%u,\"uptime_ms\":%lu",
+              s_last_crash_previous_boot ? "previous boot" : "stored (an earlier boot)",
+              k.kind == 2 ? "panic" : "hard fault", k.core, static_cast<unsigned long>(k.uptime_ms));
+        if (k.kind == 1)
+            w.raw(",\"pc\":\"0x%08lx\",\"lr\":\"0x%08lx\",\"xpsr\":\"0x%08lx\"", static_cast<unsigned long>(k.pc),
+                  static_cast<unsigned long>(k.lr), static_cast<unsigned long>(k.xpsr));
+        if (k.has_fault_regs)
+            w.raw(",\"cfsr\":\"0x%08lx\",\"hfsr\":\"0x%08lx\",\"mmfar\":\"0x%08lx\",\"bfar\":\"0x%08lx\"",
+                  static_cast<unsigned long>(k.cfsr), static_cast<unsigned long>(k.hfsr),
+                  static_cast<unsigned long>(k.mmfar), static_cast<unsigned long>(k.bfar));
+        if (k.message[0]) {
+            char msg[sizeof(k.message) + 1]{};
+            std::memcpy(msg, k.message, sizeof(k.message));
+            w.key_str("message", msg);
+        }
         w.raw("}");
     }
 
+    /* Events, oldest first; this boot's and the ones before a reboot that kept the RAM. The
+     * oldest are left out when the report would not fit (it must stay valid JSON). */
     w.raw(",\"events\":[");
-    const size_t start = (s_event_next + kEvents - s_event_count) % kEvents;
-    for (size_t n = 0; n < s_event_count; ++n) {
-        const Event& e = s_events[(start + n) % kEvents];
-        w.raw("%s{\"ms\":%lu,\"text\":", n ? "," : "", static_cast<unsigned long>(e.ms));
+    size_t shown = 0, budget = w.cap > w.len + 64 ? w.cap - w.len - 64 : 0;
+    while (shown < s_event_count) {
+        const Event& e = s_events[(s_event_next + kEvents - 1 - shown) % kEvents];
+        const size_t need = 48 + std::strlen(e.text) * 2;  // worst case escaping
+        if (need > budget) break;
+        budget -= need;
+        ++shown;
+    }
+    for (size_t n = 0; n < shown; ++n) {
+        const Event& e = s_events[(s_event_next + kEvents - shown + n) % kEvents];
+        const int boot = static_cast<int>(static_cast<int8_t>(static_cast<uint8_t>(e.boot - static_cast<uint8_t>(s_p.boot))));
+        w.raw("%s{\"ms\":%lu", n ? "," : "", static_cast<unsigned long>(e.ms));
+        if (boot) w.raw(",\"boot\":%d", boot);
+        w.raw(",\"text\":");
         w.str(e.text);
         w.raw("}");
     }
-    w.raw("]}");
+    w.raw("]");
+    if (shown < s_event_count) w.raw(",\"events_left_out\":%lu", static_cast<unsigned long>(s_event_count - shown));
+    w.raw("}");
     return w.len;
 }
 
@@ -860,8 +998,9 @@ void reset_for_tests()
 {
     Lock l;
     s_info = BoardInfo{};
-    std::memset(s_events, 0, sizeof(s_events));
-    s_event_next = s_event_count = 0;
+    std::memset(&s_p, 0, sizeof(s_p));
+    s_last_crash = CrashInfo{};
+    s_last_crash_valid = s_last_crash_previous_boot = false;
     for (auto& s : s_slots) s = Slot{};
     for (auto& p : s_pending) p = Link{};
     for (auto& u : s_usb) u = UsbDevice{};

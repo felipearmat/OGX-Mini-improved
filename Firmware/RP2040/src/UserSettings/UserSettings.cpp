@@ -726,6 +726,24 @@ void UserSettings::load_diag_session()
     uint8_t blob[diag::kSessionBytes]{};
     if (nvs_tool_.read(DIAG_SESSION_KEY, blob, sizeof(blob)))
         diag::set_previous_session(blob, sizeof(blob));
+
+    /* A crash during the previous boot is stored once, so it is still in the report after a
+     * power cycle; the same crash again (a crash loop) is not written again. */
+    static const std::string DIAG_CRASH_KEY = "diag_crash";
+    uint8_t crash[diag::kCrashBytes]{};
+    uint8_t stored[diag::kCrashBytes]{};
+    const bool have_stored = nvs_tool_.read(DIAG_CRASH_KEY, stored, sizeof(stored));
+    const size_t n = diag::new_crash(crash, sizeof(crash));
+    if (n) {
+        diag::CrashInfo a{}, b{};
+        std::memcpy(&a, crash, sizeof(a));
+        std::memcpy(&b, stored, sizeof(b));
+        a.uptime_ms = b.uptime_ms = 0;  // the same crash at another moment is the same crash
+        if (!have_stored || std::memcmp(&a, &b, sizeof(a)) != 0)
+            nvs_tool_.write(DIAG_CRASH_KEY, crash, sizeof(crash));
+    } else if (have_stored) {
+        diag::set_stored_crash(stored, sizeof(stored));
+    }
 }
 
 /* Custom: mouse + keyboard mapping from flash; defaults when missing or of another version. */

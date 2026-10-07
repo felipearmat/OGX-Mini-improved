@@ -127,7 +127,9 @@ To report lag, stutter or disconnects without a serial adapter:
 3. Keep the controller connected and move the sticks for 10 seconds, then press
    **Generate log report** in the *Diagnostics* panel and send the downloaded `.json` file.
 
-The report has, per controller: what it is (IDs, Bluetooth chip vendor and version, firmware
+It also keeps the events from before the switch to Web App mode (the RAM survives that reboot,
+not unplugging the adapter) and, if the firmware ever crashed, where it stopped (the adapter now
+restarts by itself after a crash instead of freezing). The report has, per controller: what it is (IDs, Bluetooth chip vendor and version, firmware
 strings), how it is connected (Bluetooth Classic or LE and its connection interval, signal,
 radio channels in use, wired or a known 2.4 GHz receiver, USB speed) and how its input arrives
 (reports per second, late reports, largest gap, reports lost by the controller's own counter on

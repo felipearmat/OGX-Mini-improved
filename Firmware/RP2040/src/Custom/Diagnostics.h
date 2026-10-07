@@ -24,12 +24,22 @@ namespace diag {
 
     constexpr size_t kSlots = 4;          // >= CONFIG_BLUEPAD32_MAX_DEVICES (checked in Bluepad32.cpp)
     constexpr size_t kUsbDevices = 4;
+    // Events kept, by chip (RAM: 256 KB on the RP2040, 512 KB on the RP2350); a build option
+    // (OGXM_DIAG_EVENTS) can lower it for a board. The report fits about 14 KB (255 USB chunks).
+#if defined(OGXM_DIAG_EVENTS)
+    constexpr size_t kEvents = OGXM_DIAG_EVENTS;
+#elif defined(PICO_RP2350)
+    constexpr size_t kEvents = 96;
+#else
     constexpr size_t kEvents = 64;
+#endif
     constexpr size_t kEventText = 72;
     constexpr size_t kNameLength = 32;
     constexpr size_t kInfoText = 24;
     constexpr uint32_t kGapWindowMs = 5000;  // windows for gaps / late reports: last 5-10 s
-    constexpr size_t kSessionBytes = 96;
+    constexpr size_t kSessionBytes = 240;  // one flash entry (NVSTool value size)
+    constexpr size_t kSessionEvents = 4;   // last events kept with the session summary
+    constexpr size_t kCrashBytes = 96;
 
     struct BoardInfo {
         const char* firmware_version;
@@ -42,7 +52,30 @@ namespace diag {
         uint8_t max_gamepads;
     };
 
+    /* Kept across a reboot that keeps the RAM (mode change, settings saved, watchdog, crash; not
+     * a power-on): the events ring goes on from the previous boot, each event tagged with its boot
+     * (0 = this one, -1 = the one before...), and a crash record. Nothing is written to flash for
+     * this. */
     void init(const BoardInfo& info);
+
+    // ---- Crashes (Custom/CrashHandler.cpp: hard fault, panic) ----
+    struct CrashInfo {
+        uint8_t kind;          // 1 = hard fault, 2 = panic
+        uint8_t core;
+        uint8_t has_fault_regs;  // RP2350 (Cortex-M33) only
+        uint8_t reserved;
+        uint32_t pc, lr, xpsr;
+        uint32_t cfsr, hfsr, mmfar, bfar;
+        uint32_t uptime_ms;
+        char message[48];      // panic message
+    };
+    // From the fault / panic handler, before the reboot: no lock, no allocation.
+    void crash_record(const CrashInfo& crash);
+    // At boot: a crash recorded during the previous boot, as bytes for flash (kCrashBytes); the
+    // caller stores it if it differs from the stored one. 0 when there is none.
+    size_t new_crash(uint8_t* out, size_t out_len);
+    // At boot, when there is no new one: the crash stored in flash, for the report.
+    void set_stored_crash(const uint8_t* data, size_t len);
 
     // Recent events ring (oldest dropped). printf-style, truncated to kEventText.
     void event(uint32_t now_ms, const char* fmt, ...) __attribute__((format(printf, 2, 3)));

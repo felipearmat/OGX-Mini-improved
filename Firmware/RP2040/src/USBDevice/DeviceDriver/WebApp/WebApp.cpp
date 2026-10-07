@@ -265,7 +265,12 @@ bool WebAppDevice::write_kbm_settings()
 /* Custom: diagnostics report as JSON text, split over packets (up to 255 chunks). */
 bool WebAppDevice::write_diagnostics()
 {
+    /* Up to 255 chunks; the RP2350 keeps more events (Custom/Diagnostics.h kEvents). */
+#if defined(PICO_RP2350)
+    static char report[255 * 55];
+#else
     static char report[12 * 1024];
+#endif
     const size_t len = diag::report_json(report, sizeof(report), board_api::ms_since_boot());
     Packet packet_in;
     const size_t chunk = packet_in.data.size();
