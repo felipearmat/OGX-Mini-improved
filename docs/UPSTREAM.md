@@ -42,6 +42,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | fefe680 | Web App mode: rumble test (`SET_GP_OUT`, 0x81) | merged #135 | First of the firmware PRs the web app needs. |
 | fcc1471, a8a202c, 7b0ffbc | Web App mode: unmapped buttons, `GP_TOUCH` (0x82) touchpad packet, live input capped at 100 Hz, TX FIFO cleared on open | open #137 (2026-10-07) | Second of the web app firmware PRs. |
 | a1e3d7c | Bluetooth: DS4 / DualSense touchpad press and Switch Capture as the Misc button (DualSense mute left out) | open #138 (2026-10-07) | Third of the web app firmware PRs. Verified on hardware (DS4, with #137). |
+| ee7dc25 (live part) | Web App mode: diagnostics report (`GET_DIAGNOSTICS`, 0x74): BT / wired controllers, link, input timing, search state, events ring; Bluepad32 diagnostics hooks patch | open #139 (2026-10-07) | RAM only. Left for a follow-up PR: session kept across the reboot, crash record, mode-change / settings events, Switch firmware version (its Bluepad32 patch does not apply on upstream). Verified on hardware (Pico 2 W, DS4). |
 | 8c59260 | btstack_config: BTstack logs in Debug builds only (condition was inverted) | todo | Release compiled log calls with no output; Debug had none. Small. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
@@ -49,6 +50,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | Commit (OGX-Mini-improved-WebApp) | Change | Status | Notes |
 |---|---|---|---|
 | be79a54 | Output modes: add Wii U, PS4 and STEAM to the mode lists | pr #2 | Firmware accepts them; multi-controller builds could not pick Wii U. |
+| 1b964bc | Diagnostics panel and log report (USB), larger receive buffers, packet resync | pr #2 (added 2026-10-07) | Needs firmware #139. Session / crash display already in the panel (shown once the follow-up firmware PR sends them). |
 | 508fe48, 3b249fe | Adapter Options panel | todo | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
 
 ## Features (offer, upstream may or may not want them)
