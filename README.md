@@ -119,6 +119,9 @@ other modes: [Waking the PC from the controller](#waking-the-pc-from-the-control
 
 ### Diagnostics and log report (lag, disconnects)
 
+Full guide (checking a controller in the web app, what the Diagnostics columns mean, when and how
+to generate the report): [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md).
+
 To report lag, stutter or disconnects without a serial adapter:
 
 1. Play in your usual mode for a few minutes with the problem happening.
