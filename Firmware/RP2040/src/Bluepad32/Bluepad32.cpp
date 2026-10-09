@@ -28,6 +28,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
 #include "Bluepad32/ScanPolicy.h"
+#include "Bluepad32/IdleMotion.h"
 #include "Diagnostics/Diagnostics.h"
 #include "uni_diag_hooks.h"
 #include "UserSettings/DongleSettings.h"
@@ -230,14 +231,18 @@ BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
 
 /* Custom: a Bluetooth controller left on without input is turned off after the dongle option's
  * idle time (UserSettings/DongleSettings idle_off_minutes; 0 = never), to save its battery.
- * Tracked per output gamepad, so a merged Joy-Con pair counts as one: any button, D-pad or a
- * stick / trigger moving past kIdleAxisDelta is input. Joy-Cons are asked to sleep (gap_disconnect
+ * Tracked per output gamepad, so a merged Joy-Con pair counts as one: any button, D-pad, a
+ * stick / trigger moving past kIdleAxisDelta, or the motion sensors showing the controller being
+ * handled (Bluepad32/IdleMotion.h: offsets, noise, spikes and its own rumble do not count) is input. Joy-Cons are asked to sleep (gap_disconnect
  * does not complete on live Joy-Con links), others are disconnected. */
 static constexpr int32_t kIdleAxisDelta = 48;  // Bluepad32 units: sticks -512..511, triggers 0..1023
 struct IdleRef {
     bool valid;
     bool turned_off;
+    bool rumble_seen;
     uint32_t last_input_ms;
+    uint32_t rumble_ms;  // last feedback tick that asked for rumble
+    idle_motion::Detector motion;
     uint16_t buttons;
     uint8_t dpad, misc;
     int32_t axis[6];
@@ -256,7 +261,9 @@ static void idle_note_input(int idx, const uni_gamepad_t* gp, uint32_t now_ms) {
         return;
     IdleRef& r = s_idle[idx];
     const int32_t axis[6] = {gp->axis_x, gp->axis_y, gp->axis_rx, gp->axis_ry, gp->brake, gp->throttle};
-    bool moved = !r.valid || gp->buttons != r.buttons || gp->dpad != r.dpad || gp->misc_buttons != r.misc;
+    const bool rumbling = r.rumble_seen && now_ms - r.rumble_ms < FEEDBACK_TIME_MS + 100;
+    const bool handled = r.motion.update(gp->gyro, gp->accel, now_ms, rumbling);  // every report
+    bool moved = !r.valid || handled || gp->buttons != r.buttons || gp->dpad != r.dpad || gp->misc_buttons != r.misc;
     for (int i = 0; i < 6 && !moved; ++i) {
         const int32_t delta = axis[i] - r.axis[i];
         moved = delta > kIdleAxisDelta || delta < -kIdleAxisDelta;
@@ -578,6 +585,10 @@ static void send_feedback_cb(btstack_timer_source *ts)
                 uni_hid_parser_switch2_send_keepalive(bp_device);
                 s_sw2_ble_ka_last_ms[i] = now_ms;
             }
+        }
+        if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0) {  // Custom: idle turn-off ignores the shaking
+            s_idle[gp_idx].rumble_seen = true;
+            s_idle[gp_idx].rumble_ms = now_ms;
         }
         if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0)
         {
@@ -1115,8 +1126,10 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     {
         /* Custom: the output gamepad starts its idle time again with its next controller. */
         const int out = bt_output_idx(device);
-        if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS))
+        if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS)) {
             s_idle[out].valid = false;
+            s_idle[out].motion.reset();
+        }
     }
     {
         const uint32_t now = to_ms_since_boot(get_absolute_time());
