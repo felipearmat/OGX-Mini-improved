@@ -17,10 +17,18 @@
  *    OGXM_JOYCON_PAIR_RUMBLE               PER_SIDE | BOTH  (merged pair: strong motor on the left
  *                                          Joy-Con and weak on the right, as SDL / Steam / Linux
  *                                          do, or both motors on both Joy-Cons)
+ *    OGXM_FULL_SEARCH_S                    60   full search for new controllers (0-600 s)
+ *    OGXM_REDUCED_SEARCH_S                 NO_LIMIT | 0-600   then the reduced search
+ *    OGXM_COMBO_DISABLED_MODES             0    output modes whose button combo is off (bit mask)
+ *    OGXM_IDLE_OFF_MINUTES                 15   turn a Bluetooth controller off after this many
+ *                                          minutes without input (0 = never, 1-255)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
- *  16 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
- *  Version 3:
+ *  17 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 4 = version 3 plus:
+ *    byte 16        minutes without input before a Bluetooth controller is turned off
+ *                   (0 = never)
+ *  Version 3 (16 bytes):
  *    bytes 1-6, 8   options (0 / 1); byte 7 unused (was the single controller option)
  *    bytes 9-11     search for new controllers while a slot is open with a pad connected
  *                   (Bluepad32/ScanPolicy.h): two 12-bit second counts, little-endian bit order —
@@ -29,17 +37,17 @@
  *    bytes 12-15    output modes whose button combo is off, a little-endian bit mask indexed by
  *                   DeviceDriverType (bit n = mode n); zero turns all combos on. The Web App mode
  *                   combo (value 100, outside the mask) is always on.
- *  Versions 2 and 1 (the first 8 bytes) are still accepted: the search times take their
- *  defaults (60 s full, reduced with no limit), or 0 / 0 when their single controller byte (7)
- *  was on.
+ *  Versions 3, 2 and 1 are still accepted; the options they lack take their build defaults.
+ *  For versions 2 and 1 (the first 8 bytes) the search times take their defaults, or 0 / 0
+ *  when their single controller byte (7) was on.
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 3;
-    constexpr uint16_t kDefaultFullSearchS = 60;
+    constexpr uint8_t kVersion = 4;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
+    constexpr size_t kV3Length = 16;
 
 #pragma pack(push, 1)
     struct Settings {
@@ -56,14 +64,16 @@ namespace dongle_settings {
         // Version 3
         uint8_t search_times[3];
         uint32_t combo_disabled_modes;
+        // Version 4
+        uint8_t idle_off_minutes;
     };
 #pragma pack(pop)
-    static_assert(sizeof(Settings) == 16, "dongle_settings::Settings is a wire format");
+    static_assert(sizeof(Settings) == 17, "dongle_settings::Settings is a wire format");
 
     // Build-time defaults.
     Settings defaults();
 
-    // Parse stored / received bytes, version 2 or 1. False (out untouched) for a short buffer or
+    // Parse stored / received bytes, version 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
@@ -75,8 +85,8 @@ namespace dongle_settings {
     uint16_t reduced_search_s(const Settings& settings);
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
-    // Same settings apart from the ones applied live (combo mask, full search time): a change of
-    // those alone needs no restart.
+    // Same settings apart from the ones applied live (combo mask, search times, idle time): a
+    // change of those alone needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

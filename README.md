@@ -85,6 +85,10 @@ CMake option sets the default:
 | Legacy PS4 motion scale (Brook auth adapters) | `OGXM_PS4_LEGACY_MOTION_SCALE` = OFF |
 | No search for new controllers once one is connected (both search times 0) | `OGXM_SINGLE_CONTROLLER` = OFF |
 | Joy-Con pair rumble: per side (as SDL / Steam) or both Joy-Cons | `OGXM_JOYCON_PAIR_RUMBLE` = PER_SIDE |
+| Full search for new controllers (seconds, 0-600) | `OGXM_FULL_SEARCH_S` = 60 |
+| Reduced search after it (seconds, 0-600, or no limit) | `OGXM_REDUCED_SEARCH_S` = NO_LIMIT |
+| Output modes whose button combo is off (bit mask by mode number) | `OGXM_COMBO_DISABLED_MODES` = 0 (all on) |
+| Turn a Bluetooth controller off after N minutes without input (0 = never) | `OGXM_IDLE_OFF_MINUTES` = 15 |
 
 ### Mouse + Keyboard mode
 

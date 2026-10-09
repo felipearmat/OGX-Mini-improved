@@ -37,6 +37,9 @@ namespace diag {
     constexpr size_t kNameLength = 32;
     constexpr size_t kInfoText = 24;
     constexpr uint32_t kGapWindowMs = 5000;  // windows for gaps / late reports: last 5-10 s
+    constexpr uint32_t kGapEventMs = 60;       // input gap logged as an event (felt as a stutter)
+    constexpr uint32_t kGapEventEveryMs = 5000;
+    constexpr uint32_t kCounterLearnSteps = 32;
     constexpr size_t kSessionBytes = 240;  // one flash entry (NVSTool value size)
     constexpr size_t kSessionEvents = 4;   // last events kept with the session summary
     constexpr size_t kCrashBytes = 96;
@@ -84,9 +87,13 @@ namespace diag {
     void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid, uint16_t pid,
                         uint8_t controller_type, bool le, uint16_t con_handle, const uint8_t address[6]);
     void slot_disconnected(size_t slot, uint32_t now_ms);
+    // Each input report. A gap of kGapEventMs or more is also logged as an event (at most one
+    // per slot every kGapEventEveryMs; the ones in between are counted in the next).
     void slot_report(size_t slot, uint32_t now_ms);
-    // The controller's own report counter (bits wide); lost reports are the skipped values.
-    void slot_counter(size_t slot, uint32_t value, uint8_t bits);
+    // The controller's own report counter (bits wide), advancing by `unit` per report; lost
+    // reports are the skipped values. unit 0: learnt as the most common step of the first
+    // kCounterLearnSteps steps (Switch pads, whose timer advances by more than 1 per report).
+    void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit = 1);
     void slot_battery(size_t slot, uint8_t level_0_255);
     void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor);
 
@@ -98,6 +105,9 @@ namespace diag {
     void rssi(uint16_t con_handle, int8_t dbm);
     void channels(uint16_t con_handle, uint8_t used, uint8_t total);
     void failed_contacts(uint16_t con_handle, uint16_t count);
+    // The adapter's own transmit power on a link (HCI Read Transmit Power Level): current or
+    // the maximum it may use.
+    void tx_power(uint16_t con_handle, bool maximum, int8_t dbm);
     // Classic link mode (HCI Mode Change): 0 active, 1 hold, 2 sniff, 3 park; interval in 0.625 ms slots.
     void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots);
     // Whether new controllers are accepted (Bluepad32's flag), and each finished BR/EDR inquiry

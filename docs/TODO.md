@@ -80,6 +80,17 @@ Known issues in this fork, to fix later.
 
 ## Features for a later version
 
+- **Build and test the RP2040 + ESP32 hardware (`ESP32_BLUEPAD32_I2C`).** Assemble the hybrid
+  (RP2040 for USB, an original ESP32 running Bluepad32 over I2C — the ESP32-S3 / C3 / C6 have no
+  Bluetooth Classic, which Joy-Cons and DS4 need) to widen the hardware tested here. Prefer an
+  ESP32 module with a u.FL connector (ESP32-WROOM-32U / WROVER-IE) and an external 2.4 GHz
+  antenna: the Pico 2 W's on-module antenna has little margin when the body is between the
+  controller and the adapter (2026-10-09, Joy-Con pair, adapter behind the PC). ESP-IDF can also
+  raise the Classic transmit power (`esp_bredr_tx_power_set`, up to +9 dBm; default max +3).
+  Compare against the Pico 2 W with the diagnostics report (signal, failed contacts, lost
+  reports, input gaps). Note: the Bluetooth features of `Bluepad32.cpp` here (search policy,
+  diagnostics, idle turn-off) run on the Pico W; on the hybrid Bluepad32 runs on the ESP32.
+
 - **Mouse + Keyboard mode: motion (gyro) as pointer.** Turn the pad to move the pointer (Joy-Con,
   DS4, DualSense, Switch Pro), as an option in the web app next to the touchpad one. Left out of
   the first version (decided 2026-10-02): needs the axis signs checked per pad type on hardware

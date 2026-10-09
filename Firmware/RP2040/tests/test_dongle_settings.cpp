@@ -1,5 +1,5 @@
-// Dongle options (UserSettings/DongleSettings): build-time defaults and the 16-byte wire/flash format
-// (version 3; version 2 and version 1 records, the first 8 bytes, are still accepted).
+// Dongle options (UserSettings/DongleSettings): build-time defaults and the 17-byte wire/flash format
+// (version 4; version 3 / 2 records, 16 bytes, and version 1 records, 8 bytes, are still accepted).
 #include "UserSettings/DongleSettings.h"
 #include "test.h"
 
@@ -17,10 +17,12 @@ TEST(defaults_follow_the_build) {
     CHECK_EQ(d.joycon_pair_rumble_per_side, 1);
     CHECK_EQ(dongle_settings::full_search_s(d), 60);
     CHECK_EQ(dongle_settings::reduced_search_s(d), dongle_settings::kSearchNoLimit);
+    CHECK_EQ(d.combo_disabled_modes, 0u);
+    CHECK_EQ(d.idle_off_minutes, 15);
 }
 
 TEST(decode_normalises_flags) {
-    const uint8_t bytes[16] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
+    const uint8_t bytes[17] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -29,7 +31,7 @@ TEST(decode_normalises_flags) {
     CHECK_EQ(s.joycon_solo_horizontal, 0);
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(s.ps4_legacy_motion_scale, 1);
-    CHECK_EQ(s.unused_single_controller, 0);  // byte 7 is no option in version 3
+    CHECK_EQ(s.unused_single_controller, 0);  // byte 7 is no option since version 3
     CHECK_EQ(s.joycon_pair_rumble_per_side, 0);
 }
 
@@ -37,7 +39,7 @@ TEST(decode_accepts_version_1_with_defaults_for_newer_options) {
     const uint8_t v1[8] = {1, 1, 0, 1, 0, 1, 0, 1};
     Settings s{};
     CHECK(dongle_settings::decode(v1, sizeof(v1), s));
-    CHECK_EQ(s.version, dongle_settings::kVersion);  // stored again as version 3
+    CHECK_EQ(s.version, dongle_settings::kVersion);  // stored again as the current version
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
     CHECK_EQ(s.joycon_pair_horizontal, 1);
     CHECK_EQ(s.mac_per_controller, 1);
@@ -47,10 +49,12 @@ TEST(decode_accepts_version_1_with_defaults_for_newer_options) {
 
 TEST(decode_rejects_other_versions_and_short_buffers) {
     Settings s = dongle_settings::defaults();
-    const uint8_t other[16] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
+    const uint8_t other[17] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
     CHECK(!dongle_settings::decode(other, sizeof(other), s));
-    const uint8_t shorty[8] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v3 needs 16
+    const uint8_t shorty[16] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v4 needs 17
     CHECK(!dongle_settings::decode(shorty, sizeof(shorty), s));
+    const uint8_t short_v3[8] = {3, 1, 1, 1, 1, 1, 1, 1};  // v3 needs 16
+    CHECK(!dongle_settings::decode(short_v3, sizeof(short_v3), s));
     const uint8_t short_v1[4] = {1, 1, 1, 1};
     CHECK(!dongle_settings::decode(short_v1, sizeof(short_v1), s));
     CHECK(!dongle_settings::decode(nullptr, 8, s));
@@ -67,7 +71,7 @@ TEST(set_replaces_current) {
 }
 
 TEST(mode_combo_mask_in_bytes_12_to_15) {
-    uint8_t bytes[16] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
+    uint8_t bytes[17] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.combo_disabled_modes, 0u);  // older records: every combo on
@@ -81,18 +85,19 @@ TEST(mode_combo_mask_in_bytes_12_to_15) {
     CHECK(dongle_settings::mode_combo_enabled(s, 100));  // Web App: outside the mask, always on
 }
 
-TEST(a_change_of_the_combo_mask_or_search_times_alone_needs_no_restart) {
+TEST(a_change_of_the_combo_mask_search_times_or_idle_time_alone_needs_no_restart) {
     Settings a = dongle_settings::defaults();
     Settings b = a;
     b.combo_disabled_modes = 0x10;
     dongle_settings::set_search_times(b, 120, 0);
+    b.idle_off_minutes = 0;
     CHECK(dongle_settings::same_except_live(a, b));
     b.mac_per_controller = !a.mac_per_controller;
     CHECK(!dongle_settings::same_except_live(a, b));
 }
 
 TEST(search_times_are_two_12_bit_fields_in_bytes_9_to_11) {
-    uint8_t bytes[16] = {dongle_settings::kVersion};
+    uint8_t bytes[17] = {dongle_settings::kVersion};
     // full 600 s (0x258), reduced 0xFFF (no limit): 58 | 2 + F<<4 | FF
     bytes[9] = 0x58;
     bytes[10] = 0xF2;
@@ -115,7 +120,7 @@ TEST(older_records_get_default_search_times_or_none_for_single_controller) {
     Settings s{};
     CHECK(dongle_settings::decode(v2, sizeof(v2), s));
     CHECK_EQ(s.version, dongle_settings::kVersion);
-    CHECK_EQ(dongle_settings::full_search_s(s), dongle_settings::kDefaultFullSearchS);
+    CHECK_EQ(dongle_settings::full_search_s(s), dongle_settings::full_search_s(dongle_settings::defaults()));
     CHECK_EQ(dongle_settings::reduced_search_s(s), dongle_settings::kSearchNoLimit);
     v2[7] = 1;  // single controller option on: no search once a pad is connected
     CHECK(dongle_settings::decode(v2, sizeof(v2), s));
@@ -125,6 +130,29 @@ TEST(older_records_get_default_search_times_or_none_for_single_controller) {
     const uint8_t v1[8] = {1, 0, 1, 0, 1, 0, 0, 1};
     CHECK(dongle_settings::decode(v1, sizeof(v1), s));
     CHECK_EQ(dongle_settings::reduced_search_s(s), 0);
+}
+
+TEST(idle_off_minutes_in_byte_16) {
+    uint8_t bytes[17] = {dongle_settings::kVersion};
+    bytes[16] = 30;
+    Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.idle_off_minutes, 30);
+    bytes[16] = 0;  // never
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.idle_off_minutes, 0);
+}
+
+TEST(version_3_records_get_the_default_idle_time) {
+    uint8_t v3[16] = {3, 1, 1, 0, 1, 0, 0, 0, 1};
+    v3[9] = 0x1E;  // full search 30 s, reduced 0
+    v3[12] = 0x10;
+    Settings s{};
+    CHECK(dongle_settings::decode(v3, sizeof(v3), s));
+    CHECK_EQ(s.version, dongle_settings::kVersion);
+    CHECK_EQ(dongle_settings::full_search_s(s), 30);
+    CHECK_EQ(s.combo_disabled_modes, 0x10u);
+    CHECK_EQ(s.idle_off_minutes, dongle_settings::defaults().idle_off_minutes);
 }
 
 TEST_MAIN()

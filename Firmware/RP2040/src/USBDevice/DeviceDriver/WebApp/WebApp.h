@@ -31,7 +31,7 @@ private:
         GET_PROFILE_BY_IDX = 0x55,
         SET_PROFILE_START = 0x60,
         SET_PROFILE = 0x61,
-        /* Custom (OGX-Mini-improved): dongle options (UserSettings/DongleSettings, 16 bytes; 8 = version 1). */
+        /* Custom (OGX-Mini-improved): dongle options (UserSettings/DongleSettings, 17 bytes; 16 = versions 2-3, 8 = version 1). */
         GET_DONGLE_SETTINGS = 0x70,
         SET_DONGLE_SETTINGS = 0x71,
         /* Custom: mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings, 48 bytes). SET answers with

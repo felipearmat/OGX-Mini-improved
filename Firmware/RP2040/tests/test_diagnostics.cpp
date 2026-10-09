@@ -86,6 +86,47 @@ TEST(counter_losses_and_untrusted_counter) {
     CHECK(has(r, "\"counter_usual_step\":\"2\""));
 }
 
+TEST(switch_timer_unit_is_learnt) {
+    // A Joy-Con timer moving 3 counts per report (8-bit), one report lost every 25.
+    setup();
+    diag::slot_connected(0, 0, "Joy-Con (L)", 0x057e, 0x2006, 1, false, 0x0b, kAddr);
+    uint32_t t = 0;
+    for (int i = 0; i < 300; ++i) {
+        t += (i % 25 == 24) ? 6 : 3;
+        diag::slot_counter(0, t, 8, 0);
+    }
+    std::string r = report(10);
+    CHECK(has(r, "\"counter_unit\":3"));
+    CHECK(has(r, "\"counter_usual_step\":\"1\""));
+    CHECK(!has(r, "\"lost_reports_pct\":null"));
+    CHECK(!has(r, "\"lost_reports_pct\":0.0"));
+}
+
+TEST(input_gap_is_logged_once_per_window) {
+    setup();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    uint32_t now = 1000;
+    diag::slot_report(0, now);
+    diag::slot_report(0, now += 120);  // a gap: logged
+    diag::slot_report(0, now += 4);
+    diag::slot_report(0, now += 90);   // another within 5 s: counted
+    diag::slot_report(0, now += 6000); // logged, with the one before
+    std::string r = report(now);
+    CHECK(has(r, "slot 0: no input for 120 ms"));
+    CHECK(has(r, "slot 0: no input for 6000 ms (and 1 shorter gaps before)"));
+    CHECK(!has(r, "no input for 90 ms"));
+}
+
+TEST(transmit_power_of_the_link) {
+    setup();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    diag::tx_power(0x0b, false, 4);
+    diag::tx_power(0x0b, true, 12);
+    std::string r = report(10);
+    CHECK(has(r, "\"tx_power_dbm\":4"));
+    CHECK(has(r, "\"tx_power_max_dbm\":12"));
+}
+
 TEST(link_details_arrive_before_and_after_the_slot) {
     setup();
     diag::le_parameters(0x41, 24, 4, 72);

@@ -228,8 +228,79 @@ struct BTDevice {
 
 BTDevice bt_devices_[CONFIG_BLUEPAD32_MAX_DEVICES];
 
+/* Custom: a Bluetooth controller left on without input is turned off after the dongle option's
+ * idle time (UserSettings/DongleSettings idle_off_minutes; 0 = never), to save its battery.
+ * Tracked per output gamepad, so a merged Joy-Con pair counts as one: any button, D-pad or a
+ * stick / trigger moving past kIdleAxisDelta is input. Joy-Cons are asked to sleep (gap_disconnect
+ * does not complete on live Joy-Con links), others are disconnected. */
+static constexpr int32_t kIdleAxisDelta = 48;  // Bluepad32 units: sticks -512..511, triggers 0..1023
+struct IdleRef {
+    bool valid;
+    bool turned_off;
+    uint32_t last_input_ms;
+    uint16_t buttons;
+    uint8_t dpad, misc;
+    int32_t axis[6];
+};
+static IdleRef s_idle[MAX_GAMEPADS]{};
+
+static int bt_output_idx(uni_hid_device_t* d) {
+    int idx = bp32_get_gamepad_output_idx(d);
+    if (idx < 0)
+        idx = uni_hid_device_get_idx_for_instance(d);
+    return resolve_bt_output_pad_idx(idx);
+}
+
+static void idle_note_input(int idx, const uni_gamepad_t* gp, uint32_t now_ms) {
+    if (idx < 0 || idx >= static_cast<int>(MAX_GAMEPADS))
+        return;
+    IdleRef& r = s_idle[idx];
+    const int32_t axis[6] = {gp->axis_x, gp->axis_y, gp->axis_rx, gp->axis_ry, gp->brake, gp->throttle};
+    bool moved = !r.valid || gp->buttons != r.buttons || gp->dpad != r.dpad || gp->misc_buttons != r.misc;
+    for (int i = 0; i < 6 && !moved; ++i) {
+        const int32_t delta = axis[i] - r.axis[i];
+        moved = delta > kIdleAxisDelta || delta < -kIdleAxisDelta;
+    }
+    if (!moved)
+        return;
+    r.valid = true;
+    r.turned_off = false;
+    r.last_input_ms = now_ms;
+    r.buttons = gp->buttons;
+    r.dpad = gp->dpad;
+    r.misc = gp->misc_buttons;
+    for (int i = 0; i < 6; ++i)
+        r.axis[i] = axis[i];
+}
+
+static void idle_check(uint32_t now_ms) {
+    const uint8_t minutes = dongle_settings::get().idle_off_minutes;
+    if (minutes == 0)
+        return;
+    const uint32_t limit_ms = static_cast<uint32_t>(minutes) * 60000u;
+    for (int idx = 0; idx < static_cast<int>(MAX_GAMEPADS); ++idx) {
+        IdleRef& r = s_idle[idx];
+        if (!r.valid || r.turned_off || now_ms - r.last_input_ms < limit_ms)
+            continue;
+        r.turned_off = true;
+        for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+            uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+            if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID || bt_output_idx(d) != idx)
+                continue;
+            diag::event(now_ms, "slot %d: no input for %u min, turning it off", i, minutes);
+            if (bp32_is_switch_joycon(d))
+                uni_hid_parser_switch_request_sleep(d);
+            else
+                uni_hid_device_disconnect(d);
+        }
+    }
+}
+
+
 /* Custom: diagnostics — remote version still to ask, and the periodic link queries. */
 static bool s_diag_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+static bool s_diag_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+static bool s_diag_tx_asked_max = false;  // which level the last Read Transmit Power Level asked for
 static void diag_query_links(uint32_t now_ms);
 static void apply_scan_policy(int exclude_idx, bool force = false);
 static bool scan_reduced();
@@ -549,6 +620,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
     /* Custom: diagnostics rates roll over; link queries for each connected pad. */
     diag::tick(now_ms);
     diag_query_links(now_ms);
+    idle_check(now_ms);
     apply_scan_policy(-1);  // Custom: also catches a Joy-Con pair completed after device_ready
     if (feedback_timer_set_)
 	{
@@ -1041,6 +1113,12 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
         return;
     }
     {
+        /* Custom: the output gamepad starts its idle time again with its next controller. */
+        const int out = bt_output_idx(device);
+        if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS))
+            s_idle[out].valid = false;
+    }
+    {
         const uint32_t now = to_ms_since_boot(get_absolute_time());
         /* Custom: the last ready controller going away ends the session: freeze its summary
          * while the controller is still in it (it is stored before the reboot below). */
@@ -1241,6 +1319,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
                              device->product_id, static_cast<uint8_t>(device->controller_type), le,
                              device->conn.handle, device->conn.btaddr);
         s_diag_version_pending[idx] = true;
+        s_diag_tx_max_pending[idx] = true;
         diag::event(now, "slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
                     device->product_id, le ? "LE" : "Classic");
     }
@@ -1383,6 +1462,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         return;
     {
         const uint32_t now_cb = to_ms_since_boot(get_absolute_time());
+        idle_note_input(idx, uni_gp, now_cb);  // Custom: idle turn-off
         s_last_bt_input_ms[static_cast<unsigned>(idx)] = now_cb;
         if (bt_slot >= 0 && bt_slot < CONFIG_BLUEPAD32_MAX_DEVICES && bt_slot != idx)
             s_last_bt_input_ms[static_cast<unsigned>(bt_slot)] = now_cb;
@@ -1927,8 +2007,9 @@ static uint8_t count_bits(const uint8_t* map, unsigned bits)
     return n;
 }
 
-/* One HCI query per pass, rotating (remote version once per pad; then RSSI, channel map and
- * failed contacts), so diagnostics never crowd the command queue. */
+/* One HCI query per pass, rotating (remote version and maximum transmit power once per pad;
+ * then RSSI, channel map, failed contacts and current transmit power), so diagnostics never
+ * crowd the command queue. */
 static void diag_query_links(uint32_t now_ms)
 {
     static uint32_t s_last_ms = 0;
@@ -1938,7 +2019,7 @@ static void diag_query_links(uint32_t now_ms)
     s_last_ms = now_ms;
     diag::searching(uni_bt_enable_new_connections_is_enabled());
     for (uint8_t n = 0; n < CONFIG_BLUEPAD32_MAX_DEVICES; ++n) {
-        const uint8_t i = static_cast<uint8_t>((s_step / 3 + n) % CONFIG_BLUEPAD32_MAX_DEVICES);
+        const uint8_t i = static_cast<uint8_t>((s_step / 4 + n) % CONFIG_BLUEPAD32_MAX_DEVICES);
         uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
         if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
             continue;
@@ -1954,14 +2035,24 @@ static void diag_query_links(uint32_t now_ms)
             hci_send_cmd(&hci_read_remote_version_information, h);
             return;
         }
-        switch (s_step++ % 3) {
+        if (s_diag_tx_max_pending[i]) {
+            s_diag_tx_max_pending[i] = false;
+            s_diag_tx_asked_max = true;
+            hci_send_cmd(&hci_read_transmit_power_level, h, 1);  // 1 = maximum
+            return;
+        }
+        switch (s_step++ % 4) {
             case 0: gap_read_rssi(h); break;
             case 1:
                 if (le) hci_send_cmd(&hci_le_read_channel_map, h);
                 else hci_send_cmd(&s_hci_read_afh_channel_map, h);
                 break;
-            default:
+            case 2:
                 if (!le) hci_send_cmd(&hci_read_failed_contact_counter, h);
+                break;
+            default:
+                s_diag_tx_asked_max = false;
+                hci_send_cmd(&hci_read_transmit_power_level, h, 0);  // 0 = current
                 break;
         }
         return;
@@ -2037,6 +2128,8 @@ static void diag_hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* pac
                 diag::channels(h, count_bits(&r[3], 37), 37);  // status, handle, map[5]
             else if (op == hci_read_failed_contact_counter.opcode)
                 diag::failed_contacts(h, little_endian_read_16(r, 3));
+            else if (op == hci_read_transmit_power_level.opcode)
+                diag::tx_power(h, s_diag_tx_asked_max, static_cast<int8_t>(r[3]));  // status, handle, level
             break;
         }
         case GAP_EVENT_RSSI_MEASUREMENT:
@@ -2089,6 +2182,11 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
         diag::slot_counter(static_cast<size_t>(slot), report[9] >> 2, 6);
     else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len >= 9)
         diag::slot_counter(static_cast<size_t>(slot), report[8], 8);
+    /* Switch pads: the timer in byte 1 of the standard report 0x30, which moves by a few counts
+     * per report (learnt). */
+    else if ((d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+              d->controller_type == CONTROLLER_TYPE_SwitchProController) && report[0] == 0x30 && len >= 2)
+        diag::slot_counter(static_cast<size_t>(slot), report[1], 8, 0);
 }
 
 extern "C" void uni_diag_on_device_information(const uint8_t* packet, uint16_t size)

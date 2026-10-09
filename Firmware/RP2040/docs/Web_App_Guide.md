@@ -39,8 +39,10 @@ With the controller connected to the adapter:
 | Late | Share of reports that arrived more than twice the usual interval after the previous one (last 5-10 s) |
 | Lost | Reports the controller numbered but the adapter never got (DualShock 4 and DualSense, which count their reports) |
 | Largest gap | Longest time without a report in the last 5-10 s |
-| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range) and the radio channels in use |
+| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range), the radio channels in use, and the adapter's transmit power on the link (current / maximum) |
 | Connected | Time since the controller connected |
+
+Lost works for the DualShock 4, the DualSense and Switch pads (Joy-Con, Pro Controller), which number their reports. Any stretch of 60 ms or more without input is also listed in the report's events ("no input for X ms").
 
 As a guide, a DualShock 4 over Bluetooth next to the adapter shows about 250 reports/s, under 1 % late and lost, and a largest gap under 30 ms. Gaps of 100 ms or more are felt as stutter in a game. High late / lost values usually come from distance, obstacles or 2.4 GHz interference (Wi-Fi, other wireless devices), a low battery, or the adapter searching for new controllers (shown above the table).
 

@@ -86,6 +86,8 @@ struct Link {
     uint8_t channels_used, channels_total;  // 0 total = unknown
     bool failed_valid;
     uint16_t failed_contacts;
+    bool tx_valid, tx_max_valid;
+    int8_t tx_dbm, tx_max_dbm;
     bool mode_known;
     uint8_t mode;              // 0 active, 1 hold, 2 sniff, 3 park
     uint16_t sniff_interval;   // 0.625 ms slots
@@ -107,7 +109,13 @@ struct Slot {
     // Controller's own counter.
     bool counter_seen;
     uint32_t counter_last, counter_received, counter_lost, counter_steps, counter_big_steps;
-    uint32_t counter_step_hist[5];  // steps of 1, 2, 3, 4, 5 or more
+    uint32_t counter_step_hist[5];  // steps of 1, 2, 3, 4, 5 or more (in units)
+    uint8_t counter_unit;           // counter values per report; 0 while learning it
+    uint8_t counter_learn[8];       // steps of 1-8 seen while learning
+    uint8_t counter_learnt;
+    // Gap events: last one logged, and gaps since then not logged
+    uint32_t gap_event_ms;
+    uint32_t gaps_unlogged;
     Link link;
 };
 
@@ -344,6 +352,8 @@ void write_link(Writer& w, const Link& l, bool le)
     if (l.rssi_valid) w.raw(le ? ",\"rssi_dbm\":%d" : ",\"rssi_golden_range_db\":%d", l.rssi);
     if (l.channels_total) w.raw(",\"channels_in_use\":%u,\"channels_total\":%u", l.channels_used, l.channels_total);
     if (l.failed_valid) w.raw(",\"failed_contacts\":%u", l.failed_contacts);
+    if (l.tx_valid) w.raw(",\"tx_power_dbm\":%d", l.tx_dbm);
+    if (l.tx_max_valid) w.raw(",\"tx_power_max_dbm\":%d", l.tx_max_dbm);
     if (l.mode_known) {
         static const char* const kModes[] = {"active", "hold", "sniff", "park"};
         w.key_str("link_mode", l.mode < 4 ? kModes[l.mode] : "?");
@@ -484,11 +494,33 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
 void slot_report(size_t slot, uint32_t now_ms)
 {
     if (slot >= kSlots) return;
-    Lock l;
-    if (s_slots[slot].active) s_slots[slot].timing.report(now_ms);
+    uint32_t gap = 0, unlogged = 0;
+    {
+        Lock l;
+        Slot& s = s_slots[slot];
+        if (!s.active) return;
+        if (s.timing.reports > 0 && now_ms - s.timing.last_report_ms >= kGapEventMs) {
+            if (s.gap_event_ms == 0 || now_ms - s.gap_event_ms >= kGapEventEveryMs) {
+                gap = now_ms - s.timing.last_report_ms;
+                unlogged = s.gaps_unlogged;
+                s.gap_event_ms = now_ms;
+                s.gaps_unlogged = 0;
+            } else {
+                ++s.gaps_unlogged;
+            }
+        }
+        s.timing.report(now_ms);
+    }
+    if (gap) {  // event() takes the lock itself
+        if (unlogged)
+            event(now_ms, "slot %u: no input for %lu ms (and %lu shorter gaps before)", static_cast<unsigned>(slot),
+                  static_cast<unsigned long>(gap), static_cast<unsigned long>(unlogged));
+        else
+            event(now_ms, "slot %u: no input for %lu ms", static_cast<unsigned>(slot), static_cast<unsigned long>(gap));
+    }
 }
 
-void slot_counter(size_t slot, uint32_t value, uint8_t bits)
+void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 {
     if (slot >= kSlots || bits == 0 || bits > 31) return;
     Lock l;
@@ -496,15 +528,30 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits)
     if (!s.active) return;
     const uint32_t mask = (1u << bits) - 1;
     value &= mask;
-    if (s.counter_seen) {
+    if (!s.counter_seen) {
+        s.counter_unit = unit;
+    } else {
         const uint32_t step = (value - s.counter_last) & mask;
         if (step == 0) return;  // repeated report
-        ++s.counter_steps;
         if (step >= (mask + 1) / 2) {
+            ++s.counter_steps;
             ++s.counter_big_steps;
+        } else if (s.counter_unit == 0) {
+            // Learning how far the counter moves per report: the most common step.
+            if (step <= sizeof(s.counter_learn)) ++s.counter_learn[step - 1];
+            if (++s.counter_learnt >= kCounterLearnSteps) {
+                uint8_t best = 0;
+                for (uint8_t i = 1; i < sizeof(s.counter_learn); ++i)
+                    if (s.counter_learn[i] > s.counter_learn[best]) best = i;
+                s.counter_unit = static_cast<uint8_t>(best + 1);
+            }
         } else {
-            s.counter_lost += step - 1;
-            ++s.counter_step_hist[step < 5 ? step - 1 : 4];
+            ++s.counter_steps;
+            const uint32_t reports = (step + s.counter_unit / 2) / s.counter_unit;  // reports it advanced
+            if (reports >= 1) {
+                s.counter_lost += reports - 1;
+                ++s.counter_step_hist[reports < 5 ? reports - 1 : 4];
+            }
         }
     }
     s.counter_seen = true;
@@ -597,6 +644,20 @@ void failed_contacts(uint16_t con_handle, uint16_t count)
     if (Link* k = link_for_handle(con_handle, false)) {
         k->failed_valid = true;
         k->failed_contacts = count;
+    }
+}
+
+void tx_power(uint16_t con_handle, bool maximum, int8_t dbm)
+{
+    Lock l;
+    if (Link* k = link_for_handle(con_handle, false)) {
+        if (maximum) {
+            k->tx_max_valid = true;
+            k->tx_max_dbm = dbm;
+        } else {
+            k->tx_valid = true;
+            k->tx_dbm = dbm;
+        }
     }
 }
 
@@ -944,6 +1005,7 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
                 for (uint32_t i = 1; i < 5; ++i)
                     if (s.counter_step_hist[i] > s.counter_step_hist[mode]) mode = i;
                 w.raw(",\"counter_usual_step\":\"%lu%s\"", static_cast<unsigned long>(mode + 1), mode == 4 ? "+" : "");
+                if (s.counter_unit > 1) w.raw(",\"counter_unit\":%u", s.counter_unit);
             } else {
                 w.raw(",\"lost_reports_pct\":null");
             }
