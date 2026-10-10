@@ -289,10 +289,10 @@ Only needed for **ESP32 + RP2040** hybrid setups. See diagrams under `Hardware/`
 **Required:**
 
 - **Git**, **Python 3**
-- **[ESP-IDF v5.1](https://docs.espressif.com/projects/esp-idf/en/v5.1/esp32/get-started/index.html)** (VS Code ESP-IDF extension can install the toolchain)
+- **[ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/get-started/index.html)** or newer, the version the Bluepad32 / BTstack submodules require (VS Code ESP-IDF extension can install the toolchain)
 - **esptool** (comes with ESP-IDF)
 
-Build with the ESP-IDF environment sourced, then build the ESP32 project for your board. CMake may copy BTstack files into the ESP-IDF `components` tree (required because BTstack is not an ESP-IDF component as a plain git checkout).
+Build with the ESP-IDF environment sourced: `cd Firmware/ESP32 && idf.py build`. BTstack's ESP-IDF port is used in place from the Bluepad32 submodule (`BTSTACK_ROOT` + `BTstack_project.cmake`, as in Bluepad32's `examples/esp32`).
 
 If you only need a normal Pico / Pico W adapter, **skip this section**.
 

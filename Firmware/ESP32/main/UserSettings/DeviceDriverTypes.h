@@ -2,6 +2,7 @@
 #define _DEVICE_DRIVER_TYPES_H_
 
 #include <cstdint>
+#include <string>
 
 enum class DeviceDriverType : uint8_t
 {
