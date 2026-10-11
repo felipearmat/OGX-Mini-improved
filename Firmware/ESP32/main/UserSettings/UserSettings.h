@@ -7,7 +7,7 @@
 #include "sdkconfig.h"
 #include "I2CDriver/I2CDriver.h"
 #include "UserSettings/UserProfile.h"
-#include "UserSettings/DeviceDriverTypes.h"
+#include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/NVSHelper.h"
 
 class UserSettings

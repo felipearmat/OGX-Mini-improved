@@ -16,39 +16,29 @@
 #include "Board/board_api.h"
 #include "Board/esp32_api.h"
 #include "Gamepad/Gamepad.h"
-#include "Gamepad/I2CWirePad.h"
+#include "I2C/Esp32Bridge.h"
 #include "TaskQueue/TaskQueue.h"
 
-enum class PacketID : uint8_t { 
-    UNKNOWN = 0, 
-    SET_PAD, 
-    GET_PAD, 
-    SET_DRIVER 
-};
+// Wire format shared with the ESP32 companion firmware: I2C/Esp32Bridge.h
+using Esp32Bridge::PacketID;
+using Esp32Bridge::PacketIn;
+using Esp32Bridge::PacketOut;
 
-#pragma pack(push, 1)
-struct PacketIn {
-    uint8_t             packet_len{sizeof(PacketIn)};
-    PacketID            packet_id{PacketID::SET_PAD};
-    uint8_t             index{0};
-    DeviceDriverType    device_type{DeviceDriverType::NONE};
-    I2CWirePadIn        pad_in{};
-    uint8_t             reserved[5]{0};
-};
-static_assert(sizeof(PacketIn) == 32, "i2c_driver_esp::PacketIn size mismatch");
-
-struct PacketOut {
-    uint8_t         packet_len{sizeof(PacketOut)};
-    PacketID        packet_id{PacketID::GET_PAD};
-    uint8_t         index{0};
-    Gamepad::PadOut pad_out{Gamepad::PadOut()};
-    uint8_t         reserved[3]{0};
-};
-static_assert(sizeof(PacketOut) == 8, "i2c_driver_esp::PacketOut size mismatch");
-#pragma pack(pop)
+static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
+    Gamepad::PadIn pad_in;
+    pad_in.dpad = packet.dpad;
+    pad_in.buttons = packet.buttons;
+    pad_in.trigger_l = packet.trigger_l;
+    pad_in.trigger_r = packet.trigger_r;
+    pad_in.joystick_lx = packet.joystick_lx;
+    pad_in.joystick_ly = packet.joystick_ly;
+    pad_in.joystick_rx = packet.joystick_rx;
+    pad_in.joystick_ry = packet.joystick_ry;
+    std::memcpy(pad_in.analog, packet.analog, sizeof(packet.analog));
+    return pad_in;
+}
 
 constexpr size_t  MAX_BUFFER_SIZE = std::max(sizeof(PacketOut), sizeof(PacketIn));
-constexpr uint8_t I2C_ADDR = 0x01;
 
 static Gamepad _gamepads[MAX_GAMEPADS];
 static bool _uart_bridge_mode = false;
@@ -74,17 +64,17 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             switch (packet_in.packet_id) {
                 case PacketID::SET_PAD:
                     if (packet_in.index < MAX_GAMEPADS) {
-                        _gamepads[packet_in.index].set_pad_in(i2c_pad_from_wire(packet_in.pad_in));
+                        _gamepads[packet_in.index].set_pad_in(pad_in_from_packet(packet_in));
                     }
                     break;
                 case PacketID::SET_DRIVER:
-                    if (packet_in.device_type != DeviceDriverType::NONE &&
-                        packet_in.device_type != current_device_type) {
+                    if (packet_in.device_driver != DeviceDriverType::NONE &&
+                        packet_in.device_driver != current_device_type) {
                         OGXM_LOG("I2C: Driver change detected.\n");
                         //Any writes to flash should be done on Core0
                         TaskQueue::Core0::queue_delayed_task(
                             TaskQueue::Core0::get_new_task_id(), 1000, false, 
-                            [new_device_type = packet_in.device_type] { 
+                            [new_device_type = packet_in.device_driver] { 
                                 UserSettings::get_instance().store_driver_type(new_device_type);
                             }
                         );
@@ -98,7 +88,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
         case I2C_SLAVE_REQUEST:
             if (packet_in.index < MAX_GAMEPADS) {
                 packet_out.index = packet_in.index;
-                packet_out.pad_out = _gamepads[packet_in.index].get_pad_out();
+                const Gamepad::PadOut pad_out = _gamepads[packet_in.index].get_pad_out();
+                packet_out.rumble_l = pad_out.rumble_l;
+                packet_out.rumble_r = pad_out.rumble_r;
             }
             i2c_write_raw_blocking( i2c, 
                                     reinterpret_cast<const uint8_t*>(&packet_out), 
@@ -119,7 +111,7 @@ static void core1_task() {
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
 
-    i2c_slave_init(I2C_PORT, I2C_ADDR, &slave_handler);
+    i2c_slave_init(I2C_PORT, Esp32Bridge::SLAVE_ADDR, &slave_handler);
 
     OGXM_LOG("I2C Driver initialized\n");
 

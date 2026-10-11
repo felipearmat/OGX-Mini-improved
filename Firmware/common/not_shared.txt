@@ -1,0 +1,17 @@
+# Files with the same name in the RP2040 (Firmware/RP2040/src) and ESP32 (Firmware/ESP32/main)
+# firmwares that are NOT in Firmware/common, each with the reason. Checked by
+# .github/scripts/check_shared_sources.py: a new name in both trees fails CI until the file
+# moves to Firmware/common or is listed here; an entry that no longer exists in both fails too.
+#
+# <file name>        <reason>
+
+main.cpp             platform entry point (pico-sdk / ESP-IDF app_main)
+board_api.h          platform layer: LEDs, reset, timing, flash / NVS
+board_api.cpp        platform layer: LEDs, reset, timing, flash / NVS
+ogxm_log.h           platform layer: UART / ESP-IDF logging behind the same OGXM_LOG macros
+btstack_config.h     BTstack configuration per port (CYW43 vs ESP32 controller)
+BLEServer.h          web app over BLE: diverged (pads in / init signature); unify in step 2
+BLEServer.cpp        web app over BLE: diverged (RP2040 has the newer commands); unify in step 2
+UserSettings.h       mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
+UserSettings.cpp     mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
+Gamepad.h            pad state per platform: RP2040 carries IMU / touchpad; shared bits in common/Gamepad/GamepadBits.h

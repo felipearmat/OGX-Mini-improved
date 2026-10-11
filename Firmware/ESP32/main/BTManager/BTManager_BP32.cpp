@@ -135,7 +135,7 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     std::tie(packet_in.joystick_lx, packet_in.joystick_ly) = mapper.scale_joystick_l<10>(uni_gp->axis_x, uni_gp->axis_y);
     std::tie(packet_in.joystick_rx, packet_in.joystick_ry) = mapper.scale_joystick_r<10>(uni_gp->axis_rx, uni_gp->axis_ry);
 
-    i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + 1 : 0x01, packet_in);
+    i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR, packet_in);
 
     std::memcpy(&prev_uni_gps[idx], uni_gp, sizeof(uni_gamepad_t));
 }

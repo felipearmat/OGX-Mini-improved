@@ -124,7 +124,7 @@ void BTManager::send_driver_type(DeviceDriverType driver_type)
         packet_in.packet_id = I2CDriver::PacketID::SET_DRIVER;
         packet_in.index = 0;
         packet_in.device_driver = driver_type;
-        i2c_driver_.write_packet(0x01, packet_in);
+        i2c_driver_.write_packet(Esp32Bridge::SLAVE_ADDR, packet_in);
     }
 }
 
@@ -203,7 +203,7 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
         fb_context.cb_reg.context = reinterpret_cast<void*>(&fb_context);
 
         //Register a read on i2c thread, with callback to send feedback on btstack thread
-        bt_manager.i2c_driver_.read_packet(I2CDriver::MULTI_SLAVE ? i + 1 : 0x01,
+        bt_manager.i2c_driver_.read_packet(I2CDriver::MULTI_SLAVE ? i + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR,
             [&fb_context](const I2CDriver::PacketOut& packet_out)
             {
                 fb_context.packet_out->store(packet_out);
@@ -243,7 +243,7 @@ void BTManager::manage_connection(uint8_t index, bool connected)
         I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
         packet_in.packet_id = I2CDriver::PacketID::SET_PAD;
         packet_in.index = index;
-        i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + 1 : 0x01, packet_in);
+        i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR, packet_in);
     }
 }
 

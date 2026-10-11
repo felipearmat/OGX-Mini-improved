@@ -1,4 +1,5 @@
-# OGX-Mini-improved CI: host unit tests + Pico 2 W firmware builds.
+# OGX-Mini-improved CI: shared-sources check, host unit tests, Pico 2 W firmware builds and the
+# ESP32 companion firmware (RP2040 boards: every OGXM_BOARD is built by build.yml).
 # Kept separate from the upstream build.yml so upstream merges stay conflict-free.
 # Runs on every pull request: a PR is ready to merge only when both jobs pass
 # (how to run the tests locally: docs/TESTING.md).
@@ -48,6 +49,58 @@ jobs:
           cmake -S Firmware/RP2040/tests -B build-tests -G Ninja
           cmake --build build-tests
           ctest --test-dir build-tests --output-on-failure
+
+  # Code used by more than one firmware lives once in Firmware/common (Firmware/common/README.md).
+  shared-sources:
+    name: Shared sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shared sources
+        run: python3 .github/scripts/check_shared_sources.py
+
+  # Bluetooth side of the RP2040 + ESP32 hybrid (OGXM_BOARD=ESP32_BLUEPAD32_I2C). Same Bluepad32
+  # submodule, patches and Firmware/common sources as the RP2040 builds, so a change that breaks
+  # the ESP32 fails here.
+  esp32-firmware:
+    name: Firmware (ESP32 companion)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: espressif/idf:v5.5.1
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout required submodules
+        run: |
+          git config --global --add safe.directory '*'
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --recursive --depth 1 \
+            Firmware/external/bluepad32 Firmware/external/libfixmath
+
+      - name: Build
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          cd Firmware/ESP32
+          idf.py build
+
+      # sdkconfig / dependencies.lock are committed for this ESP-IDF version: a build that
+      # rewrites them means they were not regenerated after a version or Kconfig change.
+      - name: Committed ESP-IDF config is current
+        run: git diff --exit-code -- Firmware/ESP32/sdkconfig Firmware/ESP32/dependencies.lock
+
+      - name: Collect binaries
+        run: |
+          mkdir -p out
+          cp Firmware/ESP32/build/*.bin Firmware/ESP32/build/flasher_args.json out/
+          cp Firmware/ESP32/build/bootloader/bootloader.bin Firmware/ESP32/build/partition_table/partition-table.bin out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: esp32-companion
+          path: out/*
 
   firmware:
     name: Firmware (${{ matrix.name }})

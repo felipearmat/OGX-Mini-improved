@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 
 set(FW_SRC ${CMAKE_CURRENT_LIST_DIR}/../src)
+set(FW_COMMON ${CMAKE_CURRENT_LIST_DIR}/../../common)
 set(EXTERNAL_DIR ${CMAKE_CURRENT_LIST_DIR}/../../external)
 set(MOCKS ${CMAKE_CURRENT_LIST_DIR}/mocks)
 
@@ -28,7 +29,7 @@ target_include_directories(fixmath PUBLIC ${EXTERNAL_DIR}/libfixmath)
 
 function(ogxm_add_test NAME)
     add_executable(${NAME} ${ARGN})
-    target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${MOCKS} ${FW_SRC})
+    target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${MOCKS} ${FW_SRC} ${FW_COMMON})
     add_test(NAME ${NAME} COMMAND ${NAME})
 endfunction()
 
@@ -36,6 +37,9 @@ ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_SRC}/Board/ModeIn
 
 ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
+
+# I2C link of the RP2040 + ESP32 hybrid: wire format shared by both firmwares (Firmware/common)
+ogxm_add_test(test_esp32_bridge test_esp32_bridge.cpp)
 
 ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
@@ -64,9 +68,9 @@ ogxm_add_test(test_sony_imu test_sony_imu.cpp)
 ogxm_add_test(test_sony_reports test_sony_reports.cpp)
 
 ogxm_add_test(test_gamepad_out test_gamepad_out.cpp
-    ${FW_SRC}/UserSettings/UserProfile.cpp
-    ${FW_SRC}/UserSettings/JoystickSettings.cpp
-    ${FW_SRC}/UserSettings/TriggerSettings.cpp)
+    ${FW_COMMON}/UserSettings/UserProfile.cpp
+    ${FW_COMMON}/UserSettings/JoystickSettings.cpp
+    ${FW_COMMON}/UserSettings/TriggerSettings.cpp)
 target_compile_definitions(test_gamepad_out PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_gamepad_out PRIVATE fixmath)
 
@@ -88,9 +92,9 @@ ogxm_add_test(test_device_reports test_device_reports.cpp
     ${DEV}/KBM/KBM.cpp
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp
-    ${FW_SRC}/UserSettings/UserProfile.cpp
-    ${FW_SRC}/UserSettings/JoystickSettings.cpp
-    ${FW_SRC}/UserSettings/TriggerSettings.cpp
+    ${FW_COMMON}/UserSettings/UserProfile.cpp
+    ${FW_COMMON}/UserSettings/JoystickSettings.cpp
+    ${FW_COMMON}/UserSettings/TriggerSettings.cpp
     ${FW_SRC}/UserSettings/DongleSettings.cpp
     ${FW_SRC}/Board/ReportedMac.cpp)
 target_include_directories(test_device_reports PRIVATE ${EXTERNAL_DIR}/tinyusb/src)
@@ -120,7 +124,7 @@ if (OGXM_HAVE_M32)
         ${BP32}/parser/uni_hid_parser_switch.c)
     target_include_directories(test_switch_parser PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${BP32}/include ${BP32}
-        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${FW_SRC})
+        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${FW_SRC} ${FW_COMMON})
     target_compile_definitions(test_switch_parser PRIVATE MAX_GAMEPADS=1 CONFIG_OGXM_BOARD_PI_PICO2W=1)
     target_compile_options(test_switch_parser PRIVATE -m32 -Wno-unused-parameter -Wno-sign-compare)
     target_link_options(test_switch_parser PRIVATE -m32)

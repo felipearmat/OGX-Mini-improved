@@ -10,11 +10,13 @@ idf_component_register(
         "BLEServer/BLEServer.cpp"
         "I2CDriver/I2CDriver.cpp"
         "UserSettings/UserSettings.cpp"
-        "UserSettings/UserProfile.cpp"
-        "UserSettings/TriggerSettings.cpp"
-        "UserSettings/JoystickSettings.cpp"
+        # Shared with the RP2040 firmware (Firmware/common/README.md)
+        "../../common/UserSettings/UserProfile.cpp"
+        "../../common/UserSettings/TriggerSettings.cpp"
+        "../../common/UserSettings/JoystickSettings.cpp"
     INCLUDE_DIRS 
         "."
+        "../../common"
     REQUIRES 
         bluepad32 
         btstack 

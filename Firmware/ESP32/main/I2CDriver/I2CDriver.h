@@ -8,7 +8,7 @@
 
 #include "sdkconfig.h"
 #include "RingBuffer.h"
-#include "UserSettings/DeviceDriverTypes.h"
+#include "I2C/Esp32Bridge.h"
 
 class I2CDriver 
 {
@@ -20,39 +20,11 @@ public:
         true;
 #endif
 
-    enum class PacketID : uint8_t { UNKNOWN = 0, SET_PAD, GET_PAD, SET_DRIVER };
+    // Wire format shared with the RP2040 firmware: I2C/Esp32Bridge.h
+    using PacketID = Esp32Bridge::PacketID;
+    using PacketIn = Esp32Bridge::PacketIn;
+    using PacketOut = Esp32Bridge::PacketOut;
     enum class PacketResp : uint8_t { OK = 1, ERROR };
-
-    #pragma pack(push, 1)
-    struct PacketIn
-    {
-        uint8_t packet_len{sizeof(PacketIn)};
-        PacketID packet_id{static_cast<uint8_t>(PacketID::SET_PAD)};
-        uint8_t index{0};
-        DeviceDriverType device_driver{DeviceDriverType::NONE};
-        uint8_t dpad{0};
-        uint16_t buttons{0};
-        uint8_t trigger_l{0};
-        uint8_t trigger_r{0};
-        int16_t joystick_lx{0};
-        int16_t joystick_ly{0};
-        int16_t joystick_rx{0};
-        int16_t joystick_ry{0};
-        std::array<uint8_t, 15> reserved1{0};
-    };
-    static_assert(sizeof(PacketIn) == 32, "PacketIn is misaligned");
-
-    struct PacketOut
-    {
-        uint8_t packet_len{0};
-        PacketID packet_id{0};
-        uint8_t index{0};
-        uint8_t rumble_l{0};
-        uint8_t rumble_r{0};
-        std::array<uint8_t, 3> reserved{0};
-    };
-    static_assert(sizeof(PacketOut) == 8, "PacketOut is misaligned");
-    #pragma pack(pop)
 
     I2CDriver() = default;
     ~I2CDriver();

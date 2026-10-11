@@ -6,7 +6,9 @@ every commit and PR: each one pins a bug that was found on hardware, so a failin
 bug is back.
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
-`host-tests`), together with the Pico 2 W firmware builds. A PR is only ready to merge when both
+`host-tests`), together with the Pico 2 W firmware builds, the ESP32 companion firmware build and
+the shared-sources check (`python3 .github/scripts/check_shared_sources.py`, see
+[Firmware/common/README.md](../Firmware/common/README.md)). A PR is only ready to merge when both
 jobs pass. Steps that hang or depend on the network (submodules, apt, Pico SDK, configure + build)
 are retried up to 5 times, each attempt under its own time limit (`.github/scripts/retry.sh`), so a
 stuck download does not cost a whole image.

@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SRC ${CMAKE_CURRENT_LIST_DIR}/src)
+# Sources shared with the ESP32 companion firmware (Firmware/common/README.md)
+set(COMMON ${CMAKE_CURRENT_LIST_DIR}/../common)
 set(EXTERNAL_DIR ${CMAKE_CURRENT_LIST_DIR}/../external)
 set(PICOSDK_VERSION_TAG "2.1.0")
 
@@ -60,9 +62,9 @@ set(SOURCES_BOARD
     ${SRC}/Board/board_api_private/board_api_usbh.cpp
     
     ${SRC}/UserSettings/UserSettings.cpp
-    ${SRC}/UserSettings/UserProfile.cpp
-    ${SRC}/UserSettings/JoystickSettings.cpp
-    ${SRC}/UserSettings/TriggerSettings.cpp
+    ${COMMON}/UserSettings/UserProfile.cpp
+    ${COMMON}/UserSettings/JoystickSettings.cpp
+    ${COMMON}/UserSettings/TriggerSettings.cpp
 
     ${SRC}/USBDevice/tud_callbacks.cpp
     ${SRC}/USBDevice/DeviceManager.cpp
@@ -679,6 +681,7 @@ pico_set_program_version(${FW_NAME} ${FW_VERSION})
 
 target_include_directories(${FW_NAME} PRIVATE 
     ${SRC}
+    ${COMMON}
     ${EXTERNAL_DIR}/libxsm3
 )
 target_compile_definitions(${FW_NAME} PRIVATE XSM3_NO_DEBUGGING=1 XSM3_EMBEDDED=1)
@@ -706,7 +709,7 @@ if(EN_BLUETOOTH)
     add_subdirectory(${BLUEPAD32_ROOT}/src/components/bluepad32 libbluepad32)
     # Propagate to bluepad32 sources (e.g. DS4 parser): CYW43-specific link + setup path
     target_compile_definitions(bluepad32 PRIVATE OGXM_BLUEPAD32_PICO_W=1)
-    target_include_directories(bluepad32 PRIVATE ${SRC})
+    target_include_directories(bluepad32 PRIVATE ${SRC} ${COMMON})
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_definitions(bluepad32 PRIVATE CONFIG_OGXM_DEBUG=1)
     endif()
