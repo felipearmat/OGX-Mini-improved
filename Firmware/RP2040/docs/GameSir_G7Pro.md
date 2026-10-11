@@ -63,6 +63,6 @@ so the controller finishes connecting properly.
 ## Reference
 
 - Host: `Firmware/RP2040/src/USBHost/HostDriver/GameSirG7Pro/`
-- Descriptors: `Firmware/RP2040/src/USBHost/Descriptors/GameSirG7Pro.h`
+- Descriptors: `Firmware/RP2040/src/Descriptors/GameSirG7Pro.h`
 - Wired list: [Wired_Controllers.md](Wired_Controllers.md)
-- Main README: [Supported devices](../../../README.md#supported-devices)
+- Main README: [Supported devices](../../../README.md#controllers)

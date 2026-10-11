@@ -14,8 +14,7 @@ Optional / advanced:
 
 | Target | When |
 |--------|------|
-| **ESP32 companion** (`Firmware/ESP32_*`, BlueRetro hybrid) | Only if you use an ESP32 + RP2040 hybrid board — needs **ESP-IDF** (see [ESP32](#esp32-companion-firmware-optional) below) |
-| **WebApp** submodule | Hosted separately; not required to compile firmware |
+| **ESP32 companion** (`Firmware/ESP32`, the Bluepad32 hybrid; `Firmware/ESP32_Blueretro` for the BlueRetro one) | Only if you use an ESP32 + RP2040 hybrid board — needs **ESP-IDF** (see [ESP32](#8-esp32-companion-firmware-optional) below) |
 
 ---
 
@@ -36,7 +35,7 @@ Install **all** of the following and ensure they are on your **PATH** (open a ne
 | Dependency | Notes |
 |------------|--------|
 | **Network access** (first configure) | CMake may fetch **picotool** / SDK helpers; submodules and pico-sdk are cloned from GitHub |
-| **Raspberry Pi Pico SDK 2.1.0** | Must exist as `Firmware/external/pico-sdk` **or** via `PICO_SDK_PATH` — see [§3](#3-pico-sdk-required-not-a-git-submodule) |
+| **Raspberry Pi Pico SDK 2.1.0** | Must exist as `Firmware/external/pico-sdk` **or** via `PICO_SDK_PATH` — see [§3](#3-pico-sdk-required--not-a-git-submodule) |
 | Disk space | Roughly **1–3+ GB** after submodules + SDK + build tree |
 
 Optional but useful:
@@ -139,7 +138,6 @@ Defined in `.gitmodules` (among others):
 | `Firmware/external/Pico-PIO-USB` | PIO USB host (Pico W host port, etc.) |
 | `Firmware/external/libfixmath` | Fixed-point math |
 | `Firmware/ESP32_Blueretro` | BlueRetro (ESP32 hybrid builds) |
-| `WebApp` | Web configuration UI sources |
 | `Tools/dump-dvd-kit` | Xbox DVD kit helper (not needed for normal firmware) |
 
 CMake also runs `git submodule update --init --recursive` for **bluepad32** and **tinyusb** during configure, but you should still initialize **everything** yourself so PIO-USB, libfixmath, and nested BTstack are present before the first build.
@@ -284,7 +282,7 @@ Wire USB–serial adapter **RX ← board TX**, common **GND**. Details: [Adding_
 
 ## 8. ESP32 companion firmware (optional)
 
-Only needed for **ESP32 + RP2040** hybrid setups. See diagrams under `Hardware/`.
+Only needed for **ESP32 + RP2040** hybrid setups. Wiring: [hardware/](../../../hardware/README.md#pi-pico--esp32).
 
 **Required:**
 
@@ -303,7 +301,7 @@ If you only need a normal Pico / Pico W adapter, **skip this section**.
 | Symptom | What to check |
 |---------|----------------|
 | `arm-none-eabi-gcc` not found | Install Arm GNU toolchain; restart terminal; verify PATH |
-| `pico_sdk_init.cmake` / SDK missing | Clone SDK **2.1.0** into `Firmware/external/pico-sdk` or set `PICO_SDK_PATH` ([§3](#3-pico-sdk-required-not-a-git-submodule)) |
+| `pico_sdk_init.cmake` / SDK missing | Clone SDK **2.1.0** into `Firmware/external/pico-sdk` or set `PICO_SDK_PATH` ([§3](#3-pico-sdk-required--not-a-git-submodule)) |
 | `compile_gatt.py` / BTstack missing | `git submodule update --init --recursive` (Bluepad32 nested submodule) |
 | Patch apply fatal error | Clean submodule and re-init; ensure you did not manually break `bluepad32` / `btstack` / `pico-sdk` trees |
 | CMake / Ninja not found | Install per [§1](#1-required-applications-rp2040--rp2350-firmware) |
@@ -330,7 +328,7 @@ Still stuck? Open an issue only after reading [Support_Issue_Requirements.md](Su
 | Document | Topic |
 |----------|--------|
 | [Firmware_Architecture.md](Firmware_Architecture.md) | Folder structure, runtime flow, host/device driver file checklists |
-| [README — Build](../../../README.md#build) | Short build overview / board list |
+| [README — Build](../../../README.md#building-from-source) | Short build overview / board list |
 | [Support_Issue_Requirements.md](Support_Issue_Requirements.md) | What to include if the build fails and you need help |
 | [Adding_Supported_Controllers.md](Adding_Supported_Controllers.md) | Debug UART when developing host drivers |
 | [Documentation index](README.md) | All firmware docs by category |

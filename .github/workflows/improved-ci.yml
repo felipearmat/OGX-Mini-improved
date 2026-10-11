@@ -1,7 +1,7 @@
-# OGX-Mini-improved CI: shared-sources check, host unit tests, Pico 2 W firmware builds and the
-# ESP32 companion firmware (RP2040 boards: every OGXM_BOARD is built by build.yml).
+# OGX-Mini-improved CI: shared-sources and documentation checks, host unit tests, Pico 2 W firmware
+# builds and the ESP32 companion firmware (RP2040 boards: every OGXM_BOARD is built by build.yml).
 # Kept separate from the upstream build.yml so upstream merges stay conflict-free.
-# Runs on every pull request: a PR is ready to merge only when both jobs pass
+# Runs on every pull request: a PR is ready to merge only when every job passes
 # (how to run the tests locally: docs/TESTING.md).
 name: OGX-Mini-improved CI
 
@@ -59,6 +59,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check shared sources
         run: python3 .github/scripts/check_shared_sources.py
+
+  # The README's mode table is generated from the firmware source, and every relative link in the
+  # Markdown files must point to a tracked file and an existing heading (docs/TESTING.md).
+  docs:
+    name: Documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mode table matches the firmware
+        run: python3 .github/scripts/gen_docs_tables.py --check
+      - name: Links and anchors
+        run: python3 .github/scripts/check_doc_links.py
 
   # Bluetooth side of the RP2040 + ESP32 hybrid (OGXM_BOARD=ESP32_BLUEPAD32_I2C). Same Bluepad32
   # submodule, patches and Firmware/common sources as the RP2040 builds, so a change that breaks

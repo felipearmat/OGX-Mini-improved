@@ -4,13 +4,13 @@
 
 Issues that omit the details below **may be closed without investigation**, or **support may be delayed** until the missing information is provided. Incomplete reports force guesswork; maintainer time is limited and reserved for reproducible, in-scope problems.
 
-Also read the [Support policy](../../../README.md#support-policy) in the main README. Out-of-scope boards or third-party controllers without donated/shipped hardware are routinely closed as out of scope even when details are complete.
+Also read the [Support policy](../../../README.md#getting-help-and-support) in the main README. Out-of-scope boards or third-party controllers without donated/shipped hardware are routinely closed as out of scope even when details are complete.
 
 **Related**
 
 | Topic | Document |
 |-------|----------|
-| Support policy (controllers / boards) | [README — Support policy](../../../README.md#support-policy) |
+| Support policy (controllers / boards) | [README — Support policy](../../../README.md#getting-help-and-support) |
 | Adding a controller yourself | [Adding_Supported_Controllers.md](Adding_Supported_Controllers.md) |
 | Wired pad lists | [Wired_Controllers.md](Wired_Controllers.md) |
 | Flydigi APEX 4 Wukong (modes / limitations) | [Flydigi_APEX4_Wukong.md](Flydigi_APEX4_Wukong.md) |
@@ -37,7 +37,7 @@ Providing everything in the first post is the fastest path to a useful reply.
 
 ## Before you open an issue
 
-1. Confirm your **board** and **controller** are in scope under [Support policy](../../../README.md#support-policy).
+1. Confirm your **board** and **controller** are in scope under [Support policy](../../../README.md#getting-help-and-support).
 2. Check [open and closed issues](https://github.com/MegaCadeDev/OGX-Mini-2026/issues) for duplicates.
 3. Try a **known-good** path if possible (e.g. another first-party pad, Release build, default output mode).
 4. If you can fix it yourself (especially on non-maintainer boards), prefer a **pull request** over an issue asking for untested work.
@@ -154,7 +154,7 @@ If the pad is wireless on Pico W / Pico 2 W / RP2354:
 ## Feature requests / new board or controller support
 
 - State whether you can **test a PR** yourself.  
-- For maintainer-led work on unsupported hardware: confirm [Support policy](../../../README.md#support-policy) (donation earmarked for purchase, or shipping agreement).  
+- For maintainer-led work on unsupported hardware: confirm [Support policy](../../../README.md#getting-help-and-support) (donation earmarked for purchase, or shipping agreement).  
 - Prefer implementing it and opening a **pull request** — see [Adding_Supported_Controllers.md](Adding_Supported_Controllers.md).
 
 Issues that only say “please add X” with no hardware path and no PR are often closed.

@@ -3,7 +3,7 @@
 Improvements and fixes applied to the OGX-Mini RP2040 firmware in this project.
 
 **Unreleased / fork changes:**
-- **Xbox 360 / XInput - multiple physical adapters:** Per-device USB and XSM3 identity derived from the Pico unique board ID allows multiple OGX-Mini adapters running the same firmware image to enumerate as independent Xbox 360 controllers. See [§ XInput / Xbox 360 - per-device USB/XSM3 identity](#xinput--xbox-360--per-device-usbxsm3-identity).
+- **Xbox 360 / XInput - multiple physical adapters:** Per-device USB and XSM3 identity derived from the Pico unique board ID allows multiple OGX-Mini adapters running the same firmware image to enumerate as independent Xbox 360 controllers. See [§ XInput / Xbox 360 - per-device USB/XSM3 identity](#xinput--xbox-360---per-device-usbxsm3-identity).
 
 **Version:** From **v1.0.0a3** the version was bumped to **v1.0.0a4** to reflect Wii U controller fixes, Gamecube USB mode, PS3 driver fixes, latency improvements, and Xbox 360 (XInput) support (see below). **v1.0.0.8a+** documents **Pico W / Pico 2 W** work on **DualShock 4 (Classic Bluetooth)** vs **BLE advertising**, **BR inquiry**, and related BT stability (see *Pico W / Pico 2 W — DualShock 4 and Classic Bluetooth* below). **v1.0.0.10a** adds **Nintendo Switch 2** wireless support (**Pro 2** and **Joy-Con 2**) over **BLE**, **Switch 1 Joy-Con L+R merge**, and **Joy-Con dual-half latency fixes** (see *Nintendo Switch 2 — Bluetooth* and *Joy-Con pair merge — latency* below). **v1.0.0.11a** adds **PIO USB host wired connection fixes** — **Switch 1/2 Pro**, **DualShock 3**, **Xbox 360 wireless receiver**, and **Razer Atrox Xbox One** (`1532:0a00`) — validated on **Waveshare RP2350-USB-A**, plus **STEAM output mode** for **SteamOS / Bazzite** (see *STEAM mode* below). **v1.0.0.12a** adds **PS3 / PS4 motion passthrough**, **Bluetooth disconnect reboot**, **USB resume → restore BT pairing**, **XInput stock stick feel (#38)**, **Switch HD rumble passthrough**, **Switch 2 anti-deadzone / L3–R3 (#64)**, **RP2354 Bluetooth**, **STEAM touchpad-mouse-only**, **Steam Controller 2026 (Triton) BLE**, and **DualShock 3 USB → Bluetooth auto-pair restore** (sync feature **0xF5** after PIO USB wired init; see sections below).
 
@@ -134,7 +134,7 @@ Improvements and fixes applied to the OGX-Mini RP2040 firmware in this project.
 | **Uncap** | **Off** — clamp to circular radius like a stock pad |
 | **Override** | Any WebApp stick customization replaces these defaults |
 
-**Files:** `src/UserSettings/JoystickSettings.*`, `src/Gamepad/Gamepad.h`, board `initialize()` (`PicoW.cpp`, `Standard.cpp`, `Four_Channel_I2C.cpp`).
+**Files:** `Firmware/common/UserSettings/JoystickSettings.*`, `src/Gamepad/Gamepad.h`, board `initialize()` (`PicoW.cpp`, `Standard.cpp`, `Four_Channel_I2C.cpp`).
 
 ---
 
@@ -158,7 +158,7 @@ Improvements and fixes applied to the OGX-Mini RP2040 firmware in this project.
 
 **Problem:** Bluepad32's Switch parser (`switch_play_dual_rumble_now`) passed the requested 0-255 magnitude as a **frequency** argument to `switch_encode_rumble` and used a fixed amplitude (500), so intensity barely changed and the controller instead played different pitches.
 
-**Approach:** Mirror DS4Windows's `SwitchProDevice.PrepareRumbleData`: keep the frequency fixed (320 Hz, both bands) and map the requested magnitude onto the amplitude table (`rumble_amps`, the same dekuNukem table DS4Windows uses), capped at 800 of the table's max 1003 — the same safety margin DS4Windows applies.
+**Approach:** SDL's mapping (`SDL_hidapi_switch.c`, `HIDAPI_DriverSwitch_ActuallyRumbleJoystick`): both actuators get the same data — the weak magnitude sets the high-band amplitude and the strong one the low-band amplitude, both bands at about 150 Hz — and magnitudes map onto the full amplitude table (`rumble_amps`, 0..1003). A single Joy-Con has one actuator, so each side carries both magnitudes. (The first version mirrored DS4Windows: 320 Hz, capped at 800; replaced in 44f2190.)
 
 **Files:** `Firmware/external/patches/bluepad32_switch_rumble_intensity.diff` (applied to `src/components/bluepad32/parser/uni_hid_parser_switch.c`).
 
@@ -233,7 +233,7 @@ lsusb -v -d 054c:0ce6 2>/dev/null | grep -E "iProduct|bNumInterfaces|bEndpointAd
 sudo evtest   # select the mouse interface; drag touchpad for REL_X / REL_Y
 ```
 
-**Files:** `src/USBDevice/DeviceDriver/Steam/` (`Steam.cpp`, `SteamPassthrough.h`, `SteamBtReport.h`, `SteamTouchpad.cpp`), `src/Descriptors/PS5Usb.h`, `src/Descriptors/Steam.h`, `src/Bluepad32/Bluepad32.cpp`, `src/USBHost/HostDriver/PS5/PS5.cpp`, `WebApp/modules/userSettings.js` (mode label **SteamOS / Bazzite**).
+**Files:** `src/USBDevice/DeviceDriver/Steam/` (`Steam.cpp`, `SteamPassthrough.h`, `SteamBtReport.h`, `SteamTouchpad.cpp`), `src/Descriptors/PS5Usb.h`, `src/Descriptors/Steam.h`, `src/Bluepad32/Bluepad32.cpp`, `src/USBHost/HostDriver/PS5/PS5.cpp`, the web app's `modules/userSettings.js` in [OGX-Mini-improved-WebApp](https://github.com/felipearmat/OGX-Mini-improved-WebApp) (mode label **SteamOS / Bazzite**).
 
 ---
 
@@ -921,4 +921,4 @@ Moved to **[Planned_Additions.md](Planned_Additions.md)** (roadmap lists + Xbox 
 | **Bluetooth (Pico W / 2 W / RP2354)** | **DS4 / Classic ACL:** BLE advertising **paused** while Classic pad connected; **BR inquiry stopped** during ACL; **no DS4 virtual mouse**; **6 s PS4 rumble** grace. **Xbox Series / SCUF Instinct (BLE):** Just Works HOGP, seeded Report Map on CYW43, no stall disconnect when idle; keepalive 12 s. **v1.0.0.12a:** after last **ready** pad disconnects, restore pairing mode then **watchdog reboot** (~500 ms); **USB resume** + **45 s** idle scan watchdog restore pairing without reboot; **LE Secure Connections** for pads that require it (e.g. Triton); **Steam Controller 2026** HOGP parser. **Switch 2 (BLE):** Pro 2 + Joy-Con 2 L/R — custom GATT parser, rumble keepalive, Home latch, **L+R merge**, **dual-half latency fixes**. **Switch 1 Joy-Con (Classic BT):** L+R merge, IMU off when paired. **General:** `sleep_ms(1)` main loop; lock-free BT pad-in (**2-slot** staging for Joy-Con pairs). **v1.0.0.9a:** ~**1 s connection rumble** at `device_ready` (DS4 delayed start). |
 | **PIO USB host (Pico W)** | **Wired unplug:** Debounced combo of **HCD connect**, **`tuh_mounted` over all device addresses**, and **no `process_report` / setup activity** (~**3 s**) so disconnect registers when D+/D− line state is wrong under PIO; **`tuh_deinit`** + restore GPIO line IRQs + BT release. **v1.0.0.11a (all PIO host boards):** **`pio_usb_host_frame()`** after feedback OUT; wired **Switch Pro / PS3 / 360 receiver / Razer Atrox XBO** connection fixes — see [§ PIO USB host — wired connection fixes](#pio-usb-host--wired-connection-fixes-waveshare-rp2350-usb-a). |
 | **DS3 + Bluetooth** | **USB auto-pair:** After sync **0xF4** + LED, **feature `0xF5`** programs the **DS3** with the adapter’s **BD_ADDR** (`CONFIG_EN_BLUETOOTH`); deferred if BT address not ready. **v1.0.0.12a:** restored after PIO USB wired-init regression (sync SET, no F2 chain). See [§ DualShock 3 — automatic USB programming for Bluetooth pairing](#dualshock-3--automatic-usb-programming-for-bluetooth-pairing). |
-| **Multi-adapter (same console)** | **Known limitation:** Two OGX-Mini units plugged into the **same** console usually collide — identical **VID/PID**, shared USB serial (e.g. XInput `"1.0"`), and on **Xbox 360** the same **XSM3 ID**. Workarounds without firmware changes: **one OGX + one native/other-brand pad**, or a **single multi-port** host (e.g. 360 wireless receiver). Unique per-unit identity is not implemented yet. |
+| **Multi-adapter (same console)** | **Known limitation:** Two OGX-Mini units plugged into the **same** console usually collide — identical **VID/PID**, shared USB serial (e.g. XInput `"1.0"`), and on **Xbox 360** the same **XSM3 ID**. Workarounds without firmware changes: **one OGX + one native/other-brand pad**, or a **single multi-port** host (e.g. 360 wireless receiver). Unique per-unit identity is implemented for **XInput** only (USB serial and XSM3 ID from the board's unique ID, `XInput.cpp`); other modes still share VID/PID/serial. |

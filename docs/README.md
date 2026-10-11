@@ -1,18 +1,14 @@
-# Research & planning docs
+# Project docs
 
-These documents are **informational / planning** surveys. For day-to-day use (modes, mappings, support issues, adding controllers), start with the [firmware documentation index](../Firmware/RP2040/docs/README.md).
+Plans, process and status of this fork. For using the adapter (modes, controllers, hardware) start
+with the [main README](../README.md); every firmware guide is listed in the
+[firmware documentation index](../Firmware/RP2040/docs/README.md).
 
-| Document | Category | Description |
-|----------|----------|-------------|
-| [Input_Controllers_Research.md](Input_Controllers_Research.md) | Research | Current USB/BT input support and candidates to add |
-| [Flydigi APEX 4 Wukong (user reference)](../Firmware/RP2040/docs/Flydigi_APEX4_Wukong.md) | Reference | Tested wired + Bluetooth modes / limitations for APEX 4 Wukong |
-| [Wired_Retro_Controllers.md](Wired_Retro_Controllers.md) | Research | Wired retro controllers (GPIO/USB) — supported and possible |
-| [Other_Projects_Output_Modes.md](Other_Projects_Output_Modes.md) | Planning | Output modes in BlueRetro and similar projects not yet in OGX-Mini |
-| [Planned_Additions.md](../Firmware/RP2040/docs/Planned_Additions.md) | Roadmap | Planned features (original + fork) and researched projects |
-
-**Firmware guides & references:** [Firmware/RP2040/docs/README.md](../Firmware/RP2040/docs/README.md)  
-**Build from source:** [Building_From_Source.md](../Firmware/RP2040/docs/Building_From_Source.md)  
-**Unit tests (OGX-Mini-improved):** [TESTING.md](TESTING.md)  
-**Architecture / extending drivers:** [Firmware_Architecture.md](../Firmware/RP2040/docs/Firmware_Architecture.md)  
-**Project overview / build:** [README.md](../README.md)  
-**Release history:** [CHANGELOG.md](../CHANGELOG.md)
+| Document | What it is |
+|----------|------------|
+| [ROADMAP.md](ROADMAP.md) | What this fork plans to add, in priority order (turbo and macros first) |
+| [TODO.md](TODO.md) | Known bugs and loose ends of features that already exist |
+| [TESTING.md](TESTING.md) | Unit tests, the documentation checks and what CI runs |
+| [UPSTREAM.md](UPSTREAM.md) | Every fork commit and whether it was offered to MegaCadeDev/OGX-Mini-2026 |
+| [CHANGELOG.md](../CHANGELOG.md) | What changed, release by release |
+| [Planned additions](../Firmware/RP2040/docs/Planned_Additions.md) | The original project's wish list and researched projects (Xbox One / Series wireless dongle, more retro consoles) |

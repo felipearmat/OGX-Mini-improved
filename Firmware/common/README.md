@@ -20,7 +20,7 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 - **No platform headers** (pico-sdk, ESP-IDF, FreeRTOS, TinyUSB, BTstack). The one platform
   interface shared code may use is `Board/ogxm_log.h` (`OGXM_LOG`), which each firmware
   provides.
-- **Wire and storage values never move.** `tests/test_esp32_bridge.cpp` pins the I2C layout,
+- **Wire and storage values never move.** `Firmware/RP2040/tests/test_esp32_bridge.cpp` pins the I2C layout,
   the mode IDs and the button bits; add new IDs at the end.
 - **A file with the same name in both firmwares** is either moved here or listed in
   [`not_shared.txt`](not_shared.txt) with the reason.
@@ -28,6 +28,7 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 ## Checks (CI: `.github/workflows/improved-ci.yml`)
 
 - `python3 .github/scripts/check_shared_sources.py` — the rules above (duplicates, stale
-  `not_shared.txt` entries, shadowed files, platform headers).
+  `not_shared.txt` entries, shadowed files, platform headers) and `#include` paths whose upper /
+  lower case doesn't match the file (they build on macOS / Windows, not on Linux).
 - Unit tests (`Firmware/RP2040/tests`), including `test_esp32_bridge`.
 - Firmware builds of every `OGXM_BOARD` and of the ESP32 companion (ESP-IDF 5.5).

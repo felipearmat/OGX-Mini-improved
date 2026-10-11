@@ -1,6 +1,7 @@
 # TODO / technical debt
 
-Known issues in this fork, to fix later.
+Known issues and loose ends of features that already exist, to fix later. New features and
+the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Motion
 
@@ -69,6 +70,8 @@ Known issues in this fork, to fix later.
   A solo Joy-Con (L) was not checked. Look at how the merged pair builds its
   buttons in the Switch parser (the Capture bit comes from the left Joy-Con)
   and at the mapping to `SwitchPro::Btn::CAPTURE`.
+  Probably fixed by a1e3d7c (Switch Capture now feeds the Misc button, which Switch Pro mode
+  sends as Capture); confirm on hardware with a pair and with a solo left Joy-Con, then remove.
 
 ## Debug builds
 
@@ -77,30 +80,3 @@ Known issues in this fork, to fix later.
   own mutex) collides with Bluepad32's banner/printf (core 1): both stop mid-line and the
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
   every printf, or a ring buffer drained by one core).
-
-## Features for a later version
-
-- **Build and test the RP2040 + ESP32 hardware (`ESP32_BLUEPAD32_I2C`).** Assemble the hybrid
-  (RP2040 for USB, an original ESP32 running Bluepad32 over I2C — the ESP32-S3 / C3 / C6 have no
-  Bluetooth Classic, which Joy-Cons and DS4 need) to widen the hardware tested here. Prefer an
-  ESP32 module with a u.FL connector (ESP32-WROOM-32U / WROVER-IE) and an external 2.4 GHz
-  antenna: the Pico 2 W's on-module antenna has little margin when the body is between the
-  controller and the adapter (2026-10-09, Joy-Con pair, adapter behind the PC). ESP-IDF can also
-  raise the Classic transmit power (`esp_bredr_tx_power_set`, up to +9 dBm; default max +3).
-  Compare against the Pico 2 W with the diagnostics report (signal, failed contacts, lost
-  reports, input gaps). Note: the Bluetooth features of `Bluepad32.cpp` here (search policy,
-  diagnostics, idle turn-off) run on the Pico W; on the hybrid Bluepad32 runs on the ESP32.
-
-- **Mouse + Keyboard mode: motion (gyro) as pointer.** Turn the pad to move the pointer (Joy-Con,
-  DS4, DualSense, Switch Pro), as an option in the web app next to the touchpad one. Left out of
-  the first version (decided 2026-10-02): needs the axis signs checked per pad type on hardware
-  (`MotionImu::remap_to_ds4_playing_frame` gives the DS4 playing frame; yaw = pointer X, pitch =
-  pointer Y), a drift deadband and a speed setting. The settings record has 5 reserved bytes and
-  flag bit 0x02 free for it.
-
-## Protocol completeness (from the 2026-09-30 reference review)
-
-- Switch Pro output: subcommands 0x50 (battery voltage) and 0x43 (read IMU registers) are
-  only acked; GP2040-CE answers them with data (0xD0 / 0xC0 replies).
-- STEAM output: DualSense firmware info (0x20) is synthetic; inputtino returns a real
-  controller's dump. Consider using real values.

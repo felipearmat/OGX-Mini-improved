@@ -4,7 +4,7 @@ Work that is **not implemented** (or only partially done) in current firmware. L
 
 These are **not** commitments or a schedule. Items marked ~~struck~~ are already done in this fork.
 
-**Related:** [IMPROVEMENTS.md](IMPROVEMENTS.md) (what *is* implemented), [Other_Projects_Output_Modes.md](../../../docs/Other_Projects_Output_Modes.md) (modes in other projects), [Support policy](../../../README.md#support-policy).
+**Related:** [ROADMAP.md](../../../docs/ROADMAP.md) (this fork's plan, in priority order), [IMPROVEMENTS.md](IMPROVEMENTS.md) (what *is* implemented), [Support](../../../README.md#getting-help-and-support).
 
 ---
 
@@ -23,7 +23,9 @@ These are **not** commitments or a schedule. Items marked ~~struck~~ are already
 
 ---
 
-## For this fork
+## Retro and console outputs
+
+This fork's own priorities (turbo, macros, native mode, several controllers, Bluetooth output) are in [ROADMAP.md](../../../docs/ROADMAP.md).
 
 - **Web app bindings for OG Xbox mode** — Allow users to rebind the Guide tap (Start) and the IGR/shutdown hold combos (e.g. which button triggers 1 s soft IGR or 3 s shutdown) via the web app.
 - Output to the following consoles:
@@ -35,8 +37,8 @@ These are **not** commitments or a schedule. Items marked ~~struck~~ are already
   - Genesis
   - Master System
   - Sega Saturn
-  - ~~PS4/PS5~~ (PS4 USB output exists; retail console auth may still need a dongle — see [PS3_PS4_Motion_Controls.md](PS3_PS4_Motion_Controls.md) / STEAM DualSense path)
-  - ~~Xbox One~~ (needs an authentication dongle to work as a native Xbox One pad)
+  - PS4 / PS5 consoles — not planned: a PS4 needs a licensed authentication adapter in front of PS4 mode (see [PS3_PS4_Motion_Controls.md](PS3_PS4_Motion_Controls.md)); PS5 games need a PS5-licensed device ([ROADMAP — Not planned](../../../docs/ROADMAP.md#not-planned))
+  - Xbox One / Series consoles — not planned: not implemented, and they need a licensed authentication device ([ROADMAP — Not planned](../../../docs/ROADMAP.md#not-planned))
   - Atari
   - PS2 MultiTap
   - PS1 MultiTap

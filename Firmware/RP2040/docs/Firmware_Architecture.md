@@ -46,13 +46,14 @@ If you only remember one rule when extending the firmware: **always map into `Pa
 
 | Path | Role |
 |------|------|
-| `README.md` | User overview, support policy, platforms, short build notes |
+| `README.md` | What the adapter does, use cases, hardware, modes, controllers, support, short build notes |
 | `CHANGELOG.md` | Release notes |
 | `Firmware/` | All firmware + external deps |
-| `Hardware/` | PCB / wiring diagrams |
+| `hardware/` | PCB / wiring diagrams |
 | `scripts/` | `build.sh` / `build.ps1` interactive builds |
 | `Tools/controller_capture/` | Legacy PC capture scripts — **not accepted** for mapping submissions |
-| `docs/` | Research / planning surveys |
+| `docs/` | Roadmap, known issues, testing / CI, upstream tracking |
+| `.github/scripts/` | CI checks: shared sources, generated docs tables, documentation links |
 
 ### `Firmware/`
 
@@ -67,6 +68,7 @@ If you only remember one rule when extending the firmware: **always map into `Pa
 | `external/libxsm3` | Xbox 360 XSM3 authentication crypto (XInput **output**) |
 | `external/libfixmath` | Fixed-point math for stick curves / deadzones |
 | `external/patches/` | Diffs applied at CMake configure (Bluepad32 / BTstack / SDK) |
+| `common/` | Sources built by **both** the RP2040 and ESP32 firmwares (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings); see [common/README.md](../../common/README.md) |
 | `ESP32/` / `ESP32_Blueretro/` | Optional companion ESP32 firmwares (I2C hybrids) |
 | `RP2040/` | **Main** RP2040/RP2350 firmware |
 
@@ -80,11 +82,13 @@ If you only remember one rule when extending the firmware: **always map into `Pa
 | `USBHost/` | USB **input**: TinyUSB callbacks, `HostManager`, `HardwareIDs`, per-protocol `HostDriver/` |
 | `USBDevice/` | USB **output**: TinyUSB callbacks, `DeviceManager`, per-mode `DeviceDriver/` |
 | `Descriptors/` | Packed report structs / bit masks / descriptor bytes shared by host or device |
-| `Gamepad/` | `Gamepad`, **`PadIn` / `PadOut`**, stick/trigger scaling, profiles |
-| `UserSettings/` | Flash NVS: output mode, profiles, input source, button combos |
+| `Gamepad/` | `Gamepad`, **`PadIn` / `PadOut`**, motion (`MotionImu`), I2C wire pad of the 4-channel boards; button bits and range / fixed-point helpers are in `Firmware/common/Gamepad/` |
+| `UserSettings/` | Flash NVS: output mode, input source, button combos, dongle options; profile / stick / trigger settings are in `Firmware/common/UserSettings/` |
 | `Bluepad32/` | OGX platform glue: Bluepad32 events → `PadIn` |
 | `BLEServer/` | Web-app BLE GATT |
 | `TaskQueue/` | Deferred work between cores |
+| `Diagnostics/` | Per-controller link / input statistics, event log and crash record for the web app's log report |
+| `Input/` | Input slots: which physical controller feeds which output pad |
 | `Wii/` | Wiimote Bluetooth emulator (Wii **output** mode) |
 | `tusb_config.h` / `btstack_config.h` | TinyUSB / BTstack compile-time config |
 
@@ -214,7 +218,7 @@ Core0: device_driver->process(idx, gamepad)
 get_pad_in() → fill USB (or GPIO) report → tud_* / PIO
 ```
 
-`DeviceDriverType` enum: `USBDevice/DeviceDriver/DeviceDriverTypes.h`  
+`DeviceDriverType` enum: `Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h` (shared with the ESP32 firmware)  
 (`XINPUT`, `PS3`, `SWITCH`, `STEAM`, `PS4`, `XBOXOG`, GPIO modes, `WEBAPP`, …).
 
 Custom TinyUSB classes (examples): `tud_xinput/` (Xbox 360), `tud_xid/` (OG Xbox).
@@ -339,10 +343,10 @@ Different checklist — this is a new **console/PC identity**, not a new input p
 |---|------|------------|
 | 1 | **`src/Descriptors/MyOut.h`** (new) | Device / config / HID (or vendor) descriptor bytes + report structs |
 | 2 | **`src/USBDevice/DeviceDriver/MyOut/MyOut.h/.cpp`** (new) | Subclass `DeviceDriver`: `initialize`, `process`, descriptor callbacks |
-| 3 | **`src/USBDevice/DeviceDriver/DeviceDriverTypes.h`** | Add `DeviceDriverType::MY_OUT` |
+| 3 | **`Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h`** | Add `DeviceDriverType::MY_OUT` **at the end** (values cross the I2C link and sit in flash; `test_esp32_bridge` pins them), and a row in `MODE_INFO` of `.github/scripts/gen_docs_tables.py` (the README mode table is generated from it; CI fails without it) |
 | 4 | **`src/USBDevice/DeviceManager.cpp`** | `#include` + `case` → `std::make_unique<MyOutDevice>()` |
 | 5 | **`CMakeLists.txt`** | Add sources to the always-built `SOURCES_BOARD` device-driver list |
-| 6 | **`src/UserSettings/UserSettings.cpp`** | Add to `VALID_DRIVER_TYPES[]`; add combo in `BUTTON_COMBO_MAP` (unless fixed-build-only) |
+| 6 | **`src/UserSettings/UserSettings.cpp`** | Add to `VALID_DRIVER_TYPES[]`; add combo in `BUTTON_COMBO_MAP` (unless fixed-build-only); also `Firmware/ESP32/main/UserSettings/UserSettings.cpp` if the mode must be selectable by combo on the ESP32 hybrid |
 | 7 | **Custom TinyUSB class** (if needed) | New `tud_myout/` similar to `tud_xinput` / `tud_xid`, wired from your driver |
 | 8 | **`tud_callbacks.cpp`** | Only if the mode must opt out of class drivers (GPIO modes do this) |
 | 9 | **Board runners** | GPIO outputs may need Core1 entry / `gpio_device_mode` branches in `Standard.cpp` / `PicoW.cpp` |
@@ -415,7 +419,7 @@ Build walkthrough: [Building_From_Source.md](Building_From_Source.md).
 | Host VID/PID | `src/USBHost/HardwareIDs.h` |
 | Host types | `src/USBHost/HostDriver/HostDriverTypes.h` |
 | Device factory | `src/USBDevice/DeviceManager.cpp` |
-| Device types | `src/USBDevice/DeviceDriver/DeviceDriverTypes.h` |
+| Device types | `Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h` |
 | PadIn | `src/Gamepad/Gamepad.h` |
 | Mode combos / flash | `src/UserSettings/UserSettings.cpp` |
 | BT → PadIn | `src/Bluepad32/Bluepad32.cpp` |

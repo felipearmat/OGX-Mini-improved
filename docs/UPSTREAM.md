@@ -73,6 +73,9 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | f1f49e9 | PC wake: Switch / DInput / Wii U / PS Classic woke the PC on every loop while suspended; XInput / STEAM never woke it | todo | Bug fix (the first part is an upstream bug: the PC wakes right after suspending). `wake_host_on_press()` in DeviceDriver.h + udev rule in Tools/linux. Verified on hardware (Ally X). |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
+| 87431fb | ESP32 companion firmware did not build: ESP-IDF 5.5, BTstack port used in place, missing `<string>`; Switch setup patch reads the SPI address where the request is built | todo | Upstream bug (the hybrid can't be built there either). The Switch setup patch part goes with the Bluepad32 setup-robustness patch. |
+| 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | The ESP32 copies had drifted (no newer modes, analog buttons off by default). Offer together with 87431fb. |
+| 09f005a | ESP32: `#include` with the wrong case in `board_api.cpp` | todo | Upstream bug, fails on Linux only. One line; send with 87431fb. |
 
 ## Other projects
 
@@ -82,6 +85,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 
 ## Fork only (not for upstream)
 
-- `docs/TODO.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork section of `README.md` and fork notes in the docs.
+- `docs/TODO.md`, `docs/ROADMAP.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork's `README.md` (rewritten: use cases, hardware, generated mode table) and fork notes in the docs.
+- CI checks `.github/scripts/check_shared_sources.py`, `gen_docs_tables.py` and `check_doc_links.py` (could be offered with `Firmware/common` and a README that uses the generated table).
 - Removal of the `WebApp` submodule (points to the unmaintained wiredopposite web app; this fork uses OGX-Mini-improved-WebApp).
 - `.github/workflows/build.yml`: release job limited to the original repository (keeps the fork from publishing releases).

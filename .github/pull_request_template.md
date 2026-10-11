@@ -55,6 +55,6 @@
 
 ## Checklist
 
-- [ ] CI is green (unit tests and firmware builds)
+- [ ] CI is green (unit tests, shared-sources and documentation checks, Pico 2 W and ESP32 firmware builds)
 - [ ] Code, comments, commits and docs in English
 - [ ] No unrelated changes (formatting, submodule pointers, build files)

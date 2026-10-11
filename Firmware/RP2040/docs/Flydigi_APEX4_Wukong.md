@@ -155,5 +155,5 @@ Notes: Connects and otherwise functions correctly. Rear/back remappable buttons 
 ## Related docs
 
 - [Wired Controllers](Wired_Controllers.md) — wired USB lists
-- [Main README — Supported devices](../../../README.md#supported-devices)
+- [Main README — Supported devices](../../../README.md#controllers)
 - [Adding supported controllers](Adding_Supported_Controllers.md)
