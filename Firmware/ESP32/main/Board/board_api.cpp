@@ -4,7 +4,7 @@
 #include "freertos/semphr.h"
 
 #include "sdkconfig.h"
-#include "board/board_api.h"
+#include "Board/board_api.h"
 
 namespace board_api {
 

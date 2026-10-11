@@ -8,15 +8,19 @@ Fails when:
   3. a file in Firmware/common is shadowed by a file at the same include path in either
      firmware (the include path would pick one or the other);
   4. a file in Firmware/common includes a platform header (pico-sdk, ESP-IDF, FreeRTOS,
-     TinyUSB, BTstack): shared code must build for every board.
+     TinyUSB, BTstack): shared code must build for every board;
+  5. a quoted #include in either firmware or in Firmware/common names an existing file with
+     different upper / lower case: it builds on macOS / Windows, not on Linux (CI).
 
 Usage: check_shared_sources.py [repo root]   (default: the current directory)
 """
+import os
 import pathlib
 import re
 import sys
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".c", ".cpp"}
+QUOTED_INCLUDE = re.compile(r'#\s*include\s*"([^"]+)"')
 PLATFORM_INCLUDE = re.compile(
     r'#\s*include\s*[<"]\s*(pico/|hardware/|esp_|driver/|freertos/|nvs|sdkconfig\.h|tusb|'
     r'btstack|uni[_.]|bsp/)'
@@ -25,6 +29,29 @@ PLATFORM_INCLUDE = re.compile(
 
 def sources(root: pathlib.Path):
     return [p for p in root.rglob("*") if p.is_file() and p.suffix in SOURCE_SUFFIXES]
+
+
+def exists_exact_case(base: pathlib.Path, rel: str) -> bool:
+    path = base
+    for part in rel.split("/"):
+        if part not in (".", "..") and (not path.is_dir() or part not in os.listdir(path)):
+            return False
+        path = path / part
+    return path.exists()
+
+
+def case_mismatches(repo: pathlib.Path, tree: pathlib.Path, include_roots):
+    for path in sources(tree):
+        for number, text in enumerate(path.read_text(errors="replace").splitlines(), 1):
+            match = QUOTED_INCLUDE.search(text)
+            if not match:
+                continue
+            rel = match.group(1)
+            bases = [path.parent, *include_roots]
+            if any(exists_exact_case(b, rel) for b in bases):
+                continue
+            if any((b / rel).exists() for b in bases):  # found only ignoring case
+                yield f"{path.relative_to(repo)}:{number}: #include \"{rel}\" does not match the file name's case"
 
 
 def main() -> int:
@@ -63,6 +90,9 @@ def main() -> int:
         for number, text in enumerate(path.read_text(errors="replace").splitlines(), 1):
             if PLATFORM_INCLUDE.search(text):
                 errors.append(f"{path.relative_to(repo)}:{number}: platform header in shared code: {text.strip()}")
+
+    for tree in (rp_root, esp_root, common_root):
+        errors.extend(case_mismatches(repo, tree, [tree, common_root]))
 
     if errors:
         print("Shared sources check failed:")
