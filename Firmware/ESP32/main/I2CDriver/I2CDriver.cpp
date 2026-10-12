@@ -80,6 +80,14 @@ void I2CDriver::write_packet(uint8_t address, const PacketInExt& data_in)
     });
 }
 
+void I2CDriver::write_packet(uint8_t address, const PacketDiag& data_in)
+{
+    task_queue_.push([this, address, data_in]()
+    {
+        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketDiag));
+    });
+}
+
 void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback)
 {
     task_queue_.push([this, address, index, callback]()

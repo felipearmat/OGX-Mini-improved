@@ -17,7 +17,11 @@
  *    older RP2040 drops the unknown ID.
  *  - GET_EXT: the ESP32 writes a PacketIn with this ID, then reads a PacketOutExt (lightbar asked
  *    by the host, the dongle settings kept by the RP2040). The RP2040 answers it on the next read
- *    only; an older RP2040 answers with a PacketOut (GET_PAD), which the ESP32 ignores. */
+ *    only; an older RP2040 answers with a PacketOut (GET_PAD), which the ESP32 ignores.
+ *  - SET_DIAG (ESP32 -> RP2040, PacketDiag): what the Pico W path records in
+ *    Diagnostics/Diagnostics.h for its Bluetooth controllers, for the web app's report. SET_PAD
+ *    then goes out on every input report with the Bluetooth slot in PacketIn::bt_slot, so the
+ *    RP2040 measures the input timing. */
 namespace Esp32Bridge
 {
     // RP2040 slave address; with CONFIG_MULTI_SLAVE_MODE the ESP32 adds the pad index.
@@ -30,7 +34,8 @@ namespace Esp32Bridge
         GET_PAD,    // RP2040 -> ESP32: rumble (PacketOut, read after a PacketIn)
         SET_DRIVER, // ESP32 -> RP2040: mode change from a button combo (PacketIn.device_driver)
         SET_PAD_EXT,// ESP32 -> RP2040: motion / touchpad / battery (PacketInExt), after a SET_PAD
-        GET_EXT     // ESP32 -> RP2040 request, then the RP2040's PacketOutExt on the next read
+        GET_EXT,    // ESP32 -> RP2040 request, then the RP2040's PacketOutExt on the next read
+        SET_DIAG    // ESP32 -> RP2040: Bluetooth diagnostics for the web app's report (PacketDiag)
     };
 
     #pragma pack(push, 1)
@@ -49,12 +54,14 @@ namespace Esp32Bridge
         int16_t          joystick_rx{0};
         int16_t          joystick_ry{0};
         uint8_t          analog[10]{0};  // Gamepad ANALOG_OFF_* order; the ESP32 sends zeros
-        uint8_t          reserved[5]{0};
+        uint8_t          bt_slot{0};     // version 2: Bluetooth slot + 1 of this report (0 = none)
+        uint8_t          reserved[4]{0};
     };
     static_assert(sizeof(PacketIn) == 32, "Esp32Bridge::PacketIn must stay 32 bytes");
     static_assert(offsetof(PacketIn, dpad) == 4, "Esp32Bridge::PacketIn layout changed");
     static_assert(offsetof(PacketIn, joystick_ry) == 15, "Esp32Bridge::PacketIn layout changed");
     static_assert(offsetof(PacketIn, analog) == 17, "Esp32Bridge::PacketIn layout changed");
+    static_assert(offsetof(PacketIn, bt_slot) == 27, "Esp32Bridge::PacketIn layout changed");
 
     struct PacketOut
     {
@@ -109,6 +116,28 @@ namespace Esp32Bridge
     };
     static_assert(sizeof(PacketOutExt) == 25, "Esp32Bridge::PacketOutExt layout changed");
     static_assert(offsetof(PacketOutExt, settings) == 7, "Esp32Bridge::PacketOutExt layout changed");
+    struct PacketDiag
+    {
+        enum Kind : uint8_t
+        {
+            SLOT_NAME = 1,   // data: controller name, NUL-padded (sent before SLOT_READY)
+            SLOT_READY,      // data: vid, pid (LE 16-bit), controller type, LE link, handle, address[6]
+            SLOT_GONE,       // the slot's controller disconnected
+            BATTERY,         // data[0]: level, Bluepad32 scale (0 = unknown, 1..255)
+            EVENT,           // data[0]: 1 on the last part; data[1..]: text (an event in parts)
+            SEARCHING,       // data[0]: new controllers accepted
+        };
+        static constexpr size_t kData = 28;
+        static constexpr size_t kEventPart = kData - 1;
+
+        uint8_t  packet_len{sizeof(PacketDiag)};
+        PacketID packet_id{PacketID::SET_DIAG};
+        uint8_t  kind{0};
+        uint8_t  slot{0};
+        uint8_t  data[kData]{};
+    };
+    static_assert(sizeof(PacketDiag) == 32, "Esp32Bridge::PacketDiag must stay 32 bytes");
+    static_assert(offsetof(PacketDiag, data) == 4, "Esp32Bridge::PacketDiag layout changed");
     #pragma pack(pop)
 
     inline int16_t saturate_i16(int32_t v)

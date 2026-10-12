@@ -64,6 +64,7 @@ private:
         ComboHold combo;                // disconnect combo (Bluepad32/BtPad.h)
         bt_pad::KeepaliveState keepalive;
         Lightbar lightbar;              // last colour sent
+        uint8_t battery_sent{0};        // last battery level sent to the diagnostics
         btstack_timer_source_t mode_lightbar_timer;
     };
 
@@ -95,6 +96,7 @@ private:
     std::mutex ext_mutex_;
     FBContext ext_context_;
     bool motion_output_{false};
+    bool searching_sent_{false};
 
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;
@@ -114,6 +116,9 @@ private:
     void schedule_mode_lightbar(uni_hid_device_t* device, int slot);
     void schedule_disconnect_combo(uint8_t slot);
     void stop_search_feedback();
+    /* Diagnostics for the web app's report, kept by the RP2040 (I2C/Esp32Bridge.h SET_DIAG). */
+    void diag_send(uint8_t kind, uint8_t slot, const void* data, size_t len);
+    void diag_event(const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
     static uni_hid_device_t* get_connected_bp32_device(uint8_t slot);
     static void check_led_cb(btstack_timer_source *ts);

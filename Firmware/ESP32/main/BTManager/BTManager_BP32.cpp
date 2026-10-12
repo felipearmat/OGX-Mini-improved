@@ -80,6 +80,9 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     slot.keepalive = bt_pad::KeepaliveState{};
     slot.lightbar = Lightbar{};
     slot.host_rumble_ok_ms = 0;
+    slot.battery_sent = 0;
+    diag_send(I2CDriver::PacketDiag::SLOT_GONE, static_cast<uint8_t>(idx), nullptr, 0);
+    diag_event("slot %d disconnected", idx);
 
     if (output >= 0 && output < MAX_GAMEPADS)
     {
@@ -104,7 +107,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     }
     if (was_ready && !any_slot)
     {
-        OGXM_LOG("BP32: Last controller disconnected, restarting for a clean reconnect\n");
+        diag_event("last controller disconnected, restarting for a clean reconnect");
         restart_after_ms(bt_pad::kLastPadRebootDelayMs);
     }
 }
@@ -137,6 +140,25 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
     slot.lightbar = Lightbar{};
     const uint32_t grace_ms = bt_pad::host_rumble_grace_ms(device);
     slot.host_rumble_ok_ms = grace_ms ? now_ms + grace_ms : 0;
+    {
+        /* Diagnostics: the controller, as the Pico W path records it (Diagnostics.h). */
+        diag_send(I2CDriver::PacketDiag::SLOT_NAME, static_cast<uint8_t>(idx), device->name,
+                  strnlen(device->name, I2CDriver::PacketDiag::kData));
+        const bool le = gap_get_connection_type(device->conn.handle) == GAP_CONNECTION_LE;
+        uint8_t ready[16]{};
+        ready[0] = device->vendor_id & 0xFF;
+        ready[1] = device->vendor_id >> 8;
+        ready[2] = device->product_id & 0xFF;
+        ready[3] = device->product_id >> 8;
+        ready[4] = static_cast<uint8_t>(device->controller_type);
+        ready[5] = le ? 1 : 0;
+        ready[6] = device->conn.handle & 0xFF;
+        ready[7] = device->conn.handle >> 8;
+        std::memcpy(&ready[8], device->conn.btaddr, 6);
+        diag_send(I2CDriver::PacketDiag::SLOT_READY, static_cast<uint8_t>(idx), ready, sizeof(ready));
+        diag_event("slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
+                   device->product_id, le ? "LE" : "Classic");
+    }
     if (!outputs_[output].connected.exchange(true))
     {
         outputs_[output].idle.reset();
@@ -179,7 +201,6 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     if (slots_[idx].combo.update(bt_pad::disconnect_combo_pressed(bp_device, uni_gp), now_ms,
                                  bt_pad::kDisconnectComboHoldMs))
     {
-        OGXM_LOG("BP32: Disconnect combo detected, disconnecting controller %d\n", idx);
         schedule_disconnect_combo(static_cast<uint8_t>(idx));
         return;  // no further input from a pad that is going away
     }
@@ -210,6 +231,11 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         }
     }
     ext.battery = bp_device->controller.battery;
+    if (ext.battery != slots_[idx].battery_sent && ext.battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
+    {
+        slots_[idx].battery_sent = ext.battery;
+        diag_send(I2CDriver::PacketDiag::BATTERY, static_cast<uint8_t>(idx), &ext.battery, 1);
+    }
 
     I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
     packet_in.packet_id = I2CDriver::PacketID::SET_PAD;
@@ -222,15 +248,11 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     packet_in.joystick_ly = mapped.joystick_ly;
     packet_in.joystick_rx = mapped.joystick_rx;
     packet_in.joystick_ry = mapped.joystick_ry;
+    packet_in.bt_slot = static_cast<uint8_t>(idx + 1);
 
-    /* The RP2040 keeps the extension and applies it with the next SET_PAD, so a change of either
-     * sends both, extension first. */
-    const bool ext_changed = std::memcmp(&ext, &output.ext, sizeof(ext)) != 0;
-    if (!ext_changed && std::memcmp(&packet_in, &output.packet_in, sizeof(packet_in)) == 0)
-    {
-        return;  // nothing new for the RP2040
-    }
-    if (ext_changed)
+    /* SET_PAD goes out on every report (the RP2040 measures the input timing for the diagnostics
+     * from it); the extension only when it changed, before the SET_PAD that applies it. */
+    if (std::memcmp(&ext, &output.ext, sizeof(ext)) != 0)
     {
         output.ext = ext;
         i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), ext);

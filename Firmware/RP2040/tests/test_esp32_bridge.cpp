@@ -29,7 +29,8 @@ TEST(packet_in_layout) {
     CHECK_EQ(offsetof(PacketIn, joystick_rx), 13u);
     CHECK_EQ(offsetof(PacketIn, joystick_ry), 15u);
     CHECK_EQ(offsetof(PacketIn, analog), 17u);
-    CHECK_EQ(offsetof(PacketIn, reserved), 27u);
+    CHECK_EQ(offsetof(PacketIn, bt_slot), 27u);
+    CHECK_EQ(offsetof(PacketIn, reserved), 28u);
 }
 
 TEST(packet_out_layout) {
@@ -59,6 +60,7 @@ TEST(packet_ids_are_stable) {
     CHECK_EQ(static_cast<int>(PacketID::SET_DRIVER), 3);
     CHECK_EQ(static_cast<int>(PacketID::SET_PAD_EXT), 4);
     CHECK_EQ(static_cast<int>(PacketID::GET_EXT), 5);
+    CHECK_EQ(static_cast<int>(PacketID::SET_DIAG), 6);
 }
 
 TEST(packet_in_ext_layout) {
@@ -92,6 +94,22 @@ TEST(packet_out_ext_layout) {
     CHECK_EQ(ext.settings.version, 0);  // not sent: the ESP32 keeps its defaults
     CHECK_EQ(PacketOutExt::LIGHTBAR_VALID, 0x01);
     CHECK_EQ(PacketOutExt::MOTION_OUTPUT, 0x02);
+}
+
+TEST(packet_diag_layout) {
+    const PacketDiag diag;
+    CHECK_EQ(sizeof(PacketDiag), sizeof(PacketIn));
+    CHECK_EQ(diag.packet_len, sizeof(PacketDiag));
+    CHECK_EQ(static_cast<int>(diag.packet_id), static_cast<int>(PacketID::SET_DIAG));
+    CHECK_EQ(offsetof(PacketDiag, kind), 2u);
+    CHECK_EQ(offsetof(PacketDiag, slot), 3u);
+    CHECK_EQ(offsetof(PacketDiag, data), 4u);
+    CHECK_EQ(PacketDiag::SLOT_NAME, 1);
+    CHECK_EQ(PacketDiag::SLOT_READY, 2);
+    CHECK_EQ(PacketDiag::SLOT_GONE, 3);
+    CHECK_EQ(PacketDiag::BATTERY, 4);
+    CHECK_EQ(PacketDiag::EVENT, 5);
+    CHECK_EQ(PacketDiag::SEARCHING, 6);
 }
 
 TEST(motion_sources_are_stable) {

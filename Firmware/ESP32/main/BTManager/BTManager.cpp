@@ -2,6 +2,9 @@
 #include "btstack_run_loop.h"
 #include "btstack_stdio_esp32.h"
 #include "uni.h"
+#include <algorithm>
+#include <cstdarg>
+#include <cstdio>
 #include <esp_system.h>
 #include <esp_timer.h>
 
@@ -78,6 +81,38 @@ void BTManager::run_task()
     btstack_run_loop_execute();
 }
 
+void BTManager::diag_send(uint8_t kind, uint8_t slot, const void* data, size_t len)
+{
+    I2CDriver::PacketDiag packet;
+    packet.kind = kind;
+    packet.slot = slot;
+    std::memcpy(packet.data, data, len < sizeof(packet.data) ? len : sizeof(packet.data));
+    i2c_driver_.write_packet(Esp32Bridge::SLAVE_ADDR, packet);
+}
+
+/* An event line, also logged here; sent in parts (Diagnostics keeps kEventText characters). */
+void BTManager::diag_event(const char* fmt, ...)
+{
+    char text[72];
+    va_list args;
+    va_start(args, fmt);
+    std::vsnprintf(text, sizeof(text), fmt, args);
+    va_end(args);
+    OGXM_LOG("BP32: %s\n", text);
+
+    const size_t len = std::strlen(text);
+    size_t sent = 0;
+    do
+    {
+        uint8_t part[I2CDriver::PacketDiag::kData]{};
+        const size_t n = std::min(len - sent, I2CDriver::PacketDiag::kEventPart);
+        std::memcpy(&part[1], text + sent, n);
+        sent += n;
+        part[0] = sent >= len ? 1 : 0;
+        diag_send(I2CDriver::PacketDiag::EVENT, 0, part, sizeof(part));
+    } while (sent < len);
+}
+
 uint8_t BTManager::slave_addr(uint8_t output)
 {
     return I2CDriver::MULTI_SLAVE ? output + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR;
@@ -129,6 +164,16 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     static bool led_state = false;
     uint32_t next_ms = LED_CHECK_TIME_MS;
 
+    /* Whether new controllers are accepted, for the diagnostics (as the Pico W records it). */
+    BTManager& bt_manager = get_instance();
+    const bool searching = uni_bt_enable_new_connections_is_enabled();
+    if (searching != bt_manager.searching_sent_)
+    {
+        bt_manager.searching_sent_ = searching;
+        const uint8_t flag = searching ? 1 : 0;
+        bt_manager.diag_send(I2CDriver::PacketDiag::SEARCHING, 0, &flag, 1);
+    }
+
     if constexpr (board_api::NUM_LEDS == 1)
     {
         bool on = false;
@@ -138,7 +183,7 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
             board_api::set_led(on);
             next_ms = duration_ms;
         }
-        else if (uni_bt_enable_new_connections_is_enabled())
+        else if (get_instance().searching_sent_)
         {
             led_state = !led_state;
             board_api::set_led(led_state);
@@ -229,14 +274,14 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
             dongle_settings::get());
         if (result.stop_search)
         {
-            OGXM_LOG("BP32: Stop searching for new controllers\n");
+            bt_manager.diag_event("search for new controllers stopped from the controller");
             scan_control::request_stop();
             bt_manager.stop_search_feedback();
             bt_manager.apply_scan(false, false);
         }
         else if (result.new_driver != DeviceDriverType::NONE)
         {
-            OGXM_LOG("BP32: Driver change detected\n");
+            bt_manager.diag_event("mode changed by the button combo");
             settings.store_driver_type(result.new_driver);
             bt_manager.apply_profiles();
             mode_indicator::begin(result.new_driver);
@@ -400,7 +445,7 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
                                       ? get_connected_bp32_device(i) : nullptr;
             if (d)
             {
-                OGXM_LOG("BP32: slot %d: no input for %u min, turning it off\n", i, minutes);
+                bt_manager.diag_event("slot %d: no input for %u min, turning it off", i, minutes);
                 bt_pad::turn_off(d);
             }
         }
@@ -413,7 +458,7 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
 
 void BTManager::scan_event(uint32_t now_ms, const char* text)
 {
-    OGXM_LOG("BP32: %s\n", text);
+    get_instance().diag_event("%s", text);
 }
 
 void BTManager::apply_scan(bool pad_leaving, bool force)
@@ -525,8 +570,8 @@ void BTManager::disconnect_combo_timer_cb(btstack_timer_source *ts)
         bt_manager.send_neutral(static_cast<uint8_t>(output));
     }
 
-    OGXM_LOG("BP32: Disconnect combo: restart in %lu ms for a clean reconnect\n",
-             static_cast<unsigned long>(bt_pad::kComboRebootDelayMs));
+    bt_manager.diag_event("slot %d: disconnect combo, restart in %lu ms", slot,
+                          static_cast<unsigned long>(bt_pad::kComboRebootDelayMs));
     restart_after_ms(bt_pad::kComboRebootDelayMs);  // armed before touching the pad
     bt_pad::disconnect_with_partner(bp_device);
 }

@@ -19,6 +19,7 @@
 #include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
 #include "UserSettings/DongleSettings.h"
+#include "Diagnostics/Diagnostics.h"
 #include "USBDevice/DeviceDriver/MotionOutputActive.h"
 #include "TaskQueue/TaskQueue.h"
 
@@ -28,6 +29,7 @@ using Esp32Bridge::PacketIn;
 using Esp32Bridge::PacketOut;
 using Esp32Bridge::PacketInExt;
 using Esp32Bridge::PacketOutExt;
+using Esp32Bridge::PacketDiag;
 
 /* Motion, touchpad and battery of the ESP32's pads (SET_PAD_EXT), applied with the next SET_PAD;
  * the Wiimote's pseudo gyro keeps state per output. */
@@ -35,6 +37,54 @@ static PacketInExt _pad_ext[MAX_GAMEPADS];
 static MotionImu::WiiPseudoGyroState _wii_gyro[MAX_GAMEPADS];
 
 static Gamepad::Lightbar _gamepads_lightbar(uint8_t index);
+
+/* Bluetooth diagnostics from the ESP32 (SET_DIAG) into Diagnostics/Diagnostics.h, as the Pico W path
+ * records them, so the web app's report covers the hybrid's controllers too. */
+static void record_diag(const PacketDiag& diag) {
+    static char names[diag::kSlots][PacketDiag::kData + 1]{};
+    static char event[diag::kEventText]{};
+    static size_t event_len = 0;
+    const uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (diag.slot >= diag::kSlots)
+        return;
+    switch (diag.kind) {
+        case PacketDiag::SLOT_NAME:
+            std::memcpy(names[diag.slot], diag.data, PacketDiag::kData);
+            names[diag.slot][PacketDiag::kData] = '\0';
+            break;
+        case PacketDiag::SLOT_READY: {
+            const uint8_t* d = diag.data;
+            diag::slot_connected(diag.slot, now, names[diag.slot],
+                                 static_cast<uint16_t>(d[0] | (d[1] << 8)), static_cast<uint16_t>(d[2] | (d[3] << 8)),
+                                 d[4], d[5] != 0, static_cast<uint16_t>(d[6] | (d[7] << 8)), &d[8]);
+            break;
+        }
+        case PacketDiag::SLOT_GONE:
+            diag::slot_disconnected(diag.slot, now);
+            break;
+        case PacketDiag::BATTERY:
+            diag::slot_battery(diag.slot, diag.data[0]);
+            break;
+        case PacketDiag::EVENT: {
+            const size_t room = sizeof(event) - 1 - event_len;
+            size_t part = strnlen(reinterpret_cast<const char*>(&diag.data[1]), PacketDiag::kEventPart);
+            part = part < room ? part : room;
+            std::memcpy(event + event_len, &diag.data[1], part);
+            event_len += part;
+            if (diag.data[0]) {
+                event[event_len] = '\0';
+                diag::event(now, "%s", event);
+                event_len = 0;
+            }
+            break;
+        }
+        case PacketDiag::SEARCHING:
+            diag::searching(diag.data[0] != 0);
+            break;
+        default:
+            break;
+    }
+}
 
 static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
     Gamepad::PadIn pad_in;
@@ -121,7 +171,16 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     if (packet_in.index < MAX_GAMEPADS) {
                         _gamepads[packet_in.index].set_pad_in(pad_in_from_packet(packet_in));
                     }
+                    if (packet_in.bt_slot > 0 && packet_in.bt_slot <= diag::kSlots) {
+                        diag::slot_report(packet_in.bt_slot - 1u, to_ms_since_boot(get_absolute_time()));
+                    }
                     break;
+                case PacketID::SET_DIAG: {
+                    PacketDiag diag_packet;
+                    std::memcpy(&diag_packet, &packet_in, sizeof(diag_packet));
+                    record_diag(diag_packet);
+                    break;
+                }
                 case PacketID::SET_PAD_EXT: {
                     PacketInExt ext;
                     std::memcpy(&ext, &packet_in, sizeof(ext));

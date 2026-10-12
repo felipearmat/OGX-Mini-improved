@@ -26,6 +26,7 @@ public:
     using PacketOut = Esp32Bridge::PacketOut;
     using PacketInExt = Esp32Bridge::PacketInExt;
     using PacketOutExt = Esp32Bridge::PacketOutExt;
+    using PacketDiag = Esp32Bridge::PacketDiag;
     enum class PacketResp : uint8_t { OK = 1, ERROR };
 
     I2CDriver() = default;
@@ -39,6 +40,7 @@ public:
     void write_packet(uint8_t address, const PacketIn& data_in);
     void read_packet(uint8_t address, std::function<void(const PacketOut&)> callback);
     void write_packet(uint8_t address, const PacketInExt& data_in);
+    void write_packet(uint8_t address, const PacketDiag& data_in);
     /* GET_EXT request, then the RP2040's PacketOutExt (an older RP2040 answers a PacketOut,
      * which is dropped). */
     void read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback);
