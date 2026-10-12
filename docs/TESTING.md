@@ -3,7 +3,7 @@
 Host-side unit tests for the firmware logic this fork fixed or added. They build with the
 computer's own compiler (no Pico SDK, no board needed) and run in under a second. Run them before
 every commit and PR: each one pins a bug that was found on hardware, so a failing test means that
-bug is back.
+bug is back. Hardware checks for the RP2040 + ESP32 hybrid: [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md).
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
 `host-tests`), together with the Pico 2 W firmware builds, the ESP32 companion firmware build, the

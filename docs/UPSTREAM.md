@@ -32,6 +32,11 @@ output queue / SDL mapping), #138 (touchpad press / Capture).
    behaved differently from the Pico W path in many ways (see its row); one copy fixes them all.
    With the fix part of 7f8b279 (rumble timing, `RumbleTiming.h`).
 
+8. **Hybrid: the Pico W's Bluetooth features and one settings store** — 12c42cc, 1051821,
+   2e1dc89, b7ea46e (on top of 7): the rest of the Pico W path shared with the ESP32, I2C link
+   version 2, settings kept by the RP2040. Sent as fixes for the same reason as 6 and 7. After the
+   hardware test ([docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md)).
+
 The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
 then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so
 later fixes reach every board in one PR.
@@ -79,6 +84,7 @@ later fixes reach every board in one PR.
 | ff5b909 (ESP32 CMake part) | ESP32 component: `FWDefines.cmake` included from its own directory (`CMAKE_CURRENT_LIST_DIR`) | todo | A build directory outside `Firmware/ESP32` (`idf.py -B`) failed. One line; send with 87431fb. |
 | 7f8b279 (fix part) | Hybrid rumble: RP2040 sends the peak since the last read; ESP32 plays longer than its read period and holds DS4 rumble 6 s after connect | todo | Rumble was weak and choppy on the hybrid. The connection rumble in the same commit is a feature. Uses `RumbleTiming.h` in `Firmware/common` (offer after 9f6deb1, or inline the constants). |
 | 1a31468 (fix part) | Hybrid: Web App combo ignored by the ESP32 (missing from its valid modes); RP2040 side accepted GPIO modes that take the I2C pins | todo | Sent with 9f6deb1 (item 6 above): the shared combo table is the fix, both sides read the same modes. |
+| 12c42cc, 1051821, 2e1dc89, b7ea46e | Hybrid: search control, idle turn-off, combo check, lightbar, Joy-Con pairs, motion / touchpad / battery, diagnostics and settings over I2C (link version 2); the RP2040 keeps the settings | todo | Fixes the hybrid's split settings (a profile saved over Bluetooth applied at the next boot, a mode saved there never reaching the RP2040) and its missing Pico W features. Builds and unit tests; hardware test planned. |
 | 5945d2d | Shared Bluepad32 core (`Firmware/common/Bluepad32/BtPad.h`, `ScanPolicy.h`, `ComboHold.h`, `Gamepad/GamepadMapper.h`): the hybrid's ESP32 gets the Pico W path's behaviour; trigger settings kept when a profile is applied again | todo | Hybrid bugs fixed by it: rumble motors swapped; touchpad press not Misc, DualSense mute as Misc; stick shaping on the ESP32 had the bugs already fixed on the RP2040 (ellipse scale uninitialised, degrees for radians, wrong anti-deadzone field, no idle-noise gate); XInput stock stick feel and the Web App default mapping not applied; Wii U Pro digital triggers, Wiimote held sideways, Z as triggers, Nunchuk stick on the right stick; DS4 / DualSense "virtual mouse" slot accepted; no player LED; DualSense adaptive triggers left on; no disconnect combo; no reboot after the last pad disconnects; search for new controllers kept running next to the pad; no Xbox / Switch 2 BLE keepalives. Builds and unit tests; not yet on hardware. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)

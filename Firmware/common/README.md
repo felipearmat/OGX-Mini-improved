@@ -6,7 +6,7 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 
 | Path | What |
 |------|------|
-| `I2C/Esp32Bridge.h` | I2C wire format between the RP2040 and the ESP32 (packets, IDs, slave address) |
+| `I2C/Esp32Bridge.h` | I2C wire format between the RP2040 and the ESP32 (packets, IDs, slave address); version 2 adds motion / touchpad / battery, lightbar and settings, diagnostics, profiles |
 | `USBDevice/DeviceDriver/DeviceDriverTypes.h` | output mode IDs (cross the I2C link, stored in flash / NVS) |
 | `Gamepad/GamepadBits.h` | button / D-pad bits and analog offsets; both `Gamepad` types derive from it |
 | `Gamepad/Range.h`, `Gamepad/fix16ext.h` | range scaling and fixed-point helpers |
@@ -15,7 +15,13 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 | `UserSettings/ModeCombos.h` | output-mode button combos and the modes the RP2040 + ESP32 hybrid offers (the README mode table is generated from it) |
 | `UserSettings/UserProfile.*`, `JoystickSettings.*`, `TriggerSettings.*` | profile layout and stick / trigger shaping (the web app writes this layout) |
 | `Bluepad32/BtPad.h` | how a Bluetooth pad behaves, for every board that runs Bluepad32 (Pico W / Pico 2 W and the hybrid's ESP32): input mapping, rumble, connection setup, disconnect combo, BLE keepalives, reboot timing |
-| `Bluepad32/ScanPolicy.h`, `Bluepad32/ComboHold.h` | when to search for new controllers; a button combo held for a time |
+| `Bluepad32/ScanPolicy.h`, `Bluepad32/ScanControl.*` | when to search for new controllers, and applying it to Bluepad32 / BTstack |
+| `Bluepad32/ComboHold.h`, `Bluepad32/IdleOff.h`, `Bluepad32/IdleMotion.h` | the disconnect combo hold; turning an idle controller off (motion counts as use) |
+| `Bluepad32/JoyConSettings.*` | Joy-Con motion orientation and pair rumble (dongle options) |
+| `UserSettings/ComboCheck.h` | mode combos, Start + L3, a lone Joy-Con's stick as the D-pad, combos turned off in the web app |
+| `UserSettings/DongleSettings.*` | the dongle options (web app); on the hybrid the RP2040 sends them to the ESP32 |
+| `Board/ModeIndicator.*` | blink code and lightbar colour per output mode |
+| `Gamepad/Lightbar.h`, `Gamepad/MotionSource.h` | a lightbar colour; where a pad's motion comes from (crosses the I2C link) |
 
 The platform keeps only what differs: its time source, how it reboots, and where a pad's input
 goes (a local `Gamepad` on the Pico W, the I2C packet on the ESP32).

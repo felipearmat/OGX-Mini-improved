@@ -403,15 +403,17 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   For local multiplayer on an Xbox 360, use one adapter per player: each adapter gets its own
   USB / XSM3 identity from the board's unique ID. On other consoles two adapters share the same
   USB identity, so they may not show up as two players.
-- **RP2040 / Pico 2 + ESP32 hybrid** (tested on a bench with a Pico 2 W, an ESP32 and a
-  DualShock 4 on a PC: pairing, mode changes, buttons, rumble): the USB modes marked in the
-  [mode table](#output-modes) only (the GPIO modes would take over the I2C pins; Wii needs the Pico W
-  radio). Its I2C link carries no motion, battery or touchpad, so PS4 and STEAM modes work without
-  them. Stick deadzones and curves are applied on the ESP32 (edit them with the web app over
-  Bluetooth), button mappings on the Pico (web app over USB, Web App mode). The web app's
-  per-mode combo switches don't apply (the ESP32 reads the combos), and this fork's other
-  Bluetooth features (search policy, diagnostics, idle turn-off, Switch 2 and Steam Controller
-  2026 support) run on the Pico W radio only. Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
+- **RP2040 / Pico 2 + ESP32 hybrid** (first bench test with a Pico 2 W, an ESP32 and a
+  DualShock 4 on a PC; the features below are built and unit-tested, their hardware test is
+  [planned](docs/HYBRID_TEST_PLAN.md)): the USB modes marked in the [mode table](#output-modes)
+  only (the GPIO modes would take over the I2C pins; Wii needs the Pico W radio). The ESP32 runs
+  the same Bluetooth code as the Pico W (`Firmware/common/Bluepad32`): Joy-Con pairs, motion,
+  touchpad, battery, lightbar, combos, search policy, idle turn-off and the diagnostics report
+  reach the RP2040 over I2C, and the RP2040 keeps the settings (the web app over USB or over
+  Bluetooth edits the same ones). Not there yet: the link details in the diagnostics (signal,
+  channels), DualShock 3 USB pairing, the raw DualSense report in STEAM mode, and Switch 2 /
+  Steam Controller 2026 pads are untested on the original ESP32's Bluetooth LE 4.2.
+  Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
 - **Wii mode** takes a wired (USB) controller only; the radio is busy talking to the console.
 - **Bluetooth on the Pico W / Pico 2 W** uses the on-module antenna, which has little margin with
   your body between the controller and the adapter. Keep a line of sight or use a USB extension.
@@ -423,7 +425,7 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
 3. **Several controllers on one adapter** — up to 4 Bluetooth players, and a co-pilot mode
 4. **Bluetooth out where a system only takes Bluetooth** — Bluetooth controllers in Wii mode, Wii U
    Pro Controller, Apple TV
-5. **RP2040 + ESP32 hybrid** — hardware testing, ESP32-side features
+5. **RP2040 + ESP32 hybrid** — hardware testing of the features it now shares with the Pico W
 
 Details and status: [docs/ROADMAP.md](docs/ROADMAP.md). Known bugs: [docs/TODO.md](docs/TODO.md).
 

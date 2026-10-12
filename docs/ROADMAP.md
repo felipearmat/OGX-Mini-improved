@@ -81,17 +81,17 @@ build in CI and share their common code ([Firmware/common](../Firmware/common/RE
    report (signal, lost reports, input gaps). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
    raise the Classic transmit power to +9 dBm (`esp_bredr_tx_power_set`).
 2. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
-   - motion and battery over I2C (they fit in the packet's spare bytes), touchpad and the raw
-     DualSense report in a larger packet;
-   - ~~the newer mode combos~~ — done: one combo table and one hybrid mode list for both
-     firmwares (`Firmware/common/UserSettings/ModeCombos.h`); ~~connection rumble and rumble
-     timing~~ — done (`Firmware/common/Gamepad/RumbleTiming.h`);
-   - the web app's per-mode combo switches (dongle option on the Pico; the ESP32 reads the
-     combos), the mode lightbar colour (fits in the I2C packet's spare bytes), the disconnect and
-     stop-search combos;
-   - the fork's other Bluetooth features from `Firmware/RP2040/src/Bluepad32` (search policy,
-     diagnostics, idle turn-off) through a shared core with a platform layer;
-   - DualShock 3 USB pairing (the ESP32 sends its Bluetooth address to the RP2040).
+   - ~~shared Bluetooth core~~ — done: the ESP32 runs the Pico W's Bluetooth code
+     (`Firmware/common/Bluepad32`: mapping, rumble, Joy-Con pairs, combos, search policy, idle
+     turn-off, lightbar, keepalives); ~~motion, touchpad, battery, lightbar, settings and
+     diagnostics over I2C~~ — done (I2C link version 2, `Firmware/common/I2C/Esp32Bridge.h`);
+     ~~one place for the settings~~ — done (the RP2040 keeps them; the ESP32's BLE web app edits
+     them over I2C). Hardware test: [docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
+   - the link details in the diagnostics (RSSI, channels, failed contacts, remote version, the
+     controller's own report counter);
+   - the raw DualSense report for STEAM mode's passthrough;
+   - DualShock 3 USB pairing (the ESP32 sends its Bluetooth address to the RP2040);
+   - one BLE web app protocol (the ESP32's BLE server lacks the Pico W's newer commands).
 3. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
    may need newer features.
 
