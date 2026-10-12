@@ -9,6 +9,7 @@
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/ModeCombos.h"
+#include "Gamepad/MotionSource.h"
 #include "test.h"
 
 using namespace Esp32Bridge;
@@ -56,6 +57,55 @@ TEST(packet_ids_are_stable) {
     CHECK_EQ(static_cast<int>(PacketID::SET_PAD), 1);
     CHECK_EQ(static_cast<int>(PacketID::GET_PAD), 2);
     CHECK_EQ(static_cast<int>(PacketID::SET_DRIVER), 3);
+    CHECK_EQ(static_cast<int>(PacketID::SET_PAD_EXT), 4);
+    CHECK_EQ(static_cast<int>(PacketID::GET_EXT), 5);
+}
+
+TEST(packet_in_ext_layout) {
+    // Version 2: motion / touchpad / battery; fits the RP2040's 32-byte receive buffer.
+    const PacketInExt ext;
+    CHECK_EQ(sizeof(PacketInExt), sizeof(PacketIn));
+    CHECK_EQ(ext.packet_len, sizeof(PacketInExt));
+    CHECK_EQ(static_cast<int>(ext.packet_id), static_cast<int>(PacketID::SET_PAD_EXT));
+    CHECK_EQ(offsetof(PacketInExt, index), 2u);
+    CHECK_EQ(offsetof(PacketInExt, motion_source), 3u);
+    CHECK_EQ(offsetof(PacketInExt, accel), 4u);
+    CHECK_EQ(offsetof(PacketInExt, gyro), 10u);
+    CHECK_EQ(offsetof(PacketInExt, touch_raw), 16u);
+    CHECK_EQ(offsetof(PacketInExt, flags), 24u);
+    CHECK_EQ(offsetof(PacketInExt, battery), 25u);
+    CHECK_EQ(PacketInExt::TOUCHPAD_VALID, 0x01);
+    CHECK_EQ(PacketInExt::TOUCHPAD_CLICK, 0x02);
+    CHECK_EQ(PacketInExt::JOYCON_LEFT, 0x04);
+    CHECK_EQ(PacketInExt::JOYCON_RIGHT, 0x08);
+    CHECK_EQ(PacketInExt::JOYCON_PAIRED, 0x10);
+}
+
+TEST(packet_out_ext_layout) {
+    const PacketOutExt ext;
+    CHECK_EQ(sizeof(PacketOutExt), 25u);
+    CHECK_EQ(ext.packet_len, sizeof(PacketOutExt));
+    CHECK_EQ(static_cast<int>(ext.packet_id), static_cast<int>(PacketID::GET_EXT));
+    CHECK_EQ(offsetof(PacketOutExt, flags), 3u);
+    CHECK_EQ(offsetof(PacketOutExt, lightbar_r), 4u);
+    CHECK_EQ(offsetof(PacketOutExt, settings), 7u);
+    CHECK_EQ(ext.settings.version, 0);  // not sent: the ESP32 keeps its defaults
+    CHECK_EQ(PacketOutExt::LIGHTBAR_VALID, 0x01);
+    CHECK_EQ(PacketOutExt::MOTION_OUTPUT, 0x02);
+}
+
+TEST(motion_sources_are_stable) {
+    CHECK_EQ(motion_source::NONE, 0);
+    CHECK_EQ(motion_source::DS4, 1);
+    CHECK_EQ(motion_source::DS5, 2);
+    CHECK_EQ(motion_source::SWITCH_PRO, 3);
+    CHECK_EQ(motion_source::WII_BT, 7);
+}
+
+TEST(motion_saturates_to_16_bits) {
+    CHECK_EQ(saturate_i16(40000), 32767);
+    CHECK_EQ(saturate_i16(-40000), -32768);
+    CHECK_EQ(saturate_i16(-1234), -1234);
 }
 
 TEST(mode_ids_are_stable) {

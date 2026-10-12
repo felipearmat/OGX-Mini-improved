@@ -9,12 +9,13 @@
 #include "UserSettings/UserProfile.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/NVSHelper.h"
+#include "UserSettings/ComboCheck.h"
 
 class UserSettings
 {
 public:
     static constexpr uint8_t MAX_PROFILES = 8;
-    static constexpr uint32_t GP_CHECK_DELAY_MS = 1000;
+    static constexpr uint32_t GP_CHECK_DELAY_MS = mode_combos::kCheckDelayMs;  // UserSettings/ComboCheck.h
 
     static UserSettings& get_instance()
     {
@@ -25,7 +26,7 @@ public:
     void initialize_flash();
 
     DeviceDriverType get_current_driver();
-    bool check_for_driver_change(const I2CDriver::PacketIn& packet_in);
+    bool is_valid_driver(DeviceDriverType mode);
     
     UserProfile get_profile_by_index(const uint8_t index);
     UserProfile get_profile_by_id(const uint8_t profile_id);
@@ -41,13 +42,10 @@ private:
     UserSettings(const UserSettings&) = delete;
     UserSettings& operator=(const UserSettings&) = delete;
 
-    static constexpr uint8_t GP_CHECK_COUNT = 3000 / GP_CHECK_DELAY_MS;
     static constexpr uint8_t INIT_FLAG = 0x12;
 
     NVSHelper& nvs_helper_{NVSHelper::get_instance()};
     DeviceDriverType current_driver_{DeviceDriverType::NONE};
-
-    bool is_valid_driver(DeviceDriverType mode);
 
     DeviceDriverType DEFAULT_DRIVER();
     const std::string INIT_FLAG_KEY();

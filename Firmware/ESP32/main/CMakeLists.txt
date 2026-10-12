@@ -15,6 +15,9 @@ idf_component_register(
         "../../common/UserSettings/TriggerSettings.cpp"
         "../../common/UserSettings/JoystickSettings.cpp"
         "../../common/Board/ModeIndicator.cpp"
+        "../../common/UserSettings/DongleSettings.cpp"
+        "../../common/Bluepad32/JoyConSettings.cpp"
+        "../../common/Bluepad32/ScanControl.cpp"
     INCLUDE_DIRS 
         "."
         "../../common"

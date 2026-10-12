@@ -64,7 +64,36 @@ void I2CDriver::read_packet(uint8_t address, std::function<void(const PacketOut&
     task_queue_.push([this, address, callback]() 
     {
         PacketOut data_out;
-        if (i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&data_out), sizeof(PacketOut)) == ESP_OK)
+        if (i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&data_out), sizeof(PacketOut)) == ESP_OK &&
+            data_out.packet_id == PacketID::GET_PAD)
+        {
+            callback(data_out);
+        }
+    });
+}
+
+void I2CDriver::write_packet(uint8_t address, const PacketInExt& data_in)
+{
+    task_queue_.push([this, address, data_in]()
+    {
+        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketInExt));
+    });
+}
+
+void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback)
+{
+    task_queue_.push([this, address, index, callback]()
+    {
+        PacketIn request;
+        request.packet_id = PacketID::GET_EXT;
+        request.index = index;
+        if (i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&request), sizeof(PacketIn)) != ESP_OK)
+        {
+            return;
+        }
+        PacketOutExt data_out;
+        if (i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&data_out), sizeof(PacketOutExt)) == ESP_OK &&
+            data_out.packet_id == PacketID::GET_EXT)
         {
             callback(data_out);
         }

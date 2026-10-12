@@ -3,17 +3,15 @@
 #include "btstack_stdio_esp32.h"
 #include "uni.h"
 #include "bt/uni_bt.h"
-#include "bt/uni_bt_bredr.h"
-#include "bt/uni_bt_le.h"
 
 #include "Board/ogxm_log.h"
 #include "BTManager/BTManager.h"
 #include "BLEServer/BLEServer.h"
 #include "Bluepad32/BtPad.h"
-#include "Bluepad32/ScanPolicy.h"
+#include "UserSettings/DongleSettings.h"
 
 /* Pad behaviour shared with the Pico W path lives in Firmware/common/Bluepad32 (BtPad.h,
- * ScanPolicy.h, ComboHold.h); this file only connects it to the I2C link. */
+ * ScanControl, IdleOff.h, ComboHold.h); this file connects it to the I2C link. */
 
 void BTManager::init(int argc, const char** arg_V)
 {
@@ -41,52 +39,73 @@ void BTManager::device_connected_cb(uni_hid_device_t* device)
     OGXM_LOG("BP32: Device connected, addr:  %p, index: %i\n", device, uni_hid_device_get_idx_for_instance(device));
 }
 
+/* The output a pad feeds: its Joy-Con pair's output, else its own slot's, else a free one. */
+int BTManager::resolve_output(uni_hid_device_t* device, int slot)
+{
+    const int preferred = bt_pad::output_idx(device);
+    if (preferred >= 0 && preferred < MAX_GAMEPADS)
+    {
+        return preferred;
+    }
+    for (int out = 0; out < MAX_GAMEPADS; ++out)
+    {
+        bool used = false;
+        for (uint8_t i = 0; i < slots_.size(); ++i)
+        {
+            used |= (i != slot && slots_[i].connected && slots_[i].output == out);
+        }
+        if (!used)
+        {
+            return out;
+        }
+    }
+    return -1;
+}
+
 void BTManager::device_disconnected_cb(uni_hid_device_t* device)
 {
-    int idx = uni_hid_device_get_idx_for_instance(device);
-    if (idx >= MAX_GAMEPADS || idx < 0)
+    const int idx = uni_hid_device_get_idx_for_instance(device);
+    if (idx < 0 || idx >= static_cast<int>(slots_.size()))
     {
         return;
     }
-    Device& pad = devices_[idx];
-    const bool was_ready = pad.was_ready;
-    pad.was_ready = false;
-    pad.combo.reset();
-    pad.keepalive = bt_pad::KeepaliveState{};
-    pad.host_rumble_ok_ms = 0;
+    Slot& slot = slots_[idx];
+    const bool was_ready = slot.was_ready;
+    const int output = slot.output;
+    btstack_run_loop_remove_timer(&slot.mode_lightbar_timer);
+    slot.connected = false;
+    slot.was_ready = false;
+    slot.output = -1;
+    slot.combo.reset();
+    slot.keepalive = bt_pad::KeepaliveState{};
+    slot.lightbar = Lightbar{};
+    slot.host_rumble_ok_ms = 0;
 
-    manage_connection(static_cast<uint8_t>(idx), false);
-    update_search();
+    if (output >= 0 && output < MAX_GAMEPADS)
+    {
+        bool still_fed = false;
+        for (auto& other : slots_)
+        {
+            still_fed |= (other.connected && other.output == output);
+        }
+        if (!still_fed)
+        {
+            outputs_[output].connected.store(false);
+            outputs_[output].idle.reset();
+            send_neutral(static_cast<uint8_t>(output));
+        }
+    }
+    apply_scan(true, true);  // a slot is free again
 
-    if (was_ready && !any_connected())
+    bool any_slot = false;
+    for (auto& other : slots_)
+    {
+        any_slot |= other.connected;
+    }
+    if (was_ready && !any_slot)
     {
         OGXM_LOG("BP32: Last controller disconnected, restarting for a clean reconnect\n");
         restart_after_ms(bt_pad::kLastPadRebootDelayMs);
-    }
-}
-
-/* Search for new controllers only while a slot is free (Bluepad32/ScanPolicy.h): a full-duty BLE
- * scan next to a connected pad shares the radio with it. Page scan stays on, so a pad that knows
- * the adapter still reconnects. */
-void BTManager::update_search()
-{
-    int connected = 0;
-    for (auto& device : devices_)
-    {
-        connected += device.connected.load() ? 1 : 0;
-    }
-
-    /* No search time limits on the ESP32: full search while a slot is free. */
-    const scan_policy::Times times{scan_policy::kNoLimit, scan_policy::kNoLimit};
-    if (scan_policy::decide(connected, MAX_GAMEPADS, false, 0, times) == scan_policy::Scan::Off)
-    {
-        uni_bt_enable_new_connections_unsafe(false);  // stops BR/EDR inquiry and the BLE scan
-        uni_bt_bredr_scan_stop();                     // also when started outside that flag
-        uni_bt_le_scan_stop();
-    }
-    else if (!uni_bt_enable_new_connections_is_enabled())
-    {
-        uni_bt_enable_new_connections_unsafe(true);
     }
 }
 
@@ -96,24 +115,36 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
     {
         return UNI_ERROR_INVALID_CONTROLLER;
     }
-    int idx = uni_hid_device_get_idx_for_instance(device);
-    if (idx >= MAX_GAMEPADS || idx < 0)
+    const int idx = uni_hid_device_get_idx_for_instance(device);
+    if (idx < 0 || idx >= static_cast<int>(slots_.size()))
     {
         return UNI_ERROR_IGNORE_DEVICE;
     }
+    const int output = resolve_output(device, idx);
+    if (output < 0)
+    {
+        OGXM_LOG("BP32: slot %d ready but every output is in use\n", idx);
+        return UNI_ERROR_NO_SLOTS;
+    }
 
     const uint32_t now_ms = btstack_run_loop_get_time_ms();
-    Device& pad = devices_[idx];
-    pad.was_ready = true;
-    pad.combo.reset(now_ms + bt_pad::kDisconnectComboGraceMs);
-    pad.keepalive = bt_pad::KeepaliveState{};  // first keepalive on the next feedback tick
+    Slot& slot = slots_[idx];
+    slot.connected = true;
+    slot.was_ready = true;
+    slot.output = output;
+    slot.combo.reset(now_ms + bt_pad::kDisconnectComboGraceMs);
+    slot.keepalive = bt_pad::KeepaliveState{};  // first keepalive on the next feedback tick
+    slot.lightbar = Lightbar{};
     const uint32_t grace_ms = bt_pad::host_rumble_grace_ms(device);
-    pad.host_rumble_ok_ms = grace_ms ? now_ms + grace_ms : 0;
+    slot.host_rumble_ok_ms = grace_ms ? now_ms + grace_ms : 0;
+    if (!outputs_[output].connected.exchange(true))
+    {
+        outputs_[output].idle.reset();
+    }
+    apply_scan(false, true);  // a pad is ready
 
-    manage_connection(static_cast<uint8_t>(idx), true);
-    update_search();
-
-    bt_pad::setup_on_ready(device, static_cast<uint8_t>(idx), false);  // no motion over the I2C link
+    bt_pad::setup_on_ready(device, static_cast<uint8_t>(output), motion_output_);
+    schedule_mode_lightbar(device, idx);
     bt_pad::play_connection_rumble(device);
     return UNI_ERROR_SUCCESS;
 }
@@ -125,27 +156,64 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         return;
     }
 
-    int idx = uni_hid_device_get_idx_for_instance(bp_device);
-    if (idx < 0 || idx >= MAX_GAMEPADS)
+    const int idx = uni_hid_device_get_idx_for_instance(bp_device);
+    if (idx < 0 || idx >= static_cast<int>(slots_.size()) || !slots_[idx].connected)
     {
         return;
     }
-    Device& pad = devices_[idx];
+    /* A Joy-Con merging after it was ready: follow the pair's output. */
+    const int pair_output = bt_pad::output_idx(bp_device);
+    if (pair_output >= 0 && pair_output < MAX_GAMEPADS)
+    {
+        slots_[idx].output = pair_output;
+    }
+    const int out = slots_[idx].output;
+    if (out < 0 || out >= MAX_GAMEPADS)
+    {
+        return;
+    }
+    Output& output = outputs_[out];
     const uni_gamepad_t* uni_gp = &controller->gamepad;
+    const uint32_t now_ms = btstack_run_loop_get_time_ms();
 
-    if (pad.combo.update(bt_pad::disconnect_combo_pressed(bp_device, uni_gp),
-                         btstack_run_loop_get_time_ms(), bt_pad::kDisconnectComboHoldMs))
+    if (slots_[idx].combo.update(bt_pad::disconnect_combo_pressed(bp_device, uni_gp), now_ms,
+                                 bt_pad::kDisconnectComboHoldMs))
     {
         OGXM_LOG("BP32: Disconnect combo detected, disconnecting controller %d\n", idx);
         schedule_disconnect_combo(static_cast<uint8_t>(idx));
         return;  // no further input from a pad that is going away
     }
+    output.idle.note_input(uni_gp, now_ms, FEEDBACK_TIME_MS + 100);
 
-    const bt_pad::Input mapped = bt_pad::map_input(bp_device, uni_gp, pad.mapper);
+    const bt_pad::Input mapped = bt_pad::map_input(bp_device, uni_gp, output.mapper);
+
+    /* Motion, touchpad and battery (I2C/Esp32Bridge.h SET_PAD_EXT); the RP2040 turns the motion
+     * into the output's frame as the Pico W path does (MotionImu::apply_bt_motion). */
+    I2CDriver::PacketInExt ext;
+    ext.index = static_cast<uint8_t>(out);
+    ext.motion_source = bt_pad::motion_source_of(bp_device, uni_gp);
+    for (int i = 0; i < 3; ++i)
+    {
+        ext.accel[i] = Esp32Bridge::saturate_i16(uni_gp->accel[i]);
+        ext.gyro[i] = Esp32Bridge::saturate_i16(uni_gp->gyro[i]);
+    }
+    std::memcpy(ext.touch_raw, mapped.touch_raw, sizeof(ext.touch_raw));
+    ext.flags = (mapped.touchpad_valid ? I2CDriver::PacketInExt::TOUCHPAD_VALID : 0) |
+                (mapped.touchpad_click ? I2CDriver::PacketInExt::TOUCHPAD_CLICK : 0);
+    if (bt_pad::is_switch_joycon(bp_device))
+    {
+        ext.flags |= bp_device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft
+                         ? I2CDriver::PacketInExt::JOYCON_LEFT : I2CDriver::PacketInExt::JOYCON_RIGHT;
+        if (bt_pad::pair_partner_idx(bp_device) >= 0)
+        {
+            ext.flags |= I2CDriver::PacketInExt::JOYCON_PAIRED;
+        }
+    }
+    ext.battery = bp_device->controller.battery;
 
     I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
     packet_in.packet_id = I2CDriver::PacketID::SET_PAD;
-    packet_in.index = static_cast<uint8_t>(idx);
+    packet_in.index = static_cast<uint8_t>(out);
     packet_in.dpad = mapped.dpad;
     packet_in.buttons = mapped.buttons;
     packet_in.trigger_l = mapped.trigger_l;
@@ -155,12 +223,20 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     packet_in.joystick_rx = mapped.joystick_rx;
     packet_in.joystick_ry = mapped.joystick_ry;
 
-    if (std::memcmp(&packet_in, &pad.packet_in, sizeof(packet_in)) == 0)
+    /* The RP2040 keeps the extension and applies it with the next SET_PAD, so a change of either
+     * sends both, extension first. */
+    const bool ext_changed = std::memcmp(&ext, &output.ext, sizeof(ext)) != 0;
+    if (!ext_changed && std::memcmp(&packet_in, &output.packet_in, sizeof(packet_in)) == 0)
     {
         return;  // nothing new for the RP2040
     }
-    pad.packet_in = packet_in;
-    i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR, packet_in);
+    if (ext_changed)
+    {
+        output.ext = ext;
+        i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), ext);
+    }
+    output.packet_in = packet_in;
+    i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), packet_in);
 }
 
 const uni_property_t* BTManager::get_property_cb(uni_property_idx_t idx)

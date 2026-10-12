@@ -190,6 +190,7 @@ public:
         {
             UserSettings::get_instance().store_profile(setup_packet_.player_idx, profile_);
         }
+        BTManager::get_instance().on_settings_saved();  // applied now, not at the next boot
         return true;
     }
 

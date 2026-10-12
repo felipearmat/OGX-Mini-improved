@@ -10,13 +10,8 @@
 #include "UserSettings/NVSHelper.h"
 #include "UserSettings/ModeCombos.h"
 
-static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0)
-{
-    return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
-}
-
-/* Mode combos and the hybrid's mode list: Firmware/common/UserSettings/ModeCombos.h, shared with
- * the RP2040 firmware, so both sides of the I2C link agree on every mode. */
+/* The hybrid's mode list: Firmware/common/UserSettings/ModeCombos.h; the combos themselves are
+ * checked by UserSettings/ComboCheck.h (BTManager), both shared with the RP2040 firmware. */
 #if MAX_GAMEPADS > 1
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] =
 {
@@ -27,8 +22,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] =
 #else
 static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
 #endif
-
-static constexpr const auto& BUTTON_COMBO_MAP = mode_combos::MODE_COMBOS;
 
 const std::string UserSettings::INIT_FLAG_KEY()
 {
@@ -113,52 +106,6 @@ DeviceDriverType UserSettings::get_current_driver()
     return current_driver_;
 }
 
-//Checks if button combo has been held for 3 seconds, returns true if mode has been changed
-bool UserSettings::check_for_driver_change(const I2CDriver::PacketIn& packet_in)
-{
-    static uint32_t last_button_combo = BUTTON_COMBO(packet_in.buttons, packet_in.dpad);
-    static uint8_t call_count = 0;
-
-    uint32_t current_button_combo = BUTTON_COMBO(packet_in.buttons, packet_in.dpad);
-
-    if (!(current_button_combo & (static_cast<uint32_t>(Gamepad::BUTTON_START) << 16)) || 
-        last_button_combo != current_button_combo)
-    {
-        last_button_combo = current_button_combo;
-        call_count = 0;
-        return false;
-    }
-
-    ++call_count;
-
-    if (call_count < GP_CHECK_COUNT)
-    {
-        return false;
-    }
-
-    call_count = 0;
-
-    DeviceDriverType new_driver = DeviceDriverType::NONE;
-
-    for (const auto& combo : BUTTON_COMBO_MAP)
-    {
-        if (combo.combo == current_button_combo &&
-            is_valid_driver(combo.driver))
-        {
-            new_driver = combo.driver;
-            break;
-        }
-    }
-
-    if (new_driver == DeviceDriverType::NONE || new_driver == current_driver_)
-    {
-        return false;
-    }
-
-    current_driver_ = new_driver;
-    return true;
-}
-
 void UserSettings::store_driver_type(DeviceDriverType new_driver_type)
 {
     if (!is_valid_driver(new_driver_type))
@@ -166,6 +113,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver_type)
         return;
     }
 
+    current_driver_ = new_driver_type;  // sent to the RP2040 on the next driver update tick
     uint8_t new_driver = static_cast<uint8_t>(new_driver_type);
     nvs_helper_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(new_driver));
 }

@@ -1,9 +1,10 @@
-#ifndef _BT_MANAGER_H_ 
+#ifndef _BT_MANAGER_H_
 #define _BT_MANAGER_H_
 
 #include <cstdint>
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <string>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -11,9 +12,15 @@
 #include "I2CDriver/I2CDriver.h"
 #include "Gamepad/RumbleTiming.h"
 #include "Gamepad/Gamepad.h"
+#include "Gamepad/Lightbar.h"
 #include "Bluepad32/BtPad.h"
 #include "Bluepad32/ComboHold.h"
+#include "Bluepad32/IdleOff.h"
+#include "UserSettings/ComboCheck.h"
 
+/* The ESP32 side of the RP2040 + ESP32 hybrid: Bluepad32 pads in, I2C packets out. How a pad
+ * behaves comes from Firmware/common/Bluepad32 (shared with the Pico W path); this class keeps the
+ * Bluetooth slots, the outputs they feed, and the I2C traffic. */
 class BTManager
 {
 public:
@@ -28,6 +35,9 @@ public:
     bool is_connected(uint8_t index);
     I2CDriver::PacketIn get_packet_in(uint8_t index);
 
+    /* A profile or the output mode was saved (web app over BLE): apply it now. */
+    void on_settings_saved();
+
 private:
     BTManager() = default;
     ~BTManager() = default;
@@ -39,49 +49,82 @@ private:
      * long rumble stopped and restarted every cycle and felt weak. */
     static constexpr uint32_t FEEDBACK_TIME_MS = switch_rumble::kFeedbackPeriodMs;
     static constexpr uint32_t RUMBLE_DURATION_MS = switch_rumble::kRumbleDurationMs;
-    static constexpr uint32_t LED_TIME_MS = 500;
+    static constexpr uint32_t LED_CHECK_TIME_MS = 500;
+    static constexpr uint32_t LED_FAST_BLINK_MS = 250;   // full search for new controllers
+    static constexpr uint32_t LED_SLOW_BLINK_MS = 1000;  // reduced search
+    static constexpr uint16_t STOP_SEARCH_RUMBLE_MS = 400;
 
-    struct Device
+    /* One Bluetooth slot (Bluepad32 device index). */
+    struct Slot
+    {
+        bool connected{false};
+        bool was_ready{false};          // reached "ready": its disconnect restarts the ESP32
+        int output{-1};                 // output it feeds
+        uint32_t host_rumble_ok_ms{0};  // DualShock 4: no host rumble before this (btstack time)
+        ComboHold combo;                // disconnect combo (Bluepad32/BtPad.h)
+        bt_pad::KeepaliveState keepalive;
+        Lightbar lightbar;              // last colour sent
+        btstack_timer_source_t mode_lightbar_timer;
+    };
+
+    /* One output: a USB pad on the RP2040. A merged Joy-Con pair feeds one. */
+    struct Output
     {
         std::atomic<bool> connected{false};
         GamepadMapper mapper;
-        I2CDriver::PacketIn packet_in;
+        I2CDriver::PacketIn packet_in;  // last sent to the RP2040
+        I2CDriver::PacketInExt ext;     // last sent to the RP2040
         std::atomic<I2CDriver::PacketOut> packet_out; //Can be updated from i2c thread
-        uint32_t host_rumble_ok_ms{0};  // DualShock 4: no host rumble before this (btstack time)
-        bool was_ready{false};          // reached "ready": its disconnect restarts the ESP32
-        ComboHold combo;                // disconnect combo (Bluepad32/BtPad.h)
-        bt_pad::KeepaliveState keepalive;
+        Lightbar host_lightbar;         // asked by the host (PS4 mode)
+        IdleOff idle;
     };
 
     struct FBContext
     {
         uint8_t index;
-        std::atomic<I2CDriver::PacketOut>* packet_out;
         btstack_context_callback_registration_t cb_reg;
     };
 
-    std::array<Device, MAX_GAMEPADS> devices_;
+    std::array<Slot, CONFIG_BLUEPAD32_MAX_DEVICES> slots_;
+    std::array<Output, MAX_GAMEPADS> outputs_;
     I2CDriver i2c_driver_;
+
+    /* From the RP2040 (GET_EXT): host lightbar, dongle settings, whether the mode uses motion.
+     * Written on the I2C task, read on the BTstack run loop. */
+    I2CDriver::PacketOutExt ext_rx_;
+    std::mutex ext_mutex_;
+    FBContext ext_context_;
+    bool motion_output_{false};
 
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;
-
+    btstack_timer_source_t led_timer_;
     btstack_timer_source_t disconnect_combo_timer_;
     int disconnect_combo_idx_ = -1;
+    mode_combos::ComboCheck combo_check_;
 
+    static uint8_t slave_addr(uint8_t output);
     void send_driver_type(DeviceDriverType driver_type);
-    void manage_connection(uint8_t index, bool connected);
-    void update_search();
-    void schedule_disconnect_combo(uint8_t index);
-    static void disconnect_combo_timer_cb(btstack_timer_source *ts);
-    static void restart_after_ms(uint32_t delay_ms);
+    void send_neutral(uint8_t output);
     void apply_profiles();
-    
-    static uni_hid_device_t* get_connected_bp32_device(uint8_t index);
+    void apply_scan(bool pad_leaving, bool force);
+    void apply_ext(const I2CDriver::PacketOutExt& ext);
+    int resolve_output(uni_hid_device_t* device, int slot);
+    bool lone_joycon();
+    void schedule_mode_lightbar(uni_hid_device_t* device, int slot);
+    void schedule_disconnect_combo(uint8_t slot);
+    void stop_search_feedback();
+
+    static uni_hid_device_t* get_connected_bp32_device(uint8_t slot);
     static void check_led_cb(btstack_timer_source *ts);
-    static void send_feedback_cb(void* context);
+    static void mode_lightbar_cb(btstack_timer_source *ts);
+    static void output_feedback_cb(void* context);
+    static void ext_feedback_cb(void* context);
     static void feedback_timer_cb(btstack_timer_source *ts);
     static void driver_update_timer_cb(btstack_timer_source *ts);
+    static void disconnect_combo_timer_cb(btstack_timer_source *ts);
+    static void restart_after_ms(uint32_t delay_ms);
+    static void scan_event(uint32_t now_ms, const char* text);
 
     //Bluepad32 driver
 

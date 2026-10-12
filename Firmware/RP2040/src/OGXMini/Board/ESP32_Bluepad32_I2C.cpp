@@ -16,13 +16,25 @@
 #include "Board/board_api.h"
 #include "Board/esp32_api.h"
 #include "Gamepad/Gamepad.h"
+#include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
+#include "UserSettings/DongleSettings.h"
+#include "USBDevice/DeviceDriver/MotionOutputActive.h"
 #include "TaskQueue/TaskQueue.h"
 
 // Wire format shared with the ESP32 companion firmware: I2C/Esp32Bridge.h
 using Esp32Bridge::PacketID;
 using Esp32Bridge::PacketIn;
 using Esp32Bridge::PacketOut;
+using Esp32Bridge::PacketInExt;
+using Esp32Bridge::PacketOutExt;
+
+/* Motion, touchpad and battery of the ESP32's pads (SET_PAD_EXT), applied with the next SET_PAD;
+ * the Wiimote's pseudo gyro keeps state per output. */
+static PacketInExt _pad_ext[MAX_GAMEPADS];
+static MotionImu::WiiPseudoGyroState _wii_gyro[MAX_GAMEPADS];
+
+static Gamepad::Lightbar _gamepads_lightbar(uint8_t index);
 
 static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
     Gamepad::PadIn pad_in;
@@ -35,18 +47,61 @@ static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
     pad_in.joystick_rx = packet.joystick_rx;
     pad_in.joystick_ry = packet.joystick_ry;
     std::memcpy(pad_in.analog, packet.analog, sizeof(packet.analog));
+    if (packet.index < MAX_GAMEPADS) {
+        /* As on the Pico W path (Bluepad32.cpp): motion through MotionImu::apply_bt_motion, then
+         * touchpad and battery. */
+        const PacketInExt& ext = _pad_ext[packet.index];
+        const int32_t accel[3] = {ext.accel[0], ext.accel[1], ext.accel[2]};
+        const int32_t gyro[3] = {ext.gyro[0], ext.gyro[1], ext.gyro[2]};
+        MotionImu::apply_bt_motion(pad_in, ext.motion_source, accel, gyro,
+                                   (ext.flags & PacketInExt::JOYCON_LEFT) != 0,
+                                   (ext.flags & PacketInExt::JOYCON_RIGHT) != 0,
+                                   (ext.flags & PacketInExt::JOYCON_PAIRED) != 0,
+                                   _wii_gyro[packet.index], to_ms_since_boot(get_absolute_time()));
+        std::memcpy(pad_in.touch_raw, ext.touch_raw, sizeof(pad_in.touch_raw));
+        pad_in.touchpad_valid = (ext.flags & PacketInExt::TOUCHPAD_VALID) ? 1 : 0;
+        pad_in.touchpad_click = (ext.flags & PacketInExt::TOUCHPAD_CLICK) ? 1 : 0;
+        pad_in.battery = ext.battery;
+    }
     return pad_in;
+}
+
+/* The reply to the ESP32's GET_EXT: the host's lightbar, whether the mode uses motion, and the
+ * dongle settings (the web app keeps them here, on the USB side). */
+static PacketOutExt ext_reply(uint8_t index) {
+    PacketOutExt reply;
+    reply.index = index;
+    if (index < MAX_GAMEPADS) {
+        const Gamepad::Lightbar lightbar = _gamepads_lightbar(index);
+        if (lightbar.valid) {
+            reply.flags |= PacketOutExt::LIGHTBAR_VALID;
+            reply.lightbar_r = lightbar.r;
+            reply.lightbar_g = lightbar.g;
+            reply.lightbar_b = lightbar.b;
+        }
+    }
+    if (MotionOutputActive::is_enabled()) {
+        reply.flags |= PacketOutExt::MOTION_OUTPUT;
+    }
+    reply.settings = dongle_settings::get();
+    return reply;
 }
 
 constexpr size_t  MAX_BUFFER_SIZE = std::max(sizeof(PacketOut), sizeof(PacketIn));
 
 static Gamepad _gamepads[MAX_GAMEPADS];
+
+static Gamepad::Lightbar _gamepads_lightbar(uint8_t index) {
+    return _gamepads[index].get_host_lightbar();
+}
 static bool _uart_bridge_mode = false;
 
 static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static size_t count = 0;
     static PacketIn packet_in;
     static PacketOut packet_out;
+    static bool ext_requested = false;  // answer the next read with a PacketOutExt
+    static_assert(sizeof(PacketInExt) <= sizeof(PacketIn), "the receive buffer holds every ESP32 packet");
     static DeviceDriverType current_device_type = 
         UserSettings::get_instance().get_current_driver();
 
@@ -67,6 +122,17 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         _gamepads[packet_in.index].set_pad_in(pad_in_from_packet(packet_in));
                     }
                     break;
+                case PacketID::SET_PAD_EXT: {
+                    PacketInExt ext;
+                    std::memcpy(&ext, &packet_in, sizeof(ext));
+                    if (ext.index < MAX_GAMEPADS) {
+                        _pad_ext[ext.index] = ext;
+                    }
+                    break;
+                }
+                case PacketID::GET_EXT:
+                    ext_requested = true;
+                    break;
                 case PacketID::SET_DRIVER:
                     if (packet_in.device_driver != DeviceDriverType::NONE &&
                         packet_in.device_driver != current_device_type) {
@@ -86,6 +152,12 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             count = 0;
             break;
         case I2C_SLAVE_REQUEST:
+            if (ext_requested) {
+                ext_requested = false;
+                const PacketOutExt reply = ext_reply(packet_in.index);
+                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
+                break;
+            }
             if (packet_in.index < MAX_GAMEPADS) {
                 packet_out.index = packet_in.index;
                 /* Custom fix: the strongest rumble since the ESP32's last read, as the Pico W

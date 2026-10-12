@@ -2,7 +2,7 @@ menu "OGXMini Options"
 
     config I2C_RING_BUFFER_SIZE
         int "Set I2C ring buffer size"
-        default 6
+        default 16
 
     config I2C_PORT
         int "Set I2C port"
