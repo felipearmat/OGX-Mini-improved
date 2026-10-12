@@ -10,6 +10,8 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 | `USBDevice/DeviceDriver/DeviceDriverTypes.h` | output mode IDs (cross the I2C link, stored in flash / NVS) |
 | `Gamepad/GamepadBits.h` | button / D-pad bits and analog offsets; both `Gamepad` types derive from it |
 | `Gamepad/Range.h`, `Gamepad/fix16ext.h` | range scaling and fixed-point helpers |
+| `Gamepad/RumbleTiming.h` | rumble timing for Bluetooth pads: feedback period, rumble duration, connection rumble, DualShock 4 grace |
+| `UserSettings/ModeCombos.h` | output-mode button combos and the modes the RP2040 + ESP32 hybrid offers (the README mode table is generated from it) |
 | `UserSettings/UserProfile.*`, `JoystickSettings.*`, `TriggerSettings.*` | profile layout and stick / trigger shaping (the web app writes this layout) |
 
 ## Rules

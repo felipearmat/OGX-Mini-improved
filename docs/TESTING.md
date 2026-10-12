@@ -42,7 +42,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 
 | Test | Covers |
 |---|---|
-| `test_device_reports` | The real DInput, PS3, PS4 and STEAM device drivers with TinyUSB stubbed: remote wakeup only on a deliberate press, once per suspend; DInput analog pressure from the right buttons; PS3 rumble from Linux (report one byte short); PS4 / STEAM output reports reach the pad (they were dropped), lightbar-only updates keep the rumble, SDL's stop stops it, input GET_REPORT does not repeat the ID. |
+| `test_device_reports` | The real DInput, PS3, PS4 and STEAM device drivers with TinyUSB stubbed: every HID mode's input report has the size its report descriptor declares (DInput sent 19 of 27 bytes, so macOS dropped all its input); remote wakeup only on a deliberate press, once per suspend; DInput analog pressure from the right buttons; PS3 rumble from Linux (report one byte short); PS4 / STEAM output reports reach the pad (they were dropped), lightbar-only updates keep the rumble, SDL's stop stops it, input GET_REPORT does not repeat the ID. |
 | `test_sony_reports` | DS3 / DS4 / DualSense report helpers: output body alignment, rumble valid flags, touch points, battery, feature reports. |
 | `test_sony_imu` | DS4 / DualSense motion units against the calibration report hosts apply; PS4 sensor clock. |
 | `test_switch_pro_layout` | Switch Pro button bits against Linux `hid-nintendo` (L3 / R3 swapped). |
@@ -60,7 +60,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_reported_mac` | MAC address reported by the emulated DS4 / DualSense. |
 | `test_kbm` | Mouse + Keyboard mode: settings wire format and the pad-to-report mapping. |
 | `test_diagnostics` | Diagnostics: controller identity, link and input timing, wired controllers, USB output, the session summary kept across the mode change, the JSON report. |
-| `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`). |
+| `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`); mode combos unique and holding Start; every hybrid mode reachable by combo and none of them a GPIO or Wii mode. |
 | `test_spin_lock_budget` | Claimed spin locks stay within the Pico SDK's 8 (one more freezes a Release build at boot). |
 | `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct). |
 

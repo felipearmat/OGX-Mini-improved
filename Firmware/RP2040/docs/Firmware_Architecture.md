@@ -252,7 +252,7 @@ gamepad->set_pad_in_from_bluetooth(gp_in)
 |-------|--------|
 | Flash NVS | `UserSettings/` (`UserSettings.cpp`, profiles, NVS helpers) |
 | Current output mode | Stored `DeviceDriverType`; restored on boot |
-| Button combos (~3 s) | `UserSettings.cpp` — `BUTTON_COMBO_MAP` / `VALID_DRIVER_TYPES` |
+| Button combos (~3 s) | `Firmware/common/UserSettings/ModeCombos.h` (`MODE_COMBOS`, `HYBRID_MODES`, shared with the ESP32); `UserSettings.cpp` — `VALID_DRIVER_TYPES` |
 | Web app profiles | Remap `MAP_*` fields on `Gamepad` |
 | Fixed builds | `-DOGXM_FIXED_DRIVER=…` (optional combos via CMake) |
 | Flash writes | `NVSTool` runs every erase / program safely: `flash_safe_execute` parks the other core when it is registered for lockout (Pico W Core1, Core0), otherwise interrupts are disabled; after `usb::disconnect_all()` (other core reset) it writes directly. Do not wrap NVSTool calls in another `flash_safe_execute` (it would nest) |
@@ -346,7 +346,7 @@ Different checklist — this is a new **console/PC identity**, not a new input p
 | 3 | **`Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h`** | Add `DeviceDriverType::MY_OUT` **at the end** (values cross the I2C link and sit in flash; `test_esp32_bridge` pins them), and a row in `MODE_INFO` of `.github/scripts/gen_docs_tables.py` (the README mode table is generated from it; CI fails without it) |
 | 4 | **`src/USBDevice/DeviceManager.cpp`** | `#include` + `case` → `std::make_unique<MyOutDevice>()` |
 | 5 | **`CMakeLists.txt`** | Add sources to the always-built `SOURCES_BOARD` device-driver list |
-| 6 | **`src/UserSettings/UserSettings.cpp`** | Add to `VALID_DRIVER_TYPES[]`; add combo in `BUTTON_COMBO_MAP` (unless fixed-build-only); also `Firmware/ESP32/main/UserSettings/UserSettings.cpp` if the mode must be selectable by combo on the ESP32 hybrid |
+| 6 | **`src/UserSettings/UserSettings.cpp`** + **`Firmware/common/UserSettings/ModeCombos.h`** | Add to `VALID_DRIVER_TYPES[]`; add the combo to `MODE_COMBOS` (unless fixed-build-only; `test_esp32_bridge` checks it is unique); add it to `HYBRID_MODES` if it is a USB mode the ESP32 hybrid should offer |
 | 7 | **Custom TinyUSB class** (if needed) | New `tud_myout/` similar to `tud_xinput` / `tud_xid`, wired from your driver |
 | 8 | **`tud_callbacks.cpp`** | Only if the mode must opt out of class drivers (GPIO modes do this) |
 | 9 | **Board runners** | GPIO outputs may need Core1 entry / `gpio_device_mode` branches in `Standard.cpp` / `PicoW.cpp` |

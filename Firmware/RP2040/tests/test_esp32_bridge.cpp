@@ -8,6 +8,7 @@
 #include "I2C/Esp32Bridge.h"
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
+#include "UserSettings/ModeCombos.h"
 #include "test.h"
 
 using namespace Esp32Bridge;
@@ -101,6 +102,30 @@ TEST(button_bits_are_stable) {
     CHECK_EQ(GamepadBits::BUTTON_MISC, 0x0800);
     CHECK_EQ(GamepadBits::ANALOG_OFF_UP, 0);
     CHECK_EQ(GamepadBits::ANALOG_OFF_RB, 9);
+}
+
+TEST(mode_combos_are_unique) {
+    // Both firmwares read the combos from this table; two modes on one combo would be ambiguous.
+    for (size_t i = 0; i < mode_combos::MODE_COMBOS.size(); ++i)
+        for (size_t j = i + 1; j < mode_combos::MODE_COMBOS.size(); ++j)
+            CHECK(mode_combos::MODE_COMBOS[i].combo != mode_combos::MODE_COMBOS[j].combo);
+    for (const auto& entry : mode_combos::MODE_COMBOS)
+        CHECK(entry.combo & (static_cast<uint32_t>(GamepadBits::BUTTON_START) << 16));  // every combo holds Start
+}
+
+TEST(hybrid_modes_are_reachable_and_usb_only) {
+    // The ESP32 only switches to a mode it can reach by combo, and the RP2040 side of the hybrid
+    // must not enter a GPIO mode (its pins carry the I2C link) or Wii (needs the Pico W radio).
+    CHECK_EQ(static_cast<int>(mode_combos::HYBRID_MODES[0]), static_cast<int>(DeviceDriverType::XBOXOG));  // default
+    for (DeviceDriverType mode : mode_combos::HYBRID_MODES) {
+        bool has_combo = false;
+        for (const auto& entry : mode_combos::MODE_COMBOS)
+            has_combo |= (entry.driver == mode);
+        CHECK(has_combo);
+        CHECK(mode != DeviceDriverType::PS1PS2 && mode != DeviceDriverType::GAMECUBE &&
+              mode != DeviceDriverType::DREAMCAST && mode != DeviceDriverType::N64 &&
+              mode != DeviceDriverType::WII);
+    }
 }
 
 TEST_MAIN()

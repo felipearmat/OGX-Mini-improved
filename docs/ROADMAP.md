@@ -76,15 +76,21 @@ RP2350; same pins, the Pico 2 W radio unused): the RP2040 / RP2350 for USB and a
 needed; the ESP32-S3 / C3 / C6 do not have it) running Bluepad32, linked over I2C. Both firmwares
 build in CI and share their common code ([Firmware/common](../Firmware/common/README.md)).
 
-1. **Test on hardware**, against a Pico 2 W with the diagnostics report (signal, lost reports,
-   input gaps). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
+1. **Test on hardware** — first bench test done (Pico 2 W + ESP32 + DualShock 4 on a PC: pairing,
+   mode changes over I2C, buttons, rumble). Next: range against a Pico 2 W with the diagnostics
+   report (signal, lost reports, input gaps). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
    raise the Classic transmit power to +9 dBm (`esp_bredr_tx_power_set`).
 2. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
    - motion and battery over I2C (they fit in the packet's spare bytes), touchpad and the raw
      DualSense report in a larger packet;
-   - the newer mode combos (PS4, STEAM, Wii U, Mouse + Keyboard) by sharing `UserSettings`;
-   - the fork's Bluetooth features from `Firmware/RP2040/src/Bluepad32` (search policy,
-     diagnostics, idle turn-off, rumble timing) through a shared core with a platform layer;
+   - ~~the newer mode combos~~ — done: one combo table and one hybrid mode list for both
+     firmwares (`Firmware/common/UserSettings/ModeCombos.h`); ~~connection rumble and rumble
+     timing~~ — done (`Firmware/common/Gamepad/RumbleTiming.h`);
+   - the web app's per-mode combo switches (dongle option on the Pico; the ESP32 reads the
+     combos), the mode lightbar colour (fits in the I2C packet's spare bytes), the disconnect and
+     stop-search combos;
+   - the fork's other Bluetooth features from `Firmware/RP2040/src/Bluepad32` (search policy,
+     diagnostics, idle turn-off) through a shared core with a platform layer;
    - DualShock 3 USB pairing (the ESP32 sends its Bluetooth address to the RP2040).
 3. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
    may need newer features.

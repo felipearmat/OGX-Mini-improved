@@ -11,6 +11,7 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
+#include "UserSettings/ModeCombos.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagnosticsBoard.h"
@@ -69,28 +70,13 @@ static bool combo_matches(uint32_t current, uint32_t expected)
     return ((cur_buttons & req_buttons) == req_buttons) && (cur_dpad == req_dpad);
 }
 
-namespace ButtonCombo {
-    static constexpr uint32_t PS3       = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_LEFT);
-    static constexpr uint32_t PS4       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB, Gamepad::DPAD_LEFT);
-    static constexpr uint32_t STEAM     = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB, Gamepad::DPAD_UP);
-    static constexpr uint32_t DINPUT    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_LEFT);
-    static constexpr uint32_t XINPUT    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_UP);
-    static constexpr uint32_t SWITCH    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_DOWN);
-    static constexpr uint32_t WIIU      = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB, Gamepad::DPAD_DOWN);
-    static constexpr uint32_t XBOXOG    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t XBOXOG_SB = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t XBOXOG_XR = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t PSCLASSIC = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_A);
-    static constexpr uint32_t PS1PS2    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_B);
-    static constexpr uint32_t GAMECUBE  = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_X);
-    static constexpr uint32_t DREAMCAST = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_Y);
-    static constexpr uint32_t N64       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB);
-    static constexpr uint32_t WEBAPP    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB);
-    /* Custom: mouse + keyboard output mode. */
-    static constexpr uint32_t KBM       = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_UP);
-    // WII is build-option only (OGXM_FIXED_DRIVER=WII), not in combo map
-};
+/* Mode combos: Firmware/common/UserSettings/ModeCombos.h (shared with the ESP32 companion). */
 
+#if defined(CONFIG_EN_ESP32)
+/* RP2040 + ESP32 hybrids: the ESP32 reads the combos, from the same list. The GPIO modes would
+ * take over the I2C pins, and Wii needs the Pico W radio. */
+static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
+#else
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 #if defined(CONFIG_EN_4CH)
     DeviceDriverType::XBOXOG, 
@@ -138,30 +124,9 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 
 #endif
 };
+#endif // CONFIG_EN_ESP32
 
-struct ComboMap { 
-    uint32_t combo; 
-    DeviceDriverType driver; 
-};
-
-// GAMECUBE and N64 are build-only (fixed driver), not in combo map; use -DOGXM_FIXED_DRIVER=GAMECUBE or N64.
-static constexpr std::array<ComboMap, 15> BUTTON_COMBO_MAP = {{
-    { ButtonCombo::XBOXOG,    DeviceDriverType::XBOXOG    },
-    { ButtonCombo::XBOXOG_SB, DeviceDriverType::XBOXOG_SB },
-    { ButtonCombo::XBOXOG_XR, DeviceDriverType::XBOXOG_XR },
-    { ButtonCombo::WEBAPP,    DeviceDriverType::WEBAPP    },
-    { ButtonCombo::KBM,       DeviceDriverType::KBM       },
-    { ButtonCombo::DINPUT,    DeviceDriverType::DINPUT    },
-    { ButtonCombo::SWITCH,    DeviceDriverType::SWITCH    },
-    { ButtonCombo::WIIU,      DeviceDriverType::WIIU      },
-    { ButtonCombo::XINPUT,    DeviceDriverType::XINPUT    },
-    { ButtonCombo::PS3,       DeviceDriverType::PS3       },
-    { ButtonCombo::PS4,       DeviceDriverType::PS4       },
-    { ButtonCombo::STEAM,     DeviceDriverType::STEAM     },
-    { ButtonCombo::PSCLASSIC, DeviceDriverType::PSCLASSIC },
-    { ButtonCombo::PS1PS2,    DeviceDriverType::PS1PS2    },
-    { ButtonCombo::DREAMCAST, DeviceDriverType::DREAMCAST },
-}};
+static constexpr const auto& BUTTON_COMBO_MAP = mode_combos::MODE_COMBOS;
 
 /* Custom: Start + L3 stops the search for new controllers until a pad goes away
  * (UserSettings::stop_search). No mode combo uses L3, so it never takes over one. */

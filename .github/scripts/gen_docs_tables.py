@@ -3,7 +3,7 @@
 drift from the code.
 
 Sources:
-  Firmware/RP2040/src/UserSettings/UserSettings.cpp  button combos (ButtonCombo, BUTTON_COMBO_MAP)
+  Firmware/common/UserSettings/ModeCombos.h            button combos (MODE_COMBOS), hybrid modes (HYBRID_MODES)
   Firmware/RP2040/src/Board/ModeIndicator.cpp          LED blink count and lightbar colour per mode
   Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h   the list of modes
 
@@ -70,21 +70,20 @@ def parse_modes(repo: pathlib.Path):
 
 
 def parse_combos(repo: pathlib.Path):
-    text = (repo / "Firmware/RP2040/src/UserSettings/UserSettings.cpp").read_text()
-    combos = {}
-    for name, args in re.findall(r"static constexpr uint32_t (\w+)\s*=\s*BUTTON_COMBO\((.*?)\);", text):
-        parts = [p.strip() for p in args.split(",")]
-        buttons = [BUTTON_NAMES.get(b.strip().replace("Gamepad::", ""), b.strip()) for b in parts[0].split("|")]
-        dpad = DPAD_NAMES.get(parts[1].replace("Gamepad::", ""), parts[1]) if len(parts) > 1 else None
-        combos[name] = " + ".join(buttons + ([dpad] if dpad else []))
+    text = (repo / "Firmware/common/UserSettings/ModeCombos.h").read_text()
     mapping = {}
-    for combo, mode in re.findall(r"\{\s*ButtonCombo::(\w+),\s*DeviceDriverType::(\w+)\s*\}", text):
-        if combo not in combos:
-            fail(f"ButtonCombo::{combo} used in BUTTON_COMBO_MAP but not defined")
-        mapping[mode] = combos[combo]
+    for args, mode in re.findall(r"\{\s*combo\(([^)]*)\),\s*DeviceDriverType::(\w+)\s*\}", text):
+        parts = [p.strip() for p in args.split(",")]
+        buttons = [BUTTON_NAMES.get(b.strip().replace("B::", ""), b.strip()) for b in parts[0].split("|")]
+        dpad = DPAD_NAMES.get(parts[1].replace("B::", ""), parts[1]) if len(parts) > 1 else None
+        mapping[mode] = " + ".join(buttons + ([dpad] if dpad else []))
     if not mapping:
-        fail("BUTTON_COMBO_MAP not found")
-    return mapping
+        fail("MODE_COMBOS not found in ModeCombos.h")
+    body = re.search(r"HYBRID_MODES\[\]\s*=\s*\{(.*?)\};", text, re.S)
+    if not body:
+        fail("HYBRID_MODES not found in ModeCombos.h")
+    hybrid = set(re.findall(r"DeviceDriverType::(\w+)", body.group(1)))
+    return mapping, hybrid
 
 
 def parse_switch(text: str, function: str):
@@ -125,16 +124,16 @@ def render(repo: pathlib.Path) -> str:
     stale = [m for m in MODE_INFO if m not in modes]
     if stale:
         fail("MODE_INFO entries for modes that no longer exist: " + ", ".join(stale))
-    combos = parse_combos(repo)
+    combos, hybrid = parse_combos(repo)
     blinks, colours = parse_indicator(repo)
-    rows = ["| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | For |",
-            "|---|---|---|---|---|---|"]
+    rows = ["| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | RP2040 + ESP32 | For |",
+            "|---|---|---|---|---|---|---|"]
     for mode in MODE_INFO:
         name, sees, notes = MODE_INFO[mode]
         combo = combos.get(mode, f"fixed build: `-DOGXM_FIXED_DRIVER={mode}`")
         blink = blinks.get(mode, blinks.get("__default__", "?"))
         colour = colours.get(mode, colours.get("__default__", "?"))
-        rows.append(f"| {name} | {combo} | {sees} | {blink} | {colour} | {notes} |")
+        rows.append(f"| {name} | {combo} | {sees} | {blink} | {colour} | {'yes' if mode in hybrid else '—'} | {notes} |")
     return "\n".join(rows)
 
 

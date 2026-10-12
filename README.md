@@ -136,26 +136,26 @@ Hold the combo for about **3 seconds**. On a DualShock 4 / DualSense, Start = Op
 LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 
 <!-- BEGIN GENERATED: mode-table (edit .github/scripts/gen_docs_tables.py, not this table) -->
-| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | For |
-|---|---|---|---|---|---|
-| XInput | Start + Up | Xbox 360 controller | 1 | green | PC, Steam, Xbox 360 console (authenticates like an original pad) |
-| Switch Pro | Start + Down | Switch Pro Controller | 2 | red | Switch / Switch 2 / Lite, PC; motion and HD rumble |
-| DInput | Start + RB + Left | generic gamepad | 3 | blue | PC and other hosts that take a generic gamepad |
-| PS4 | Start + LB + Left | DualShock 4 | 4 | light blue | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
-| STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | Steam / SteamOS / Bazzite; touchpad as mouse |
-| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | yellow | Original Xbox console |
-| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | yellow | Original Xbox console |
-| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | yellow | Original Xbox console (only in builds with the remote ROM) |
-| PS3 | Start + Left | DualShock 3 | 7 | dark blue | PS3 console (motion for Sixaxis games), PC |
-| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | orange | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
-| PS Classic | Start + A | PlayStation Classic controller | 7 | white | PlayStation Classic console |
-| Wii U (GameCube adapter) | Start + LB + Down | Wii U GameCube adapter | 7 | white | Wii U, in Super Smash Bros. only; the one mode tested with several controllers |
-| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | white | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
-| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | white | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
-| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | white | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
-| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | white | Dreamcast through the controller cable; Pico W / Pico 2 W |
-| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | white | N64 through the controller cable; Pico W / Pico 2 W |
-| Web App | Start + LB + RB | web app device | 7 | white | Settings and diagnostics in the browser, over USB |
+| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | RP2040 + ESP32 | For |
+|---|---|---|---|---|---|---|
+| XInput | Start + Up | Xbox 360 controller | 1 | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
+| Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
+| DInput | Start + RB + Left | generic gamepad | 3 | blue | yes | PC and other hosts that take a generic gamepad |
+| PS4 | Start + LB + Left | DualShock 4 | 4 | light blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
+| STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
+| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | yellow | yes | Original Xbox console |
+| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | yellow | — | Original Xbox console |
+| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | yellow | — | Original Xbox console (only in builds with the remote ROM) |
+| PS3 | Start + Left | DualShock 3 | 7 | dark blue | yes | PS3 console (motion for Sixaxis games), PC |
+| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | orange | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
+| PS Classic | Start + A | PlayStation Classic controller | 7 | white | yes | PlayStation Classic console |
+| Wii U (GameCube adapter) | Start + LB + Down | Wii U GameCube adapter | 7 | white | yes | Wii U, in Super Smash Bros. only; the one mode tested with several controllers |
+| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | white | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
+| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | white | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
+| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | white | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
+| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | white | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
+| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | white | — | N64 through the controller cable; Pico W / Pico 2 W |
+| Web App | Start + LB + RB | web app device | 7 | white | yes | Settings and diagnostics in the browser, over USB |
 <!-- END GENERATED: mode-table -->
 
 - **Other combos:** **Start + Select** for 3 s disconnects the controller (Options + Share on a
@@ -403,11 +403,15 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   For local multiplayer on an Xbox 360, use one adapter per player: each adapter gets its own
   USB / XSM3 identity from the board's unique ID. On other consoles two adapters share the same
   USB identity, so they may not show up as two players.
-- **RP2040 / Pico 2 + ESP32 hybrid:** builds in CI but is not tested on hardware. The ESP32 side offers the
-  original mode combos only (no PS4, STEAM, Wii U or Mouse + Keyboard by combo), its I2C link
-  carries no motion, battery or touchpad, and this fork's Bluetooth features (search policy,
-  diagnostics, idle turn-off, Switch 2 and Steam Controller 2026 support) run on the Pico W radio
-  only. Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
+- **RP2040 / Pico 2 + ESP32 hybrid** (tested on a bench with a Pico 2 W, an ESP32 and a
+  DualShock 4 on a PC: pairing, mode changes, buttons, rumble): the USB modes marked in the
+  [mode table](#output-modes) only (the GPIO modes would take over the I2C pins; Wii needs the Pico W
+  radio). Its I2C link carries no motion, battery or touchpad, so PS4 and STEAM modes work without
+  them. Stick deadzones and curves are applied on the ESP32 (edit them with the web app over
+  Bluetooth), button mappings on the Pico (web app over USB, Web App mode). The web app's
+  per-mode combo switches don't apply (the ESP32 reads the combos), and this fork's other
+  Bluetooth features (search policy, diagnostics, idle turn-off, Switch 2 and Steam Controller
+  2026 support) run on the Pico W radio only. Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
 - **Wii mode** takes a wired (USB) controller only; the radio is busy talking to the console.
 - **Bluetooth on the Pico W / Pico 2 W** uses the on-module antenna, which has little margin with
   your body between the controller and the adapter. Keep a line of sight or use a USB extension.

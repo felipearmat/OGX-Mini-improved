@@ -8,57 +8,27 @@
 
 #include "Gamepad/Gamepad.h"
 #include "UserSettings/NVSHelper.h"
+#include "UserSettings/ModeCombos.h"
 
 static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0)
 {
     return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
 }
 
-namespace ButtonCombo 
-{
-    static constexpr uint32_t PS3       = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_LEFT);
-    static constexpr uint32_t DINPUT    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_LEFT);
-    static constexpr uint32_t XINPUT    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_UP);
-    static constexpr uint32_t SWITCH    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_DOWN);
-    static constexpr uint32_t XBOXOG    = BUTTON_COMBO(Gamepad::BUTTON_START, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t XBOXOG_SB = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_RB, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t XBOXOG_XR = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB, Gamepad::DPAD_RIGHT);
-    static constexpr uint32_t PSCLASSIC = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_A);
-    static constexpr uint32_t WEBAPP    = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_LB | Gamepad::BUTTON_RB);
-};
-
+/* Mode combos and the hybrid's mode list: Firmware/common/UserSettings/ModeCombos.h, shared with
+ * the RP2040 firmware, so both sides of the I2C link agree on every mode. */
+#if MAX_GAMEPADS > 1
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] =
 {
-#if MAX_GAMEPADS > 1
     DeviceDriverType::DINPUT, 
     DeviceDriverType::SWITCH, 
-
-#else // MAX_GAMEPADS == 1
-    DeviceDriverType::XBOXOG, 
-    // DeviceDriverType::XBOXOG_SB, 
-    DeviceDriverType::XBOXOG_XR,
-    DeviceDriverType::DINPUT, 
-    DeviceDriverType::SWITCH, 
-    DeviceDriverType::PS3,
-    DeviceDriverType::PSCLASSIC, 
-    DeviceDriverType::XINPUT,
-
-#endif
+    DeviceDriverType::WEBAPP,
 };
+#else
+static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
+#endif
 
-struct ComboMap { uint32_t combo; DeviceDriverType driver; };
-static constexpr std::array<ComboMap, 9> BUTTON_COMBO_MAP = 
-{{
-    { ButtonCombo::XBOXOG,    DeviceDriverType::XBOXOG    },
-    { ButtonCombo::XBOXOG_SB, DeviceDriverType::XBOXOG_SB },
-    { ButtonCombo::XBOXOG_XR, DeviceDriverType::XBOXOG_XR },
-    { ButtonCombo::WEBAPP,    DeviceDriverType::WEBAPP    },
-    { ButtonCombo::DINPUT,    DeviceDriverType::DINPUT    },
-    { ButtonCombo::SWITCH,    DeviceDriverType::SWITCH    },
-    { ButtonCombo::XINPUT,    DeviceDriverType::XINPUT    },
-    { ButtonCombo::PS3,       DeviceDriverType::PS3       },
-    { ButtonCombo::PSCLASSIC, DeviceDriverType::PSCLASSIC }
-}};
+static constexpr const auto& BUTTON_COMBO_MAP = mode_combos::MODE_COMBOS;
 
 const std::string UserSettings::INIT_FLAG_KEY()
 {
