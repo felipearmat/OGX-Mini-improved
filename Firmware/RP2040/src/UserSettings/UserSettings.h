@@ -10,6 +10,7 @@
 #include "UserSettings/NVSTool.h"
 #include "Gamepad/Gamepad.h"
 #include "UserSettings/DongleSettings.h"
+#include "UserSettings/ComboCheck.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 
 /** Input source for gamepad 0: USB/BT (default) or GPIO (PS1/PS2, GameCube, or Dreamcast controller). */
@@ -27,7 +28,7 @@ class UserSettings
 {
 public:
     static constexpr uint8_t MAX_PROFILES = 8;
-    static constexpr int32_t GP_CHECK_DELAY_MS = 600;
+    static constexpr int32_t GP_CHECK_DELAY_MS = mode_combos::kCheckDelayMs;  // UserSettings/ComboCheck.h
 
     static UserSettings& get_instance()
     {
@@ -81,7 +82,7 @@ private:
     UserSettings(const UserSettings&) = delete;
     UserSettings& operator=(const UserSettings&) = delete;
 
-    static constexpr uint8_t GP_CHECK_COUNT = 3000 / GP_CHECK_DELAY_MS;
+    static constexpr uint8_t GP_CHECK_COUNT = mode_combos::kCheckCount;
     static constexpr uint8_t FLASH_INIT_FLAG = 0xF8;
     const std::string DATETIME_TAG = BUILD_DATETIME; 
     

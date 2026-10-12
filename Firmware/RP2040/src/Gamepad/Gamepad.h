@@ -13,6 +13,8 @@
 #include "libfixmath/fix16.hpp"
 
 #include "Gamepad/GamepadMapper.h"
+#include "Gamepad/Lightbar.h"
+#include "Gamepad/MotionSource.h"
 #include "Gamepad/Range.h"
 #include "Gamepad/fix16ext.h"
 #include "UserSettings/UserProfile.h"
@@ -31,14 +33,14 @@ public:
     struct PadIn
     {
         /** IMU for PS3 Sixaxis / PS4 gadget: Sony, Switch Pro, Wii Remote, wired or BT. */
-        static constexpr uint8_t MOTION_SRC_NONE = 0;
-        static constexpr uint8_t MOTION_SRC_DS4 = 1;
-        static constexpr uint8_t MOTION_SRC_DS5 = 2;
-        static constexpr uint8_t MOTION_SRC_SWITCH_PRO = 3;
-        static constexpr uint8_t MOTION_SRC_DS5_USB = 4;
-        static constexpr uint8_t MOTION_SRC_DS4_USB = 5;
-        static constexpr uint8_t MOTION_SRC_SWITCH_USB = 6;
-        static constexpr uint8_t MOTION_SRC_WII_BT = 7;
+        static constexpr uint8_t MOTION_SRC_NONE = motion_source::NONE;  // Gamepad/MotionSource.h
+        static constexpr uint8_t MOTION_SRC_DS4 = motion_source::DS4;
+        static constexpr uint8_t MOTION_SRC_DS5 = motion_source::DS5;
+        static constexpr uint8_t MOTION_SRC_SWITCH_PRO = motion_source::SWITCH_PRO;
+        static constexpr uint8_t MOTION_SRC_DS5_USB = motion_source::DS5_USB;
+        static constexpr uint8_t MOTION_SRC_DS4_USB = motion_source::DS4_USB;
+        static constexpr uint8_t MOTION_SRC_SWITCH_USB = motion_source::SWITCH_USB;
+        static constexpr uint8_t MOTION_SRC_WII_BT = motion_source::WII_BT;
 
         uint8_t  dpad;
         uint16_t buttons;
@@ -222,11 +224,7 @@ public:
 
     /* Custom: lightbar colour requested by the host (PS4 mode), kept apart from PadOut so the
      * PadOut wire layout (I2C boards) doesn't change. */
-    struct Lightbar
-    {
-        uint8_t r{0}, g{0}, b{0};
-        bool valid{false};
-    };
+    using Lightbar = ::Lightbar;  // Gamepad/Lightbar.h, shared with the ESP32
 
     inline void set_host_lightbar(uint8_t r, uint8_t g, uint8_t b)
     {

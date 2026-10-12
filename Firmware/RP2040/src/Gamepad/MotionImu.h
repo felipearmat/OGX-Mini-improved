@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "Gamepad/Gamepad.h"
+#include "Bluepad32/JoyConSettings.h"
 
 namespace MotionImu
 {
@@ -347,6 +348,43 @@ inline void encode_switch_imu_report(uint8_t* dest, const Gamepad::PadIn& gp_in,
     }
     for (int i = 0; i < 3; i++) {
         std::memcpy(dest + static_cast<size_t>(i) * sizeof(sample), &hist.samples[i], sizeof(sample));
+    }
+}
+
+/* Motion of a Bluetooth pad into PadIn: the Pico W path and the RP2040 side of the hybrid (the
+ * ESP32 forwards Bluepad32's raw values). source: Gamepad/MotionSource.h. joycon_left /
+ * joycon_right: the motion comes from that Joy-Con; paired: merged with its other half. */
+inline void apply_bt_motion(Gamepad::PadIn& gp_in, uint8_t source, const int32_t raw_accel[3],
+                            const int32_t raw_gyro[3], bool joycon_left, bool joycon_right, bool paired,
+                            WiiPseudoGyroState& wii_state, uint32_t now_ms)
+{
+    /* PadIn is packed, so accel / gyro are not 4-byte aligned; a plain int32_t* to them let -O3
+     * use paired loads (ldrd), which fault on unaligned addresses (the BT core hung on the first
+     * Joy-Con report in Release builds). Work on aligned copies. */
+    int32_t accel[3]{}, gyro[3]{};
+    gp_in.motion_source = source;
+    if (source == Gamepad::PadIn::MOTION_SRC_WII_BT) {
+        fill_from_wii_bt(accel, gyro, raw_accel);
+        /* Switch cursor/aim uses gyro; synthesize rate from accel (no MotionPlus parse yet). */
+        apply_wii_pseudo_gyro(accel, gyro, wii_state, now_ms);
+    } else if (source != Gamepad::PadIn::MOTION_SRC_NONE) {
+        for (int i = 0; i < 3; i++) {
+            accel[i] = raw_accel[i];
+            gyro[i] = raw_gyro[i];
+        }
+        /* Joy-Con motion is in the upright frame; rotate for how it is held. */
+        if (joycon_left || joycon_right) {
+            const auto& jc = joycon_settings::get();
+            const bool left = paired ? !jc.pair_imu_right : joycon_left;
+            joycon_settings::apply_orientation(left, paired ? jc.pair_orientation : jc.solo_orientation,
+                                               accel, gyro);
+        }
+    } else {
+        return;
+    }
+    for (int i = 0; i < 3; i++) {
+        gp_in.accel[i] = accel[i];
+        gp_in.gyro[i] = gyro[i];
     }
 }
 

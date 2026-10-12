@@ -14,6 +14,7 @@ idf_component_register(
         "../../common/UserSettings/UserProfile.cpp"
         "../../common/UserSettings/TriggerSettings.cpp"
         "../../common/UserSettings/JoystickSettings.cpp"
+        "../../common/Board/ModeIndicator.cpp"
     INCLUDE_DIRS 
         "."
         "../../common"

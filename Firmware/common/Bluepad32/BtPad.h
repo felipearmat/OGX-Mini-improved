@@ -18,6 +18,9 @@
 #include "parser/uni_hid_parser_xboxone.h"
 
 #include "Bluepad32/ComboHold.h"
+#include "Bluepad32/JoyConSettings.h"
+#include "Gamepad/Lightbar.h"
+#include "Gamepad/MotionSource.h"
 #include "Gamepad/GamepadMapper.h"
 #include "Gamepad/RumbleTiming.h"
 
@@ -82,6 +85,16 @@ namespace bt_pad {
         if (is_switch_joycon(d))
             return uni_hid_parser_switch_get_pair_partner_idx(d);
         return -1;
+    }
+
+    /* Turn one pad off (idle time over). gap_disconnect() does not complete on live Joy-Con
+     * links: those are asked to sleep instead. */
+    inline void turn_off(uni_hid_device_t* d)
+    {
+        if (is_switch_joycon(d))
+            uni_hid_parser_switch_request_sleep(d);
+        else
+            uni_hid_device_disconnect(d);
     }
 
     /* Drop a pad and its Joy-Con partner (the disconnect combo). gap_disconnect() does not complete
@@ -254,6 +267,64 @@ namespace bt_pad {
         }
     }
 
+    inline uni_hid_device_t* partner_device(uni_hid_device_t* d)
+    {
+        const int idx = pair_partner_idx(d);
+        uni_hid_device_t* partner = (idx >= 0 && idx < CONFIG_BLUEPAD32_MAX_DEVICES)
+                                        ? uni_hid_device_get_instance_for_idx(idx)
+                                        : nullptr;
+        return partner == d ? nullptr : partner;
+    }
+
+    /* The host's rumble for a pad, played on its Joy-Con partner too (called for the pair's
+     * primary half; the secondary is skipped). A merged Joy-Con pair follows the dongle option:
+     * per side (as SDL / Steam / Linux drive a pair: left motor on the left Joy-Con, right motor
+     * on the right one) or both motors on both; a half with nothing to play is left alone (its
+     * own rumble duration stops it). */
+    inline void play_host_rumble(uni_hid_device_t* d, uint16_t length, uint8_t rumble_l, uint8_t rumble_r,
+                                 bool joycon_pair_per_side)
+    {
+        if (is_joycon_pair_secondary(d))
+            return;
+        uni_hid_device_t* partner = partner_device(d);
+        if (partner && is_switch_joycon(d)) {
+            for (uni_hid_device_t* half : {d, partner}) {
+                const auto h = joycon_settings::pair_half_rumble(
+                    half->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft, joycon_pair_per_side,
+                    rumble_l, rumble_r);
+                if (h.weak || h.strong)
+                    uni_hid_parser_switch_play_dual_rumble(half, 0, switch_rumble::kRumbleDurationMs,
+                                                           h.weak, h.strong);
+            }
+            return;
+        }
+        play_rumble(d, length, rumble_l, rumble_r);
+        if (partner)
+            play_rumble(partner, length, rumble_l, rumble_r);
+    }
+
+    /* The output mode's lightbar colour goes on a while after connecting (Board/ModeIndicator.h),
+     * deferred like the connection rumble: early output reports can drop a fresh DS4. */
+    constexpr uint32_t kModeLightbarDelayMs = 1500;
+
+    inline bool has_lightbar(const uni_hid_device_t* d)
+    {
+        return d->report_parser.set_lightbar_color != nullptr &&
+               (d->controller_type == CONTROLLER_TYPE_PS4Controller ||
+                d->controller_type == CONTROLLER_TYPE_PS5Controller);
+    }
+
+    /* Send `want` to the pad's lightbar unless it already shows it (`have`: last colour sent). */
+    inline void set_lightbar(uni_hid_device_t* d, const Lightbar& want, Lightbar& have)
+    {
+        if (!want.valid || !has_lightbar(d))
+            return;
+        if (have.valid && have.same_colour(want))
+            return;
+        d->report_parser.set_lightbar_color(d, want.r, want.g, want.b);
+        have = want;
+    }
+
     /* Last BLE keepalive sent to a pad (platform time, ms); zeroed when the pad is ready, so the
      * first one goes out on the next feedback tick. */
     struct KeepaliveState
@@ -286,6 +357,36 @@ namespace bt_pad {
         if (d->controller_type == CONTROLLER_TYPE_OUYAController)
             return (gp->buttons & BUTTON_THUMB_L) && (gp->buttons & BUTTON_THUMB_R);
         return (gp->misc_buttons & MISC_BUTTON_START) && (gp->misc_buttons & MISC_BUTTON_BACK);
+    }
+
+    /* Where the pad's motion comes from (Gamepad/MotionSource.h); NONE without sensors. A Wiimote
+     * counts once it reports accelerometer data (accel mode, or readings above the noise). */
+    inline uint8_t motion_source_of(const uni_hid_device_t* d, const uni_gamepad_t* gp)
+    {
+        switch (d->controller_type) {
+            case CONTROLLER_TYPE_PS4Controller:
+                return motion_source::DS4;
+            case CONTROLLER_TYPE_PS5Controller:
+                return motion_source::DS5;
+            case CONTROLLER_TYPE_SwitchProController:
+            case CONTROLLER_TYPE_Switch2ProController:
+            /* Joy-Cons too: the parser aligns the right Joy-Con's axes with the left / Pro ones,
+             * and a merged pair carries one half's IMU. */
+            case CONTROLLER_TYPE_SwitchJoyConLeft:
+            case CONTROLLER_TYPE_SwitchJoyConRight:
+                return motion_source::SWITCH_PRO;
+            case CONTROLLER_TYPE_WiiController: {
+                if (d->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_ACCEL ||
+                    d->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK_ACCEL)
+                    return motion_source::WII_BT;
+                const int32_t l1 = (gp->accel[0] >= 0 ? gp->accel[0] : -gp->accel[0]) +
+                                   (gp->accel[1] >= 0 ? gp->accel[1] : -gp->accel[1]) +
+                                   (gp->accel[2] >= 0 ? gp->accel[2] : -gp->accel[2]);
+                return l1 > 16 ? motion_source::WII_BT : motion_source::NONE;
+            }
+            default:
+                return motion_source::NONE;
+        }
     }
 
     /* A pad's input after its user profile, in the output's terms (GamepadBits). */

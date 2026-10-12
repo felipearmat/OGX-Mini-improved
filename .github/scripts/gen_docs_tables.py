@@ -4,7 +4,7 @@ drift from the code.
 
 Sources:
   Firmware/common/UserSettings/ModeCombos.h            button combos (MODE_COMBOS), hybrid modes (HYBRID_MODES)
-  Firmware/RP2040/src/Board/ModeIndicator.cpp          LED blink count and lightbar colour per mode
+  Firmware/common/Board/ModeIndicator.cpp          LED blink count and lightbar colour per mode
   Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h   the list of modes
 
 The table sits between these markers in README.md:
@@ -107,7 +107,7 @@ def parse_switch(text: str, function: str):
 
 
 def parse_indicator(repo: pathlib.Path):
-    text = (repo / "Firmware/RP2040/src/Board/ModeIndicator.cpp").read_text()
+    text = (repo / "Firmware/common/Board/ModeIndicator.cpp").read_text()
     blinks = {k: re.search(r"return (\d+)", v).group(1) for k, v in parse_switch(text, "blink_count").items()}
     colours = {}
     for k, v in parse_switch(text, "lightbar_color").items():

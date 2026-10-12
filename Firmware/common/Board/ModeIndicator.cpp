@@ -7,7 +7,7 @@ static constexpr uint32_t OFF_MS    = 300;
 static constexpr uint32_t PAUSE_MS  = 1500;
 static constexpr uint8_t  REPEATS   = 2;
 
-// Only touched from the BTstack run loop (Core1), so no locking is needed.
+// Only touched from the Bluetooth run loop (BTstack), so no locking is needed.
 static uint8_t s_count = 0;       // blinks per repetition
 static uint8_t s_step = 0;        // step within the current repetition
 static uint8_t s_repeat = 0;      // completed repetitions

@@ -42,34 +42,6 @@ static const std::string DONGLE_SETTINGS_KEY = "dongle_cfg";
 /* Custom: flash key of the mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings). */
 static const std::string KBM_SETTINGS_KEY = "kbm_cfg";
 
-static constexpr uint32_t BUTTON_COMBO(const uint16_t& buttons, const uint8_t& dpad = 0) {
-    return (static_cast<uint32_t>(buttons) << 16) | static_cast<uint32_t>(dpad);
-}
-
-/* Custom: D-pad direction of a stick held near the edge along one axis (PadIn Y is negative
- * up); diagonals and partial pushes give none, so a combo cannot fire by accident. */
-static uint8_t stick_edge_as_dpad(int16_t x, int16_t y)
-{
-    static constexpr int32_t EDGE = 26000;  // ~80% of full deflection
-    const int32_t ax = x < 0 ? -static_cast<int32_t>(x) : x;
-    const int32_t ay = y < 0 ? -static_cast<int32_t>(y) : y;
-    if (ay >= EDGE && ax < EDGE / 2)
-        return y < 0 ? Gamepad::DPAD_UP : Gamepad::DPAD_DOWN;
-    if (ax >= EDGE && ay < EDGE / 2)
-        return x < 0 ? Gamepad::DPAD_LEFT : Gamepad::DPAD_RIGHT;
-    return 0;
-}
-
-/** Required buttons/dpad pressed (extra face buttons or triggers do not block the combo). */
-static bool combo_matches(uint32_t current, uint32_t expected)
-{
-    const uint16_t req_buttons = static_cast<uint16_t>(expected >> 16);
-    const uint16_t cur_buttons = static_cast<uint16_t>(current >> 16);
-    const uint8_t req_dpad = static_cast<uint8_t>(expected & 0xFF);
-    const uint8_t cur_dpad = static_cast<uint8_t>(current & 0xFF);
-    return ((cur_buttons & req_buttons) == req_buttons) && (cur_dpad == req_dpad);
-}
-
 /* Mode combos: Firmware/common/UserSettings/ModeCombos.h (shared with the ESP32 companion). */
 
 #if defined(CONFIG_EN_ESP32)
@@ -126,33 +98,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 };
 #endif // CONFIG_EN_ESP32
 
-static constexpr const auto& BUTTON_COMBO_MAP = mode_combos::MODE_COMBOS;
-
-/* Custom: Start + L3 stops the search for new controllers until a pad goes away
- * (UserSettings::stop_search). No mode combo uses L3, so it never takes over one. */
-static constexpr uint32_t STOP_SEARCH_COMBO = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_L3);
-
-/** Prefer the combo that requires the most buttons (e.g. STEAM over XInput when LB is held). */
-static uint32_t find_matching_combo(uint32_t current)
-{
-    uint32_t best = 0;
-    uint8_t best_button_count = 0;
-    for (const auto& entry : BUTTON_COMBO_MAP) {
-        if (!combo_matches(current, entry.combo)) {
-            continue;
-        }
-        const uint16_t req = static_cast<uint16_t>(entry.combo >> 16);
-        uint8_t count = 0;
-        for (uint16_t bit = req; bit != 0; bit &= static_cast<uint16_t>(bit - 1)) {
-            ++count;
-        }
-        if (count >= best_button_count) {
-            best_button_count = count;
-            best = entry.combo;
-        }
-    }
-    return best;
-}
 
 const std::string UserSettings::INIT_FLAG_KEY()
 {
@@ -200,77 +145,24 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
     (void)gamepad;
     return false;  // Fixed output build: combos disabled
 #else
-    Gamepad::PadIn gp_in = gamepad.get_pad_in();
-    static uint32_t last_button_combo = 0;
-    static uint8_t call_count = 0;
-
-    /* Custom: a lone Joy-Con has no D-pad; its stick at the edge stands in for one. */
-    uint8_t combo_dpad = gp_in.dpad;
-    if (combo_dpad == 0 && gamepad.combo_stick_as_dpad())
-        combo_dpad = stick_edge_as_dpad(gp_in.joystick_lx, gp_in.joystick_ly);
-
-    const uint32_t current_button_combo = BUTTON_COMBO(gp_in.buttons, combo_dpad);
-
-    /* Custom: Start + L3 held 3 s stops the search for new controllers (no restart). Not in Wii
-     * mode: there Bluetooth is the Wii link, not the controller input. */
-    static uint8_t stop_search_count = 0;
-    const bool stop_combo = current_driver_ != DeviceDriverType::WII &&
-                            combo_matches(current_button_combo, STOP_SEARCH_COMBO);
-    if (stop_combo)
+    /* Combos, Start + L3, a lone Joy-Con's stick as the D-pad and the modes turned off in the web
+     * app: UserSettings/ComboCheck.h, shared with the ESP32 of the hybrid. Start + L3 is not
+     * checked in Wii mode: there Bluetooth is the Wii link, not the controller input. */
+    static mode_combos::ComboCheck s_combo_check;
+    const Gamepad::PadIn gp_in = gamepad.get_pad_in();
+    const auto result = s_combo_check.update(
+        gp_in.buttons, gp_in.dpad, gamepad.combo_stick_as_dpad(), gp_in.joystick_lx, gp_in.joystick_ly,
+        current_driver_, current_driver_ != DeviceDriverType::WII,
+        [](DeviceDriverType driver) { return UserSettings::get_instance().is_valid_driver(driver); },
+        dongle_settings::get());
+    if (result.stop_search)
     {
-        last_button_combo = 0;
-        call_count = 0;
-        if (++stop_search_count == GP_CHECK_COUNT)
-            stop_search(gamepad);  // once per hold
+        stop_search(gamepad);
         return false;
     }
-    stop_search_count = 0;
-    const uint32_t active_combo = find_matching_combo(current_button_combo);
-
-    if (!(current_button_combo & (static_cast<uint32_t>(Gamepad::BUTTON_START) << 16)) ||
-        active_combo == 0 ||
-        last_button_combo != active_combo)
+    const DeviceDriverType new_driver = result.new_driver;
+    if (new_driver == DeviceDriverType::NONE)
     {
-        last_button_combo = active_combo;
-        call_count = 0;
-        return false;
-    }
-
-    ++call_count;
-
-    if (call_count < GP_CHECK_COUNT)
-    {
-        return false;
-    }
-
-    call_count = 0;
-
-    DeviceDriverType new_driver = DeviceDriverType::NONE;
-
-    for (const auto& combo_map : BUTTON_COMBO_MAP)
-    {
-        if (combo_map.combo == active_combo && is_valid_driver(combo_map.driver))
-        {
-            new_driver = combo_map.driver;
-            break;
-        }
-    }
-
-    /* Custom: modes whose combo is turned off in the web app (Web App mode always stays on). */
-    if (new_driver != DeviceDriverType::NONE && new_driver != DeviceDriverType::WEBAPP &&
-        !dongle_settings::mode_combo_enabled(dongle_settings::get(), static_cast<uint8_t>(new_driver)))
-    {
-        return false;
-    }
-
-    if (new_driver == DeviceDriverType::NONE || new_driver == current_driver_)
-    {
-#if defined(CONFIG_OGXM_DEBUG)
-        if (new_driver == DeviceDriverType::NONE)
-            OGXM_LOG("WII driver check: combo 0x" + std::to_string(current_button_combo) + " no match\n");
-        else
-            OGXM_LOG("WII driver check: same driver " + OGXM_TO_STRING(current_driver_) + ", no change\n");
-#endif
         return false;
     }
 
@@ -508,13 +400,13 @@ void UserSettings::store_input_source(HostInputSource source)
     input_source_loaded_ = true;
 }
 
-static constexpr uint32_t INPUT_SOURCE_COMBO = BUTTON_COMBO(Gamepad::BUTTON_START | Gamepad::BUTTON_BACK, 0);
+static constexpr uint32_t INPUT_SOURCE_COMBO = mode_combos::combo(Gamepad::BUTTON_START | Gamepad::BUTTON_BACK, 0);
 static constexpr unsigned INPUT_SOURCE_CHECK_COUNT = 2500 / 600;  /* 2.5s hold to cycle input source */
 
 bool UserSettings::check_for_input_source_change(Gamepad& gamepad)
 {
     Gamepad::PadIn gp = gamepad.get_pad_in();
-    uint32_t combo = BUTTON_COMBO(gp.buttons, gp.dpad);
+    uint32_t combo = mode_combos::combo(gp.buttons, gp.dpad);
     static uint32_t last_combo = 0;
     static uint8_t hold_count = 0;
 

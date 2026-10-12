@@ -80,7 +80,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
-    ${SRC}/UserSettings/DongleSettings.cpp
+    ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp
     ${SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${SRC}/Diagnostics/CrashHandler.cpp
@@ -476,9 +476,10 @@ if(EN_BLUETOOTH)
     
     list(APPEND SOURCES_BOARD
         ${SRC}/Bluepad32/Bluepad32.cpp
+        ${COMMON}/Bluepad32/ScanControl.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
-        ${SRC}/Board/ModeIndicator.cpp
-        ${SRC}/Bluepad32/JoyConSettings.cpp
+        ${COMMON}/Board/ModeIndicator.cpp
+        ${COMMON}/Bluepad32/JoyConSettings.cpp
         ${SRC}/BLEServer/BLEServer.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp
@@ -550,6 +551,10 @@ if(EN_ESP32)
     else()
         list(APPEND LIBS_BOARD
             pico_i2c_slave
+        )
+        # Joy-Con motion orientation for pads the ESP32 forwards (Firmware/common/Bluepad32)
+        list(APPEND SOURCES_BOARD
+            ${COMMON}/Bluepad32/JoyConSettings.cpp
         )
     endif()
     list(APPEND LIBS_BOARD

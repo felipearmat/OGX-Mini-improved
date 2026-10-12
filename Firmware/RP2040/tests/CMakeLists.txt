@@ -33,7 +33,7 @@ function(ogxm_add_test NAME)
     add_test(NAME ${NAME} COMMAND ${NAME})
 endfunction()
 
-ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_SRC}/Board/ModeIndicator.cpp)
+ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_COMMON}/Board/ModeIndicator.cpp)
 
 ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
@@ -45,9 +45,9 @@ ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_wire_pad PRIVATE fixmath)
 
-ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_SRC}/Bluepad32/JoyConSettings.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
+ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_COMMON}/Bluepad32/JoyConSettings.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
-ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
+ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
 ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagnostics.cpp)
 
@@ -56,7 +56,8 @@ ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
 ogxm_add_test(test_scan_policy test_scan_policy.cpp)
 # Shared by every Bluepad32 board (Firmware/common/Bluepad32, Firmware/common/Gamepad/GamepadMapper.h)
 ogxm_add_test(test_bt_shared test_bt_shared.cpp ${FW_COMMON}/UserSettings/UserProfile.cpp
-    ${FW_COMMON}/UserSettings/JoystickSettings.cpp ${FW_COMMON}/UserSettings/TriggerSettings.cpp)
+    ${FW_COMMON}/UserSettings/JoystickSettings.cpp ${FW_COMMON}/UserSettings/TriggerSettings.cpp
+    ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 target_link_libraries(test_bt_shared PRIVATE fixmath)
 target_compile_definitions(test_bt_shared PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 ogxm_add_test(test_idle_motion test_idle_motion.cpp)
@@ -79,7 +80,7 @@ ogxm_add_test(test_gamepad_out test_gamepad_out.cpp
 target_compile_definitions(test_gamepad_out PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_gamepad_out PRIVATE fixmath)
 
-ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Board/ReportedMac.cpp ${FW_SRC}/UserSettings/DongleSettings.cpp)
+ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Board/ReportedMac.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
 ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
@@ -100,7 +101,7 @@ ogxm_add_test(test_device_reports test_device_reports.cpp
     ${FW_COMMON}/UserSettings/UserProfile.cpp
     ${FW_COMMON}/UserSettings/JoystickSettings.cpp
     ${FW_COMMON}/UserSettings/TriggerSettings.cpp
-    ${FW_SRC}/UserSettings/DongleSettings.cpp
+    ${FW_COMMON}/UserSettings/DongleSettings.cpp
     ${FW_SRC}/Board/ReportedMac.cpp)
 target_include_directories(test_device_reports PRIVATE ${EXTERNAL_DIR}/tinyusb/src)
 target_compile_definitions(test_device_reports PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1 MAX_GAMEPADS=1

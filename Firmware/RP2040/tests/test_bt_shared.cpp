@@ -5,6 +5,7 @@
 
 #include "Bluepad32/ComboHold.h"
 #include "Gamepad/GamepadMapper.h"
+#include "UserSettings/ComboCheck.h"
 #include "UserSettings/UserProfile.h"
 #include "test.h"
 
@@ -70,6 +71,58 @@ TEST(web_app_mode_uses_the_default_mapping) {
     mapper.set_profile(custom_profile(), DeviceDriverType::WEBAPP);
     CHECK_EQ(mapper.MAP_BUTTON_A, GamepadBits::BUTTON_A);
     CHECK_EQ(mapper.scale_trigger_l<10>(static_cast<uint16_t>(100)), 0);
+}
+
+static bool all_modes_valid(DeviceDriverType) { return true; }
+
+static mode_combos::ComboCheck::Result hold(mode_combos::ComboCheck& check, uint16_t buttons, uint8_t dpad,
+                                            bool stick_as_dpad = false, int16_t lx = 0, int16_t ly = 0,
+                                            const dongle_settings::Settings& settings = dongle_settings::defaults())
+{
+    mode_combos::ComboCheck::Result last;
+    for (uint8_t i = 0; i <= mode_combos::kCheckCount; ++i) {
+        const auto r = check.update(buttons, dpad, stick_as_dpad, lx, ly, DeviceDriverType::XBOXOG, true,
+                                    all_modes_valid, settings);
+        if (r.new_driver != DeviceDriverType::NONE || r.stop_search)
+            return r;
+        last = r;
+    }
+    return last;
+}
+
+TEST(mode_combo_fires_after_three_seconds) {
+    mode_combos::ComboCheck check;
+    const auto r = hold(check, GamepadBits::BUTTON_START, GamepadBits::DPAD_DOWN);
+    CHECK_EQ(static_cast<int>(r.new_driver), static_cast<int>(DeviceDriverType::SWITCH));
+}
+
+TEST(extra_buttons_do_not_block_and_the_longest_combo_wins) {
+    mode_combos::ComboCheck check;  // Start + LB + Up is STEAM, not XInput (Start + Up)
+    const auto r = hold(check, GamepadBits::BUTTON_START | GamepadBits::BUTTON_LB | GamepadBits::BUTTON_A,
+                        GamepadBits::DPAD_UP);
+    CHECK_EQ(static_cast<int>(r.new_driver), static_cast<int>(DeviceDriverType::STEAM));
+}
+
+TEST(lone_joycon_stick_stands_in_for_the_dpad) {
+    mode_combos::ComboCheck check;
+    CHECK_EQ(static_cast<int>(hold(check, GamepadBits::BUTTON_START, 0, false, 0, 30000).new_driver),
+             static_cast<int>(DeviceDriverType::NONE));
+    mode_combos::ComboCheck joycon;
+    CHECK_EQ(static_cast<int>(hold(joycon, GamepadBits::BUTTON_START, 0, true, 0, 30000).new_driver),
+             static_cast<int>(DeviceDriverType::SWITCH));  // stick down = D-pad down
+}
+
+TEST(start_l3_stops_the_search) {
+    mode_combos::ComboCheck check;
+    CHECK(hold(check, GamepadBits::BUTTON_START | GamepadBits::BUTTON_L3, 0).stop_search);
+}
+
+TEST(disabled_mode_combo_does_nothing) {
+    dongle_settings::Settings settings = dongle_settings::defaults();
+    settings.combo_disabled_modes = 1u << static_cast<uint8_t>(DeviceDriverType::SWITCH);
+    mode_combos::ComboCheck check;
+    CHECK_EQ(static_cast<int>(hold(check, GamepadBits::BUTTON_START, GamepadBits::DPAD_DOWN, false, 0, 0, settings).new_driver),
+             static_cast<int>(DeviceDriverType::NONE));
 }
 
 TEST_MAIN()
