@@ -10,6 +10,23 @@ when its PR is opened or merged.
 
 Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream.
 
+## Next fix PRs (send before any feature PR)
+
+In this order; each one on its own branch from upstream `develop`, with its unit test when it has
+one. Still open upstream: #139 / #140 (diagnostics). Merged: #129 (Switch Pro motion), #132 (rumble
+output queue / SDL mapping), #138 (touchpad press / Capture).
+
+1. **3dda3e9** — DInput 27-byte input report (macOS showed no input). Standalone.
+2. **f1f49e9** — PC wake: one wake request per suspend, XInput / STEAM able to wake.
+3. **8c59260** — BTstack logs in Debug builds only (inverted condition).
+4. **ESP32 companion build** — 87431fb + 09f005a + the CMake line of ff5b909: builds with ESP-IDF
+   5.5, the current BTstack port, on Linux (include case) and with any build directory.
+5. **Hybrid behaviour** — fix parts of 7f8b279 (rumble) and 1a31468 (Web App combo, GPIO modes off),
+   in their minimal form without `Firmware/common` (see their rows).
+
+Features follow once these are in: `Firmware/common` (9f6deb1) and the shared combo table, the
+hybrid's Pico 2 board target (ff5b909), connection rumble on the ESP32, then the feature list below.
+
 ## Bug fixes (general, every user benefits)
 
 | Commit | Change | Status | Notes |
@@ -22,7 +39,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | 850dac4 | NVSTool: park the other core for every flash write (flash_safe_execute) | merged #119 | Only the mode-change path stopped Core1. |
 | 7b0b669 | Bluetooth pads: play host rumble pulses shorter than the feedback tick | merged #118 | Pulses < 250 ms never reached the pad. Touches `Gamepad.h`. |
 | bca089b | Switch pads: rumble stuck on, stop/restart in long rumble | merged #115 | Idle neutral refresh (Bluepad32 patch) + 350 ms duration. |
-| d09b6b2 | Bluepad32: byte-stream output queue (backport of upstream b6531db), drop the idle rumble refresh | pr #132 | Together with the rumble intensity / SDL mapping in one PR (#126 closed 2026-10-05). |
+| d09b6b2 | Bluepad32: byte-stream output queue (backport of upstream b6531db), drop the idle rumble refresh | merged #132 | Together with the rumble intensity / SDL mapping in one PR (#126 closed 2026-10-05). |
 | 4d03d39 | Switch parser: enable vibration during setup | merged #115 | Joy-Cons never vibrated (subcommand 0x48). Also for Bluepad32 upstream. |
 | a561a98 | Switch parser: robust setup, sleep request | merged #115 | Per-step timeouts, stale replies, one pad in setup at a time, timer cleanup. Also for Bluepad32 upstream. |
 | d0978c1 | Mode switch: park Core1 before flash write, watchdog | merged #119 | Pico W / Pico 2 W froze on mode change. |
@@ -34,18 +51,25 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | a189ac8 | STEAM output: complete DualSense emulation for non-DualSense pads (motion, touch, battery, features, rumble/lightbar output fix) | merged #114 (output fix only), pr #130 (rest) | Output reports were dropped (same length check as PS4). Output fix sent as #114; the rest is a feature. |
 | ba53db2 | Switch Pro wired input: follow the L3/R3 constant fix | merged #110 | Goes with 802537e (same PR); the wired Pro host driver compensated for the old values. |
 | 7f61088 | Reboot after the last pad disconnects: arm a hardware watchdog too | merged #127 | Upstream #106 reboots from a BT run-loop timer; if the BT core hangs during teardown it never fires (suspected freeze with a Joy-Con pair). Same safety net as the combo. Not confirmed with a log. |
-| 3f0a574 | Switch pads: rumble intensity follows the requested magnitude (amplitude, not frequency) | pr #132 (replaces #126) | Bluepad32 patch. 44f2190 replaced the DS4Windows recipe with the SDL mapping (same data on both actuators) after the per-side mapping left a single Joy-Con silent for one magnitude; PR updated 2026-10-02 and re-tested on hardware (Release, Joy-Con pair, Switch Pro mode). Same change for Bluepad32: ricardoquesada/bluepad32#232. |
+| 3f0a574 | Switch pads: rumble intensity follows the requested magnitude (amplitude, not frequency) | merged #132 (replaces #126) | Bluepad32 patch. 44f2190 replaced the DS4Windows recipe with the SDL mapping (same data on both actuators) after the per-side mapping left a single Joy-Con silent for one magnitude; PR updated 2026-10-02 and re-tested on hardware (Release, Joy-Con pair, Switch Pro mode). Same change for Bluepad32: ricardoquesada/bluepad32#232. |
 | 77f69f3 | STEAM output: DualSense rumble flags as SDL / Steam send them | merged #114 | Goes with the STEAM output-report PR. |
 | dd957f9 | DInput output: analog button pressure from the wrong buttons | merged #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
-| b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | pr #129 (+ 6e63762) | Treated as a fix: Switch output had no motion at all. Includes the three Joy-Con adapter options (CMake defaults), on top of #128. 6e63762 (aligned copies for apply_orientation, Release hang) added to the PR 2026-10-02. |
+| b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | merged #129 (+ 6e63762) | Treated as a fix: Switch output had no motion at all. Includes the three Joy-Con adapter options (CMake defaults), on top of #128. 6e63762 (aligned copies for apply_orientation, Release hang) added to the PR 2026-10-02. |
 | 06238bd | Bluetooth pads: host motors swapped in `set_rumble()` (strong request on the small motor) | open #136 (2026-10-07) | Every BT pad with two motors. Verified on hardware (DS4, web app Rumble Test). |
 | fefe680 | Web App mode: rumble test (`SET_GP_OUT`, 0x81) | merged #135 | First of the firmware PRs the web app needs. |
 | fcc1471, a8a202c, 7b0ffbc | Web App mode: unmapped buttons, `GP_TOUCH` (0x82) touchpad packet, live input capped at 100 Hz, TX FIFO cleared on open | open #137 (2026-10-07) | Second of the web app firmware PRs. |
-| a1e3d7c | Bluetooth: DS4 / DualSense touchpad press and Switch Capture as the Misc button (DualSense mute left out) | open #138 (2026-10-07) | Third of the web app firmware PRs. Verified on hardware (DS4, with #137). |
+| a1e3d7c | Bluetooth: DS4 / DualSense touchpad press and Switch Capture as the Misc button (DualSense mute left out) | merged #138 (2026-10-07) | Third of the web app firmware PRs. Verified on hardware (DS4, with #137). |
 | ee7dc25 (live part) | Web App mode: diagnostics report (`GET_DIAGNOSTICS`, 0x74): BT / wired controllers, link (from events only), input timing, search state, events ring; Bluepad32 diagnostics hooks patch | open #139 (2026-10-07) | RAM only, no extra Bluetooth commands. Reduced 2026-10-07 (force push): the HCI link queries (RSSI, channel map, failed contacts, remote version) moved to the link-diagnostics option PR. Verified on hardware (Pico 2 W, DS4). |
 | ee7dc25 (session / crash part) | Diagnostics: session summary kept across reboots (RAM + flash key `diag_session`, v1), events across reboots, crash record (hard fault / panic), input-to-output latency for every session end, mode-change / options events | open #140 (2026-10-07) | Builds on #139. Latency is read on every session freeze (the fork only recorded it on the button combo). Switch firmware version left out (its Bluepad32 patch does not apply on upstream). Verified on hardware (Pico 2 W, DS4). |
 | (todo) | Diagnostics: "Detailed link diagnostics" dongle option, off by default (`OGXM_DIAGNOSTICS_LINK`), applied without a restart: RSSI, channels in use, failed contacts, controller Bluetooth chip | todo | Builds on #140; fork first, then upstream; web app checkbox in WebApp #2. |
 | 8c59260 | btstack_config: BTstack logs in Debug builds only (condition was inverted) | todo | Release compiled log calls with no output; Debug had none. Small. |
+| f1f49e9 | PC wake: Switch / DInput / Wii U / PS Classic woke the PC on every loop while suspended; XInput / STEAM never woke it | todo | Bug fix (the first part is an upstream bug: the PC wakes right after suspending). `wake_host_on_press()` in DeviceDriver.h + udev rule in Tools/linux. Verified on hardware (Ally X). |
+| 87431fb | ESP32 companion firmware did not build: ESP-IDF 5.5, BTstack port used in place, missing `<string>`; Switch setup patch reads the SPI address where the request is built | todo | Upstream bug (the hybrid can't be built there either). The Switch setup patch part goes with the Bluepad32 setup-robustness patch. |
+| 09f005a | ESP32: `#include` with the wrong case in `board_api.cpp` | todo | Upstream bug, fails on Linux only. One line; send with 87431fb. |
+| 3dda3e9 | DInput output: the 27-byte input report the descriptor declares (19 were sent) | todo | macOS drops short input reports: DInput showed no input at all there. Standalone, with the descriptor-size unit test. |
+| ff5b909 (ESP32 CMake part) | ESP32 component: `FWDefines.cmake` included from its own directory (`CMAKE_CURRENT_LIST_DIR`) | todo | A build directory outside `Firmware/ESP32` (`idf.py -B`) failed. One line; send with 87431fb. |
+| 7f8b279 (fix part) | Hybrid rumble: RP2040 sends the peak since the last read; ESP32 plays longer than its read period and holds DS4 rumble 6 s after connect | todo | Rumble was weak and choppy on the hybrid. The connection rumble in the same commit is a feature. Uses `RumbleTiming.h` in `Firmware/common` (offer after 9f6deb1, or inline the constants). |
+| 1a31468 (fix part) | Hybrid: Web App combo ignored by the ESP32 (missing from its valid modes); RP2040 side accepted GPIO modes that take the I2C pins | todo | Minimal upstream version: add WEBAPP to the ESP32's valid list, keep GPIO modes off when `CONFIG_EN_ESP32`. The shared combo table is a feature on top of 9f6deb1. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 
@@ -70,12 +94,9 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 | (CI) | `build.yml`: retry hung / failed steps up to 5 times (`.github/scripts/retry.sh`) | merged #125 | Also used by `improved-ci.yml` in the fork. |
 | (scan policy) | Search for new controllers: stop with every slot in use, 60 s full then reduced search for an open slot, inquiry restart retried, LED shows the search | merged #133 | Bug fix first (a full-duty BLE scan next to a Classic pad loses most of its reports; `ScanPolicy.h` + `Bluepad32.cpp`), the times / combo as a feature after. Replaces the earlier single controller option (aae625d). |
 | e9b8735 | Mouse + Keyboard output mode (keyboard, mouse, media keys; mapping from the web app) | todo | Feature; web app side in OGX-Mini-improved-WebApp. After the fixes are accepted. |
-| f1f49e9 | PC wake: Switch / DInput / Wii U / PS Classic woke the PC on every loop while suspended; XInput / STEAM never woke it | todo | Bug fix (the first part is an upstream bug: the PC wakes right after suspending). `wake_host_on_press()` in DeviceDriver.h + udev rule in Tools/linux. Verified on hardware (Ally X). |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
-| 87431fb | ESP32 companion firmware did not build: ESP-IDF 5.5, BTstack port used in place, missing `<string>`; Switch setup patch reads the SPI address where the request is built | todo | Upstream bug (the hybrid can't be built there either). The Switch setup patch part goes with the Bluepad32 setup-robustness patch. |
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | The ESP32 copies had drifted (no newer modes, analog buttons off by default). Offer together with 87431fb. |
-| 09f005a | ESP32: `#include` with the wrong case in `board_api.cpp` | todo | Upstream bug, fails on Linux only. One line; send with 87431fb. |
 
 ## Other projects
 
