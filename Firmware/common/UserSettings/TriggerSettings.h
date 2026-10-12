@@ -19,6 +19,8 @@ struct TriggerSettings
 
     bool is_same(const TriggerSettingsRaw& raw) const;
     void set_from_raw(const TriggerSettingsRaw& raw);
+    /* The raw settings differ from the defaults (the trigger is shaped at all). */
+    static bool raw_has_customization(const TriggerSettingsRaw& raw);
 };
 
 #pragma pack(push, 1)

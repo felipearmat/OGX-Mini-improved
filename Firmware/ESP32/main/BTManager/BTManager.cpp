@@ -2,6 +2,8 @@
 #include "btstack_run_loop.h"
 #include "btstack_stdio_esp32.h"
 #include "uni.h"
+#include <esp_system.h>
+#include <esp_timer.h>
 
 #include "sdkconfig.h"
 #include "Board/ogxm_log.h"
@@ -14,11 +16,7 @@ void BTManager::run_task()
     board_api::init_board(); 
     UserSettings::get_instance().initialize_flash();
 
-    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
-    {
-        UserProfile profile = UserSettings::get_instance().get_profile_by_index(i);
-        devices_[i].mapper.set_profile(profile);
-    }
+    apply_profiles();
 
     i2c_driver_.initialize_i2c(
         static_cast<i2c_port_t>(CONFIG_I2C_PORT), 
@@ -61,6 +59,18 @@ void BTManager::run_task()
 
     //Doesn't return
     btstack_run_loop_execute();
+}
+
+/* Profiles depend on the output mode too (Web App: default mapping; XInput: stock stick feel),
+ * as on the Pico W path: applied at boot and on every mode change. */
+void BTManager::apply_profiles()
+{
+    const DeviceDriverType driver = UserSettings::get_instance().get_current_driver();
+    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
+    {
+        UserProfile profile = UserSettings::get_instance().get_profile_by_index(i);
+        devices_[i].mapper.set_profile(profile, driver);
+    }
 }
 
 bool BTManager::is_connected(uint8_t index)
@@ -150,6 +160,7 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
     {
         OGXM_LOG("BP32: Driver change detected\n");
         UserSettings::get_instance().store_driver_type(UserSettings::get_instance().get_current_driver());
+        bt_manager.apply_profiles();
     }
 
     //Notify pico of current driver type regardless of change
@@ -177,15 +188,12 @@ void BTManager::send_feedback_cb(void* context)
         return;  // early output reports can drop a freshly connected DualShock 4
     }
 
-    if (packet_out.rumble_l || packet_out.rumble_r)
+    Device& device = get_instance().devices_[fb_context->index];
+    const bool rumbling = packet_out.rumble_l || packet_out.rumble_r;
+    bt_pad::ble_keepalive(bp_device, rumbling, btstack_run_loop_get_time_ms(), device.keepalive);
+    if (rumbling)
     {
-        bp_device->report_parser.play_dual_rumble(
-            bp_device, 
-            0, 
-            RUMBLE_DURATION_MS, 
-            packet_out.rumble_l, 
-            packet_out.rumble_r
-            );
+        bt_pad::play_rumble(bp_device, RUMBLE_DURATION_MS, packet_out.rumble_l, packet_out.rumble_r);
     }
 }
 
@@ -249,6 +257,7 @@ void BTManager::manage_connection(uint8_t index, bool connected)
         I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
         packet_in.packet_id = I2CDriver::PacketID::SET_PAD;
         packet_in.index = index;
+        devices_[index].packet_in = packet_in;  // what the RP2040 has now
         i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR, packet_in);
     }
 }
@@ -260,4 +269,74 @@ I2CDriver::PacketIn BTManager::get_packet_in(uint8_t index)
         return I2CDriver::PacketIn();
     }
     return devices_[index].packet_in;
+}
+
+/* The combo is seen while Bluepad32 parses the pad's own report: disconnecting right there tore
+ * the link down under the parser on the Pico W path, so it runs from a run-loop timer. */
+void BTManager::schedule_disconnect_combo(uint8_t index)
+{
+    if (disconnect_combo_idx_ >= 0)
+    {
+        return;  // already pending
+    }
+    disconnect_combo_idx_ = index;
+    disconnect_combo_timer_.process = disconnect_combo_timer_cb;
+    disconnect_combo_timer_.context = nullptr;
+    btstack_run_loop_set_timer(&disconnect_combo_timer_, 0);
+    btstack_run_loop_add_timer(&disconnect_combo_timer_);
+}
+
+/* Then the ESP32 restarts (Bluepad32/BtPad.h). The RP2040 keeps its USB mode and gets a neutral
+ * pad first. */
+void BTManager::disconnect_combo_timer_cb(btstack_timer_source *ts)
+{
+    BTManager& bt_manager = get_instance();
+    const int index = bt_manager.disconnect_combo_idx_;
+    bt_manager.disconnect_combo_idx_ = -1;
+    if (index < 0 || index >= MAX_GAMEPADS)
+    {
+        return;
+    }
+    uni_hid_device_t* bp_device = uni_hid_device_get_instance_for_idx(index);
+    if (!bp_device || bp_device->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
+    {
+        return;
+    }
+
+    I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
+    packet_in.packet_id = I2CDriver::PacketID::SET_PAD;
+    packet_in.index = static_cast<uint8_t>(index);
+    bt_manager.i2c_driver_.write_packet(I2CDriver::MULTI_SLAVE ? packet_in.index + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR, packet_in);
+
+    OGXM_LOG("BP32: Disconnect combo: restart in %lu ms for a clean reconnect\n",
+             static_cast<unsigned long>(bt_pad::kComboRebootDelayMs));
+    restart_after_ms(bt_pad::kComboRebootDelayMs);  // armed before touching the pad
+
+    bt_pad::disconnect_with_partner(bp_device);
+}
+
+/* Restart from an esp_timer, not the BTstack run loop: it happens even if the BT stack stalls
+ * while the pads go away (the Pico W path arms its hardware watchdog for the same reason). */
+void BTManager::restart_after_ms(uint32_t delay_ms)
+{
+    static esp_timer_handle_t restart_timer = nullptr;
+    if (restart_timer == nullptr)
+    {
+        const esp_timer_create_args_t args = {
+            .callback = [](void*) { esp_restart(); },
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "bt_restart",
+            .skip_unhandled_events = true,
+        };
+        if (esp_timer_create(&args, &restart_timer) != ESP_OK)
+        {
+            restart_timer = nullptr;
+            return;
+        }
+    }
+    if (!esp_timer_is_active(restart_timer))
+    {
+        esp_timer_start_once(restart_timer, static_cast<uint64_t>(delay_ms) * 1000u);
+    }
 }

@@ -17,3 +17,13 @@ void TriggerSettings::set_from_raw(const TriggerSettingsRaw& raw)
     anti_dz_outer = Fix16(raw.anti_dz_outer);
     curve = Fix16(raw.curve);
 }
+
+bool TriggerSettings::raw_has_customization(const TriggerSettingsRaw& raw)
+{
+    static const TriggerSettingsRaw defaults{};
+    return  raw.dz_inner != defaults.dz_inner ||
+            raw.dz_outer != defaults.dz_outer ||
+            raw.anti_dz_inner != defaults.anti_dz_inner ||
+            raw.anti_dz_outer != defaults.anti_dz_outer ||
+            raw.curve != defaults.curve;
+}

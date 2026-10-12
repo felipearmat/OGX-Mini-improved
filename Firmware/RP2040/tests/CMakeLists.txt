@@ -54,6 +54,11 @@ ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagno
 ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
 
 ogxm_add_test(test_scan_policy test_scan_policy.cpp)
+# Shared by every Bluepad32 board (Firmware/common/Bluepad32, Firmware/common/Gamepad/GamepadMapper.h)
+ogxm_add_test(test_bt_shared test_bt_shared.cpp ${FW_COMMON}/UserSettings/UserProfile.cpp
+    ${FW_COMMON}/UserSettings/JoystickSettings.cpp ${FW_COMMON}/UserSettings/TriggerSettings.cpp)
+target_link_libraries(test_bt_shared PRIVATE fixmath)
+target_compile_definitions(test_bt_shared PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 ogxm_add_test(test_idle_motion test_idle_motion.cpp)
 target_compile_definitions(test_spin_lock_budget PRIVATE OGXM_FW_SRC="${FW_SRC}")
 

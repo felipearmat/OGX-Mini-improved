@@ -8,7 +8,9 @@ Fails when:
   3. a file in Firmware/common is shadowed by a file at the same include path in either
      firmware (the include path would pick one or the other);
   4. a file in Firmware/common includes a platform header (pico-sdk, ESP-IDF, FreeRTOS,
-     TinyUSB, BTstack): shared code must build for every board;
+     TinyUSB, BTstack): shared code must build for every board. Firmware/common/Bluepad32 may
+     include Bluepad32 (uni*.h, parser/*.h): only boards that run Bluepad32 build it, so no
+     other shared file may include it;
   5. a quoted #include in either firmware or in Firmware/common names an existing file with
      different upper / lower case: it builds on macOS / Windows, not on Linux (CI).
 
@@ -25,6 +27,8 @@ PLATFORM_INCLUDE = re.compile(
     r'#\s*include\s*[<"]\s*(pico/|hardware/|esp_|driver/|freertos/|nvs|sdkconfig\.h|tusb|'
     r'btstack|uni[_.]|bsp/)'
 )
+BLUEPAD32_INCLUDE = re.compile(r'#\s*include\s*[<"]\s*(uni[_.]|parser/|bt/uni_)')
+SHARED_BLUEPAD32_INCLUDE = re.compile(r'#\s*include\s*"Bluepad32/')
 
 
 def sources(root: pathlib.Path):
@@ -87,9 +91,15 @@ def main() -> int:
                     f"{(tree / rel).relative_to(repo)} shadows {path.relative_to(repo)} "
                     f"(same include path); delete the copy."
                 )
+        bluepad32_code = rel.parts[0] == "Bluepad32"
         for number, text in enumerate(path.read_text(errors="replace").splitlines(), 1):
+            if bluepad32_code and BLUEPAD32_INCLUDE.search(text):
+                continue  # Bluepad32 boards only
             if PLATFORM_INCLUDE.search(text):
                 errors.append(f"{path.relative_to(repo)}:{number}: platform header in shared code: {text.strip()}")
+            elif not bluepad32_code and SHARED_BLUEPAD32_INCLUDE.search(text):
+                errors.append(f"{path.relative_to(repo)}:{number}: Bluepad32-only code in code shared by every "
+                              f"board: {text.strip()}")
 
     for tree in (rp_root, esp_root, common_root):
         errors.extend(case_mismatches(repo, tree, [tree, common_root]))

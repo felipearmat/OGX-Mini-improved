@@ -21,6 +21,7 @@ idf_component_register(
         bluepad32 
         btstack 
         driver 
+        esp_timer 
         nvs_flash 
         libfixmath 
 )

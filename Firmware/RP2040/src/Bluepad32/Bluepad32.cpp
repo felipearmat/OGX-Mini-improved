@@ -28,6 +28,8 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Board/board_api.h"
 #include "Board/ogxm_log.h"
 #include "Bluepad32/ScanPolicy.h"
+#include "Bluepad32/BtPad.h"
+#include "Bluepad32/ComboHold.h"
 #include "Bluepad32/IdleMotion.h"
 #include "Diagnostics/Diagnostics.h"
 #include "uni_diag_hooks.h"
@@ -91,49 +93,6 @@ static int resolve_bt_output_pad_idx(int preferred_idx) {
     return -1;
 }
 
-static bool bp32_is_switch_joycon(const uni_hid_device_t* d) {
-    return d != nullptr && (d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft ||
-                            d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight);
-}
-
-static bool bp32_is_joycon_pair_secondary(const uni_hid_device_t* d) {
-    if (uni_hid_parser_switch2_is_ble_device(d))
-        return uni_hid_parser_switch2_is_joycon_pair_secondary(d);
-    if (bp32_is_switch_joycon(d))
-        return uni_hid_parser_switch_is_joycon_pair_secondary(d);
-    return false;
-}
-
-static int bp32_get_gamepad_output_idx(uni_hid_device_t* d) {
-    if (uni_hid_parser_switch2_is_ble_device(d))
-        return uni_hid_parser_switch2_get_gamepad_output_idx(d);
-    if (bp32_is_switch_joycon(d))
-        return uni_hid_parser_switch_get_gamepad_output_idx(d);
-    return uni_hid_device_get_idx_for_instance(d);
-}
-
-static int bp32_get_pair_partner_idx(uni_hid_device_t* d) {
-    if (uni_hid_parser_switch2_is_ble_device(d))
-        return uni_hid_parser_switch2_get_pair_partner_idx(d);
-    if (bp32_is_switch_joycon(d))
-        return uni_hid_parser_switch_get_pair_partner_idx(d);
-    return -1;
-}
-
-static void bp32_disconnect_controller_and_joycon_partner(uni_hid_device_t* d) {
-    if (!d)
-        return;
-    const int partner_idx = bp32_get_pair_partner_idx(d);
-    if (partner_idx >= 0 && partner_idx < CONFIG_BLUEPAD32_MAX_DEVICES) {
-        uni_hid_device_t* partner = uni_hid_device_get_instance_for_idx(partner_idx);
-        if (partner && partner != d) {
-            printf("[BP32] Disconnect combo: also disconnecting Joy-Con partner slot %d\n", partner_idx);
-            uni_hid_device_disconnect(partner);
-        }
-    }
-    uni_hid_device_disconnect(d);
-}
-
 /* Custom fix: the disconnect combo is detected while parsing the pad's own input report.
  * Disconnecting it (and its Joy-Con partner) right there tore the pair down under the
  * parser's feet and hung the BT core. Defer the disconnect to a run-loop timer instead. */
@@ -145,9 +104,9 @@ static int s_disconnect_combo_idx = -1;
  * them. So reboot (same output mode) for a clean radio. The reboot is armed on the hardware
  * watchdog *before* touching the pads: a run-loop timer never fired when the BT core hung
  * while the pads were going away. Nothing feeds the watchdog, so it always resets. */
-static constexpr uint32_t DISCONNECT_COMBO_REBOOT_DELAY_MS = 1500;
+static constexpr uint32_t DISCONNECT_COMBO_REBOOT_DELAY_MS = bt_pad::kComboRebootDelayMs;
 /* Safety net for the reboot after the last ready pad disconnects (normally 500 ms). */
-static constexpr uint32_t DISCONNECT_REBOOT_WATCHDOG_MS = 3000;
+static constexpr uint32_t DISCONNECT_REBOOT_WATCHDOG_MS = bt_pad::kLastPadRebootFallbackMs;
 
 static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
 {
@@ -162,18 +121,7 @@ static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
     printf("[BP32] Disconnect combo: reboot in %lu ms for a clean reconnect\n",
            static_cast<unsigned long>(DISCONNECT_COMBO_REBOOT_DELAY_MS));
     watchdog_enable(DISCONNECT_COMBO_REBOOT_DELAY_MS, true);
-    if (bp32_is_switch_joycon(d)) {
-        /* gap_disconnect() does not complete on live Joy-Con links: ask them to sleep. */
-        const int partner_idx = bp32_get_pair_partner_idx(d);
-        if (partner_idx >= 0 && partner_idx < CONFIG_BLUEPAD32_MAX_DEVICES) {
-            uni_hid_device_t* partner = uni_hid_device_get_instance_for_idx(partner_idx);
-            if (partner && partner != d)
-                uni_hid_parser_switch_request_sleep(partner);
-        }
-        uni_hid_parser_switch_request_sleep(d);
-    } else {
-        bp32_disconnect_controller_and_joycon_partner(d);
-    }
+    bt_pad::disconnect_with_partner(d);
 }
 
 static void schedule_disconnect_combo(int idx)
@@ -197,28 +145,15 @@ static constexpr uint32_t PAIRING_WATCHDOG_MS = 45000;
 /** If no HID input report reaches us for this long while "connected", the BT link is zombie
  *  (L2CAP stops delivering; OG Xbox then holds last USB report). Force disconnect so user can reconnect. */
 static constexpr uint32_t BT_INPUT_STALL_DISCONNECT_MS = 8000;
-/** BLE Xbox: host→pad output while idle (no rumble) or controller sleeps link ~1 min */
-static constexpr uint32_t XBOX_BLE_KEEPALIVE_MS = 12000;
-/** Switch 2 Pro BLE drops link (HCI 0x08) without periodic vibration writes. */
-static constexpr uint32_t SW2_BLE_KEEPALIVE_MS = 8;
-
-/** One-second rumble when a pad becomes ready so the user knows it is connected. */
-static constexpr uint16_t CONNECT_RUMBLE_DURATION_MS = connect_rumble::kDurationMs;
-static constexpr uint8_t CONNECT_RUMBLE_WEAK = connect_rumble::kWeak;
-static constexpr uint8_t CONNECT_RUMBLE_STRONG = connect_rumble::kStrong;
-/** DS4: defer FF slightly — early output reports can destabilize the link (see s_ps4_rumble_ok_ms). */
-static constexpr uint16_t CONNECT_RUMBLE_DELAY_PS4_MS = connect_rumble::kDelayDs4Ms;
-static constexpr uint16_t CONNECT_RUMBLE_DELAY_DEFAULT_MS = connect_rumble::kDelayDefaultMs;
 
 static uint32_t s_last_bt_input_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
-static uint32_t s_xbox_ble_ka_last_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
-static uint32_t s_sw2_ble_ka_last_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
-/** Ignore Start+Select disconnect combo for this long after connect (DS4 can glitch both on first reports). */
+static bt_pad::KeepaliveState s_ble_keepalive[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 /* Custom fix: the per-pad state arrays below are indexed both by OGX pad and by Bluetooth slot
  * (disconnect callback, feedback loop). They were sized MAX_GAMEPADS (1), so a pad in slot 1 (the
  * right Joy-Con of a pair, on every disconnect) wrote past them into other variables. Sized for
  * every Bluetooth slot now (CONFIG_BLUEPAD32_MAX_DEVICES >= MAX_GAMEPADS). */
-static uint32_t s_bt_disconnect_combo_grace_until_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+/** Disconnect combo per pad, ignored for a moment after connect (DS4 can glitch both on first reports). */
+static ComboHold s_disconnect_combo[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 /** DS4 BT: delay rumble output (host can request rumble immediately; early FF reports can drop link). */
 static uint32_t s_ps4_rumble_ok_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 
@@ -250,7 +185,7 @@ struct IdleRef {
 static IdleRef s_idle[MAX_GAMEPADS]{};
 
 static int bt_output_idx(uni_hid_device_t* d) {
-    int idx = bp32_get_gamepad_output_idx(d);
+    int idx = bt_pad::output_idx(d);
     if (idx < 0)
         idx = uni_hid_device_get_idx_for_instance(d);
     return resolve_bt_output_pad_idx(idx);
@@ -295,7 +230,7 @@ static void idle_check(uint32_t now_ms) {
             if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID || bt_output_idx(d) != idx)
                 continue;
             diag::event(now_ms, "slot %d: no input for %u min, turning it off", i, minutes);
-            if (bp32_is_switch_joycon(d))
+            if (bt_pad::is_switch_joycon(d))
                 uni_hid_parser_switch_request_sleep(d);
             else
                 uni_hid_device_disconnect(d);
@@ -375,7 +310,7 @@ static bool pending_adaptive_trigger_send_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
  * arrays above); a pad in slot 1 wrote past them when they were sized MAX_GAMEPADS. */
 template <typename T, size_t N>
 constexpr size_t bt_slots_of(const T (&)[N]) { return N; }
-static_assert(bt_slots_of(s_bt_disconnect_combo_grace_until_ms) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
+static_assert(bt_slots_of(s_disconnect_combo) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 static_assert(bt_slots_of(s_ps4_rumble_ok_ms) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 static_assert(bt_slots_of(adaptive_trigger_enabled_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 static_assert(bt_slots_of(prev_touchpad_clicked_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
@@ -416,78 +351,6 @@ bool any_wii_controller_connected()
         }
     }
     return false;
-}
-
-/** TV-style Wiimote (not Wii U Pro, Classic, or Balance Board). */
-static bool ogxm_is_handheld_wiimote(const uni_hid_device_t* device)
-{
-    if (device == nullptr || device->controller_type != CONTROLLER_TYPE_WiiController) {
-        return false;
-    }
-    switch (device->controller_subtype) {
-        case CONTROLLER_SUBTYPE_WIIUPRO:
-        case CONTROLLER_SUBTYPE_WII_CLASSIC:
-        case CONTROLLER_SUBTYPE_WII_BALANCE_BOARD:
-            return false;
-        default:
-            return true;
-    }
-}
-
-//This solves a function pointer/crash issue with bluepad32
-void set_rumble(uni_hid_device_t* bp_device, uint16_t length, uint8_t rumble_l, uint8_t rumble_r)
-{
-    /* Custom fix: the host's left motor (rumble_l) is the strong / low-frequency one and the right
-     * motor (rumble_r) the weak one, while Bluepad32's *_play_dual_rumble() take (weak, strong).
-     * They used to get (rumble_l, rumble_r): a DS4 / DualSense / DS3 / Xbox pad played the strong
-     * request on its small motor, a Switch pad in the high band. */
-    const uint8_t weak = rumble_r;
-    const uint8_t strong = rumble_l;
-    switch (bp_device->controller_type)
-    {
-        case CONTROLLER_TYPE_XBoxOneController:
-            uni_hid_parser_xboxone_play_dual_rumble(bp_device, 0, length + 10, weak, strong);
-            break;
-        case CONTROLLER_TYPE_AndroidController:
-            if (bp_device->vendor_id == UNI_HID_PARSER_STADIA_VID && bp_device->product_id == UNI_HID_PARSER_STADIA_PID) 
-            {
-                uni_hid_parser_stadia_play_dual_rumble(bp_device, 0, length, weak, strong);
-            }
-            break;
-        case CONTROLLER_TYPE_PSMoveController:
-            uni_hid_parser_psmove_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_PS3Controller:
-            uni_hid_parser_ds3_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_PS4Controller:
-            uni_hid_parser_ds4_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_PS5Controller:
-            uni_hid_parser_ds5_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_WiiController:
-            uni_hid_parser_wii_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_SwitchProController:
-        case CONTROLLER_TYPE_SwitchJoyConRight:
-        case CONTROLLER_TYPE_SwitchJoyConLeft:
-            /* Custom: outlive the feedback period so a long rumble isn't stopped and restarted on
-             * every cycle (see Gamepad/RumbleTiming.h). */
-            (void)length;
-            uni_hid_parser_switch_play_dual_rumble(bp_device, 0, switch_rumble::kRumbleDurationMs, weak, strong);
-            break;
-        case CONTROLLER_TYPE_Switch2ProController:
-        case CONTROLLER_TYPE_Switch2JoyConRight:
-        case CONTROLLER_TYPE_Switch2JoyConLeft:
-            uni_hid_parser_switch2_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        case CONTROLLER_TYPE_SteamControllerTriton:
-            uni_hid_parser_steam_triton_play_dual_rumble(bp_device, 0, length, weak, strong);
-            break;
-        default:
-            break;
-    }
 }
 
 /* Custom: last lightbar colour sent to each DS4 / DualSense (mode colour or host colour). */
@@ -538,11 +401,11 @@ static void send_feedback_cb(btstack_timer_source *ts)
             goto after_stall_check;
         if (uni_hid_parser_switch2_is_joycon_pair_secondary(bp_device))
             goto after_stall_check;
-        if (bp32_is_joycon_pair_secondary(bp_device))
+        if (bt_pad::is_joycon_pair_secondary(bp_device))
             goto after_stall_check;
         if (!skip_stall_disconnect)
         {
-        const int stall_idx = bp32_get_gamepad_output_idx(bp_device);
+        const int stall_idx = bt_pad::output_idx(bp_device);
         const unsigned stall_slot =
             (stall_idx >= 0 && stall_idx < static_cast<int>(MAX_GAMEPADS))
                 ? static_cast<unsigned>(stall_idx)
@@ -551,7 +414,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
         }
     after_stall_check:
 
-        const int out_i = bp32_get_gamepad_output_idx(bp_device);
+        const int out_i = bt_pad::output_idx(bp_device);
         const int gp_idx =
             (out_i >= 0 && out_i < static_cast<int>(MAX_GAMEPADS)) ? out_i : static_cast<int>(i);
         if (gp_idx < 0 || gp_idx >= static_cast<int>(MAX_GAMEPADS) || bt_devices_[gp_idx].gamepad == nullptr)
@@ -564,28 +427,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
             pad_out_read[gp_idx] = true;
         }
         const Gamepad::PadOut gp_out = pad_out[gp_idx];
-        if (bp_device->controller_type == CONTROLLER_TYPE_XBoxOneController && bp_device->hids_cid != 0 &&
-            gp_out.rumble_l == 0 && gp_out.rumble_r == 0)
-        {
-            const uint32_t last_ka = s_xbox_ble_ka_last_ms[i];
-            if (last_ka == 0u || (now_ms - last_ka) >= XBOX_BLE_KEEPALIVE_MS)
-            {
-                uni_hid_parser_xboxone_ble_keepalive(bp_device);
-                s_xbox_ble_ka_last_ms[i] = now_ms;
-            }
-        }
-        if (uni_hid_parser_switch2_is_ble_device(bp_device) && uni_hid_parser_switch2_is_ready(bp_device) &&
-            !uni_hid_parser_switch2_is_joycon_pair_secondary(bp_device) &&
-            !uni_hid_parser_switch2_keepalive_timer_active(bp_device) &&
-            gp_out.rumble_l == 0 && gp_out.rumble_r == 0)
-        {
-            const uint32_t last_ka = s_sw2_ble_ka_last_ms[i];
-            if (last_ka == 0u || (now_ms - last_ka) >= SW2_BLE_KEEPALIVE_MS)
-            {
-                uni_hid_parser_switch2_send_keepalive(bp_device);
-                s_sw2_ble_ka_last_ms[i] = now_ms;
-            }
-        }
+        bt_pad::ble_keepalive(bp_device, gp_out.rumble_l > 0 || gp_out.rumble_r > 0, now_ms, s_ble_keepalive[i]);
         if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0) {  // Custom: idle turn-off ignores the shaking
             s_idle[gp_idx].rumble_seen = true;
             s_idle[gp_idx].rumble_ms = now_ms;
@@ -595,13 +437,13 @@ static void send_feedback_cb(btstack_timer_source *ts)
             if (bp_device->controller_type == CONTROLLER_TYPE_PS4Controller &&
                 now_ms < s_ps4_rumble_ok_ms[i])
                 ;
-            else if (!bp32_is_joycon_pair_secondary(bp_device))
+            else if (!bt_pad::is_joycon_pair_secondary(bp_device))
             {
-                const int partner = bp32_get_pair_partner_idx(bp_device);
+                const int partner = bt_pad::pair_partner_idx(bp_device);
                 uni_hid_device_t* pd = (partner >= 0 && partner < CONFIG_BLUEPAD32_MAX_DEVICES)
                                            ? uni_hid_device_get_instance_for_idx(partner)
                                            : nullptr;
-                if (pd && bp32_is_switch_joycon(bp_device))
+                if (pd && bt_pad::is_switch_joycon(bp_device))
                 {
                     /* Custom: Joy-Con pair rumble dongle option. Per side (default), as SDL /
                      * Steam / Linux drive a pair: left motor on the left Joy-Con, right motor on
@@ -620,9 +462,9 @@ static void send_feedback_cb(btstack_timer_source *ts)
                 }
                 else
                 {
-                    set_rumble(bp_device, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
+                    bt_pad::play_rumble(bp_device, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
                     if (pd)
-                        set_rumble(pd, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
+                        bt_pad::play_rumble(pd, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l, gp_out.rumble_r);
                 }
             }
         }
@@ -896,7 +738,7 @@ static void apply_scan_policy(int exclude_idx, bool force)
             continue;
         if (device_is_ble_hogp(d)) hogp = true;
         else if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL) classic = true;
-        const int out = bp32_get_gamepad_output_idx(d);
+        const int out = bt_pad::output_idx(d);
         if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS) && !used[out]) {
             used[out] = true;
             ++outputs;
@@ -1165,15 +1007,14 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     s_bt_any_connected_cached.store(any_other_connected, std::memory_order_release);
 #endif
     s_last_bt_input_ms[idx] = 0;
-    s_xbox_ble_ka_last_ms[idx] = 0;
-    s_sw2_ble_ka_last_ms[idx] = 0;
-    s_bt_disconnect_combo_grace_until_ms[idx] = 0;
+    s_ble_keepalive[idx] = bt_pad::KeepaliveState{};
+    s_disconnect_combo[idx].reset();
     s_ps4_rumble_ok_ms[idx] = 0;
     s_lightbar_applied[idx] = Lightbar();
     prev_touchpad_clicked_[idx] = false;
     pending_adaptive_trigger_send_[idx] = false;
     /* Never clear PadIn for an OGX slot owned by USB (BT idx often equals USB pad 0). */
-    const int out_for_reset = bp32_get_gamepad_output_idx(device);
+    const int out_for_reset = bt_pad::output_idx(device);
     const int pad_for_reset =
         (out_for_reset >= 0 && out_for_reset < static_cast<int>(MAX_GAMEPADS)) ? out_for_reset
         : (idx < static_cast<int>(MAX_GAMEPADS) ? idx : -1);
@@ -1225,7 +1066,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 		s_bt_disconnect_reboot_pending = true;
 		s_bt_disconnect_reboot_timer.process = bt_disconnect_reboot_cb;
 		s_bt_disconnect_reboot_timer.context = nullptr;
-		btstack_run_loop_set_timer(&s_bt_disconnect_reboot_timer, 500);
+		btstack_run_loop_set_timer(&s_bt_disconnect_reboot_timer, bt_pad::kLastPadRebootDelayMs);
 		btstack_run_loop_add_timer(&s_bt_disconnect_reboot_timer);
 		/* Custom fix: the reboot above is a run-loop timer on the BT core, which never fires
 		 * if that core hangs while the pads go away (seen with the disconnect combo, and a
@@ -1234,23 +1075,6 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 		watchdog_enable(DISCONNECT_REBOOT_WATCHDOG_MS, true);
 		printf("[BP32] Pairing mode on — reboot in 500 ms for clean reconnect\n");
 	}
-}
-
-static void ogxm_play_connection_rumble(uni_hid_device_t* device)
-{
-    if (device == nullptr || device->report_parser.play_dual_rumble == nullptr) {
-        return;
-    }
-    const uint16_t start_delay =
-        (device->controller_type == CONTROLLER_TYPE_PS4Controller)
-            ? CONNECT_RUMBLE_DELAY_PS4_MS
-            : CONNECT_RUMBLE_DELAY_DEFAULT_MS;
-    device->report_parser.play_dual_rumble(
-        device,
-        start_delay,
-        CONNECT_RUMBLE_DURATION_MS,
-        CONNECT_RUMBLE_WEAK,
-        CONNECT_RUMBLE_STRONG);
 }
 
 /* Custom: lightbar colour per output mode (DS4 / DualSense). Deferred like the connect rumble:
@@ -1286,9 +1110,7 @@ static void schedule_mode_lightbar(uni_hid_device_t* device, int idx)
 }
 
 static uni_error_t device_ready_cb(uni_hid_device_t* device) {
-    /* DS4/DS5 BT create a second "virtual mouse" device on the same ACL. OGX-Mini only uses
-     * gamepad input; accepting the virtual slot destabilized the link (disconnect ~2 s). */
-    if (uni_hid_device_is_virtual_device(device))
+    if (bt_pad::reject_on_ready(device))  // DS4 / DualSense "virtual mouse" slot (Bluepad32/BtPad.h)
         return UNI_ERROR_INVALID_CONTROLLER;
 
     int idx = uni_hid_device_get_idx_for_instance(device);
@@ -1299,7 +1121,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     /* Custom: "MAC address per controller" dongle option (PS4 / STEAM pairing info). */
     reported_mac::on_pad_ready(device->conn.btaddr);
 
-    const int out_idx = bp32_get_gamepad_output_idx(device);
+    const int out_idx = bt_pad::output_idx(device);
     const int pad_idx = resolve_bt_output_pad_idx(out_idx >= 0 ? out_idx : idx);
     if (pad_idx < 0) {
 #if defined(CONFIG_OGXM_DEBUG)
@@ -1342,7 +1164,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
 #if defined(CONFIG_OGXM_DEBUG)
     if (uni_hid_parser_switch2_is_ble_device(device)) {
         OGXM_LOG("SW2: READY slot %d pid=0x%04x out=%d — input active\n", idx, device->product_id, pad_idx);
-    } else if (bp32_is_switch_joycon(device)) {
+    } else if (bt_pad::is_switch_joycon(device)) {
         OGXM_LOG("SW1: READY slot %d Joy-Con out=%d — input active\n", idx, pad_idx);
     }
 #endif
@@ -1371,59 +1193,14 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     const uint32_t tnow = to_ms_since_boot(get_absolute_time());
     /* pad_idx already resolved above to avoid USB-owned OGX slots. */
     s_last_bt_input_ms[pad_idx] = tnow;
-    s_bt_disconnect_combo_grace_until_ms[pad_idx] = tnow + 3500u;
+    s_disconnect_combo[pad_idx].reset(tnow + bt_pad::kDisconnectComboGraceMs);
     if (device->controller_type == CONTROLLER_TYPE_PS4Controller)
-        s_ps4_rumble_ok_ms[pad_idx] = tnow + connect_rumble::kDs4HostRumbleGraceMs;
-    /* Xbox BLE: 0 = send keepalive on next feedback tick (wakes Series/SW2 pad link immediately). */
-    if (device->controller_type == CONTROLLER_TYPE_XBoxOneController && device->hids_cid != 0)
-        s_xbox_ble_ka_last_ms[idx] = 0;
-    if (uni_hid_parser_switch2_is_ble_device(device))
-        s_sw2_ble_ka_last_ms[idx] = 0;
+        s_ps4_rumble_ok_ms[pad_idx] = tnow + bt_pad::host_rumble_grace_ms(device);
+    s_ble_keepalive[idx] = bt_pad::KeepaliveState{};  // first keepalive on the next feedback tick
 
-    // Set controller player LED to match slot (e.g. Wii U: LED 1 = player 1, LED 2 = player 2).
-    // Joy-Con pairs set LEDs in the parser when merged; skip secondary to avoid player-2 LED.
-    if (device->report_parser.set_player_leds != nullptr &&
-        !bp32_is_joycon_pair_secondary(device)) {
-        device->report_parser.set_player_leds(device, static_cast<uint8_t>(1u << pad_idx));
-    }
-
-    /* Wiimote: Bluepad32 defaults to sideways (horizontal) mapping; OGX uses TV-style vertical.
-     * set_mode() overwrites controller_subtype — save extension info first. */
-    if (ogxm_is_handheld_wiimote(device)) {
-        const uint8_t saved_subtype = device->controller_subtype;
-        const bool has_nunchuk =
-            saved_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK ||
-            saved_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK_ACCEL;
-
-        uni_hid_parser_wii_set_mode(device, WII_MODE_VERTICAL);
-
-        /* Motion output: request accel reports. With a nunchuk, DRM_KA (0x31) is ignored /
-         * has no extension bytes — use DRM_KAE (0x35) so stick + accel both work.
-         * Byte 0x04 = continuous reporting (wiibrew); without it the Wiimote only sends on
-         * large changes, so Switch gyro-pointer feels dead except when shaking hard.
-         * Keep mode VERTICAL (not WII_MODE_ACCEL) so button layouts stay correct. */
-        if (MotionOutputActive::is_enabled()) {
-            if (has_nunchuk) {
-                device->controller_subtype = CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK_ACCEL;
-                static constexpr uint8_t kWiiReqAccelNunchuk[] = {0xa2, 0x12, 0x04, 0x35};
-                uni_hid_device_send_intr_report(device, kWiiReqAccelNunchuk, sizeof(kWiiReqAccelNunchuk));
-            } else {
-                device->controller_subtype = CONTROLLER_SUBTYPE_WIIMOTE_ACCEL;
-                static constexpr uint8_t kWiiReqAccel[] = {0xa2, 0x12, 0x04, 0x31};
-                uni_hid_device_send_intr_report(device, kWiiReqAccel, sizeof(kWiiReqAccel));
-            }
-        } else if (has_nunchuk) {
-            device->controller_subtype = CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK;
-        }
-    }
-
-    // PS5: start with adaptive triggers off; touchpad click toggles them.
-    if (device->controller_type == CONTROLLER_TYPE_PS5Controller) {
-        adaptive_trigger_enabled_[pad_idx] = false;
-        ds5_adaptive_trigger_effect_t off = ds5_new_adaptive_trigger_effect_off();
-        ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_LEFT, &off);
-        ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &off);
-    }
+    /* Player LED, Wiimote held upright, DualSense adaptive triggers off (Bluepad32/BtPad.h). */
+    bt_pad::setup_on_ready(device, static_cast<uint8_t>(pad_idx), MotionOutputActive::is_enabled());
+    adaptive_trigger_enabled_[pad_idx] = false;  // the touchpad press toggles them
 
     /* Custom: the LED timer keeps running: check_led_cb shows the search state (solid once the
      * search stops, after the boot mode blink code). */
@@ -1436,7 +1213,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         btstack_run_loop_add_timer(&feedback_timer_);
     }
 
-    ogxm_play_connection_rumble(device);
+    bt_pad::play_connection_rumble(device);
 
     return UNI_ERROR_SUCCESS;
 }
@@ -1467,7 +1244,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         if (controller->battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
             diag::slot_battery(static_cast<size_t>(bt_slot), controller->battery);
     }
-    int idx = bp32_get_gamepad_output_idx(device);
+    int idx = bt_pad::output_idx(device);
     if (idx < 0)
         idx = bt_slot;
     idx = resolve_bt_output_pad_idx(idx);
@@ -1521,134 +1298,29 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     Gamepad* gamepad = bt_devices_[idx].gamepad;
     Gamepad::PadIn gp_in;
 
-    switch (uni_gp->dpad) 
-    {
-        case DPAD_UP:
-            gp_in.dpad = gamepad->MAP_DPAD_UP;
-            break;
-        case DPAD_DOWN:
-            gp_in.dpad = gamepad->MAP_DPAD_DOWN;
-            break;
-        case DPAD_LEFT:
-            gp_in.dpad = gamepad->MAP_DPAD_LEFT;
-            break;
-        case DPAD_RIGHT:
-            gp_in.dpad = gamepad->MAP_DPAD_RIGHT;
-            break;
-        case DPAD_UP | DPAD_RIGHT:
-            gp_in.dpad = gamepad->MAP_DPAD_UP_RIGHT;
-            break;
-        case DPAD_DOWN | DPAD_RIGHT:
-            gp_in.dpad = gamepad->MAP_DPAD_DOWN_RIGHT;
-            break;
-        case DPAD_DOWN | DPAD_LEFT:
-            gp_in.dpad = gamepad->MAP_DPAD_DOWN_LEFT;
-            break;
-        case DPAD_UP | DPAD_LEFT:
-            gp_in.dpad = gamepad->MAP_DPAD_UP_LEFT;
-            break;
-        default:
-            break;
-    }
-
-    if (is_wii_controller_connected(idx)) {
-        if (uni_gp->buttons & BUTTON_A) gp_in.buttons |= gamepad->MAP_BUTTON_A;
-        if (uni_gp->buttons & BUTTON_B) gp_in.buttons |= gamepad->MAP_BUTTON_B;
-        if (uni_gp->buttons & BUTTON_X) gp_in.buttons |= gamepad->MAP_BUTTON_X;
-        if (uni_gp->buttons & BUTTON_Y) gp_in.buttons |= gamepad->MAP_BUTTON_Y;
-        if (uni_gp->buttons & BUTTON_SHOULDER_L) gp_in.buttons |= gamepad->MAP_BUTTON_LB;
-        if (uni_gp->buttons & BUTTON_SHOULDER_R) gp_in.buttons |= gamepad->MAP_BUTTON_RB;
-        //if (uni_gp->buttons & BUTTON_THUMB_L)    gp_in.buttons |= gamepad->MAP_BUTTON_L3;  
-        //if (uni_gp->buttons & BUTTON_THUMB_R)    gp_in.buttons |= gamepad->MAP_BUTTON_R3;
-        if (uni_gp->misc_buttons & MISC_BUTTON_BACK)    gp_in.buttons |= gamepad->MAP_BUTTON_BACK;
-        if (uni_gp->misc_buttons & MISC_BUTTON_START)   gp_in.buttons |= gamepad->MAP_BUTTON_START;
-        if (uni_gp->misc_buttons & MISC_BUTTON_SYSTEM)  gp_in.buttons |= gamepad->MAP_BUTTON_SYS;
-        /* Custom: Capture (Switch pads) as the Misc button; the DS4 / DualSense touchpad press is
-         * added below. (On a DualSense, MISC_BUTTON_CAPTURE is the mute button: left out.) */
-        if ((uni_gp->misc_buttons & MISC_BUTTON_CAPTURE) && device->controller_type != CONTROLLER_TYPE_PS5Controller)
-            gp_in.buttons |= gamepad->MAP_BUTTON_MISC;
-    }
-    else {
-        if (uni_gp->buttons & BUTTON_A) gp_in.buttons |= gamepad->MAP_BUTTON_A;
-        if (uni_gp->buttons & BUTTON_B) gp_in.buttons |= gamepad->MAP_BUTTON_B;
-        if (uni_gp->buttons & BUTTON_X) gp_in.buttons |= gamepad->MAP_BUTTON_X;
-        if (uni_gp->buttons & BUTTON_Y) gp_in.buttons |= gamepad->MAP_BUTTON_Y;
-        if (uni_gp->buttons & BUTTON_SHOULDER_L) gp_in.buttons |= gamepad->MAP_BUTTON_LB;
-        if (uni_gp->buttons & BUTTON_SHOULDER_R) gp_in.buttons |= gamepad->MAP_BUTTON_RB;
-        if (uni_gp->buttons & BUTTON_THUMB_L)    gp_in.buttons |= gamepad->MAP_BUTTON_L3;  
-        if (uni_gp->buttons & BUTTON_THUMB_R)    gp_in.buttons |= gamepad->MAP_BUTTON_R3;
-        if (uni_gp->misc_buttons & MISC_BUTTON_BACK)    gp_in.buttons |= gamepad->MAP_BUTTON_BACK;
-        if (uni_gp->misc_buttons & MISC_BUTTON_START)   gp_in.buttons |= gamepad->MAP_BUTTON_START;
-        if (uni_gp->misc_buttons & MISC_BUTTON_SYSTEM)  gp_in.buttons |= gamepad->MAP_BUTTON_SYS; 
-        /* Custom: Capture (Switch pads) as the Misc button; the DS4 / DualSense touchpad press is
-         * added below. (On a DualSense, MISC_BUTTON_CAPTURE is the mute button: left out.) */
-        if ((uni_gp->misc_buttons & MISC_BUTTON_CAPTURE) && device->controller_type != CONTROLLER_TYPE_PS5Controller)
-            gp_in.buttons |= gamepad->MAP_BUTTON_MISC;
-    }
-
-    // Check for disconnect combo: Start+Select for most controllers, L3+R3 for OUYA (no Start/Select)
-    /* Custom: hold time is measured in ms (report rates differ per pad) and matches the 3 s of
-     * the mode-change combos. On Pico W, Start+Select is not used for input-source cycling. */
-    static constexpr uint32_t DISCONNECT_COMBO_HOLD_MS = 3000;
-    static uint32_t disconnect_combo_since_ms[MAX_GAMEPADS] = {0};
+    /* Disconnect combo (Bluepad32/BtPad.h): Start + Select, L3 + R3 on an OUYA pad. On Pico W,
+     * Start + Select is not used for input-source cycling. */
     const uint32_t now_cb = to_ms_since_boot(get_absolute_time());
-    const bool combo_grace =
-        (idx >= 0 && idx < MAX_GAMEPADS && now_cb < s_bt_disconnect_combo_grace_until_ms[idx]);
-    bool is_ouya = (device->controller_type == CONTROLLER_TYPE_OUYAController);
-    bool combo_pressed = is_ouya
-        ? ((uni_gp->buttons & BUTTON_THUMB_L) && (uni_gp->buttons & BUTTON_THUMB_R))
-        : ((uni_gp->misc_buttons & MISC_BUTTON_START) && (uni_gp->misc_buttons & MISC_BUTTON_BACK));
-
-    if (combo_grace) {
-        disconnect_combo_since_ms[idx] = 0;
-    } else if (combo_pressed) {
-        if (disconnect_combo_since_ms[idx] == 0)
-            disconnect_combo_since_ms[idx] = now_cb ? now_cb : 1;
-        if (now_cb - disconnect_combo_since_ms[idx] >= DISCONNECT_COMBO_HOLD_MS) {
-            printf("[BP32] Disconnect combo detected, disconnecting controller %d\n", idx);
-            schedule_disconnect_combo(idx);
-            disconnect_combo_since_ms[idx] = 0;
-            return; // Don't process further input after disconnect
-        }
-    } else {
-        disconnect_combo_since_ms[idx] = 0;
+    if (s_disconnect_combo[idx].update(bt_pad::disconnect_combo_pressed(device, uni_gp), now_cb,
+                                       bt_pad::kDisconnectComboHoldMs)) {
+        printf("[BP32] Disconnect combo detected, disconnecting controller %d\n", idx);
+        schedule_disconnect_combo(idx);
+        return; // Don't process further input after disconnect
     }
 
-    // Prefer analog triggers (brake / throttle) when present, but fall back to
-    // digital trigger buttons (e.g. Wii U LT / RT) when analog value is zero.
-    // For Wii controllers: Z button (shoulder) reports brake/throttle, but we only want it to map to LB/RB, not triggers
-    // So skip trigger mapping when shoulder buttons are pressed on Wii controllers
-    bool wii_shoulder_pressed = is_wii_controller_connected(idx) && 
-                                 ((uni_gp->buttons & BUTTON_SHOULDER_L) || (uni_gp->buttons & BUTTON_SHOULDER_R));
-    
-    if (!wii_shoulder_pressed) {
-        gp_in.trigger_l = gamepad->scale_trigger_l<10>(static_cast<uint16_t>(uni_gp->brake));
-        gp_in.trigger_r = gamepad->scale_trigger_r<10>(static_cast<uint16_t>(uni_gp->throttle));
-
-        if (gp_in.trigger_l == 0 && (uni_gp->buttons & BUTTON_TRIGGER_L)) {
-            gp_in.trigger_l = 0xFF;
-        }
-        if (gp_in.trigger_r == 0 && (uni_gp->buttons & BUTTON_TRIGGER_R)) {
-            gp_in.trigger_r = 0xFF;
-        }
-    }
-    
-    /* Nunchuk stick is Bluepad's right axis; map to left stick for character movement. */
-    const bool wii_nunchuk =
-        device->controller_type == CONTROLLER_TYPE_WiiController &&
-        (device->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK ||
-         device->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK_ACCEL);
-    if (wii_nunchuk) {
-        std::tie(gp_in.joystick_lx, gp_in.joystick_ly) =
-            gamepad->scale_joystick_l<10>(uni_gp->axis_rx, uni_gp->axis_ry);
-        gp_in.joystick_rx = 0;
-        gp_in.joystick_ry = 0;
-    } else {
-        std::tie(gp_in.joystick_lx, gp_in.joystick_ly) =
-            gamepad->scale_joystick_l<10>(uni_gp->axis_x, uni_gp->axis_y);
-        std::tie(gp_in.joystick_rx, gp_in.joystick_ry) =
-            gamepad->scale_joystick_r<10>(uni_gp->axis_rx, uni_gp->axis_ry);
-    }
+    /* Buttons, triggers, sticks and touchpad through the user profile (Bluepad32/BtPad.h). */
+    const bt_pad::Input mapped = bt_pad::map_input(device, uni_gp, *gamepad);
+    gp_in.dpad = mapped.dpad;
+    gp_in.buttons = mapped.buttons;
+    gp_in.trigger_l = mapped.trigger_l;
+    gp_in.trigger_r = mapped.trigger_r;
+    gp_in.joystick_lx = mapped.joystick_lx;
+    gp_in.joystick_ly = mapped.joystick_ly;
+    gp_in.joystick_rx = mapped.joystick_rx;
+    gp_in.joystick_ry = mapped.joystick_ry;
+    std::memcpy(gp_in.touch_raw, mapped.touch_raw, sizeof(gp_in.touch_raw));
+    gp_in.touchpad_click = mapped.touchpad_click ? 1 : 0;
+    gp_in.touchpad_valid = mapped.touchpad_valid ? 1 : 0;
 
     gp_in.motion_source = Gamepad::PadIn::MOTION_SRC_NONE;
     switch (device->controller_type) {
@@ -1696,9 +1368,9 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
             gp_in.gyro[i] = uni_gp->gyro[i];
         }
         /* Custom: Joy-Con motion is in the upright frame; rotate for how it is held. */
-        if (bp32_is_switch_joycon(device)) {
+        if (bt_pad::is_switch_joycon(device)) {
             const auto& jc = joycon_settings::get();
-            const bool paired = bp32_get_pair_partner_idx(device) >= 0;
+            const bool paired = bt_pad::pair_partner_idx(device) >= 0;
             const bool left = paired ? !jc.pair_imu_right
                                      : device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft;
             /* Custom fix: PadIn is packed, so accel / gyro are not 4-byte aligned; a plain int32_t*
@@ -1718,22 +1390,8 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         }
     }
 
-    /* Custom: touchpad and battery for every output mode (PS4 mode passes them to the host). */
+    /* Custom: battery for every output mode (PS4 mode passes it and the touchpad to the host). */
     gp_in.battery = device->controller.battery;
-    if (device->controller_type == CONTROLLER_TYPE_PS4Controller ||
-        device->controller_type == CONTROLLER_TYPE_PS5Controller) {
-        uint8_t touch_points[8]{};
-        bool touchpad_click = false;
-        if (device->controller_type == CONTROLLER_TYPE_PS5Controller)
-            uni_hid_parser_ds5_get_touchpad(device, touch_points, &touchpad_click);
-        else
-            uni_hid_parser_ds4_get_touchpad(device, touch_points, &touchpad_click);
-        std::memcpy(gp_in.touch_raw, touch_points, sizeof(gp_in.touch_raw));
-        gp_in.touchpad_click = touchpad_click ? 1 : 0;
-        gp_in.touchpad_valid = 1;
-        if (touchpad_click)  // Custom: the touchpad press is the Misc button, mappable like the others
-            gp_in.buttons |= gamepad->MAP_BUTTON_MISC;
-    }
 
     if (SteamActive::is_enabled()) {
         SteamPassthrough::input_has_touchpad =
@@ -1744,8 +1402,8 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     }
 
     /* Custom: a lone Joy-Con has no D-pad, so mode combos use its stick instead. */
-    gamepad->set_combo_stick_as_dpad(bp32_is_switch_joycon(device) &&
-                                     bp32_get_pair_partner_idx(device) < 0);
+    gamepad->set_combo_stick_as_dpad(bt_pad::is_switch_joycon(device) &&
+                                     bt_pad::pair_partner_idx(device) < 0);
     gamepad->set_pad_in_from_bluetooth(gp_in);
 
 #if defined(CONFIG_OGXM_DEBUG)
@@ -1897,7 +1555,7 @@ static void reboot_disconnect_pads_on_bt_main()
         if (!d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID || uni_hid_device_is_virtual_device(d))
             continue;
         s_reboot_disc_handles[s_reboot_disc_count++] = d->conn.handle;
-        if (bp32_is_switch_joycon(d)) {
+        if (bt_pad::is_switch_joycon(d)) {
             printf("[BP32] Mode change: asking Joy-Con slot %u to sleep before reboot\n", i);
             uni_hid_parser_switch_request_sleep(d);
         } else {

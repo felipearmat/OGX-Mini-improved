@@ -14,4 +14,4 @@ BLEServer.h          web app over BLE: diverged (pads in / init signature); unif
 BLEServer.cpp        web app over BLE: diverged (RP2040 has the newer commands); unify in step 2
 UserSettings.h       mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
 UserSettings.cpp     mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
-Gamepad.h            pad state per platform: RP2040 carries IMU / touchpad; shared bits in common/Gamepad/GamepadBits.h
+Gamepad.h            pad state per platform (RP2040: IMU / touchpad, USB queues); bits and profile mapper shared (GamepadBits.h, GamepadMapper.h)

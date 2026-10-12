@@ -11,6 +11,8 @@
 #include "I2CDriver/I2CDriver.h"
 #include "Gamepad/RumbleTiming.h"
 #include "Gamepad/Gamepad.h"
+#include "Bluepad32/BtPad.h"
+#include "Bluepad32/ComboHold.h"
 
 class BTManager
 {
@@ -46,6 +48,9 @@ private:
         I2CDriver::PacketIn packet_in;
         std::atomic<I2CDriver::PacketOut> packet_out; //Can be updated from i2c thread
         uint32_t host_rumble_ok_ms{0};  // DualShock 4: no host rumble before this (btstack time)
+        bool was_ready{false};          // reached "ready": its disconnect restarts the ESP32
+        ComboHold combo;                // disconnect combo (Bluepad32/BtPad.h)
+        bt_pad::KeepaliveState keepalive;
     };
 
     struct FBContext
@@ -61,8 +66,16 @@ private:
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;
 
+    btstack_timer_source_t disconnect_combo_timer_;
+    int disconnect_combo_idx_ = -1;
+
     void send_driver_type(DeviceDriverType driver_type);
     void manage_connection(uint8_t index, bool connected);
+    void update_search();
+    void schedule_disconnect_combo(uint8_t index);
+    static void disconnect_combo_timer_cb(btstack_timer_source *ts);
+    static void restart_after_ms(uint32_t delay_ms);
+    void apply_profiles();
     
     static uni_hid_device_t* get_connected_bp32_device(uint8_t index);
     static void check_led_cb(btstack_timer_source *ts);
