@@ -19,13 +19,22 @@ output queue / SDL mapping), #138 (touchpad press / Capture).
 1. **3dda3e9** — DInput 27-byte input report (macOS showed no input). Standalone.
 2. **f1f49e9** — PC wake: one wake request per suspend, XInput / STEAM able to wake.
 3. **8c59260** — BTstack logs in Debug builds only (inverted condition).
-4. **ESP32 companion build** — 87431fb + 09f005a + the CMake line of ff5b909: builds with ESP-IDF
+4. **Trigger settings lost on a second profile apply** — the `TriggerSettings` part of 5945d2d.
+   Every board. Minimal upstream version: `TriggerSettings::raw_has_customization()` and the six
+   lines of `Gamepad::set_profile_settings()` that use it; with its unit test.
+5. **ESP32 companion build** — 87431fb + 09f005a + the CMake line of ff5b909: builds with ESP-IDF
    5.5, the current BTstack port, on Linux (include case) and with any build directory.
-5. **Hybrid behaviour** — fix parts of 7f8b279 (rumble) and 1a31468 (Web App combo, GPIO modes off),
-   in their minimal form without `Firmware/common` (see their rows).
+6. **One copy of the shared code** — 9f6deb1 (`Firmware/common`, CI sync check) with the shared
+   combo table of 1a31468. Sent as a fix: the ESP32 copies had drifted from the RP2040 ones (no
+   newer modes, Web App combo ignored, analog buttons off by default), and every later fix lands
+   on both boards only through it.
+7. **Shared Bluepad32 core** — 5945d2d (without the trigger part sent in 4): the hybrid's ESP32
+   behaved differently from the Pico W path in many ways (see its row); one copy fixes them all.
+   With the fix part of 7f8b279 (rumble timing, `RumbleTiming.h`).
 
-Features follow once these are in: `Firmware/common` (9f6deb1) and the shared combo table, the
-hybrid's Pico 2 board target (ff5b909), connection rumble on the ESP32, then the feature list below.
+The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
+then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so
+later fixes reach every board in one PR.
 
 ## Bug fixes (general, every user benefits)
 
@@ -69,7 +78,8 @@ hybrid's Pico 2 board target (ff5b909), connection rumble on the ESP32, then the
 | 3dda3e9 | DInput output: the 27-byte input report the descriptor declares (19 were sent) | todo | macOS drops short input reports: DInput showed no input at all there. Standalone, with the descriptor-size unit test. |
 | ff5b909 (ESP32 CMake part) | ESP32 component: `FWDefines.cmake` included from its own directory (`CMAKE_CURRENT_LIST_DIR`) | todo | A build directory outside `Firmware/ESP32` (`idf.py -B`) failed. One line; send with 87431fb. |
 | 7f8b279 (fix part) | Hybrid rumble: RP2040 sends the peak since the last read; ESP32 plays longer than its read period and holds DS4 rumble 6 s after connect | todo | Rumble was weak and choppy on the hybrid. The connection rumble in the same commit is a feature. Uses `RumbleTiming.h` in `Firmware/common` (offer after 9f6deb1, or inline the constants). |
-| 1a31468 (fix part) | Hybrid: Web App combo ignored by the ESP32 (missing from its valid modes); RP2040 side accepted GPIO modes that take the I2C pins | todo | Minimal upstream version: add WEBAPP to the ESP32's valid list, keep GPIO modes off when `CONFIG_EN_ESP32`. The shared combo table is a feature on top of 9f6deb1. |
+| 1a31468 (fix part) | Hybrid: Web App combo ignored by the ESP32 (missing from its valid modes); RP2040 side accepted GPIO modes that take the I2C pins | todo | Sent with 9f6deb1 (item 6 above): the shared combo table is the fix, both sides read the same modes. |
+| 5945d2d | Shared Bluepad32 core (`Firmware/common/Bluepad32/BtPad.h`, `ScanPolicy.h`, `ComboHold.h`, `Gamepad/GamepadMapper.h`): the hybrid's ESP32 gets the Pico W path's behaviour; trigger settings kept when a profile is applied again | todo | Hybrid bugs fixed by it: rumble motors swapped; touchpad press not Misc, DualSense mute as Misc; stick shaping on the ESP32 had the bugs already fixed on the RP2040 (ellipse scale uninitialised, degrees for radians, wrong anti-deadzone field, no idle-noise gate); XInput stock stick feel and the Web App default mapping not applied; Wii U Pro digital triggers, Wiimote held sideways, Z as triggers, Nunchuk stick on the right stick; DS4 / DualSense "virtual mouse" slot accepted; no player LED; DualSense adaptive triggers left on; no disconnect combo; no reboot after the last pad disconnects; search for new controllers kept running next to the pad; no Xbox / Switch 2 BLE keepalives. Builds and unit tests; not yet on hardware. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 
@@ -96,7 +106,7 @@ hybrid's Pico 2 board target (ff5b909), connection rumble on the ESP32, then the
 | e9b8735 | Mouse + Keyboard output mode (keyboard, mouse, media keys; mapping from the web app) | todo | Feature; web app side in OGX-Mini-improved-WebApp. After the fixes are accepted. |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
-| 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | The ESP32 copies had drifted (no newer modes, analog buttons off by default). Offer together with 87431fb. |
+| 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 6 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
 
 ## Other projects
 
