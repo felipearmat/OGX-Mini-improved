@@ -22,6 +22,9 @@ public:
     void line_state_cb(uint8_t itf, bool dtr, bool rts) override;
     void line_coding_cb(uint8_t itf, cdc_line_coding_t const* p_line_coding) override;
 
+    /* Monitor mode (Board/BootMode.h ESP32_MONITOR) instead of programming: set before process(). */
+    static inline bool monitor_mode = false;
+
 private:
     bool task_running_ = false;
 };

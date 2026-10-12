@@ -11,6 +11,7 @@
 
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "Board/ogxm_log.h"
+#include "Board/LogRing.h"
 
 std::ostream& operator<<(std::ostream& os, DeviceDriverType type) {
     switch (type) {
@@ -56,6 +57,10 @@ void log(const std::string& message) {
     std::string formatted_msg = "OGXM: " + message;
 
     printf("%s", formatted_msg.c_str());
+#if defined(CONFIG_EN_ESP32)
+    /* Custom: the hybrid's log is read through its USB port (Board/LogRing.h, monitor mode). */
+    log_ring_append("rp", message.c_str(), message.size());
+#endif
     fflush(stdout);
 
     mutex_exit(&log_mutex);

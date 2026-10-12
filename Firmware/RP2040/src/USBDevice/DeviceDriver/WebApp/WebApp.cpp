@@ -1,7 +1,11 @@
 #include "class/cdc/cdc_device.h"
 #include "bsp/board_api.h"
 
+#include <pico/bootrom.h>
+#include <pico/stdlib.h>
+
 #include "Board/board_api.h"
+#include "Board/BootMode.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Descriptors/CDCDev.h"
@@ -456,6 +460,45 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 ack.header.chunk_len = 0;
                 write_packet(ack);
                 break;
+            }
+
+            case PacketID::SYSTEM:
+            {
+                const uint8_t command = packet_out.header.chunk_len >= 1 ? packet_out.data[0] : 0;
+#if defined(CONFIG_EN_ESP32) && !defined(CONFIG_OGXM_BOARD_ESP32_BLUERETRO_I2C)
+                const bool esp32 = true;
+#else
+                const bool esp32 = false;
+#endif
+                if (command < SYSTEM_BOOTSEL || command > SYSTEM_ESP32_MONITOR ||
+                    (!esp32 && command >= SYSTEM_ESP32_FLASH))
+                {
+                    write_error();
+                    return;
+                }
+                Packet ack;
+                ack.header.packet_id = PacketID::SYSTEM;
+                ack.header.chunks_total = 1;
+                ack.header.chunk_len = 1;
+                ack.data[0] = command;
+                write_packet(ack);
+                tud_cdc_write_flush();
+                for (int i = 0; i < 20; ++i)  // let the answer reach the host
+                {
+                    tud_task();
+                    sleep_ms(5);
+                }
+                OGXM_LOG("System command %u\n", command);
+                board_api::usb::disconnect_all();
+                if (command == SYSTEM_BOOTSEL)
+                {
+                    reset_usb_boot(0, 0);
+                }
+                boot_mode::set(command == SYSTEM_ESP32_FLASH   ? boot_mode::Mode::ESP32_FLASH
+                             : command == SYSTEM_ESP32_MONITOR ? boot_mode::Mode::ESP32_MONITOR
+                                                               : boot_mode::Mode::NORMAL);
+                board_api::reboot();
+                return;
             }
 
             default:

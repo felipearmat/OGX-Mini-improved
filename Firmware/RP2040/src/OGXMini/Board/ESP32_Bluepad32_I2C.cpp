@@ -8,6 +8,7 @@
 #include <pico/i2c_slave.h>
 #include <hardware/gpio.h>
 #include <hardware/i2c.h>
+#include <hardware/uart.h>
 
 #include "tusb.h"
 #include "bsp/board_api.h"
@@ -16,6 +17,9 @@
 #include "UserSettings/UserSettings.h"
 #include "Board/board_api.h"
 #include "Board/esp32_api.h"
+#include "Board/BootMode.h"
+#include "Board/LogRing.h"
+#include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
@@ -193,13 +197,13 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     break;
                 case PacketID::SET_DIAG: {
                     PacketDiag diag_packet;
-                    std::memcpy(&diag_packet, &packet_in, sizeof(diag_packet));
+                    std::memcpy(static_cast<void*>(&diag_packet), &packet_in, sizeof(diag_packet));
                     record_diag(diag_packet);
                     break;
                 }
                 case PacketID::SET_PAD_EXT: {
                     PacketInExt ext;
-                    std::memcpy(&ext, &packet_in, sizeof(ext));
+                    std::memcpy(static_cast<void*>(&ext), &packet_in, sizeof(ext));
                     if (ext.index < MAX_GAMEPADS) {
                         _pad_ext[ext.index] = ext;
                     }
@@ -209,12 +213,12 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     ext_requested = true;
                     break;
                 case PacketID::GET_PROFILE:
-                    std::memcpy(&profile_request, &packet_in, sizeof(profile_request));
+                    std::memcpy(static_cast<void*>(&profile_request), &packet_in, sizeof(profile_request));
                     profile_requested = true;
                     break;
                 case PacketID::SET_PROFILE: {
                     PacketProfile chunk;
-                    std::memcpy(&chunk, &packet_in, sizeof(chunk));
+                    std::memcpy(static_cast<void*>(&chunk), &packet_in, sizeof(chunk));
                     if (chunk.chunk >= PacketProfile::kChunks) {
                         break;
                     }
@@ -320,7 +324,11 @@ static void core1_task() {
 }
 
 void run_uart_bridge() {
-    esp32_api::enter_programming_mode();
+    /* Programming: the ESP32 waits in its ROM bootloader (esptool then runs with --before
+     * no_reset). Monitor: it keeps running, only its output is read. */
+    if (!UARTBridgeDevice::monitor_mode) {
+        esp32_api::enter_programming_mode();
+    }
 
     OGXM_LOG("Entering UART Bridge mode\n");
 
@@ -357,9 +365,13 @@ void esp32_bp32_i2c::initialize() {
     }
     _current_driver = user_settings.get_current_driver();
 
-    //MODE_SEL_PIN is used to determine if UART bridge should be run
+    /* UART bridge: GP21 to GND at boot (jumper), a retail update, or asked over USB in Web App
+     * mode (Board/BootMode.h: ESP32 update or log monitor), so the adapter's USB port does it all. */
+    const boot_mode::Mode boot = boot_mode::take();
+    UARTBridgeDevice::monitor_mode = (boot == boot_mode::Mode::ESP32_MONITOR);
     _uart_bridge_mode = 
-        (esp32_api::uart_bridge_mode() || update_needed(user_settings));
+        (esp32_api::uart_bridge_mode() || update_needed(user_settings) ||
+         boot == boot_mode::Mode::ESP32_FLASH || boot == boot_mode::Mode::ESP32_MONITOR);
 
     DeviceDriverType driver_type = 
         _uart_bridge_mode ? 
@@ -377,6 +389,12 @@ void esp32_bp32_i2c::run() {
     multicore_reset_core1();
     multicore_launch_core1(core1_task);
 
+    /* The ESP32's serial output (its log, boot messages) into the kept log (Board/LogRing.h),
+     * readable later through the monitor mode. */
+    uart_init(uart0, 115200);
+    gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
+
     esp32_api::reset();
 
     DeviceDriver* device_driver = DeviceManager::get_instance().get_driver();
@@ -389,6 +407,14 @@ void esp32_bp32_i2c::run() {
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
             device_driver->process(i, _gamepads[i]);
             tud_task();
+        }
+        char esp_out[32];
+        size_t esp_len = 0;
+        while (esp_len < sizeof(esp_out) && uart_is_readable(uart0)) {
+            esp_out[esp_len++] = static_cast<char>(uart_getc(uart0));
+        }
+        if (esp_len) {
+            log_ring_append("esp", esp_out, esp_len);
         }
         sleep_ms(1);
     }

@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "Board/Config.h"
+#include "Board/LogRing.h"
 #include "tusb.h"
 #include "device/usbd.h"
 
@@ -51,6 +52,9 @@ const uart_id_t UART_ID[CFG_TUD_CDC] = {
 uart_data_t UART_DATA[CFG_TUD_CDC];
 static uint32_t bridge_start_ms = 0;
 static volatile bool programming_complete = false;
+/* Monitor mode (Board/BootMode.h ESP32_MONITOR): no resets from the serial lines, and the kept log
+ * (Board/LogRing.h) goes out first once the port is open. */
+static bool monitor_mode = false;
 
 static inline uint databits_usb2uart(uint8_t data_bits) {
 	return (data_bits >= 5 && data_bits <= 8) ? data_bits : 8;
@@ -70,6 +74,7 @@ void uart_bridge_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 #if defined(ESP_RST_PIN) && defined(ESP_PROG_PIN)
     // Protection: OS drivers often toggle DTR/RTS when the port is opened.
     // If we just entered UART mode manually, we ignore all resets for 5 seconds.
+    if (monitor_mode) return;
     if (to_ms_since_boot(get_absolute_time()) - bridge_start_ms < 5000) return;
 
     // Corrected direct-connect auto-reset logic:
@@ -141,9 +146,11 @@ void core1_entry(void) {
 	}
 }
 
-int uart_bridge_run(void) {
+int uart_bridge_run(bool monitor) {
     bridge_start_ms = to_ms_since_boot(get_absolute_time());
     programming_complete = false;
+    monitor_mode = monitor;
+    size_t kept_sent = monitor ? 0 : log_ring_size();
 
 #if defined(ESP_RST_PIN) && defined(ESP_PROG_PIN)
 	gpio_init(ESP_RST_PIN); gpio_set_dir(ESP_RST_PIN, GPIO_OUT); gpio_put(ESP_RST_PIN, 1);
@@ -163,6 +170,19 @@ int uart_bridge_run(void) {
 
 	while (!programming_complete) {
 		tud_task();
+		/* Monitor: the kept log first (the previous session), then the live output. */
+		if (kept_sent < log_ring_size() && tud_cdc_n_connected(0)) {
+			uint8_t chunk[64];
+			const size_t room = tud_cdc_n_write_available(0);
+			const size_t n = log_ring_read(kept_sent, chunk, MIN(sizeof(chunk), room));
+			if (n) {
+				tud_cdc_n_write(0, chunk, n);
+				tud_cdc_n_write_flush(0);
+				kept_sent += n;
+			}
+			sleep_ms(1);
+			continue;
+		}
 		for (uint8_t i = 0; i < CFG_TUD_CDC; i++) {
 			uart_data_t *ud = &UART_DATA[i];
 			if (ud->uart_pos && mutex_try_enter(&ud->uart_mtx, NULL)) {

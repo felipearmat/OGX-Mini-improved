@@ -40,6 +40,13 @@ private:
         SET_KBM_SETTINGS = 0x73,
         /* Custom: diagnostics report (Diagnostics/Diagnostics), JSON text over as many chunks as needed. */
         GET_DIAGNOSTICS = 0x74,
+        /* Custom: adapter maintenance, so the adapter's own USB port does everything. data[0]:
+         * SYSTEM_BOOTSEL (RP2040 / RP2350 USB bootloader, for a UF2 or picotool), SYSTEM_REBOOT,
+         * and on the RP2040 + ESP32 hybrid SYSTEM_ESP32_FLASH (restart as a USB serial to the
+         * ESP32's ROM bootloader, for esptool) and SYSTEM_ESP32_MONITOR (restart as a USB serial
+         * with the kept log and the ESP32's live output). Answered with SYSTEM before acting, or
+         * RESP_ERROR when the board can't. */
+        SYSTEM = 0x75,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -51,6 +58,14 @@ private:
     };
     
     #pragma pack(push, 1)
+    enum SystemCommand : uint8_t
+    {
+        SYSTEM_BOOTSEL = 1,
+        SYSTEM_REBOOT = 2,
+        SYSTEM_ESP32_FLASH = 3,
+        SYSTEM_ESP32_MONITOR = 4,
+    };
+
     struct PacketHeader
     {
         uint8_t packet_len{64};

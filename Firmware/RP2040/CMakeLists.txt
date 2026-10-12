@@ -562,6 +562,10 @@ if(EN_ESP32)
         hardware_pio
         hardware_dma
     )
+    # The kept log both boards' output goes to, read through the USB port (Board/LogRing.h)
+    list(APPEND SOURCES_BOARD
+        ${SRC}/Board/LogRing.cpp
+    )
 endif()
 
 if(EN_UART_BRIDGE)
@@ -621,7 +625,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
     # Pico W/2W: use UART1 on GP4 (TX) / GP5 (RX) - valid UART pins, avoids PIO USB (GP0/1) in Wii mode
     # Note: GP10/11 are not valid UART pins on RP2040/RP2350
-    if(OGXM_BOARD STREQUAL "PI_PICOW" OR OGXM_BOARD STREQUAL "PI_PICO2W" OR OGXM_BOARD STREQUAL "RP2354")
+    # The RP2040 + ESP32 hybrid too: GP0 / GP1 are its USB host port (wired controllers)
+    if(OGXM_BOARD STREQUAL "PI_PICOW" OR OGXM_BOARD STREQUAL "PI_PICO2W" OR OGXM_BOARD STREQUAL "RP2354" OR
+       OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
         set(TX_PIN 4)
         set(RX_PIN 5)
     else()

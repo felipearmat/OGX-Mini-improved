@@ -25,7 +25,7 @@ void UARTBridgeDevice::process(const uint8_t idx, Gamepad& gamepad)
     if (!task_running_)
     {
         task_running_ = true;
-        uart_bridge_run();
+        uart_bridge_run(monitor_mode);
     }
 }
 
@@ -59,6 +59,18 @@ const uint16_t * UARTBridgeDevice::get_descriptor_string_cb(uint8_t index, uint1
         case 3:
             char_count = board_usb_get_serial(&desc_str[1], 32);
             break;
+
+        case 2:
+        {
+            /* Custom: its own product name, so tools/hybrid tells it from the Web App mode port. */
+            const char* product = monitor_mode ? "OGX-Mini ESP32 monitor" : "OGX-Mini ESP32 bridge";
+            char_count = std::strlen(product);
+            for (size_t i = 0; i < char_count; i++)
+            {
+                desc_str[1 + i] = product[i];
+            }
+            break;
+        }
 
         default:
             if (index >= sizeof(CDCDesc::DESC_STRING) / sizeof(CDCDesc::DESC_STRING[0]))
