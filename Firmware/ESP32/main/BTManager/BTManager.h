@@ -98,6 +98,19 @@ private:
     bool motion_output_{false};
     bool searching_sent_{false};
 
+    /* Settings kept by the RP2040: the copy taken (checksum + active profile), a fetch running,
+     * and a mode change from a combo waiting for the RP2040 to take it. */
+    uint16_t profiles_crc_{0};
+    uint8_t profiles_active_{0};
+    uint16_t fetch_crc_{0};         // the copy being fetched
+    uint8_t fetch_active_{0};
+    bool profiles_fetching_{false};
+    uint32_t profiles_fetch_ms_{0};
+    I2CDriver::Profiles profiles_rx_;
+    btstack_context_callback_registration_t profiles_cb_reg_;
+    DeviceDriverType pending_driver_{DeviceDriverType::NONE};
+    uint8_t pending_driver_ticks_{0};
+
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;
     btstack_timer_source_t led_timer_;
@@ -111,6 +124,8 @@ private:
     void apply_profiles();
     void apply_scan(bool pad_leaving, bool force);
     void apply_ext(const I2CDriver::PacketOutExt& ext);
+    void adopt_driver(DeviceDriverType driver);
+    static void profiles_cb(void* context);
     int resolve_output(uni_hid_device_t* device, int slot);
     bool lone_joycon();
     void schedule_mode_lightbar(uni_hid_device_t* device, int slot);

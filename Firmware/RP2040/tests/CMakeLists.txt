@@ -39,7 +39,10 @@ ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
 
 # I2C link of the RP2040 + ESP32 hybrid: wire format shared by both firmwares (Firmware/common)
-ogxm_add_test(test_esp32_bridge test_esp32_bridge.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
+ogxm_add_test(test_esp32_bridge test_esp32_bridge.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp
+    ${FW_COMMON}/UserSettings/UserProfile.cpp ${FW_COMMON}/UserSettings/JoystickSettings.cpp
+    ${FW_COMMON}/UserSettings/TriggerSettings.cpp)
+target_link_libraries(test_esp32_bridge PRIVATE fixmath)
 
 ogxm_add_test(test_wire_pad test_wire_pad.cpp)
 target_compile_definitions(test_wire_pad PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)

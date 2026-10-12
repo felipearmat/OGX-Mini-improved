@@ -4,6 +4,8 @@
 #include <driver/gpio.h>
 #include <esp_log.h>
 
+#include <algorithm>
+
 #include "I2CDriver/I2CDriver.h"
 
 I2CDriver::~I2CDriver()
@@ -104,6 +106,55 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
             data_out.packet_id == PacketID::GET_EXT)
         {
             callback(data_out);
+        }
+    });
+}
+
+void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles&)> callback)
+{
+    task_queue_.push([this, address, callback]()
+    {
+        static Profiles profiles;
+        for (uint8_t id = 1; id <= PROFILE_COUNT; ++id)
+        {
+            for (uint8_t chunk = 0; chunk < PacketProfile::kChunks; ++chunk)
+            {
+                PacketProfile request;
+                request.packet_id = PacketID::GET_PROFILE;
+                request.profile_id = id;
+                request.chunk = chunk;
+                PacketProfile reply;
+                if (i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&request), sizeof(request)) != ESP_OK ||
+                    i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&reply), sizeof(reply)) != ESP_OK ||
+                    reply.packet_id != PacketID::GET_PROFILE || reply.profile_id != id || reply.chunk != chunk)
+                {
+                    return;  // tried again on a later feedback tick
+                }
+                const size_t offset = chunk * PacketProfile::kData;
+                const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
+                std::memcpy(reinterpret_cast<uint8_t*>(&profiles[id - 1]) + offset, reply.data, len);
+            }
+        }
+        callback(profiles);
+    });
+}
+
+void I2CDriver::write_profile(uint8_t address, const UserProfile& profile, uint8_t player_idx, DeviceDriverType driver)
+{
+    task_queue_.push([this, address, profile, player_idx, driver]()
+    {
+        for (uint8_t chunk = 0; chunk < PacketProfile::kChunks; ++chunk)
+        {
+            PacketProfile packet;
+            packet.packet_id = PacketID::SET_PROFILE;
+            packet.profile_id = profile.id;
+            packet.chunk = chunk;
+            packet.player_idx = player_idx;
+            packet.driver = driver;
+            const size_t offset = chunk * PacketProfile::kData;
+            const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
+            std::memcpy(packet.data, reinterpret_cast<const uint8_t*>(&profile) + offset, len);
+            i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&packet), sizeof(packet));
         }
     });
 }

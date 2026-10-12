@@ -2,6 +2,7 @@
 #include "OGXMini/Board/ESP32_Bluepad32_I2C.h"
 #if (OGXM_BOARD == ESP32_BLUEPAD32_I2C)
 
+#include <algorithm>
 #include <cstring>
 #include <pico/multicore.h>
 #include <pico/i2c_slave.h>
@@ -30,6 +31,15 @@ using Esp32Bridge::PacketOut;
 using Esp32Bridge::PacketInExt;
 using Esp32Bridge::PacketOutExt;
 using Esp32Bridge::PacketDiag;
+using Esp32Bridge::PacketProfile;
+
+/* The settings live here (USB web app, flash); the ESP32 maps its pads with them and its BLE web
+ * app edits them through the I2C link (GET_PROFILE / SET_PROFILE). Saving reboots the RP2040, so
+ * the copy taken at boot stays current. */
+static UserProfile _profiles[UserSettings::MAX_PROFILES];
+static uint16_t _profiles_crc = 0;
+static uint8_t _active_profile[MAX_GAMEPADS];
+static DeviceDriverType _current_driver = DeviceDriverType::NONE;
 
 /* Motion, touchpad and battery of the ESP32's pads (SET_PAD_EXT), applied with the next SET_PAD;
  * the Wiimote's pseudo gyro keeps state per output. */
@@ -134,6 +144,9 @@ static PacketOutExt ext_reply(uint8_t index) {
         reply.flags |= PacketOutExt::MOTION_OUTPUT;
     }
     reply.settings = dongle_settings::get();
+    reply.driver = _current_driver;
+    reply.active_profile = index < MAX_GAMEPADS ? _active_profile[index] : 1;
+    reply.profiles_crc = _profiles_crc;
     return reply;
 }
 
@@ -151,6 +164,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static PacketIn packet_in;
     static PacketOut packet_out;
     static bool ext_requested = false;  // answer the next read with a PacketOutExt
+    static PacketProfile profile_request;  // answer the next read with this chunk
+    static bool profile_requested = false;
+    static uint8_t incoming[sizeof(UserProfile)];  // a profile saved over BLE, chunk by chunk
     static_assert(sizeof(PacketInExt) <= sizeof(PacketIn), "the receive buffer holds every ESP32 packet");
     static DeviceDriverType current_device_type = 
         UserSettings::get_instance().get_current_driver();
@@ -192,6 +208,41 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                 case PacketID::GET_EXT:
                     ext_requested = true;
                     break;
+                case PacketID::GET_PROFILE:
+                    std::memcpy(&profile_request, &packet_in, sizeof(profile_request));
+                    profile_requested = true;
+                    break;
+                case PacketID::SET_PROFILE: {
+                    PacketProfile chunk;
+                    std::memcpy(&chunk, &packet_in, sizeof(chunk));
+                    if (chunk.chunk >= PacketProfile::kChunks) {
+                        break;
+                    }
+                    const size_t offset = chunk.chunk * PacketProfile::kData;
+                    const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
+                    std::memcpy(incoming + offset, chunk.data, len);
+                    if (chunk.chunk + 1 != PacketProfile::kChunks) {
+                        break;
+                    }
+                    UserProfile profile;
+                    std::memcpy(&profile, incoming, sizeof(profile));
+                    if (profile.id < 1 || profile.id > UserSettings::MAX_PROFILES || chunk.player_idx >= MAX_GAMEPADS) {
+                        break;
+                    }
+                    OGXM_LOG("I2C: Profile saved over BLE.\n");
+                    //Any writes to flash should be done on Core0 (they reboot)
+                    TaskQueue::Core0::queue_delayed_task(
+                        TaskQueue::Core0::get_new_task_id(), 100, false,
+                        [profile, index = chunk.player_idx, driver = chunk.driver] {
+                            if (driver != DeviceDriverType::NONE) {
+                                UserSettings::get_instance().store_profile_and_driver_type(driver, index, profile);
+                            } else {
+                                UserSettings::get_instance().store_profile(index, profile);
+                            }
+                        }
+                    );
+                    break;
+                }
                 case PacketID::SET_DRIVER:
                     if (packet_in.device_driver != DeviceDriverType::NONE &&
                         packet_in.device_driver != current_device_type) {
@@ -211,6 +262,20 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             count = 0;
             break;
         case I2C_SLAVE_REQUEST:
+            if (profile_requested) {
+                profile_requested = false;
+                PacketProfile reply = profile_request;
+                if (reply.profile_id >= 1 && reply.profile_id <= UserSettings::MAX_PROFILES &&
+                    reply.chunk < PacketProfile::kChunks) {
+                    const size_t offset = reply.chunk * PacketProfile::kData;
+                    const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
+                    std::memcpy(reply.data, reinterpret_cast<const uint8_t*>(&_profiles[reply.profile_id - 1]) + offset, len);
+                } else {
+                    reply.profile_id = 0;  // nothing there
+                }
+                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
+                break;
+            }
             if (ext_requested) {
                 ext_requested = false;
                 const PacketOutExt reply = ext_reply(packet_in.index);
@@ -282,6 +347,15 @@ void esp32_bp32_i2c::initialize() {
 
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+
+    for (uint8_t i = 0; i < UserSettings::MAX_PROFILES; ++i) {
+        _profiles[i] = user_settings.get_profile_by_id(i + 1);
+    }
+    _profiles_crc = Esp32Bridge::profiles_crc(_profiles, UserSettings::MAX_PROFILES);
+    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
+        _active_profile[i] = user_settings.get_active_profile_id(i);
+    }
+    _current_driver = user_settings.get_current_driver();
 
     //MODE_SEL_PIN is used to determine if UART bridge should be run
     _uart_bridge_mode = 

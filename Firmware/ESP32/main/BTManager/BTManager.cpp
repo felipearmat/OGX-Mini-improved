@@ -24,6 +24,11 @@ void BTManager::run_task()
     dongle_settings::set(dongle_settings::defaults());  // until the RP2040 sends its own (GET_EXT)
 
     apply_profiles();
+    UserSettings::get_instance().set_remote_store(
+        [this](const UserProfile& profile, uint8_t index, DeviceDriverType driver)
+        {
+            i2c_driver_.write_profile(slave_addr(index), profile, index, driver);
+        });
 
     i2c_driver_.initialize_i2c(
         static_cast<i2c_port_t>(CONFIG_I2C_PORT),
@@ -282,25 +287,64 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
         else if (result.new_driver != DeviceDriverType::NONE)
         {
             bt_manager.diag_event("mode changed by the button combo");
-            settings.store_driver_type(result.new_driver);
-            bt_manager.apply_profiles();
-            mode_indicator::begin(result.new_driver);
-            for (uint8_t i = 0; i < bt_manager.slots_.size(); ++i)
+            if (settings.remote())
             {
-                uni_hid_device_t* d = bt_manager.slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
-                if (d)
-                {
-                    bt_manager.schedule_mode_lightbar(d, i);
-                }
+                /* The RP2040 stores it and restarts in the new mode; sent until it reports it. */
+                bt_manager.pending_driver_ = result.new_driver;
+                bt_manager.pending_driver_ticks_ = 10;
+                settings.set_remote_driver(result.new_driver);
             }
+            else
+            {
+                settings.store_driver_type(result.new_driver);
+            }
+            bt_manager.adopt_driver(result.new_driver);
         }
     }
 
-    //Notify pico of current driver type regardless of change
-    bt_manager.send_driver_type(settings.get_current_driver());
+    if (!settings.remote())
+    {
+        //Notify pico of current driver type regardless of change (an RP2040 that keeps no settings)
+        bt_manager.send_driver_type(settings.get_current_driver());
+    }
+    else if (bt_manager.pending_driver_ != DeviceDriverType::NONE)
+    {
+        bt_manager.send_driver_type(bt_manager.pending_driver_);
+        if (--bt_manager.pending_driver_ticks_ == 0)
+        {
+            bt_manager.pending_driver_ = DeviceDriverType::NONE;
+        }
+    }
 
     btstack_run_loop_set_timer(ts, UserSettings::GP_CHECK_DELAY_MS);
     btstack_run_loop_add_timer(ts);
+}
+
+/* A new output mode: profiles (they depend on it), the blink code, the lightbar colour. */
+void BTManager::adopt_driver(DeviceDriverType driver)
+{
+    apply_profiles();
+    mode_indicator::begin(driver);
+    for (uint8_t i = 0; i < slots_.size(); ++i)
+    {
+        uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
+        if (d)
+        {
+            schedule_mode_lightbar(d, i);
+        }
+    }
+}
+
+void BTManager::profiles_cb(void* context)
+{
+    BTManager& bt_manager = get_instance();
+    bt_manager.profiles_crc_ = bt_manager.fetch_crc_;
+    bt_manager.profiles_active_ = bt_manager.fetch_active_;
+    UserSettings::get_instance().set_remote(bt_manager.profiles_rx_, bt_manager.profiles_active_);
+    bt_manager.profiles_fetching_ = false;
+    bt_manager.apply_profiles();
+    OGXM_LOG("BP32: Profiles from the RP2040 (crc %04x, active %u)\n", bt_manager.profiles_crc_,
+             bt_manager.profiles_active_);
 }
 
 /* Start + L3 confirmed with one short rumble, as on the Pico W. */
@@ -328,6 +372,46 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
         host.g = ext.lightbar_g;
         host.b = ext.lightbar_b;
     }
+    /* The RP2040 keeps the profiles and the mode (an older RP2040 sends no checksum). */
+    if (ext.profiles_crc != 0)
+    {
+        UserSettings& user_settings = UserSettings::get_instance();
+        if (pending_driver_ == ext.driver)
+        {
+            pending_driver_ = DeviceDriverType::NONE;
+        }
+        if (user_settings.remote() && pending_driver_ == DeviceDriverType::NONE &&
+            ext.driver != user_settings.get_current_driver() && user_settings.is_valid_driver(ext.driver))
+        {
+            user_settings.set_remote_driver(ext.driver);
+            adopt_driver(ext.driver);
+        }
+        const uint32_t now_ms = btstack_run_loop_get_time_ms();
+        const bool stale = !user_settings.remote() || ext.profiles_crc != profiles_crc_ ||
+                           ext.active_profile != profiles_active_;
+        if (stale && (!profiles_fetching_ || now_ms - profiles_fetch_ms_ > 2000))
+        {
+            profiles_fetching_ = true;
+            profiles_fetch_ms_ = now_ms;
+            fetch_crc_ = ext.profiles_crc;
+            fetch_active_ = ext.active_profile;
+            if (!user_settings.remote() && user_settings.is_valid_driver(ext.driver) &&
+                ext.driver != user_settings.get_current_driver())
+            {
+                user_settings.set_remote_driver(ext.driver);  // taken with the first copy
+                adopt_driver(ext.driver);
+            }
+            profiles_cb_reg_.callback = profiles_cb;
+            profiles_cb_reg_.context = nullptr;
+            i2c_driver_.read_profiles(slave_addr(ext.index),
+                [this](const I2CDriver::Profiles& profiles)
+                {
+                    profiles_rx_ = profiles;
+                    btstack_run_loop_execute_on_main_thread(&profiles_cb_reg_);
+                });
+        }
+    }
+
     dongle_settings::Settings settings;
     if (dongle_settings::decode(reinterpret_cast<const uint8_t*>(&ext.settings), sizeof(ext.settings), settings))
     {

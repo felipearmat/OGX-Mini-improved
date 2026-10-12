@@ -3,12 +3,14 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 #include <functional>
 #include <driver/i2c.h>
 
 #include "sdkconfig.h"
 #include "RingBuffer.h"
 #include "I2C/Esp32Bridge.h"
+#include "UserSettings/UserProfile.h"
 
 class I2CDriver 
 {
@@ -27,6 +29,9 @@ public:
     using PacketInExt = Esp32Bridge::PacketInExt;
     using PacketOutExt = Esp32Bridge::PacketOutExt;
     using PacketDiag = Esp32Bridge::PacketDiag;
+    using PacketProfile = Esp32Bridge::PacketProfile;
+    static constexpr uint8_t PROFILE_COUNT = 8;  // UserSettings::MAX_PROFILES on both sides
+    using Profiles = std::array<UserProfile, PROFILE_COUNT>;
     enum class PacketResp : uint8_t { OK = 1, ERROR };
 
     I2CDriver() = default;
@@ -44,6 +49,10 @@ public:
     /* GET_EXT request, then the RP2040's PacketOutExt (an older RP2040 answers a PacketOut,
      * which is dropped). */
     void read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback);
+    /* Every profile the RP2040 keeps (GET_PROFILE, chunk by chunk, in one go). */
+    void read_profiles(uint8_t address, std::function<void(const Profiles&)> callback);
+    /* A profile saved over BLE, to the RP2040 (SET_PROFILE chunks). */
+    void write_profile(uint8_t address, const UserProfile& profile, uint8_t player_idx, DeviceDriverType driver);
 
 private:
     using TaskQueue = RingBuffer<std::function<void()>, CONFIG_I2C_RING_BUFFER_SIZE>;

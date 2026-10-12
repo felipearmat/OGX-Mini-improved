@@ -10,8 +10,8 @@ board_api.h          platform layer: LEDs, reset, timing, flash / NVS
 board_api.cpp        platform layer: LEDs, reset, timing, flash / NVS
 ogxm_log.h           platform layer: UART / ESP-IDF logging behind the same OGXM_LOG macros
 btstack_config.h     BTstack configuration per port (CYW43 vs ESP32 controller)
-BLEServer.h          web app over BLE: diverged (pads in / init signature); unify in step 2
-BLEServer.cpp        web app over BLE: diverged (RP2040 has the newer commands); unify in step 2
-UserSettings.h       mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
-UserSettings.cpp     mode combos + settings storage: diverged (ESP32 lacks newer modes); step 2
+BLEServer.h          web app over BLE: RP2040 has the newer commands; on the hybrid it edits the RP2040's settings over I2C
+BLEServer.cpp        web app over BLE: RP2040 has the newer commands; on the hybrid it edits the RP2040's settings over I2C
+UserSettings.h       settings storage (flash / NVS); the hybrid's ESP32 follows the RP2040's; combos shared (ComboCheck.h)
+UserSettings.cpp     settings storage (flash / NVS); the hybrid's ESP32 follows the RP2040's; combos shared (ComboCheck.h)
 Gamepad.h            pad state per platform (RP2040: IMU / touchpad, USB queues); bits and profile mapper shared (GamepadBits.h, GamepadMapper.h)

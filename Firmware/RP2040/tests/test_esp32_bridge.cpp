@@ -61,6 +61,8 @@ TEST(packet_ids_are_stable) {
     CHECK_EQ(static_cast<int>(PacketID::SET_PAD_EXT), 4);
     CHECK_EQ(static_cast<int>(PacketID::GET_EXT), 5);
     CHECK_EQ(static_cast<int>(PacketID::SET_DIAG), 6);
+    CHECK_EQ(static_cast<int>(PacketID::GET_PROFILE), 7);
+    CHECK_EQ(static_cast<int>(PacketID::SET_PROFILE), 8);
 }
 
 TEST(packet_in_ext_layout) {
@@ -85,7 +87,10 @@ TEST(packet_in_ext_layout) {
 
 TEST(packet_out_ext_layout) {
     const PacketOutExt ext;
-    CHECK_EQ(sizeof(PacketOutExt), 25u);
+    CHECK_EQ(sizeof(PacketOutExt), 28u);
+    CHECK_EQ(offsetof(PacketOutExt, driver), 24u);
+    CHECK_EQ(offsetof(PacketOutExt, active_profile), 25u);
+    CHECK_EQ(offsetof(PacketOutExt, profiles_crc), 26u);
     CHECK_EQ(ext.packet_len, sizeof(PacketOutExt));
     CHECK_EQ(static_cast<int>(ext.packet_id), static_cast<int>(PacketID::GET_EXT));
     CHECK_EQ(offsetof(PacketOutExt, flags), 3u);
@@ -110,6 +115,28 @@ TEST(packet_diag_layout) {
     CHECK_EQ(PacketDiag::BATTERY, 4);
     CHECK_EQ(PacketDiag::EVENT, 5);
     CHECK_EQ(PacketDiag::SEARCHING, 6);
+}
+
+TEST(packet_profile_layout) {
+    // A whole profile fits the chunks; each chunk is one 32-byte transfer.
+    CHECK_EQ(sizeof(PacketProfile), 32u);
+    CHECK_EQ(offsetof(PacketProfile, profile_id), 2u);
+    CHECK_EQ(offsetof(PacketProfile, chunk), 3u);
+    CHECK_EQ(offsetof(PacketProfile, player_idx), 4u);
+    CHECK_EQ(offsetof(PacketProfile, driver), 5u);
+    CHECK_EQ(offsetof(PacketProfile, data), 6u);
+    CHECK(PacketProfile::kChunks * PacketProfile::kData >= sizeof(UserProfile));
+    CHECK((PacketProfile::kChunks - 1) * PacketProfile::kData < sizeof(UserProfile));
+}
+
+TEST(profiles_crc_changes_with_a_profile) {
+    UserProfile profiles[2];
+    profiles[0].id = 1;
+    profiles[1].id = 2;
+    const uint16_t before = profiles_crc(profiles, 2);
+    profiles[1].button_a = GamepadBits::BUTTON_B;
+    CHECK(before != 0);
+    CHECK(profiles_crc(profiles, 2) != before);
 }
 
 TEST(motion_sources_are_stable) {

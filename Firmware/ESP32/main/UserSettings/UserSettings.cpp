@@ -118,8 +118,36 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver_type)
     nvs_helper_.write(DRIVER_TYPE_KEY(), &new_driver, sizeof(new_driver));
 }
 
+void UserSettings::set_remote_store(RemoteStore send_to_rp2040)
+{
+    send_to_rp2040_ = std::move(send_to_rp2040);
+}
+
+void UserSettings::set_remote(const std::array<UserProfile, MAX_PROFILES>& profiles, uint8_t active_profile)
+{
+    remote_profiles_ = profiles;
+    remote_active_ = (active_profile >= 1 && active_profile <= MAX_PROFILES) ? active_profile : 1;
+    remote_ = true;
+}
+
+void UserSettings::set_remote_driver(DeviceDriverType driver)
+{
+    if (is_valid_driver(driver))
+    {
+        current_driver_ = driver;
+    }
+}
+
 void UserSettings::store_profile(const uint8_t index, UserProfile& profile)
 {
+    if (remote_ && send_to_rp2040_)
+    {
+        if (index < MAX_GAMEPADS && profile.id >= 1 && profile.id <= MAX_PROFILES)
+        {
+            send_to_rp2040_(profile, index, DeviceDriverType::NONE);
+        }
+        return;
+    }
     if (index > MAX_GAMEPADS || profile.id < 1 || profile.id > MAX_PROFILES)
     {
         return;
@@ -137,12 +165,24 @@ void UserSettings::store_profile(const uint8_t index, UserProfile& profile)
 
 void UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_type, const uint8_t index, UserProfile& profile)
 {
+    if (remote_ && send_to_rp2040_)
+    {
+        if (is_valid_driver(new_driver_type) && index < MAX_GAMEPADS && profile.id >= 1 && profile.id <= MAX_PROFILES)
+        {
+            send_to_rp2040_(profile, index, new_driver_type);
+        }
+        return;
+    }
     store_driver_type(new_driver_type);
     store_profile(index, profile);
 }
 
 uint8_t UserSettings::get_active_profile_id(const uint8_t index)
 {
+    if (remote_)
+    {
+        return remote_active_;
+    }
     uint8_t read_profile_id = 0;
 
     if (nvs_helper_.read(ACTIVE_PROFILE_KEY(index), &read_profile_id, sizeof(read_profile_id)) != ESP_OK ||
@@ -161,6 +201,10 @@ UserProfile UserSettings::get_profile_by_index(const uint8_t index)
 
 UserProfile UserSettings::get_profile_by_id(const uint8_t profile_id)
 {
+    if (remote_)
+    {
+        return (profile_id >= 1 && profile_id <= MAX_PROFILES) ? remote_profiles_[profile_id - 1] : UserProfile();
+    }
     UserProfile profile;
 
     if (profile_id < 1 || 

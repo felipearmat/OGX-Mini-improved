@@ -6,6 +6,7 @@
 
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/DongleSettings.h"
+#include "UserSettings/UserProfile.h"
 
 /* I2C link between the RP2040 (USB side, I2C slave) and the ESP32 companion running
  * Bluepad32 (I2C master): board ESP32_BLUEPAD32_I2C. Both firmwares build from this one
@@ -21,7 +22,11 @@
  *  - SET_DIAG (ESP32 -> RP2040, PacketDiag): what the Pico W path records in
  *    Diagnostics/Diagnostics.h for its Bluetooth controllers, for the web app's report. SET_PAD
  *    then goes out on every input report with the Bluetooth slot in PacketIn::bt_slot, so the
- *    RP2040 measures the input timing. */
+ *    RP2040 measures the input timing.
+ *  - The RP2040 keeps the settings (profiles, output mode, dongle options): PacketOutExt reports
+ *    its mode, active profile and a checksum of the profiles; the ESP32 fetches them with
+ *    GET_PROFILE and sends the ones saved over BLE with SET_PROFILE, so the USB and BLE web apps
+ *    edit the same profiles. */
 namespace Esp32Bridge
 {
     // RP2040 slave address; with CONFIG_MULTI_SLAVE_MODE the ESP32 adds the pad index.
@@ -35,7 +40,9 @@ namespace Esp32Bridge
         SET_DRIVER, // ESP32 -> RP2040: mode change from a button combo (PacketIn.device_driver)
         SET_PAD_EXT,// ESP32 -> RP2040: motion / touchpad / battery (PacketInExt), after a SET_PAD
         GET_EXT,    // ESP32 -> RP2040 request, then the RP2040's PacketOutExt on the next read
-        SET_DIAG    // ESP32 -> RP2040: Bluetooth diagnostics for the web app's report (PacketDiag)
+        SET_DIAG,   // ESP32 -> RP2040: Bluetooth diagnostics for the web app's report (PacketDiag)
+        GET_PROFILE,// ESP32 -> RP2040 request (PacketProfile), then that chunk on the next read
+        SET_PROFILE // ESP32 -> RP2040: a profile saved over BLE, in chunks (PacketProfile)
     };
 
     #pragma pack(push, 1)
@@ -112,9 +119,11 @@ namespace Esp32Bridge
         uint8_t  lightbar_g{0};
         uint8_t  lightbar_b{0};
         dongle_settings::Settings settings{};  // version 0 = not sent
-        uint8_t  reserved[1]{};
+        DeviceDriverType driver{DeviceDriverType::NONE};  // the RP2040's output mode
+        uint8_t  active_profile{0};   // active profile ID of this output (1..8)
+        uint16_t profiles_crc{0};     // profiles_crc() of the RP2040's profiles; 0 = not sent
     };
-    static_assert(sizeof(PacketOutExt) == 25, "Esp32Bridge::PacketOutExt layout changed");
+    static_assert(sizeof(PacketOutExt) == 28, "Esp32Bridge::PacketOutExt layout changed");
     static_assert(offsetof(PacketOutExt, settings) == 7, "Esp32Bridge::PacketOutExt layout changed");
     struct PacketDiag
     {
@@ -138,7 +147,36 @@ namespace Esp32Bridge
     };
     static_assert(sizeof(PacketDiag) == 32, "Esp32Bridge::PacketDiag must stay 32 bytes");
     static_assert(offsetof(PacketDiag, data) == 4, "Esp32Bridge::PacketDiag layout changed");
+    struct PacketProfile
+    {
+        static constexpr size_t kData = 26;
+        static constexpr uint8_t kChunks = (sizeof(UserProfile) + kData - 1) / kData;
+
+        uint8_t  packet_len{sizeof(PacketProfile)};
+        PacketID packet_id{PacketID::GET_PROFILE};
+        uint8_t  profile_id{0};  // 1..MAX_PROFILES
+        uint8_t  chunk{0};       // 0..kChunks-1
+        uint8_t  player_idx{0};  // SET_PROFILE: the output it is for (made active there)
+        DeviceDriverType driver{DeviceDriverType::NONE};  // SET_PROFILE: mode saved with it, or NONE
+        uint8_t  data[kData]{};
+    };
+    static_assert(sizeof(PacketProfile) == 32, "Esp32Bridge::PacketProfile must stay 32 bytes");
+    static_assert(offsetof(PacketProfile, data) == 6, "Esp32Bridge::PacketProfile layout changed");
     #pragma pack(pop)
+
+    /* Fletcher-16 over the profiles (in ID order): tells the ESP32 when to fetch them again. Never 0,
+     * so 0 stays "not sent". */
+    inline uint16_t profiles_crc(const UserProfile* profiles, size_t count)
+    {
+        uint16_t a = 0, b = 0;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(profiles);
+        for (size_t i = 0; i < count * sizeof(UserProfile); ++i) {
+            a = static_cast<uint16_t>((a + bytes[i]) % 255);
+            b = static_cast<uint16_t>((b + a) % 255);
+        }
+        const uint16_t crc = static_cast<uint16_t>((b << 8) | a);
+        return crc ? crc : 1;
+    }
 
     inline int16_t saturate_i16(int32_t v)
     {
