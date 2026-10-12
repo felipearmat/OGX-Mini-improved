@@ -171,12 +171,18 @@ void BTManager::send_feedback_cb(void* context)
 
     I2CDriver::PacketOut packet_out = fb_context->packet_out->load();
 
+    if (bp_device->controller_type == CONTROLLER_TYPE_PS4Controller &&
+        btstack_run_loop_get_time_ms() < get_instance().devices_[fb_context->index].host_rumble_ok_ms)
+    {
+        return;  // early output reports can drop a freshly connected DualShock 4
+    }
+
     if (packet_out.rumble_l || packet_out.rumble_r)
     {
         bp_device->report_parser.play_dual_rumble(
             bp_device, 
             0, 
-            FEEDBACK_TIME_MS, 
+            RUMBLE_DURATION_MS, 
             packet_out.rumble_l, 
             packet_out.rumble_r
             );

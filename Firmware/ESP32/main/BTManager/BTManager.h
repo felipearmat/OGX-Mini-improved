@@ -9,6 +9,7 @@
 #include <freertos/task.h>
 
 #include "I2CDriver/I2CDriver.h"
+#include "Gamepad/RumbleTiming.h"
 #include "Gamepad/Gamepad.h"
 
 class BTManager
@@ -31,7 +32,11 @@ private:
     BTManager(const BTManager&) = delete;
     BTManager& operator=(const BTManager&) = delete;
 
-    static constexpr uint32_t FEEDBACK_TIME_MS = 200;
+    /* Rumble read from the RP2040 every feedback period and played for longer than one period
+     * (Gamepad/RumbleTiming.h, shared with the Pico W path): played for exactly one period, a
+     * long rumble stopped and restarted every cycle and felt weak. */
+    static constexpr uint32_t FEEDBACK_TIME_MS = switch_rumble::kFeedbackPeriodMs;
+    static constexpr uint32_t RUMBLE_DURATION_MS = switch_rumble::kRumbleDurationMs;
     static constexpr uint32_t LED_TIME_MS = 500;
 
     struct Device
@@ -40,6 +45,7 @@ private:
         GamepadMapper mapper;
         I2CDriver::PacketIn packet_in;
         std::atomic<I2CDriver::PacketOut> packet_out; //Can be updated from i2c thread
+        uint32_t host_rumble_ok_ms{0};  // DualShock 4: no host rumble before this (btstack time)
     };
 
     struct FBContext

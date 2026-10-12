@@ -51,6 +51,21 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
         return UNI_ERROR_IGNORE_DEVICE;
     }
     manage_connection(static_cast<uint8_t>(idx), true);
+
+    /* Same as the Pico W path: a short rumble tells the user the pad is connected, and rumble
+     * from the host waits a few seconds on a DualShock 4 (Gamepad/RumbleTiming.h). */
+    const bool ds4 = (device->controller_type == CONTROLLER_TYPE_PS4Controller);
+    devices_[idx].host_rumble_ok_ms =
+        ds4 ? btstack_run_loop_get_time_ms() + connect_rumble::kDs4HostRumbleGraceMs : 0;
+    if (device->report_parser.play_dual_rumble != nullptr)
+    {
+        device->report_parser.play_dual_rumble(
+            device,
+            ds4 ? connect_rumble::kDelayDs4Ms : connect_rumble::kDelayDefaultMs,
+            connect_rumble::kDurationMs,
+            connect_rumble::kWeak,
+            connect_rumble::kStrong);
+    }
     return UNI_ERROR_SUCCESS;
 }
 

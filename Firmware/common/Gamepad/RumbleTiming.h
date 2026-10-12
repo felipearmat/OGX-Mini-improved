@@ -3,7 +3,10 @@
 
 #include <cstdint>
 
-/*  Rumble timing for Switch pads.
+/*  Rumble timing for Bluetooth pads, shared by the Pico W / Pico 2 W Bluetooth code
+ *  (RP2040/src/Bluepad32) and the ESP32 companion of the hybrid (ESP32/main/BTManager).
+ *
+ *  Switch pads.
  *
  *  Switch pads keep vibrating with the last rumble data they received. The feedback loop
  *  re-sends "rumble for N ms" every kFeedbackPeriodMs while the host requests rumble, and the
@@ -23,5 +26,20 @@ namespace switch_rumble {
     static_assert(kRumbleDurationMs > kFeedbackPeriodMs, "a long rumble must outlive one feedback period");
 
 } // namespace switch_rumble
+
+/*  One-second rumble when a pad becomes ready, so the user knows it is connected. Deferred a
+ *  little, more for a DualShock 4: early output reports can drop its freshly opened link. For the
+ *  same reason, rumble requested by the host is held back for kDs4HostRumbleGraceMs after a
+ *  DualShock 4 connects. */
+namespace connect_rumble {
+
+    constexpr uint16_t kDurationMs = 1000;
+    constexpr uint8_t kWeak = 160;
+    constexpr uint8_t kStrong = 160;
+    constexpr uint16_t kDelayDs4Ms = 1200;
+    constexpr uint16_t kDelayDefaultMs = 300;
+    constexpr uint32_t kDs4HostRumbleGraceMs = 6000;
+
+} // namespace connect_rumble
 
 #endif // _OGXM_RUMBLE_TIMING_H_

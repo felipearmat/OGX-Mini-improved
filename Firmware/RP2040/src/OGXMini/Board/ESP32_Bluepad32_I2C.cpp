@@ -88,7 +88,10 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
         case I2C_SLAVE_REQUEST:
             if (packet_in.index < MAX_GAMEPADS) {
                 packet_out.index = packet_in.index;
-                const Gamepad::PadOut pad_out = _gamepads[packet_in.index].get_pad_out();
+                /* Custom fix: the strongest rumble since the ESP32's last read, as the Pico W
+                 * Bluetooth path does; the current value lost host pulses shorter than the
+                 * ESP32's read period. */
+                const Gamepad::PadOut pad_out = _gamepads[packet_in.index].take_pad_out_peak();
                 packet_out.rumble_l = pad_out.rumble_l;
                 packet_out.rumble_r = pad_out.rumble_r;
             }

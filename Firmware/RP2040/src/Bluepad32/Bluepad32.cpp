@@ -34,7 +34,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "UserSettings/DongleSettings.h"
 #include "Bluepad32/JoyConSettings.h"
 #include "Board/ModeIndicator.h"
-#include "Bluepad32/RumbleTiming.h"
+#include "Gamepad/RumbleTiming.h"
 #include "Board/ReportedMac.h"
 #include "Input/InputSlot.h"
 #include "UserSettings/UserSettings.h"
@@ -188,7 +188,7 @@ static void schedule_disconnect_combo(int idx)
 }
 
 static constexpr uint32_t FEEDBACK_TIME_MS = 250;
-static_assert(FEEDBACK_TIME_MS == switch_rumble::kFeedbackPeriodMs, "keep Bluepad32/RumbleTiming.h in sync");
+static_assert(FEEDBACK_TIME_MS == switch_rumble::kFeedbackPeriodMs, "keep Gamepad/RumbleTiming.h in sync");
 static constexpr uint32_t LED_CHECK_TIME_MS = 500;
 static constexpr uint32_t LED_FAST_BLINK_MS = 250;   // Custom: full search for new controllers
 static constexpr uint32_t LED_SLOW_BLINK_MS = 1000;  // Custom: reduced search
@@ -203,12 +203,12 @@ static constexpr uint32_t XBOX_BLE_KEEPALIVE_MS = 12000;
 static constexpr uint32_t SW2_BLE_KEEPALIVE_MS = 8;
 
 /** One-second rumble when a pad becomes ready so the user knows it is connected. */
-static constexpr uint16_t CONNECT_RUMBLE_DURATION_MS = 1000;
-static constexpr uint8_t CONNECT_RUMBLE_WEAK = 160;
-static constexpr uint8_t CONNECT_RUMBLE_STRONG = 160;
+static constexpr uint16_t CONNECT_RUMBLE_DURATION_MS = connect_rumble::kDurationMs;
+static constexpr uint8_t CONNECT_RUMBLE_WEAK = connect_rumble::kWeak;
+static constexpr uint8_t CONNECT_RUMBLE_STRONG = connect_rumble::kStrong;
 /** DS4: defer FF slightly — early output reports can destabilize the link (see s_ps4_rumble_ok_ms). */
-static constexpr uint16_t CONNECT_RUMBLE_DELAY_PS4_MS = 1200;
-static constexpr uint16_t CONNECT_RUMBLE_DELAY_DEFAULT_MS = 300;
+static constexpr uint16_t CONNECT_RUMBLE_DELAY_PS4_MS = connect_rumble::kDelayDs4Ms;
+static constexpr uint16_t CONNECT_RUMBLE_DELAY_DEFAULT_MS = connect_rumble::kDelayDefaultMs;
 
 static uint32_t s_last_bt_input_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static uint32_t s_xbox_ble_ka_last_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
@@ -473,7 +473,7 @@ void set_rumble(uni_hid_device_t* bp_device, uint16_t length, uint8_t rumble_l, 
         case CONTROLLER_TYPE_SwitchJoyConRight:
         case CONTROLLER_TYPE_SwitchJoyConLeft:
             /* Custom: outlive the feedback period so a long rumble isn't stopped and restarted on
-             * every cycle (see Bluepad32/RumbleTiming.h). */
+             * every cycle (see Gamepad/RumbleTiming.h). */
             (void)length;
             uni_hid_parser_switch_play_dual_rumble(bp_device, 0, switch_rumble::kRumbleDurationMs, weak, strong);
             break;
@@ -1373,7 +1373,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     s_last_bt_input_ms[pad_idx] = tnow;
     s_bt_disconnect_combo_grace_until_ms[pad_idx] = tnow + 3500u;
     if (device->controller_type == CONTROLLER_TYPE_PS4Controller)
-        s_ps4_rumble_ok_ms[pad_idx] = tnow + 6000u;
+        s_ps4_rumble_ok_ms[pad_idx] = tnow + connect_rumble::kDs4HostRumbleGraceMs;
     /* Xbox BLE: 0 = send keepalive on next feedback tick (wakes Series/SW2 pad link immediately). */
     if (device->controller_type == CONTROLLER_TYPE_XBoxOneController && device->hids_cid != 0)
         s_xbox_ble_ka_last_ms[idx] = 0;
