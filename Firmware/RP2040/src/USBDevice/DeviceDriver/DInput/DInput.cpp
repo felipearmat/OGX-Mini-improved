@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 
 #include "class/hid/hid_device.h"
@@ -18,9 +19,14 @@ bool DInputDevice::control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_r
 
 void DInputDevice::initialize() 
 {
-    for (auto& in_report : in_reports_)
+    for (auto& report : in_reports_)
     {
-        std::memset(reinterpret_cast<void*>(&in_report), 0, sizeof(DInput::InReport));
+        std::memset(reinterpret_cast<void*>(&report), 0, sizeof(DInput::DeviceInReport));
+        for (auto& axis : report.motion)
+        {
+            axis = DInput::MOTION_NEUTRAL;
+        }
+        DInput::InReport& in_report = report.pad;
         in_report.dpad = DInput::DPad::CENTER;
         in_report.joystick_lx = DInput::AXIS_MID;
         in_report.joystick_ly = DInput::AXIS_MID;
@@ -42,7 +48,7 @@ void DInputDevice::initialize()
 
 void DInputDevice::process(const uint8_t idx, Gamepad& gamepad)
 {
-    DInput::InReport& in_report = in_reports_[idx];
+    DInput::InReport& in_report = in_reports_[idx].pad;
 
     if (gamepad.new_pad_in())
     {
@@ -126,7 +132,7 @@ void DInputDevice::process(const uint8_t idx, Gamepad& gamepad)
 
     if (tud_hid_n_ready(idx))
     {
-        tud_hid_n_report(idx, 0, reinterpret_cast<void*>(&in_report), sizeof(DInput::InReport));
+        tud_hid_n_report(idx, 0, reinterpret_cast<void*>(&in_reports_[idx]), sizeof(DInput::DeviceInReport));
     }
 }
 
@@ -136,8 +142,9 @@ uint16_t DInputDevice::get_report_cb(uint8_t itf, uint8_t report_id, hid_report_
     {
         return 0;
     }
-    std::memcpy(buffer, &in_reports_[itf], sizeof(DInput::InReport));
-    return sizeof(DInput::InReport);
+    const uint16_t len = std::min<uint16_t>(reqlen, sizeof(DInput::DeviceInReport));
+    std::memcpy(buffer, &in_reports_[itf], len);
+    return len;
 }
 
 void DInputDevice::set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize) {}

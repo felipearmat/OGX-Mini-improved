@@ -22,6 +22,12 @@
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
 #include "Descriptors/KBM.h"
+#include "Descriptors/PS4Usb.h"
+#include "Descriptors/PS5Usb.h"
+#include "Descriptors/PSClassic.h"
+#include "Descriptors/Steam.h"
+#include "Descriptors/SwitchProDevice.h"
+#include "Descriptors/WiiU.h"
 #include "test.h"
 
 /* ---- TinyUSB stubs ------------------------------------------------------------------------ */
@@ -158,13 +164,82 @@ TEST(dinput_pressure_follows_the_digital_buttons) {
     dev.initialize();
     dev.process(0, gp);
 
-    DInput::InReport report{};
+    DInput::DeviceInReport report{};
     CHECK_EQ(g_last_report.size(), sizeof(report));
     std::memcpy(&report, g_last_report.data(), sizeof(report));
-    CHECK_EQ(report.cross_axis, 10);     // A
-    CHECK_EQ(report.circle_axis, 20);    // B
-    CHECK_EQ(report.square_axis, 30);    // X
-    CHECK_EQ(report.triangle_axis, 40);  // Y
+    CHECK_EQ(report.pad.cross_axis, 10);     // A
+    CHECK_EQ(report.pad.circle_axis, 20);    // B
+    CHECK_EQ(report.pad.square_axis, 30);    // X
+    CHECK_EQ(report.pad.triangle_axis, 40);  // Y
+    for (uint16_t axis : report.motion)
+        CHECK_EQ(axis, DInput::MOTION_NEUTRAL);
+}
+
+/* ---- Every HID mode: the input report sent matches its report descriptor ------------------- */
+// Regression: DInput sent 19 bytes while its descriptor declares 27; macOS drops input reports
+// shorter than declared, so the mode showed no input at all there (Linux pads short reports).
+
+namespace {
+// Input bytes the descriptor declares for one report ID (0 = descriptor without report IDs).
+size_t declared_input_bytes(const uint8_t* desc, size_t len, uint8_t report_id) {
+    size_t bits = 0, i = 0;
+    uint32_t size = 0, count = 0, id = 0;
+    while (i < len) {
+        const uint8_t prefix = desc[i];
+        const size_t n = (prefix & 3) == 3 ? 4 : (prefix & 3);
+        uint32_t data = 0;
+        for (size_t k = 0; k < n && i + 1 + k < len; ++k)
+            data |= static_cast<uint32_t>(desc[i + 1 + k]) << (8 * k);
+        switch (prefix & 0xFC) {
+            case 0x74: size = data; break;   // Report Size
+            case 0x94: count = data; break;  // Report Count
+            case 0x84: id = data; break;     // Report ID
+            case 0x80: if (id == report_id) bits += size * count; break;  // Input
+            default: break;
+        }
+        i += 1 + n;
+    }
+    CHECK_EQ(bits % 8, 0u);
+    return bits / 8;
+}
+}  // namespace
+
+TEST(hid_input_reports_match_their_descriptors) {
+    Gamepad gp;
+    gp.set_pad_in(Gamepad::PadIn{});
+
+    {   // DInput: no report IDs
+        DInputDevice dev;
+        dev.initialize();
+        dev.process(0, gp);
+        CHECK_EQ(g_last_report.size(), declared_input_bytes(DInput::REPORT_DESCRIPTORS, sizeof(DInput::REPORT_DESCRIPTORS), 0));
+    }
+    {   // PS3: report ID 1, carried in the struct's first byte
+        PS3Device dev;
+        dev.initialize();
+        dev.process(0, gp);
+        CHECK_EQ(g_last_report.size(), 1 + declared_input_bytes(PS3::REPORT_DESCRIPTORS, sizeof(PS3::REPORT_DESCRIPTORS), 1));
+    }
+    {   // PS4: report ID 1 in the buffer
+        PS4Device dev;
+        dev.initialize();
+        dev.process(0, gp);
+        CHECK_EQ(g_last_report.size(), 1 + declared_input_bytes(PS4Usb::REPORT_DESCRIPTORS, sizeof(PS4Usb::REPORT_DESCRIPTORS), 1));
+    }
+    {   // STEAM gamepad: DualSense, report ID 1 in the buffer
+        SteamDevice dev;
+        dev.initialize();
+        dev.process(0, gp);
+        CHECK_EQ(g_last_report_itf, Steam::ITF_GAMEPAD);
+        CHECK_EQ(g_last_report.size(), 1 + declared_input_bytes(PS5Usb::REPORT_DESCRIPTORS, sizeof(PS5Usb::REPORT_DESCRIPTORS), 1));
+    }
+    // Drivers not built in this test: their report types against the descriptor.
+    CHECK_EQ(sizeof(PSClassic::InReport), declared_input_bytes(PSClassic::REPORT_DESCRIPTORS, sizeof(PSClassic::REPORT_DESCRIPTORS), 0));
+    CHECK_EQ(3u, declared_input_bytes(Steam::MOUSE_REPORT_DESCRIPTORS, sizeof(Steam::MOUSE_REPORT_DESCRIPTORS), 0));  // SteamTouchpad.cpp rep[3]
+    CHECK_EQ(63u, declared_input_bytes(SwitchPro::REPORT_DESCRIPTOR, sizeof(SwitchPro::REPORT_DESCRIPTOR), 0x30));    // Switch.cpp sends 63 after the ID
+    // Wii U GameCube adapter: the original adapter declares 37 bytes for report 0x21 and sends 36
+    // after the ID; consoles and emulators read it that way, so the copy keeps the same mismatch.
+    CHECK_EQ(sizeof(WiiU::InReport::port_data) + 1, declared_input_bytes(WiiU::REPORT_DESCRIPTORS, sizeof(WiiU::REPORT_DESCRIPTORS), WiiU::HID_REPORT_ID));
 }
 
 /* ---- PS3 --------------------------------------------------------------------------------- */

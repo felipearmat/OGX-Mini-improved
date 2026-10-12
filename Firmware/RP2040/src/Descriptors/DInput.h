@@ -83,6 +83,22 @@ namespace DInput
     #pragma pack(pop)
     static_assert(sizeof(InReport) == 19, "DInput::InReport is misaligned");
 
+    /* Custom fix: the input report the adapter sends. The report descriptor below declares 27
+     * bytes: InReport (19, what DInput pads send and the USB host driver reads) plus four 16-bit
+     * vendor axes (0..1023, the motion sensors of the SHANWAN PS3-style pad this mode copies).
+     * Sending only InReport left the report 8 bytes short: Linux pads it, macOS drops every
+     * report (no input at all), so the axes are sent, fixed at the neutral 512. */
+    static constexpr uint16_t MOTION_NEUTRAL = 512;
+
+    #pragma pack(push, 1)
+    struct DeviceInReport
+    {
+        InReport pad;
+        uint16_t motion[4];
+    };
+    #pragma pack(pop)
+    static_assert(sizeof(DeviceInReport) == 27, "DInput::DeviceInReport must match the 27-byte report descriptor");
+
     static const uint8_t STRING_DESC_LANGUAGE[] = { 0x09, 0x04 };
     static const uint8_t STRING_MANUFACTURER[]  = "SHANWAN";
     static const uint8_t STRING_PRODUCT[]       = "2In1 USB Joystick";
