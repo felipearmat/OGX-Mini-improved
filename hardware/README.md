@@ -28,8 +28,34 @@ original Xbox yellow, PS3 dark blue, others white). The onboard LED keeps workin
   GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26). The LED uses PIO block 2.
 
 # Pi Pico + ESP32
-This is the minumum amount of connections you'll want for this to work and the diagram assumes you're powering the Pico and ESP32 each separately via USB (do not connect power between the 2 boards if so). A more complex configuration is possible, making the Pi Pico able to program the ESP32, but I'll update the repo with that diagram later.
+The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;
+the S3, C3 and C6 have no Bluetooth Classic) handles the Bluetooth controllers, over I2C. Firmware:
+`OGXM_BOARD=ESP32_BLUEPAD32_I2C` for an RP2040 Pico, `ESP32_BLUEPAD32_I2C_PICO2` for a Pi Pico 2
+or Pico 2 W (same header pinout; on a Pico 2 W the on-board radio stays off and Bluetooth comes from
+the ESP32), plus the ESP32 companion in `Firmware/ESP32`. Not yet tested on hardware.
+
 ![OGX-Mini](../images/DiagramPicoESP32.png)
+
+| Pico / Pico 2 / Pico 2 W | ESP32 | |
+|---|---|---|
+| GP18 (pin 24) | GPIO21 | I2C SDA |
+| GP19 (pin 25) | GPIO22 | I2C SCL |
+| GND | GND | required |
+| GP8 (pin 11) | EN | lets the Pico restart the ESP32 at boot (recommended) |
+| — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works); the internal ones are too weak for the 1 MHz link |
+
+The diagram shows a 38-pin ESP32 board; a 30-pin board has the same GPIO21, GPIO22, EN, 3V3 and
+GND pins.
+
+**Power:** either each board on its own USB cable (then don't connect any power pin between them),
+or one USB cable on the Pico with **VBUS (pin 40) to the ESP32's VIN / 5V** — the two boards draw
+well under the 500 mA of a USB port. With the shared supply, don't plug the ESP32's own USB at the
+same time; unplug the VBUS wire to flash the ESP32 over its USB port.
+
+**Leave GP21 unconnected** unless you want to flash the ESP32 through the Pico: pulled to GND at
+boot it puts the Pico in UART-bridge mode (the Pico forwards its USB serial to the ESP32). That
+optional programming setup also needs GP16 (UART0 TX) to ESP32 RX0, GP17 (UART0 RX) to TX0 and GP20
+to IO0.
 
 # RP2040-Zero
 ![OGX-Mini](../images/DiagramRPZero.png)

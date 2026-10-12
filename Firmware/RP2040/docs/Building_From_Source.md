@@ -239,7 +239,8 @@ Replace `PI_PICOW` with your board. Common values:
 | `RP2354` | RP2350 + Pi Radio Module 2 |
 | `ADAFRUIT_FEATHER` | Adafruit Feather USB Host |
 | `EXTERNAL_4CH_I2C` | 4-channel I2C |
-| `ESP32_BLUEPAD32_I2C` / `ESP32_BLUERETRO_I2C` | ESP32 hybrid boards |
+| `ESP32_BLUEPAD32_I2C` / `ESP32_BLUERETRO_I2C` | ESP32 hybrid boards (RP2040) |
+| `ESP32_BLUEPAD32_I2C_PICO2` | Bluepad32 ESP32 hybrid on a Pi Pico 2 / Pico 2 W (RP2350, same pins; Pico 2 W radio unused) |
 
 Useful options:
 

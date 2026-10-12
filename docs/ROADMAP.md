@@ -71,22 +71,22 @@ controllers and a Pico 2 W for the console (item 6).
 
 ## 6. RP2040 + ESP32 hybrid
 
-`OGXM_BOARD=ESP32_BLUEPAD32_I2C`: an RP2040 for USB and an original ESP32 (Bluetooth Classic is
+`OGXM_BOARD=ESP32_BLUEPAD32_I2C` (RP2040) or `ESP32_BLUEPAD32_I2C_PICO2` (Pi Pico 2 / Pico 2 W,
+RP2350; same pins, the Pico 2 W radio unused): the RP2040 / RP2350 for USB and an original ESP32 (Bluetooth Classic is
 needed; the ESP32-S3 / C3 / C6 do not have it) running Bluepad32, linked over I2C. Both firmwares
 build in CI and share their common code ([Firmware/common](../Firmware/common/README.md)).
 
 1. **Test on hardware**, against a Pico 2 W with the diagnostics report (signal, lost reports,
    input gaps). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
    raise the Classic transmit power to +9 dBm (`esp_bredr_tx_power_set`).
-2. **An RP2350 / Pico 2 W variant** of the board target (today it builds for the RP2040).
-3. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
+2. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
    - motion and battery over I2C (they fit in the packet's spare bytes), touchpad and the raw
      DualSense report in a larger packet;
    - the newer mode combos (PS4, STEAM, Wii U, Mouse + Keyboard) by sharing `UserSettings`;
    - the fork's Bluetooth features from `Firmware/RP2040/src/Bluepad32` (search policy,
      diagnostics, idle turn-off, rumble timing) through a shared core with a platform layer;
    - DualShock 3 USB pairing (the ESP32 sends its Bluetooth address to the RP2040).
-4. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
+3. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
    may need newer features.
 
 ## 7. Smaller items

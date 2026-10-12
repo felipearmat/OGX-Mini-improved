@@ -24,6 +24,7 @@ $Boards = @(
     @{ Id = "ADAFRUIT_FEATHER"; Desc = "Adafruit Feather USB Host" },
     @{ Id = "EXTERNAL_4CH_I2C";  Desc = "External 4CH I2C" },
     @{ Id = "ESP32_BLUEPAD32_I2C";  Desc = "ESP32 Bluepad32 I2C" },
+    @{ Id = "ESP32_BLUEPAD32_I2C_PICO2"; Desc = "ESP32 Bluepad32 I2C on Pi Pico 2 / Pico 2 W (RP2350)" },
     @{ Id = "ESP32_BLUERETRO_I2C";  Desc = "ESP32 BlueRetro I2C" }
 )
 

@@ -99,7 +99,7 @@ Nintendo Switch. What the fork adds and fixes is listed in the [CHANGELOG](CHANG
 | Bluetooth controllers on PC, Steam, Switch, Xbox 360, PS3 (most people) | Raspberry Pi Pico 2 W (or Pico W) | One board, Bluetooth built in, nothing to wire |
 | Wired controllers or 2.4 GHz dongles | A board with a USB-A port: Waveshare RP2350-USB-A, Adafruit Feather RP2040 USB Host | Plug the controller straight in |
 | Bluetooth **and** wired on one adapter | Pico 2 W + a USB-A socket on GP0 / GP1 | Built-in Bluetooth plus a second USB port |
-| Longer Bluetooth range, several Bluetooth players *(experimental)* | RP2040 + an ESP32 with an external antenna (ESP32-WROOM-32U) | External antenna, higher transmit power. Builds today; not yet tested on hardware ([roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid)). |
+| Longer Bluetooth range, several Bluetooth players *(experimental)* | RP2040 or Pi Pico 2 / Pico 2 W + an ESP32 with an external antenna (ESP32-WROOM-32U) | External antenna, higher transmit power. Builds today; not yet tested on hardware ([roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid)). |
 | Wii / Wii U | Pico 2 W + a USB-A socket (wired USB controller) | The radio talks to the console as a Wiimote |
 | PS1 / PS2, GameCube, N64, Dreamcast | Pico 2 W + a controller extension cable | Bluetooth controller in, console cable out |
 | Original Xbox, four players | 4-channel RP2040-Zero board | One USB device per console port |
@@ -403,7 +403,7 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   For local multiplayer on an Xbox 360, use one adapter per player: each adapter gets its own
   USB / XSM3 identity from the board's unique ID. On other consoles two adapters share the same
   USB identity, so they may not show up as two players.
-- **RP2040 + ESP32 hybrid:** builds in CI but is not tested on hardware. The ESP32 side offers the
+- **RP2040 / Pico 2 + ESP32 hybrid:** builds in CI but is not tested on hardware. The ESP32 side offers the
   original mode combos only (no PS4, STEAM, Wii U or Mouse + Keyboard by combo), its I2C link
   carries no motion, battery or touchpad, and this fork's Bluetooth features (search policy,
   diagnostics, idle turn-off, Switch 2 and Steam Controller 2026 support) run on the Pico W radio
@@ -419,7 +419,7 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
 3. **Several controllers on one adapter** — up to 4 Bluetooth players, and a co-pilot mode
 4. **Bluetooth out where a system only takes Bluetooth** — Bluetooth controllers in Wii mode, Wii U
    Pro Controller, Apple TV
-5. **RP2040 + ESP32 hybrid** — hardware testing, RP2350 / Pico 2 W variant, ESP32-side features
+5. **RP2040 + ESP32 hybrid** — hardware testing, ESP32-side features
 
 Details and status: [docs/ROADMAP.md](docs/ROADMAP.md). Known bugs: [docs/TODO.md](docs/TODO.md).
 
@@ -450,7 +450,8 @@ cmake --build build
 (RP2350 + Pi Radio Module 2: Bluetooth like the Pico 2 W, USB-A on GP0 / GP1, LED GP25),
 `ADAFRUIT_FEATHER` (controller on the board's USB-A port; plug it in after boot if it isn't
 detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
-hybrid), `ESP32_BLUERETRO_I2C`. Maintainer-tested: Pico 2 W (this fork); Feather USB Host, Pico W,
+hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
+is not used), `ESP32_BLUERETRO_I2C`. Maintainer-tested: Pico 2 W (this fork); Feather USB Host, Pico W,
 Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 
 **Options:** `MAX_GAMEPADS` (1–4, default 1; see [Limitations](#limitations)),
@@ -460,7 +461,7 @@ Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 `OGXM_EXT_RGB_PIN` (default 6, -1 = none), `OGXM_EXT_RGB_COUNT` (1–4, default 1),
 `OGXM_EXT_RGB_BRIGHTNESS` (1–255, default 48).
 
-**ESP32 companion** (Bluetooth side of `ESP32_BLUEPAD32_I2C`): ESP-IDF 5.5 or newer, then
+**ESP32 companion** (Bluetooth side of `ESP32_BLUEPAD32_I2C` and `ESP32_BLUEPAD32_I2C_PICO2`): ESP-IDF 5.5 or newer, then
 `cd Firmware/ESP32 && idf.py build`. Wiring: [hardware/](hardware/README.md#pi-pico--esp32).
 
 **Latency:** the adapter sends the latest pad state whenever the USB endpoint is free and the main

@@ -214,10 +214,18 @@ elseif(OGXM_BOARD STREQUAL "EXTERNAL_4CH_I2C")
     set(EN_4CH TRUE)
     set(EN_RGB TRUE)
 
-elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C")
+elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
     add_compile_definitions(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C=1)
     set(EN_ESP32 TRUE)
     set(EN_UART_BRIDGE TRUE)
+    # Custom: the same hybrid on a Pico 2 / Pico 2 W (RP2350, Pico pinout, 4 MB flash). The
+    # Pico 2 W radio is not used: Bluetooth comes from the ESP32, and the pins wired to the
+    # CYW43 (GP23 / 24 / 25 / 29) are not touched.
+    if(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
+        set(PICO_BOARD pico2)
+        set(PICO_PLATFORM rp2350)
+        set(FLASH_SIZE_MB 4)
+    endif()
 
     if(OGXM_RETAIL STREQUAL "TRUE")
         message(STATUS "Retail mode enabled.")
@@ -576,13 +584,9 @@ if(EXISTS ${SRC}/USBDevice/DeviceDriver/XboxOG/tud_xid/tud_xid_xremote_rom.h)
     add_definitions(-DXREMOTE_ROM_AVAILABLE)
 endif()
 
-# RP2040-only: force generic boot2 when no Bluetooth (RP2350 boards use platform boot2)
-if(NOT EN_BLUETOOTH
-   AND NOT (OGXM_BOARD STREQUAL "PI_PICO2")
-   AND NOT (OGXM_BOARD STREQUAL "PI_PICO2W")
-   AND NOT (OGXM_BOARD STREQUAL "RP2350_USB_A")
-   AND NOT (OGXM_BOARD STREQUAL "RP2350_ZERO")
-   AND NOT (OGXM_BOARD STREQUAL "RP2354"))
+# RP2040-only: force generic boot2 when no Bluetooth (RP2350 boards use platform boot2).
+# Decided by the platform each board sets above, so a new RP2350 board needs no entry here.
+if(NOT EN_BLUETOOTH AND NOT (PICO_PLATFORM MATCHES "^rp2350"))
     add_compile_definitions(PICO_BOOT_STAGE2_CHOOSE_GENERIC_03H=1)
     add_compile_definitions(PICO_XOSC_STARTUP_DELAY_MULTIPLIER=64)
 endif()

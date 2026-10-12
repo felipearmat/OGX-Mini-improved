@@ -81,6 +81,7 @@ jobs:
           - ADAFRUIT_FEATHER
           - EXTERNAL_4CH_I2C
           - ESP32_BLUEPAD32_I2C
+          - ESP32_BLUEPAD32_I2C_PICO2
           - ESP32_BLUERETRO_I2C
     steps:
       - uses: actions/checkout@v4

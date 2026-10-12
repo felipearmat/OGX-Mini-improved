@@ -91,6 +91,8 @@
     #define SLAVE_ADDR_PIN_2    14
 
 #elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
+    /* CMake boards ESP32_BLUEPAD32_I2C (RP2040) and ESP32_BLUEPAD32_I2C_PICO2 (Pico 2 / Pico 2 W,
+     * RP2350): same pins, both chips have I2C1 on GP18 / GP19 and UART0 on GP16 / GP17. */
     #define OGXM_BOARD          ESP32_BLUEPAD32_I2C
     #define I2C_SDA_PIN         18
     #define I2C_SCL_PIN         19

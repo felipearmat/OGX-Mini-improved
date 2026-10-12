@@ -1,5 +1,5 @@
 # OGX-Mini-improved CI: shared-sources and documentation checks, host unit tests, Pico 2 W firmware
-# builds and the ESP32 companion firmware (RP2040 boards: every OGXM_BOARD is built by build.yml).
+# builds (also the Pico 2 + ESP32 hybrid's USB side) and the ESP32 companion firmware (RP2040 boards: every OGXM_BOARD is built by build.yml).
 # Kept separate from the upstream build.yml so upstream merges stay conflict-free.
 # Runs on every pull request: a PR is ready to merge only when every job passes
 # (how to run the tests locally: docs/TESTING.md).
@@ -125,12 +125,19 @@ jobs:
       matrix:
         include:
           - name: PI_PICO2W
+            board: PI_PICO2W
             build_type: Release
             flags: ""
           - name: PI_PICO2W-DebugLite
+            board: PI_PICO2W
             build_type: Debug
             flags: ""
             cxxflags: "-DBLUEPAD32_UART_LOG_INPUT=0"
+          # USB side of the Pico 2 / Pico 2 W + ESP32 hybrid (the RP2040 one is built by build.yml)
+          - name: ESP32_BLUEPAD32_I2C_PICO2
+            board: ESP32_BLUEPAD32_I2C_PICO2
+            build_type: Release
+            flags: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -180,7 +187,7 @@ jobs:
         run: |
           .github/scripts/retry.sh 5 15m -- bash -c "
             cmake -S Firmware/RP2040 -B build -G Ninja \
-              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=PI_PICO2W -DMAX_GAMEPADS=1 \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=${{ matrix.board }} -DMAX_GAMEPADS=1 \
               ${{ matrix.flags }} &&
             cmake --build build"
           mkdir -p out
