@@ -7,12 +7,23 @@
 
 #include "tusb.h"
 #include "pio_usb.h"
+#include "USBHost/PioUsbRelease.h"
 #include "Board/board_api_private/board_api_private.h"
 
 namespace pio_host_port {
 
 static repeating_timer_t s_sof_timer;
 static bool s_sof_timer_running = false;
+static bool s_hw_claimed = false;  // PIO USB took its DMA channel, state machines and programs
+
+/* PIO USB claims its TX DMA channel and three state machines and loads its programs on every host
+ * start, and nothing gives them back (tuh_deinit has no PIO USB hcd_deinit): a second start, after
+ * an unplug or a stop, would panic ("DMA channel N is already claimed"). Release them first. */
+static void release_hw()
+{
+    pio_usb_release_hw();  // PioUsbRelease.c
+    s_hw_claimed = false;
+}
 
 static bool sof_timer_cb(repeating_timer_t* rt)
 {
@@ -72,11 +83,17 @@ bool start(int tx_dma_channel)
     if (tx_dma_channel >= 0) {
         pio_cfg.tx_ch = static_cast<uint8_t>(tx_dma_channel);
     }
+    stop_sof_timer();
+    if (s_hw_claimed) {
+        (void)tuh_deinit(BOARD_TUH_RHPORT);  // no-op when the caller already took the stack down
+        release_hw();
+    }
     tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
     board_api_usbh::suspend_line_irq();
     if (!tuh_init(BOARD_TUH_RHPORT)) {
         return false;
     }
+    s_hw_claimed = true;
     start_sof_timer();
     return true;
 }

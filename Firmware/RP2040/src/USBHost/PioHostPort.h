@@ -12,7 +12,9 @@ namespace pio_host_port {
 
     /* Configure PIO USB, turn off the D+ / D- edge interrupt (PIO owns the lines: left on, the IO
      * IRQ floods), start the host stack and the SOF timer. tx_dma_channel: a fixed DMA channel for
-     * PIO USB TX (-1: its default). False when the host stack did not start. */
+     * PIO USB TX (-1: its default). False when the host stack did not start. Safe to call again
+     * after stop() or tuh_deinit() (a replug): PIO USB's DMA channel, state machines and programs
+     * from the previous start are released first. */
     bool start(int tx_dma_channel = -1);
 
     /* SOF timer off and the host stack down (unplug, mode change). */

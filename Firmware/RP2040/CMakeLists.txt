@@ -436,6 +436,7 @@ if(EN_USB_HOST)
     list(APPEND SOURCES_BOARD
         ${SRC}/USBHost/tuh_callbacks.cpp
         ${SRC}/USBHost/PioHostPort.cpp
+        ${SRC}/USBHost/PioUsbRelease.c
         # HID
         ${SRC}/USBHost/HostDriver/DInput/DInput.cpp
         ${SRC}/USBHost/HostDriver/PSClassic/PSClassic.cpp
