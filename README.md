@@ -410,9 +410,10 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   the same Bluetooth code as the Pico W (`Firmware/common/Bluepad32`): Joy-Con pairs, motion,
   touchpad, battery, lightbar, combos, search policy, idle turn-off and the diagnostics report
   reach the RP2040 over I2C, and the RP2040 keeps the settings (the web app over USB or over
-  Bluetooth edits the same ones). Not there yet: the link details in the diagnostics (signal,
-  channels), DualShock 3 USB pairing, the raw DualSense report in STEAM mode, and Switch 2 /
-  Steam Controller 2026 pads are untested on the original ESP32's Bluetooth LE 4.2.
+  Bluetooth edits the same ones). The diagnostics report has the link details too, an optional USB
+  host port takes wired controllers and pairs a DualShock 3, and both boards are flashed and their
+  logs read through the adapter's own USB port ([Tools/hybrid](Tools/hybrid/README.md)). Switch 2
+  and Steam Controller 2026 pads are untested on the original ESP32's Bluetooth LE 4.2.
   Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
 - **Wii mode** takes a wired (USB) controller only; the radio is busy talking to the console.
 - **Bluetooth on the Pico W / Pico 2 W** uses the on-module antenna, which has little margin with

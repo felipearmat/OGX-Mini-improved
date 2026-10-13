@@ -14,9 +14,11 @@ Save a diagnostics report (web app, Web App mode) after any failure.
   `ESP32_BLUEPAD32_I2C`) + an original ESP32 (WROOM / WROVER) running the companion firmware.
   Wiring: [hardware/README.md](../hardware/README.md#pi-pico--esp32) (GP18 → 21, GP19 → 22, GND,
   GP8 → EN, 2.2 kΩ pull-ups to 3V3; GP21 not connected). One USB cable to the Pico.
-- **Firmware:** both sides from the same commit. Flash the ESP32 first (Pico in BOOTSEL, so it does
-  not drive EN; USB-serial adapter on the ESP32), then the Pico. The ESP32's log build prints the
-  events below on its serial port (115200 baud) — useful, not required.
+- **Wiring:** the final pinout, including GP16 → RX0, GP17 ← TX0 and GP20 → IO0, so flashing and
+  logs go through the Pico; the USB host port (GP0 / GP1) for groups 12 and 13.
+- **Firmware:** both sides from the same commit. The very first time, the ESP32 is flashed through
+  its own USB port (or through a Pico that already runs this firmware: group 11), then the Pico.
+  [Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md) needs `pip install pyserial esptool`.
 - **Host:** a PC with a gamepad tester (e.g. gamepad-tester.com, `evtest` / `jstest-gtk` on Linux,
   Steam's controller settings). Motion and touchpad need PS4 or STEAM mode and a host that shows
   them (Steam, or `evtest` on the motion / touchpad devices).
@@ -134,6 +136,59 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 |---|---|---|
 | 10.1 | Xbox Series controller (BLE), no rumble, 5 min | stays connected |
 | 10.2 | Switch 2 Pro (BLE), 5 min | stays connected (or: does not pair on the ESP32's BLE 4.2 — note it) |
+
+## 11. Everything through the Pico's USB port
+
+| # | Steps | Expected |
+|---|---|---|
+| 11.1 | Web App mode; `ogxm_hybrid.py ports` | one port, product "OGX-Mini" |
+| 11.2 | `ogxm_hybrid.py flash-esp32 <ESP32 build>` | bridge port "OGX-Mini ESP32 bridge" appears, esptool writes and verifies, the adapter restarts in its mode and the pad reconnects |
+| 11.3 | `flash-esp32 --baud 460800` | same, faster (if it fails, note it: 115200 is the safe rate) |
+| 11.4 | `ogxm_hybrid.py bootsel --uf2 <hybrid UF2>` | the Pico restarts with it; mode and profiles kept |
+| 11.5 | Play 2 min with the ESP32 log build, combo to Web App mode, `ogxm_hybrid.py monitor --log run.txt` | "OGX-Mini ESP32 monitor" port: the kept `[esp]` lines from the session (and `[rp]` lines with a Debug Pico), then live ESP32 output; Ctrl+C returns to the mode |
+| 11.6 | Power-cycle, then `monitor` | the kept log is empty (RAM only), live output works |
+| 11.7 | `ogxm_hybrid.py bootsel` on a Pico 2 W (`PI_PICO2W`) | works there too |
+
+## 12. USB host port (GP0 / GP1)
+
+| # | Steps | Expected |
+|---|---|---|
+| 12.1 | Plug a wired controller (Xbox 360, DS4 on USB, Switch Pro on USB) | it works on the output like on the Pico |
+| 12.2 | Bluetooth DS4 connected, then plug a wired controller | the wired one takes the output; unplug it: the Bluetooth one takes it back |
+| 12.3 | Rumble on the wired controller | works |
+
+## 13. DualShock 3 pairing
+
+| # | Steps | Expected |
+|---|---|---|
+| 13.1 | With the adapter on for 3 s or more, plug a DualShock 3 into the USB host port, then unplug it | it is now paired with the ESP32 |
+| 13.2 | Press PS on the DS3 | it connects over Bluetooth to the ESP32 and works |
+
+## 14. Link details in the diagnostics
+
+| # | Steps | Expected |
+|---|---|---|
+| 14.1 | DS4 (Classic), play 1 min, report | RSSI, channels in use (of 79), failed contacts, transmit power, remote chip vendor / version, lost reports by its counter |
+| 14.2 | A BLE pad (Xbox Series / 8BitDo in BLE mode) | LE interval / latency / timeout, channels (of 37), device information (manufacturer, model, firmware) |
+| 14.3 | Move away with the DS4 until it drops | RSSI falls, lost reports rise, the disconnect shows as an event |
+| 14.4 | Same distance test on a Pico 2 W (`PI_PICO2W`) | compare range with the ESP32 (external antenna if available) |
+
+## 15. Web app over Bluetooth (ESP32)
+
+| # | Steps | Expected |
+|---|---|---|
+| 15.1 | Connect the web app over Bluetooth | name, version, mode, active profile shown |
+| 15.2 | Read and save a profile | the Pico restarts with it; the USB web app shows the same profile |
+| 15.3 | Dongle options (search times, idle time, Joy-Con options): change and save | the Pico restarts with them; the ESP32 uses them (e.g. idle time 1 min turns the pad off) |
+| 15.4 | Mouse + keyboard mapping: change and save | applied without a restart; reading it back shows the change (allow ~2 s) |
+| 15.5 | Live input view | buttons, sticks, triggers move |
+
+## 16. STEAM mode passthrough
+
+| # | Steps | Expected |
+|---|---|---|
+| 16.1 | DualSense in STEAM mode, Steam's controller test | all buttons incl. mute, touchpad (cursor and click), sticks and triggers as the pad sends them |
+| 16.2 | DS4 in STEAM mode | works as on the Pico W (synthesized report, raw sticks / triggers) |
 
 ## Report
 

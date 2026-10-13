@@ -87,11 +87,10 @@ build in CI and share their common code ([Firmware/common](../Firmware/common/RE
      diagnostics over I2C~~ — done (I2C link version 2, `Firmware/common/I2C/Esp32Bridge.h`);
      ~~one place for the settings~~ — done (the RP2040 keeps them; the ESP32's BLE web app edits
      them over I2C). Hardware test: [docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
-   - the link details in the diagnostics (RSSI, channels, failed contacts, remote version, the
-     controller's own report counter);
-   - the raw DualSense report for STEAM mode's passthrough;
-   - DualShock 3 USB pairing (the ESP32 sends its Bluetooth address to the RP2040);
-   - one BLE web app protocol (the ESP32's BLE server lacks the Pico W's newer commands).
+   - ~~the link details in the diagnostics~~, ~~the DualSense passthrough in STEAM mode~~,
+     ~~DualShock 3 USB pairing~~ (USB host port on GP0 / GP1), ~~one BLE web app~~
+     (`Firmware/common/Bluepad32/BLEServer`) — done;
+   - ~~flashing and logs through the adapter's USB port~~ — done (`Tools/hybrid`).
 3. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
    may need newer features.
 

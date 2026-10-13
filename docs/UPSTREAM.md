@@ -37,6 +37,11 @@ output queue / SDL mapping), #138 (touchpad press / Capture).
    version 2, settings kept by the RP2040. Sent as fixes for the same reason as 6 and 7. After the
    hardware test ([docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md)).
 
+9. **Hybrid: maintenance through the adapter's USB port, link diagnostics, one BLE web app, USB
+   host port with DualShock 3 pairing, DualSense passthrough** — the commits after b7ea46e (see
+   CHANGELOG). The `SYSTEM` web app command and `Tools/hybrid` are useful upstream on every board
+   (USB bootloader without the button). After the hardware test.
+
 The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
 then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so
 later fixes reach every board in one PR.
