@@ -458,7 +458,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     }
 }
 
-/* I2C slave to the ESP32, its interrupt on Core0 (Core1 runs the USB host port). */
+/* I2C slave to the ESP32. Its interrupt runs on Core1, the core that calls this: the handler
+ * takes the gamepads' mutexes, which Core0's USB loop also holds, so on Core0 an interrupt could
+ * wait forever on a mutex its own core holds (the adapter froze once a pad connected). */
 static void init_i2c_slave() {
     i2c_init(I2C_PORT, I2C_BAUDRATE);
 
@@ -475,8 +477,8 @@ static void init_i2c_slave() {
 }
 
 #if defined(CONFIG_EN_USB_HOST)
-/* Custom: USB host port (wired controllers, DualShock 3 pairing) on Core1, as on the Pico. PIO USB
- * has no hardware SOF: pio_usb_host_frame() runs from a 1 kHz timer. */
+/* Custom: USB host port (wired controllers, DualShock 3 pairing), on Core0. PIO USB has no
+ * hardware SOF: pio_usb_host_frame() runs from a 1 kHz timer. */
 static repeating_timer_t s_pio_usb_sof_timer;
 
 static bool pio_usb_sof_timer_cb(repeating_timer_t* rt) {
@@ -485,29 +487,34 @@ static bool pio_usb_sof_timer_cb(repeating_timer_t* rt) {
     return true;
 }
 
-static void core1_task() {
-    HostManager& host_manager = HostManager::get_instance();
-    host_manager.initialize(_gamepads);
-    // Pico-PIO-USB does not reliably see a hot plug: start the host stack once a device is there
-    while (!board_api::usb::host_connected()) {
-        sleep_ms(100);
+/* Started from Core0's loop once a device is plugged in (Pico-PIO-USB does not reliably see a hot
+ * plug), then served from that loop, as on the Pico W. */
+static void usb_host_tick() {
+    static bool s_started = false;
+    if (!s_started) {
+        if (!board_api::usb::host_connected()) {
+            return;
+        }
+        pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
+        pio_cfg.skip_alarm_pool = true;
+        tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
+        tuh_init(BOARD_TUH_RHPORT);
+        add_repeating_timer_us(-1000, pio_usb_sof_timer_cb, nullptr, &s_pio_usb_sof_timer);
+        HostManager& host_manager = HostManager::get_instance();
+        TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 200, true,
+            [&host_manager] { host_manager.send_feedback(); });
+        s_started = true;
     }
-    pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
-    pio_cfg.skip_alarm_pool = true;
-    tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
-    tuh_init(BOARD_TUH_RHPORT);
-    add_repeating_timer_us(-1000, pio_usb_sof_timer_cb, nullptr, &s_pio_usb_sof_timer);
-
-    const uint32_t tid_feedback = TaskQueue::Core1::get_new_task_id();
-    TaskQueue::Core1::queue_delayed_task(tid_feedback, 200, true,
-        [&host_manager] { host_manager.send_feedback(); });
-
-    while (true) {
-        TaskQueue::Core1::process_tasks();
-        tuh_task();
-    }
+    tuh_task();
 }
 #endif
+
+static void core1_task() {
+    init_i2c_slave();
+    while (true) {
+        tight_loop_contents();
+    }
+}
 
 void run_uart_bridge() {
     /* Programming: the ESP32 waits in its ROM bootloader (esptool then runs with --before
@@ -572,10 +579,10 @@ void esp32_bp32_i2c::run() {
         return;
     }
 
-    init_i2c_slave();
-#if defined(CONFIG_EN_USB_HOST)
     multicore_reset_core1();
     multicore_launch_core1(core1_task);
+#if defined(CONFIG_EN_USB_HOST)
+    HostManager::get_instance().initialize(_gamepads);
 #endif
 
     /* The ESP32's serial output (its log, boot messages) into the kept log (Board/LogRing.h),
@@ -605,6 +612,9 @@ void esp32_bp32_i2c::run() {
         if (esp_len) {
             log_ring_append("esp", esp_out, esp_len);
         }
+#if defined(CONFIG_EN_USB_HOST)
+        usb_host_tick();
+#endif
         sleep_ms(1);
     }
 }
