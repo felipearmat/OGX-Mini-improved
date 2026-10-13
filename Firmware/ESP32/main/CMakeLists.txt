@@ -28,6 +28,7 @@ idf_component_register(
     REQUIRES 
         bluepad32 
         btstack 
+        bt 
         driver 
         esp_timer 
         nvs_flash 

@@ -117,6 +117,11 @@ struct Slot {
     uint32_t gap_event_ms;
     uint32_t gaps_unlogged;
     Link link;
+    // The hybrid's ESP32, for this slot (companion_slot)
+    bool companion_valid;
+    bool companion_lost_valid;
+    uint16_t companion_rate;
+    uint16_t companion_lost_x10;
 };
 
 struct UsbDevice {
@@ -559,6 +564,42 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
     ++s.counter_received;
 }
 
+struct Companion {
+    bool present;
+    char firmware[24];
+    uint32_t uptime_s;
+    bool high_tx_power;
+    uint32_t i2c_write_errors, i2c_read_errors, queue_drops;
+    uint32_t seen_ms;
+};
+static Companion s_companion{};
+
+void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10)
+{
+    if (slot >= kSlots) return;
+    Lock l;
+    Slot& s = s_slots[slot];
+    if (!s.active) return;
+    s.companion_valid = true;
+    s.companion_rate = reports_per_s;
+    s.companion_lost_valid = lost_valid;
+    s.companion_lost_x10 = lost_x10;
+}
+
+void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
+                    uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops)
+{
+    Lock l;
+    s_companion.present = true;
+    std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", firmware ? firmware : "");
+    s_companion.uptime_s = uptime_s;
+    s_companion.high_tx_power = high_tx_power;
+    s_companion.i2c_write_errors = i2c_write_errors;
+    s_companion.i2c_read_errors = i2c_read_errors;
+    s_companion.queue_drops = queue_drops;
+    s_companion.seen_ms = now_ms;
+}
+
 void slot_battery(size_t slot, uint8_t level)
 {
     if (slot >= kSlots) return;
@@ -979,6 +1020,17 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"usb_output\":{\"configured\":%s,\"suspended\":%s,\"reports_sent\":%lu,\"reports_sent_per_s\":%lu}",
           s_usb_configured ? "true" : "false", s_usb_suspended ? "true" : "false",
           static_cast<unsigned long>(s_usb_sent), static_cast<unsigned long>(s_usb_sent_rate));
+    if (s_companion.present) {
+        /* The hybrid's ESP32: what it reports about itself and the I2C link. */
+        w.raw(",\"companion\":{\"chip\":\"ESP32\"");
+        w.key_str("firmware", s_companion.firmware);
+        w.raw(",\"uptime_s\":%lu,\"high_tx_power\":%s,\"i2c_write_errors\":%lu,\"i2c_read_errors\":%lu,"
+              "\"i2c_queue_drops\":%lu,\"last_heard_s\":%lu}",
+              static_cast<unsigned long>(s_companion.uptime_s), s_companion.high_tx_power ? "true" : "false",
+              static_cast<unsigned long>(s_companion.i2c_write_errors), static_cast<unsigned long>(s_companion.i2c_read_errors),
+              static_cast<unsigned long>(s_companion.queue_drops),
+              static_cast<unsigned long>((now_ms - s_companion.seen_ms) / 1000));
+    }
 
     w.raw(",\"controllers\":[");
     bool first = true;
@@ -1009,6 +1061,11 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
             } else {
                 w.raw(",\"lost_reports_pct\":null");
             }
+        }
+        if (s.companion_valid) {
+            /* Measured on the ESP32: received there, and lost before reaching it (radio). */
+            w.raw(",\"esp32_reports_per_s\":%u", s.companion_rate);
+            if (s.companion_lost_valid) w.pct("esp32_lost_reports_pct", s.companion_lost_x10);
         }
         write_link(w, s.link, s.le);
         w.raw("}");
@@ -1096,6 +1153,7 @@ void reset_for_tests()
     s_last_crash = CrashInfo{};
     s_last_crash_valid = s_last_crash_previous_boot = false;
     for (auto& s : s_slots) s = Slot{};
+    s_companion = Companion{};
     for (auto& p : s_pending) p = Link{};
     for (auto& u : s_usb) u = UsbDevice{};
     s_searching = s_searching_known = false;

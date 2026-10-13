@@ -17,7 +17,7 @@ command, 0x75).
 | Command | What it does |
 |---|---|
 | `bootsel [--uf2 FILE]` | Restarts the RP2040 / RP2350 into its USB bootloader; with `--uf2`, loads the file (picotool if installed, else a copy to the RPI-RP2 / RP2350 drive). Any board, not only the hybrid. |
-| `flash-esp32 BUILD_DIR` | Hybrid: restarts the RP2040 as a USB serial to the ESP32 with the ESP32 held in its ROM bootloader (GP20 → IO0, GP8 → EN), runs esptool through it (`--before no_reset`), then sends the adapter back to its mode. `BUILD_DIR`: the ESP-IDF build folder (`flasher_args.json` gives the offsets) or a folder with `bootloader.bin`, `partition-table.bin` and the app `.bin`. `--baud` to go faster than 115200. |
+| `flash-esp32 BUILD_DIR` | Hybrid: restarts the RP2040 as a USB serial to the ESP32 with the ESP32 held in its ROM bootloader (GP20 → IO0, GP8 → EN), runs esptool through it (`--before no_reset`), then sends the adapter back to its mode. `BUILD_DIR`: the ESP-IDF build folder (`flasher_args.json` gives the offsets) or a folder with `bootloader.bin`, `partition-table.bin` and the app `.bin`. Flashing runs at 115200 baud (about 40 s for the companion): the bridge does not follow a faster rate yet, and a failed attempt is retried at 115200 after putting the ESP32 back in its bootloader. |
 | `monitor [--log FILE]` | Hybrid: restarts the RP2040 as a USB serial that sends the log kept in RAM from the last session (`[esp]` lines: the ESP32's serial output; `[rp]` lines: the RP2040's log in Debug builds), then the ESP32's live output. The ESP32 keeps running. Ctrl+C sends the adapter back to its mode. |
 | `reboot` | Restarts the adapter. |
 

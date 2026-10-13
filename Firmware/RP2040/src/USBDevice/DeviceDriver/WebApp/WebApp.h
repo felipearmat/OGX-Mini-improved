@@ -47,6 +47,8 @@ private:
          * with the kept log and the ESP32's live output). Answered with SYSTEM before acting, or
          * RESP_ERROR when the board can't. */
         SYSTEM = 0x75,
+        /* Custom: what this hardware supports (UserSettings/Capabilities.h), 4 bytes little-endian. */
+        GET_CAPABILITIES = 0x76,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */

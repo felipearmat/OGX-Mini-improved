@@ -198,6 +198,7 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         return;  // no further input from a pad that is going away
     }
     output.idle.note_input(uni_gp, now_ms, FEEDBACK_TIME_MS + 100);
+    ++slots_[idx].reports;
 
     const bt_pad::Input mapped = bt_pad::map_input(bp_device, uni_gp, output.mapper);
 

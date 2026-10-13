@@ -95,10 +95,10 @@ TEST(packet_in_ext_layout) {
 
 TEST(packet_out_ext_layout) {
     const PacketOutExt ext;
-    CHECK_EQ(sizeof(PacketOutExt), 28u);
-    CHECK_EQ(offsetof(PacketOutExt, driver), 24u);
-    CHECK_EQ(offsetof(PacketOutExt, active_profile), 25u);
-    CHECK_EQ(offsetof(PacketOutExt, profiles_crc), 26u);
+    CHECK_EQ(sizeof(PacketOutExt), 29u);
+    CHECK_EQ(offsetof(PacketOutExt, driver), 25u);
+    CHECK_EQ(offsetof(PacketOutExt, active_profile), 26u);
+    CHECK_EQ(offsetof(PacketOutExt, profiles_crc), 27u);
     CHECK_EQ(ext.packet_len, sizeof(PacketOutExt));
     CHECK_EQ(static_cast<int>(ext.packet_id), static_cast<int>(PacketID::GET_EXT));
     CHECK_EQ(offsetof(PacketOutExt, flags), 3u);
@@ -126,6 +126,8 @@ TEST(packet_diag_layout) {
     CHECK_EQ(PacketDiag::ADAPTER_ADDRESS, 7);
     CHECK_EQ(PacketDiag::SWITCH_FIRMWARE, 8);
     CHECK_EQ(PacketDiag::LE_ADV_REPORTS, 19);
+    CHECK_EQ(PacketDiag::COMPANION_SLOT, 20);
+    CHECK_EQ(PacketDiag::COMPANION_INFO, 21);
 }
 
 TEST(packet_profile_layout) {

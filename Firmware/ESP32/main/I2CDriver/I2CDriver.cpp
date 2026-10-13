@@ -55,18 +55,18 @@ void I2CDriver::run_tasks()
 
 void I2CDriver::write_packet(uint8_t address, const PacketIn& data_in) 
 {
-    task_queue_.push([this, address, data_in]() 
+    push([this, address, data_in]() 
     {
-        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketIn));
+        write(address, &data_in, sizeof(PacketIn));
     });
 }
 
 void I2CDriver::read_packet(uint8_t address, std::function<void(const PacketOut&)> callback) 
 {
-    task_queue_.push([this, address, callback]() 
+    push([this, address, callback]() 
     {
         PacketOut data_out;
-        if (i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&data_out), sizeof(PacketOut)) == ESP_OK &&
+        if (read(address, &data_out, sizeof(PacketOut)) == ESP_OK &&
             data_out.packet_id == PacketID::GET_PAD)
         {
             callback(data_out);
@@ -76,41 +76,41 @@ void I2CDriver::read_packet(uint8_t address, std::function<void(const PacketOut&
 
 void I2CDriver::write_packet(uint8_t address, const PacketInExt& data_in)
 {
-    task_queue_.push([this, address, data_in]()
+    push([this, address, data_in]()
     {
-        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketInExt));
+        write(address, &data_in, sizeof(PacketInExt));
     });
 }
 
 void I2CDriver::write_packet(uint8_t address, const PacketDiag& data_in)
 {
-    task_queue_.push([this, address, data_in]()
+    push([this, address, data_in]()
     {
-        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketDiag));
+        write(address, &data_in, sizeof(PacketDiag));
     });
 }
 
 void I2CDriver::write_packet(uint8_t address, const PacketPadRaw& data_in)
 {
-    task_queue_.push([this, address, data_in]()
+    push([this, address, data_in]()
     {
-        i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&data_in), sizeof(PacketPadRaw));
+        write(address, &data_in, sizeof(PacketPadRaw));
     });
 }
 
 void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback)
 {
-    task_queue_.push([this, address, index, callback]()
+    push([this, address, index, callback]()
     {
         PacketIn request;
         request.packet_id = PacketID::GET_EXT;
         request.index = index;
-        if (i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&request), sizeof(PacketIn)) != ESP_OK)
+        if (write(address, &request, sizeof(PacketIn)) != ESP_OK)
         {
             return;
         }
         PacketOutExt data_out;
-        if (i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&data_out), sizeof(PacketOutExt)) == ESP_OK &&
+        if (read(address, &data_out, sizeof(PacketOutExt)) == ESP_OK &&
             data_out.packet_id == PacketID::GET_EXT)
         {
             callback(data_out);
@@ -120,7 +120,7 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
 
 void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles&)> callback)
 {
-    task_queue_.push([this, address, callback]()
+    push([this, address, callback]()
     {
         static Profiles profiles;
         for (uint8_t id = 1; id <= PROFILE_COUNT; ++id)
@@ -132,8 +132,8 @@ void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles
                 request.profile_id = id;
                 request.chunk = chunk;
                 PacketProfile reply;
-                if (i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&request), sizeof(request)) != ESP_OK ||
-                    i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&reply), sizeof(reply)) != ESP_OK ||
+                if (write(address, &request, sizeof(request)) != ESP_OK ||
+                    read(address, &reply, sizeof(reply)) != ESP_OK ||
                     reply.packet_id != PacketID::GET_PROFILE || reply.profile_id != id || reply.chunk != chunk)
                 {
                     return;  // tried again on a later feedback tick
@@ -149,7 +149,7 @@ void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles
 
 void I2CDriver::write_profile(uint8_t address, const UserProfile& profile, uint8_t player_idx, DeviceDriverType driver)
 {
-    task_queue_.push([this, address, profile, player_idx, driver]()
+    push([this, address, profile, player_idx, driver]()
     {
         for (uint8_t chunk = 0; chunk < PacketProfile::kChunks; ++chunk)
         {
@@ -162,14 +162,14 @@ void I2CDriver::write_profile(uint8_t address, const UserProfile& profile, uint8
             const size_t offset = chunk * PacketProfile::kData;
             const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
             std::memcpy(packet.data, reinterpret_cast<const uint8_t*>(&profile) + offset, len);
-            i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&packet), sizeof(packet));
+            write(address, &packet, sizeof(packet));
         }
     });
 }
 
 void I2CDriver::read_blob(uint8_t address, uint8_t kind, std::function<void(const uint8_t* data, size_t len)> callback)
 {
-    task_queue_.push([this, address, kind, callback]()
+    push([this, address, kind, callback]()
     {
         uint8_t blob[PacketBlob::kMaxLen];
         size_t total = 0;
@@ -180,8 +180,8 @@ void I2CDriver::read_blob(uint8_t address, uint8_t kind, std::function<void(cons
             request.kind = kind;
             request.chunk = chunk;
             PacketBlob reply;
-            if (i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&request), sizeof(request)) != ESP_OK ||
-                i2c_read_blocking(address, reinterpret_cast<uint8_t*>(&reply), sizeof(reply)) != ESP_OK ||
+            if (write(address, &request, sizeof(request)) != ESP_OK ||
+                read(address, &reply, sizeof(reply)) != ESP_OK ||
                 reply.packet_id != PacketID::GET_BLOB || reply.kind != kind || reply.chunk != chunk ||
                 reply.total_len == 0 || reply.total_len > PacketBlob::kMaxLen)
             {
@@ -207,7 +207,7 @@ void I2CDriver::write_blob(uint8_t address, uint8_t kind, const uint8_t* data, s
     }
     std::array<uint8_t, PacketBlob::kMaxLen> copy{};
     std::memcpy(copy.data(), data, len);
-    task_queue_.push([this, address, kind, copy, len]()
+    push([this, address, kind, copy, len]()
     {
         for (size_t offset = 0; offset < len; offset += PacketBlob::kData)
         {
@@ -217,7 +217,7 @@ void I2CDriver::write_blob(uint8_t address, uint8_t kind, const uint8_t* data, s
             packet.chunk = static_cast<uint8_t>(offset / PacketBlob::kData);
             packet.total_len = static_cast<uint8_t>(len);
             std::memcpy(packet.data, copy.data() + offset, std::min(PacketBlob::kData, len - offset));
-            i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(&packet), sizeof(packet));
+            write(address, &packet, sizeof(packet));
         }
     });
 }

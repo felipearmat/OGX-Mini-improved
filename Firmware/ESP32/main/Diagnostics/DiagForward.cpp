@@ -19,6 +19,11 @@ struct Counter
 {
     bool fresh{false};
     uint8_t value{0}, bits{0}, unit{0};
+    // the ESP32's own loss count (controllers with a known counter step)
+    bool seen{false};
+    uint8_t last{0};
+    uint32_t received{0}, lost{0};
+    bool lost_valid{false};
 };
 Counter s_counters[diag::kSlots];
 uint32_t s_le_adv_reports = 0;
@@ -75,6 +80,19 @@ bool take_counter(int slot, uint8_t& value, uint8_t& bits, uint8_t& unit)
     return true;
 }
 
+void take_slot_stats(int slot, uint32_t& received, uint32_t& lost, bool& lost_valid)
+{
+    received = lost = 0;
+    lost_valid = false;
+    if (slot < 0 || slot >= static_cast<int>(diag::kSlots))
+        return;
+    Counter& c = s_counters[slot];
+    received = c.received;
+    lost = c.lost;
+    lost_valid = c.lost_valid;
+    c.received = c.lost = 0;
+}
+
 void tick()
 {
     if (s_le_adv_reports) {
@@ -119,6 +137,21 @@ void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid
         .u16(con_handle).bytes(address, 6).send();
 }
 
+void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10)
+{
+    Writer(PacketDiag::COMPANION_SLOT, slot).u16(reports_per_s).u8(lost_valid ? 1 : 0).u16(lost_x10).send();
+}
+
+void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
+                    uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops)
+{
+    (void)now_ms;
+    auto sat = [](uint32_t v) { return static_cast<uint16_t>(v > 0xFFFF ? 0xFFFF : v); };
+    Writer(PacketDiag::COMPANION_INFO).u16(static_cast<uint16_t>(uptime_s)).u16(static_cast<uint16_t>(uptime_s >> 16))
+        .u8(high_tx_power ? 1 : 0).u16(sat(i2c_write_errors)).u16(sat(i2c_read_errors)).u16(sat(queue_drops))
+        .bytes(firmware, strnlen(firmware, PacketDiag::kData - 11)).send();
+}
+
 void slot_disconnected(size_t slot, uint32_t now_ms)
 {
     (void)now_ms;
@@ -136,7 +169,27 @@ void slot_report(size_t slot, uint32_t now_ms)
 void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 {
     if (slot >= kSlots) return;
-    s_counters[slot] = Counter{true, static_cast<uint8_t>(value), bits, unit};
+    Counter& c = s_counters[slot];
+    c.fresh = true;
+    c.value = static_cast<uint8_t>(value);
+    c.bits = bits;
+    c.unit = unit;
+    /* The ESP32's own loss count, where the step per report is fixed (DS4 / DualSense: 1). */
+    if (unit > 0 && bits > 0 && bits <= 8) {
+        const uint8_t mask = static_cast<uint8_t>((1u << bits) - 1u);
+        if (c.seen) {
+            const uint8_t steps = static_cast<uint8_t>(((c.value - c.last) & mask) / unit);
+            if (steps > 0) {
+                ++c.received;
+                c.lost += steps - 1u;
+            }
+        } else {
+            ++c.received;
+        }
+        c.seen = true;
+        c.lost_valid = true;
+    }
+    c.last = c.value;
 }
 
 void slot_battery(size_t slot, uint8_t level_0_255)

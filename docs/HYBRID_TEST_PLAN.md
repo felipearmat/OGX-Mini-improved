@@ -190,6 +190,21 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 16.1 | DualSense in STEAM mode, Steam's controller test | all buttons incl. mute, touchpad (cursor and click), sticks and triggers as the pad sends them |
 | 16.2 | DS4 in STEAM mode | works as on the Pico W (synthesized report, raw sticks / triggers) |
 
+## 17. Measurements, advertising, transmit power, options per hardware
+
+| # | Steps | Expected |
+|---|---|---|
+| 17.1 | DS4 connected 1 min, then the report | `companion` (ESP32 firmware, uptime, I2C errors, queue drops); the controller has `esp32_reports_per_s` and `esp32_lost_reports_pct` next to the RP2040's figures |
+| 17.2 | Compare the two | ESP32 rate ≈ DS4 rate and RP2040 rate lower → losses between the boards; both low → radio |
+| 17.3 | With a DS4 connected, look for the adapter from the web app's "Connect via Bluetooth" | not listed (advertising off, every slot in use); disconnect the DS4: listed again within seconds |
+| 17.4 | Lone Joy-Con for over a minute | listed during the full search; still listed, slower to appear, in the reduced search |
+| 17.5 | Web app: Higher Bluetooth transmit power on, save | applied without a restart; report: transmit power high, `tx_power_max_dbm` 9 |
+| 17.6 | Same option on a Pico 2 W (`PI_PICO2W`) | greyed out, note "Not supported on this adapter's hardware" on hover |
+| 17.7 | MAC per controller on, PS4 mode, DS4 connected | the host sees the DS4's address (Steam keeps its settings per controller) |
+| 17.8 | Turn off controllers before mode change on, change mode by combo | the DS4 turns off, then the mode changes |
+| 17.9 | Play 1 min, change mode, report | `previous_session.input_to_output_latency` has samples |
+| 17.10 | Repeat the 56% loss test (DS4, 1-2 m) | compare with the first test: lost %, late %, largest gap |
+
 ## Report
 
 For each failure: case number, controller, mode, host, what happened, the diagnostics report, and

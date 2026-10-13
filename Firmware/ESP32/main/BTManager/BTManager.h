@@ -70,6 +70,7 @@ private:
         bt_pad::KeepaliveState keepalive;
         Lightbar lightbar;              // last colour sent
         uint8_t battery_sent{0};        // last battery level sent to the diagnostics
+        uint32_t reports{0};            // reports received since the last summary (diagnostics)
         btstack_timer_source_t mode_lightbar_timer;
     };
 
@@ -102,6 +103,9 @@ private:
     FBContext ext_context_;
     bool motion_output_{false};
     bool searching_sent_{false};
+    int high_tx_power_{-1};  // applied transmit power option (-1: not yet)
+    void apply_tx_power(bool high);
+    void send_companion_summary();
 
     /* Settings kept by the RP2040: the copy taken (checksum + active profile), a fetch running,
      * and a mode change from a combo waiting for the RP2040 to take it. */
@@ -132,7 +136,7 @@ private:
     void apply_profiles();
     void apply_scan(bool pad_leaving, bool force);
     void apply_ext(const I2CDriver::PacketOutExt& ext);
-    void adopt_driver(DeviceDriverType driver);
+    void adopt_driver(DeviceDriverType driver, bool mode_change);
     static void profiles_cb(void* context);
     int resolve_output(uni_hid_device_t* device, int slot);
     bool lone_joycon();

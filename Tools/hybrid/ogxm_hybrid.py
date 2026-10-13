@@ -154,6 +154,45 @@ def esp32_images(build_dir):
             ("0x10000", str(apps[0]))]
 
 
+def bridge_bootloader(port):
+    """Put the ESP32 back in its ROM bootloader through the bridge's serial lines.
+
+    The bridge drives EN low while DTR && !RTS and IO0 low while RTS && !DTR (uart_bridge.c), so
+    EN must rise in the same request that pulls IO0 low: both lines are set at once (TIOCMSET);
+    pyserial alone sets them one after the other and the ESP32 boots normally in between."""
+    try:
+        import fcntl
+        import struct
+        import termios
+    except ImportError:
+        return False  # not POSIX: the bridge's own bootloader entry at start is all there is
+    dtr, rts = 0x002, 0x004
+    with serial.Serial() as link:
+        link.port, link.baudrate = port, 115200
+        link.dtr = False
+        link.rts = False
+        link.open()
+
+        def lines(value):
+            fcntl.ioctl(link.fd, termios.TIOCMSET, struct.pack("I", value))
+
+        lines(dtr)
+        time.sleep(0.15)  # EN low: reset
+        lines(rts)
+        time.sleep(0.10)  # EN high with IO0 low: ROM bootloader
+        lines(0)
+    return True
+
+
+def run_esptool(port, baud, images):
+    flash_args = [sys.executable, "-m", "esptool", "--chip", "esp32", "--port", port, "-b", str(baud),
+                  "--before", "no_reset", "--after", "no_reset", "write_flash", "--flash_mode", "dio",
+                  "--flash_size", "4MB", "--flash_freq", "40m"]
+    for offset, path in images:
+        flash_args += [offset, path]
+    return subprocess.run(flash_args).returncode
+
+
 def cmd_flash_esp32(args):
     images = esp32_images(args.build_dir)
     system_command("esp32-flash")
@@ -162,16 +201,16 @@ def cmd_flash_esp32(args):
     if port is None:
         sys.exit("The bridge port did not show up.")
     time.sleep(BRIDGE_GUARD_S)
-    flash_args = [sys.executable, "-m", "esptool", "--chip", "esp32", "--port", port, "-b", str(args.baud),
-                  "--before", "no_reset", "--after", "no_reset", "write_flash", "--flash_mode", "dio",
-                  "--flash_size", "4MB", "--flash_freq", "40m"]
-    for offset, path in images:
-        flash_args += [offset, path]
-    result = subprocess.run(flash_args)
+    returncode = run_esptool(port, args.baud, images)
+    if returncode != 0 and bridge_bootloader(port):
+        # A failed attempt (a faster rate the bridge did not follow) can leave the ESP32 out of
+        # its bootloader or at another rate: back to the bootloader, once more at 115200.
+        print("Retrying at 115200 baud...")
+        returncode = run_esptool(port, 115200, images)
     with serial.Serial(port, 115200, timeout=0.5) as link:
         link.write(COMPLETE_FLAG)  # the RP2040 restarts in its mode and restarts the ESP32
         link.flush()
-    if result.returncode != 0:
+    if returncode != 0:
         sys.exit("esptool failed; the adapter was sent back to its mode.")
     print("ESP32 flashed; the adapter restarts in its mode.")
 
@@ -212,7 +251,8 @@ def main():
     p.set_defaults(func=cmd_bootsel)
     p = sub.add_parser("flash-esp32")
     p.add_argument("build_dir")
-    p.add_argument("--baud", type=int, default=115200)
+    p.add_argument("--baud", type=int, default=115200,
+                   help="115200 (default) is what the bridge follows reliably; faster rates fall back to it")
     p.set_defaults(func=cmd_flash_esp32)
     p = sub.add_parser("monitor")
     p.add_argument("--log")

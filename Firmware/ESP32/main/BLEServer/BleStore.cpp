@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "Bluepad32/BleStore.h"
+#include "UserSettings/Capabilities.h"
 #include "BTManager/BTManager.h"
 #include "Gamepad/Gamepad.h"
 #include "UserSettings/UserSettings.h"
@@ -13,6 +14,7 @@ namespace ble_store {
 
 DeviceDriverType current_driver() { return UserSettings::get_instance().get_current_driver(); }
 uint8_t max_gamepads() { return MAX_GAMEPADS; }
+uint32_t capabilities() { return ::capabilities::kHybrid | ::capabilities::WIRED_INPUT; }  // the RP2040's host port
 uint8_t active_profile(uint8_t index) { return UserSettings::get_instance().get_active_profile_id(index); }
 UserProfile profile_by_index(uint8_t index) { return UserSettings::get_instance().get_profile_by_index(index); }
 UserProfile profile_by_id(uint8_t profile_id) { return UserSettings::get_instance().get_profile_by_id(profile_id); }

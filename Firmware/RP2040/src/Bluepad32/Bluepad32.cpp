@@ -517,23 +517,6 @@ static void device_connected_cb(uni_hid_device_t* device) {
 #endif
 }
 
-/** CYW43: resume OGX BLE advertising when no Classic (BR/EDR) gamepad remains connected. */
-static void ogxm_resume_ble_ads_if_no_acl_pad(int disconnected_idx) {
-#if defined(CONFIG_TARGET_PICO_W)
-    for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
-        if (i == static_cast<unsigned>(disconnected_idx))
-            continue;
-        if (!bt_devices_[i].connected)
-            continue;
-        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(static_cast<int>(i));
-        if (!d || uni_bt_conn_get_state(&d->conn) != UNI_BT_CONN_STATE_DEVICE_READY)
-            continue;
-        if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL)
-            return;
-    }
-    gap_advertisements_enable(1);
-#endif
-}
 
 /** CYW43: any active BLE gamepad link (HOGP or Triton Valve GATT) needs scans off. */
 static bool device_is_ble_hogp(const uni_hid_device_t* d) {
@@ -715,7 +698,6 @@ static void ensure_idle_pairing_scans(int disconnected_idx) {
         return;
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
-    ogxm_resume_ble_ads_if_no_acl_pad(disconnected_idx);
     gap_connectable_control(1);
     if (!uni_bt_enable_new_connections_is_enabled())
         uni_bt_enable_new_connections_unsafe(true);
@@ -759,7 +741,6 @@ static void restore_bt_pairing_mode(int disconnected_idx) {
 #else
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
-    ogxm_resume_ble_ads_if_no_acl_pad(disconnected_idx);
     gap_connectable_control(1);
     uni_bt_enable_new_connections_unsafe(true);
 #endif
@@ -979,9 +960,9 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         /* CYW43439: BLE scan + BR inquiry during an active LE HOGP link stalls GATT / drops link. */
         uni_bt_le_scan_stop();
         uni_bt_bredr_scan_stop();
-        gap_advertisements_enable(0);
+        /* BLE advertising: off from the search policy (Bluepad32/ScanControl). */
     } else if (gap_get_connection_type(device->conn.handle) == GAP_CONNECTION_ACL) {
-        gap_advertisements_enable(0);
+        /* BLE advertising follows the search policy (Bluepad32/ScanControl). */
         if (uni_hid_parser_switch_solo_needs_partner(device)) {
             /* Solo Joy-Con (L or R): keep inquiry + page scan for the partner; pause BLE scan. */
             uni_bt_le_scan_stop();

@@ -132,7 +132,7 @@ namespace Esp32Bridge
         uint8_t  active_profile{0};   // active profile ID of this output (1..8)
         uint16_t profiles_crc{0};     // profiles_crc() of the RP2040's profiles; 0 = not sent
     };
-    static_assert(sizeof(PacketOutExt) == 28, "Esp32Bridge::PacketOutExt layout changed");
+    static_assert(sizeof(PacketOutExt) == 29, "Esp32Bridge::PacketOutExt layout changed");
     static_assert(offsetof(PacketOutExt, settings) == 7, "Esp32Bridge::PacketOutExt layout changed");
     struct PacketDiag
     {
@@ -159,6 +159,10 @@ namespace Esp32Bridge
             LINK_MODE,       // handle, mode (8), interval
             INQUIRY_COMPLETE,
             LE_ADV_REPORTS,  // count since the last one
+            /* What the ESP32 measured itself (Diagnostics.h companion_*), every few seconds. */
+            COMPANION_SLOT,  // slot; reports per s, lost valid (8), lost x10
+            COMPANION_INFO,  // uptime s (32), high tx power (8), I2C write errors, read errors,
+                             // queue drops (16 each, saturated), firmware (NUL-padded)
         };
         enum DeviceInfoField : uint8_t { MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE };
         static constexpr size_t kData = 28;

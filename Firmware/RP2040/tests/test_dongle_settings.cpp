@@ -22,7 +22,7 @@ TEST(defaults_follow_the_build) {
 }
 
 TEST(decode_normalises_flags) {
-    const uint8_t bytes[17] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
+    const uint8_t bytes[18] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -49,9 +49,9 @@ TEST(decode_accepts_version_1_with_defaults_for_newer_options) {
 
 TEST(decode_rejects_other_versions_and_short_buffers) {
     Settings s = dongle_settings::defaults();
-    const uint8_t other[17] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
+    const uint8_t other[18] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
     CHECK(!dongle_settings::decode(other, sizeof(other), s));
-    const uint8_t shorty[16] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v4 needs 17
+    const uint8_t shorty[17] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v5 needs 18
     CHECK(!dongle_settings::decode(shorty, sizeof(shorty), s));
     const uint8_t short_v3[8] = {3, 1, 1, 1, 1, 1, 1, 1};  // v3 needs 16
     CHECK(!dongle_settings::decode(short_v3, sizeof(short_v3), s));
@@ -71,7 +71,7 @@ TEST(set_replaces_current) {
 }
 
 TEST(mode_combo_mask_in_bytes_12_to_15) {
-    uint8_t bytes[17] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
+    uint8_t bytes[18] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.combo_disabled_modes, 0u);  // older records: every combo on
@@ -97,7 +97,7 @@ TEST(a_change_of_the_combo_mask_search_times_or_idle_time_alone_needs_no_restart
 }
 
 TEST(search_times_are_two_12_bit_fields_in_bytes_9_to_11) {
-    uint8_t bytes[17] = {dongle_settings::kVersion};
+    uint8_t bytes[18] = {dongle_settings::kVersion};
     // full 600 s (0x258), reduced 0xFFF (no limit): 58 | 2 + F<<4 | FF
     bytes[9] = 0x58;
     bytes[10] = 0xF2;
@@ -133,7 +133,7 @@ TEST(older_records_get_default_search_times_or_none_for_single_controller) {
 }
 
 TEST(idle_off_minutes_in_byte_16) {
-    uint8_t bytes[17] = {dongle_settings::kVersion};
+    uint8_t bytes[18] = {dongle_settings::kVersion};
     bytes[16] = 30;
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
@@ -153,6 +153,26 @@ TEST(version_3_records_get_the_default_idle_time) {
     CHECK_EQ(dongle_settings::full_search_s(s), 30);
     CHECK_EQ(s.combo_disabled_modes, 0x10u);
     CHECK_EQ(s.idle_off_minutes, dongle_settings::defaults().idle_off_minutes);
+}
+
+TEST(version_5_high_tx_power) {
+    uint8_t bytes[18] = {dongle_settings::kVersion};
+    bytes[16] = 15;
+    bytes[17] = 1;
+    dongle_settings::Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.high_tx_power, 1);
+    CHECK_EQ(s.idle_off_minutes, 15);
+    // a version 4 record (17 bytes) keeps the default: off
+    uint8_t v4[17] = {4};
+    v4[16] = 10;
+    CHECK(dongle_settings::decode(v4, sizeof(v4), s));
+    CHECK_EQ(s.high_tx_power, 0);
+    CHECK_EQ(s.idle_off_minutes, 10);
+    // applied live: no restart for this option alone
+    dongle_settings::Settings a = dongle_settings::defaults(), b = a;
+    b.high_tx_power = 1;
+    CHECK(dongle_settings::same_except_live(a, b));
 }
 
 TEST_MAIN()

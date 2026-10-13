@@ -20,6 +20,10 @@ namespace diag_forward {
     /* Every feedback tick: counts gathered since the last one (BLE advertising reports). */
     void tick();
 
+    /* The ESP32's own count for a slot since the last call: reports it received, and reports the
+     * controller's counter says it sent that never arrived (lost_valid: the counter step is known). */
+    void take_slot_stats(int slot, uint32_t& received, uint32_t& lost, bool& lost_valid);
+
 } // namespace diag_forward
 
 #endif // _OGXM_DIAG_FORWARD_H_

@@ -19,6 +19,7 @@
 #include "Board/esp32_api.h"
 #include "Board/BootMode.h"
 #include "Board/BtAdapterAddress.h"
+#include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
 #include "Gamepad/Gamepad.h"
@@ -101,6 +102,7 @@ static void record_diag(const PacketDiag& diag) {
             diag::slot_connected(diag.slot, now, names[diag.slot],
                                  static_cast<uint16_t>(d[0] | (d[1] << 8)), static_cast<uint16_t>(d[2] | (d[3] << 8)),
                                  d[4], d[5] != 0, static_cast<uint16_t>(d[6] | (d[7] << 8)), &d[8]);
+            reported_mac::on_pad_ready(&d[8]);  // "MAC address per controller" option, as on the Pico W
             break;
         }
         case PacketDiag::SLOT_GONE:
@@ -171,6 +173,16 @@ static void record_diag(const PacketDiag& diag) {
             for (uint16_t i = d16(0); i > 0; --i)
                 diag::le_adv_report();
             break;
+        case PacketDiag::COMPANION_SLOT:
+            diag::companion_slot(diag.slot, d16(0), d8(2) != 0, d16(3));
+            break;
+        case PacketDiag::COMPANION_INFO: {
+            char firmware[PacketDiag::kData - 11 + 1]{};
+            std::memcpy(firmware, &diag.data[11], sizeof(firmware) - 1);
+            const uint32_t uptime = d16(0) | (static_cast<uint32_t>(d16(2)) << 16);
+            diag::companion_info(now, firmware, uptime, d8(4) != 0, d16(5), d16(7), d16(9));
+            break;
+        }
         default:
             break;
     }
@@ -396,6 +408,10 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         TaskQueue::Core0::queue_delayed_task(
                             TaskQueue::Core0::get_new_task_id(), 1000, false, 
                             [new_device_type = packet_in.device_driver] { 
+                                /* The session's input-to-use latency goes into the summary kept
+                                 * across the reboot, as the Pico W path does on a mode change. */
+                                const Gamepad::LatencyStats lat = _gamepads[0].latency_stats();
+                                diag::pipeline_latency(lat.samples, lat.avg_us, lat.max_us);
                                 UserSettings::get_instance().store_driver_type(new_device_type);
                             }
                         );

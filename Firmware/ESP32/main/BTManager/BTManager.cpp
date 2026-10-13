@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
+#include <esp_bt.h>
 #include <esp_system.h>
 #include <esp_timer.h>
 
@@ -306,7 +307,8 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
             {
                 settings.store_driver_type(result.new_driver);
             }
-            bt_manager.adopt_driver(result.new_driver);
+            bt_manager.send_driver_type(result.new_driver);  // now: the pads may be turned off next
+            bt_manager.adopt_driver(result.new_driver, true);
         }
     }
 
@@ -328,9 +330,23 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
     btstack_run_loop_add_timer(ts);
 }
 
-/* A new output mode: profiles (they depend on it), the blink code, the lightbar colour. */
-void BTManager::adopt_driver(DeviceDriverType driver)
+/* A new output mode: profiles (they depend on it), the blink code, the lightbar colour. A real
+ * mode change (not the first copy at boot) also turns the controllers off first when the adapter
+ * option asks for it, as the Pico W does. */
+void BTManager::adopt_driver(DeviceDriverType driver, bool mode_change)
 {
+    if (mode_change && dongle_settings::get().disconnect_pads_on_mode_change)
+    {
+        for (uint8_t i = 0; i < slots_.size(); ++i)
+        {
+            uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
+            if (d)
+            {
+                bt_pad::disconnect_with_partner(d);
+            }
+        }
+        return;  // the ESP32 restarts once the last one is gone, in the new mode
+    }
     apply_profiles();
     mode_indicator::begin(driver);
     for (uint8_t i = 0; i < slots_.size(); ++i)
@@ -392,7 +408,7 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
             ext.driver != user_settings.get_current_driver() && user_settings.is_valid_driver(ext.driver))
         {
             user_settings.set_remote_driver(ext.driver);
-            adopt_driver(ext.driver);
+            adopt_driver(ext.driver, true);
         }
         const uint32_t now_ms = btstack_run_loop_get_time_ms();
         const bool stale = !user_settings.remote() || ext.profiles_crc != profiles_crc_ ||
@@ -407,7 +423,7 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
                 ext.driver != user_settings.get_current_driver())
             {
                 user_settings.set_remote_driver(ext.driver);  // taken with the first copy
-                adopt_driver(ext.driver);
+                adopt_driver(ext.driver, false);
             }
             profiles_cb_reg_.callback = profiles_cb;
             profiles_cb_reg_.context = nullptr;
@@ -423,6 +439,7 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
     dongle_settings::Settings settings;
     if (dongle_settings::decode(reinterpret_cast<const uint8_t*>(&ext.settings), sizeof(ext.settings), settings))
     {
+        apply_tx_power(settings.high_tx_power != 0);
         const bool imu_side_changed = settings.joycon_pair_imu_right != dongle_settings::get().joycon_pair_imu_right;
         dongle_settings::set(settings);
         if (imu_side_changed)
@@ -430,6 +447,45 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
             uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
         }
     }
+}
+
+/* Adapter option "higher transmit power": Classic +9 dBm at most and BLE +9 dBm, else the ESP32's
+ * defaults (Classic up to +3 dBm, BLE +3 dBm). Applied live. */
+void BTManager::apply_tx_power(bool high)
+{
+    if (high_tx_power_ == (high ? 1 : 0))
+    {
+        return;
+    }
+    high_tx_power_ = high ? 1 : 0;
+    esp_bredr_tx_power_set(ESP_PWR_LVL_N0, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
+    diag_event("transmit power: %s", high ? "high (+9 dBm)" : "default (+3 dBm)");
+}
+
+/* Every 5 s, what the ESP32 measured itself, for the diagnostics report (companion). */
+void BTManager::send_companion_summary()
+{
+    static constexpr uint32_t kPeriodS = 5;
+    for (uint8_t i = 0; i < slots_.size(); ++i)
+    {
+        uint32_t received = 0, lost = 0;
+        bool lost_valid = false;
+        diag_forward::take_slot_stats(i, received, lost, lost_valid);
+        const uint32_t reports = slots_[i].reports;
+        slots_[i].reports = 0;
+        if (!slots_[i].connected)
+        {
+            continue;
+        }
+        const uint32_t total = received + lost;
+        const uint16_t lost_x10 = total ? static_cast<uint16_t>(lost * 1000u / total) : 0;
+        diag::companion_slot(i, static_cast<uint16_t>(reports / kPeriodS), lost_valid && total > 0, lost_x10);
+    }
+    diag::companion_info(btstack_run_loop_get_time_ms(), FIRMWARE_VERSION,
+                         static_cast<uint32_t>(esp_timer_get_time() / 1000000), high_tx_power_ == 1,
+                         i2c_driver_.write_errors(), i2c_driver_.read_errors(), i2c_driver_.queue_drops());
 }
 
 void BTManager::ext_feedback_cb(void* context)
@@ -548,6 +604,12 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
             return slot >= 0 && slot < static_cast<int>(get_instance().slots_.size()) && get_instance().slots_[slot].connected;
         });
     diag_forward::tick();
+    static uint8_t summary_ticks = 0;
+    if (++summary_ticks >= 5000 / FEEDBACK_TIME_MS)
+    {
+        summary_ticks = 0;
+        bt_manager.send_companion_summary();
+    }
 
     /* The ESP32's Bluetooth address for the RP2040 (DualShock 3 pairing on its USB host port),
      * every 2 s so it is back soon after the RP2040 restarts. */

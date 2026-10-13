@@ -261,11 +261,17 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
             return profile_reader_.get_xfer_len();
 
         case Handle::DONGLE_SETTINGS:
-            if (buffer) {
-                const dongle_settings::Settings& settings = ble_store::dongle_settings();
-                std::memcpy(buffer, &settings, std::min<size_t>(sizeof(settings), buffer_size));
+            /* The record, then this hardware's capabilities (UserSettings/Capabilities.h, 4 bytes
+             * little-endian): an older web app reads the record's length and ignores the rest. */
+            {
+                uint8_t data[sizeof(dongle_settings::Settings) + 4];
+                std::memcpy(data, &ble_store::dongle_settings(), sizeof(dongle_settings::Settings));
+                const uint32_t caps = ble_store::capabilities();
+                for (int i = 0; i < 4; ++i)
+                    data[sizeof(dongle_settings::Settings) + i] = static_cast<uint8_t>(caps >> (8 * i));
+                // longer than one ATT packet: long reads come with an offset
+                return att_read_callback_handle_blob(data, static_cast<uint16_t>(sizeof(data)), offset, buffer, buffer_size);
             }
-            return static_cast<uint16_t>(sizeof(dongle_settings::Settings));
 
         case Handle::KBM_SETTINGS:
         {
@@ -331,7 +337,9 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
         {
             dongle_settings::Settings settings{};
             /* Version 2 record, or version 1 from an older web app. */
-            if (buffer_size != sizeof(settings) && buffer_size != dongle_settings::kV1Length) {
+            /* Any record version the firmware reads (an older web app writes an older one). */
+            if (buffer_size != sizeof(settings) && buffer_size != dongle_settings::kV4Length &&
+                buffer_size != dongle_settings::kV3Length && buffer_size != dongle_settings::kV1Length) {
                 ret = ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
                 break;
             }
@@ -360,17 +368,29 @@ void init_server() {
     att_server_init(profile_data, att_read_callback, att_write_callback);
 
     // setup advertisements
-    uint16_t adv_int_min = 0x0030;
-    uint16_t adv_int_max = 0x0030;
-    uint8_t adv_type = 0;
+    static ADV::Data adv_data = ADV::Data();
+    gap_advertisements_set_data(static_cast<uint8_t>(sizeof(adv_data)), reinterpret_cast<uint8_t*>(&adv_data));
+    set_advertising(Advertising::Fast);
+}
 
+void set_advertising(Advertising mode) {
+    static bool s_set = false;
+    static Advertising s_mode = Advertising::Off;
+    if (s_set && mode == s_mode) {
+        return;
+    }
+    s_set = true;
+    s_mode = mode;
+    if (mode == Advertising::Off) {
+        gap_advertisements_enable(0);
+        return;
+    }
+    // 0.625 ms units: 30 ms fast, 300 ms slow
+    const uint16_t interval = mode == Advertising::Fast ? 0x0030 : 0x01E0;
     bd_addr_t null_addr;
     std::memset(null_addr, 0, sizeof(null_addr));
-
-    static ADV::Data adv_data = ADV::Data();
-
-    gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
-    gap_advertisements_set_data(static_cast<uint8_t>(sizeof(adv_data)), reinterpret_cast<uint8_t*>(&adv_data));
+    gap_advertisements_enable(0);
+    gap_advertisements_set_params(interval, interval, 0, 0, null_addr, 0x07, 0x00);
     gap_advertisements_enable(1);
 }
 

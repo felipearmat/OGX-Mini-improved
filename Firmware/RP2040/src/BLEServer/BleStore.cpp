@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "Bluepad32/BleStore.h"
+#include "UserSettings/Capabilities.h"
 #include "Gamepad/I2CWirePad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
@@ -22,6 +23,14 @@ void init(Gamepad* pad)
 
 DeviceDriverType current_driver() { return UserSettings::get_instance().get_current_driver(); }
 uint8_t max_gamepads() { return MAX_GAMEPADS; }
+uint32_t capabilities()
+{
+#if defined(CONFIG_EN_USB_HOST)
+    return ::capabilities::kPicoW | ::capabilities::WIRED_INPUT;
+#else
+    return ::capabilities::kPicoW;
+#endif
+}
 uint8_t active_profile(uint8_t index) { return UserSettings::get_instance().get_active_profile_id(index); }
 UserProfile profile_by_index(uint8_t index) { return UserSettings::get_instance().get_profile_by_index(index); }
 UserProfile profile_by_id(uint8_t profile_id) { return UserSettings::get_instance().get_profile_by_id(profile_id); }

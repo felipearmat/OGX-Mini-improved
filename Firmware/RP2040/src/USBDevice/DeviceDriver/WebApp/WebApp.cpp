@@ -6,6 +6,7 @@
 
 #include "Board/board_api.h"
 #include "Board/BootMode.h"
+#include "UserSettings/Capabilities.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Descriptors/CDCDev.h"
@@ -459,6 +460,28 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 ack.header.chunks_total = 1;
                 ack.header.chunk_len = 0;
                 write_packet(ack);
+                break;
+            }
+
+            case PacketID::GET_CAPABILITIES:
+            {
+#if defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
+                uint32_t caps = capabilities::kHybrid;
+#elif defined(CONFIG_EN_BLUETOOTH)
+                uint32_t caps = capabilities::kPicoW;
+#else
+                uint32_t caps = 0;
+#endif
+#if defined(CONFIG_EN_USB_HOST)
+                caps |= capabilities::WIRED_INPUT;
+#endif
+                Packet reply;
+                reply.header.packet_id = PacketID::GET_CAPABILITIES;
+                reply.header.chunks_total = 1;
+                reply.header.chunk_len = 4;
+                for (int i = 0; i < 4; ++i)
+                    reply.data[i] = static_cast<uint8_t>(caps >> (8 * i));
+                write_packet(reply);
                 break;
             }
 

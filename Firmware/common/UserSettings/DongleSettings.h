@@ -22,9 +22,13 @@
  *    OGXM_COMBO_DISABLED_MODES             0    output modes whose button combo is off (bit mask)
  *    OGXM_IDLE_OFF_MINUTES                 15   turn a Bluetooth controller off after this many
  *                                          minutes without input (0 = never, 1-255)
+ *    OGXM_HIGH_TX_POWER                    OFF  higher Bluetooth transmit power, where the radio
+ *                                          allows it (the RP2040 + ESP32 hybrid: +9 dBm)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
- *  17 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  18 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 5 = version 4 plus:
+ *    byte 17        higher Bluetooth transmit power (0 / 1), applied without a restart
  *  Version 4 = version 3 plus:
  *    byte 16        minutes without input before a Bluetooth controller is turned off
  *                   (0 = never)
@@ -37,17 +41,18 @@
  *    bytes 12-15    output modes whose button combo is off, a little-endian bit mask indexed by
  *                   DeviceDriverType (bit n = mode n); zero turns all combos on. The Web App mode
  *                   combo (value 100, outside the mask) is always on.
- *  Versions 3, 2 and 1 are still accepted; the options they lack take their build defaults.
+ *  Versions 4, 3, 2 and 1 are still accepted; the options they lack take their build defaults.
  *  For versions 2 and 1 (the first 8 bytes) the search times take their defaults, or 0 / 0
  *  when their single controller byte (7) was on.
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 4;
+    constexpr uint8_t kVersion = 5;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
     constexpr size_t kV3Length = 16;
+    constexpr size_t kV4Length = 17;
 
 #pragma pack(push, 1)
     struct Settings {
@@ -66,14 +71,16 @@ namespace dongle_settings {
         uint32_t combo_disabled_modes;
         // Version 4
         uint8_t idle_off_minutes;
+        // Version 5
+        uint8_t high_tx_power;
     };
 #pragma pack(pop)
-    static_assert(sizeof(Settings) == 17, "dongle_settings::Settings is a wire format");
+    static_assert(sizeof(Settings) == 18, "dongle_settings::Settings is a wire format");
 
     // Build-time defaults.
     Settings defaults();
 
-    // Parse stored / received bytes, version 4, 3, 2 or 1. False (out untouched) for a short buffer or
+    // Parse stored / received bytes, version 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 

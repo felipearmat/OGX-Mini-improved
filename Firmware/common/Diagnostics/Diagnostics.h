@@ -117,6 +117,16 @@ namespace diag {
     // Each BLE advertising report: the LE scan is running (it shares the radio with the pads).
     void le_adv_report();
 
+    // ---- The hybrid's ESP32 (the Bluetooth side of the RP2040 + ESP32 hybrid), every few seconds ----
+    // What the ESP32 itself measured for a slot: reports it received per second, and reports
+    // the controller sent that it never got (its counter), in tenths of a percent (lost_valid:
+    // the counter is known). Next to what reached the RP2040, this tells radio losses from link ones.
+    void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10);
+    // The ESP32: its firmware, uptime, transmit power option, and I2C errors / queue drops since
+    // its boot.
+    void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
+                        uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops);
+
     // ---- Wired USB controllers (USB host), by device address ----
     void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,
                      uint8_t speed, const char* driver);

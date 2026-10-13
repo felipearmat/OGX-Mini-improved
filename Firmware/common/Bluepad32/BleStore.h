@@ -17,6 +17,7 @@ namespace ble_store {
 
     DeviceDriverType current_driver();
     uint8_t max_gamepads();
+    uint32_t capabilities();  // UserSettings/Capabilities.h
     uint8_t active_profile(uint8_t index);
     UserProfile profile_by_index(uint8_t index);
     UserProfile profile_by_id(uint8_t profile_id);

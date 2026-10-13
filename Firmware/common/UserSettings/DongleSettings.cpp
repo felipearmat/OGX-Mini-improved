@@ -33,6 +33,9 @@
 #ifndef OGXM_COMBO_DISABLED_MODES
 #define OGXM_COMBO_DISABLED_MODES 0
 #endif
+#ifndef OGXM_HIGH_TX_POWER
+#define OGXM_HIGH_TX_POWER 0
+#endif
 #ifndef OGXM_IDLE_OFF_MINUTES
 #define OGXM_IDLE_OFF_MINUTES 15
 #endif
@@ -72,6 +75,7 @@ Settings defaults()
         set_search_times(s, OGXM_FULL_SEARCH_S, OGXM_REDUCED_SEARCH_S);
     s.combo_disabled_modes = static_cast<uint32_t>(OGXM_COMBO_DISABLED_MODES);
     s.idle_off_minutes = static_cast<uint8_t>(OGXM_IDLE_OFF_MINUTES);
+    s.high_tx_power = flag(OGXM_HIGH_TX_POWER);
     return s;
 }
 
@@ -79,7 +83,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
 {
     if (data == nullptr || len < 1)
         return false;
-    const bool v4 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v5 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v4 = (data[0] == 4 && len >= kV4Length) || v5;
     const bool v3 = (data[0] == 3 && len >= kV3Length) || v4;
     const bool v2 = data[0] == 2 && len >= kV3Length;
     const bool v1 = data[0] == 1 && len >= kV1Length;
@@ -106,6 +111,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
     }
     if (v4)
         s.idle_off_minutes = data[16];
+    if (v5)
+        s.high_tx_power = flag(data[17]);
     out = s;
     return true;
 }
@@ -141,6 +148,7 @@ bool same_except_live(const Settings& a, const Settings& b)
     x.combo_disabled_modes = y.combo_disabled_modes = 0;
     for (int i = 0; i < 3; ++i) x.search_times[i] = y.search_times[i] = 0;
     x.idle_off_minutes = y.idle_off_minutes = 0;
+    x.high_tx_power = y.high_tx_power = 0;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);
     const uint8_t* q = reinterpret_cast<const uint8_t*>(&y);
     for (size_t i = 0; i < sizeof(Settings); ++i)

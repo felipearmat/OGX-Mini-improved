@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <atomic>
 #include <functional>
 #include <driver/i2c.h>
 
@@ -60,8 +61,43 @@ public:
     void read_blob(uint8_t address, uint8_t kind, std::function<void(const uint8_t* data, size_t len)> callback);
     void write_blob(uint8_t address, uint8_t kind, const uint8_t* data, size_t len);
 
+    /* For the diagnostics report: since boot. */
+    uint32_t write_errors() const { return write_errors_.load(); }
+    uint32_t read_errors() const { return read_errors_.load(); }
+    uint32_t queue_drops() const { return queue_drops_.load(); }
+
 private:
     using TaskQueue = RingBuffer<std::function<void()>, CONFIG_I2C_RING_BUFFER_SIZE>;
+
+    std::atomic<uint32_t> write_errors_{0};
+    std::atomic<uint32_t> read_errors_{0};
+    std::atomic<uint32_t> queue_drops_{0};
+
+    void push(std::function<void()> task)
+    {
+        if (!task_queue_.push(task))
+        {
+            ++queue_drops_;
+        }
+    }
+    esp_err_t write(uint8_t address, const void* data, size_t len)
+    {
+        const esp_err_t ret = i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(data), len);
+        if (ret != ESP_OK)
+        {
+            ++write_errors_;
+        }
+        return ret;
+    }
+    esp_err_t read(uint8_t address, void* data, size_t len)
+    {
+        const esp_err_t ret = i2c_read_blocking(address, reinterpret_cast<uint8_t*>(data), len);
+        if (ret != ESP_OK)
+        {
+            ++read_errors_;
+        }
+        return ret;
+    }
     
     TaskQueue task_queue_;
     i2c_port_t i2c_port_ = I2C_NUM_0;

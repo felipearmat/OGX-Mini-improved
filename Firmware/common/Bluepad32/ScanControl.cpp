@@ -7,6 +7,7 @@
 #include "bt/uni_bt.h"
 #include "bt/uni_bt_bredr.h"
 #include "bt/uni_bt_le.h"
+#include "Bluepad32/BLEServer.h"
 
 namespace scan_control {
 
@@ -89,6 +90,12 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
         reduced_s == dongle_settings::kSearchNoLimit ? scan_policy::kNoLimit : 1000u * reduced_s};
     const scan_policy::Scan want =
         scan_policy::decide(outputs, max_gamepads, awaiting, open ? now - s_open_since : 0, times, s_stopped);
+
+    /* The web app's BLE advertising follows the search (Bluepad32/BLEServer.h): it shares the
+     * radio with the pads too. */
+    BLEServer::set_advertising(pads.hogp || want == scan_policy::Scan::Off ? BLEServer::Advertising::Off
+                               : want == scan_policy::Scan::Reduced     ? BLEServer::Advertising::Slow
+                                                                        : BLEServer::Advertising::Fast);
 
     /* Bluepad32 turns the search back on by itself for a lone Joy-Con: an Off state is applied
      * again when that happened, and on every pad change (force). */

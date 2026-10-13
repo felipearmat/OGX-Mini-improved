@@ -22,14 +22,17 @@ public:
         size_t head = head_.load(std::memory_order_relaxed);
         size_t next_head = (head + 1) % SIZE;
 
+        bool dropped = false;
         if (next_head == tail_.load(std::memory_order_acquire))
         {
+            // Full: the oldest item is dropped (false tells the caller, for the diagnostics)
             tail_.store((tail_.load(std::memory_order_relaxed) + 1) % SIZE, std::memory_order_release);
+            dropped = true;
         }
 
         buffer_[head] = item;
         head_.store(next_head, std::memory_order_release);
-        return true;
+        return !dropped;
     }
 
     bool pop(Type& item)
