@@ -49,6 +49,13 @@ lightbar without picking a mode by hand.
   USB device (PC XInput, Switch Pro, DInput). Today `MAX_GAMEPADS` > 1 is only tested in Wii U
   mode. The RP2040 + ESP32 hybrid suits this well (an ESP32 handles 4+ Bluetooth links; the I2C
   link already carries a pad index).
+- **One ESP32, one RP2040 per player** (the ESP32 firmware's `CONFIG_MULTI_SLAVE_MODE`, 4 USB
+  outputs): the code is there but untested, and the newer link traffic (settings, diagnostics,
+  profiles, the ESP32's address) goes to the first RP2040 only. It moves to the shared code
+  (an address per output everywhere) as part of this item; until then it is not supported.
+- **4-channel I2C board** (`EXTERNAL_4CH_I2C`, four RP2040s, wired controllers): works on its own
+  with its own I2C protocol; sharing the transport with the hybrid's only if the board stays
+  in use.
 - **Co-pilot:** two controllers merged into one player (accessibility, teaching). The Joy-Con pair
   merge is the existing case to build on.
 

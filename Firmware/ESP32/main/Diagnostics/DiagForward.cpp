@@ -152,6 +152,11 @@ void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bo
         .bytes(firmware, strnlen(firmware, PacketDiag::kData - 11)).send();
 }
 
+void companion_version(const char* version)
+{
+    Writer(PacketDiag::COMPANION_VERSION).bytes(version, strnlen(version, PacketDiag::kData)).send();
+}
+
 void slot_disconnected(size_t slot, uint32_t now_ms)
 {
     (void)now_ms;

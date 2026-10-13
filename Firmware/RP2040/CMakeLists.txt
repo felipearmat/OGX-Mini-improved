@@ -435,6 +435,7 @@ if(EN_USB_HOST)
     add_compile_definitions(CONFIG_EN_USB_HOST=1)
     list(APPEND SOURCES_BOARD
         ${SRC}/USBHost/tuh_callbacks.cpp
+        ${SRC}/USBHost/PioHostPort.cpp
         # HID
         ${SRC}/USBHost/HostDriver/DInput/DInput.cpp
         ${SRC}/USBHost/HostDriver/PSClassic/PSClassic.cpp
@@ -588,7 +589,7 @@ endif()
 string(TIMESTAMP CURRENT_DATETIME "%Y-%m-%d %H:%M:%S")
 add_compile_definitions(BUILD_DATETIME="${CURRENT_DATETIME}")
 add_compile_definitions(FIRMWARE_NAME="${FW_NAME}")
-add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}")
+add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}" OGXM_VERSION="${OGXM_VERSION}")
 add_compile_definitions(OGXM_BOARD_NAME="${OGXM_BOARD}")
 # Custom: panic() records the message for the diagnostics and reboots (Diagnostics/CrashHandler.cpp).
 add_compile_definitions(PICO_PANIC_FUNCTION=ogxm_panic)

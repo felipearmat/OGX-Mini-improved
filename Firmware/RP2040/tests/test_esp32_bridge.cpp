@@ -128,6 +128,7 @@ TEST(packet_diag_layout) {
     CHECK_EQ(PacketDiag::LE_ADV_REPORTS, 19);
     CHECK_EQ(PacketDiag::COMPANION_SLOT, 20);
     CHECK_EQ(PacketDiag::COMPANION_INFO, 21);
+    CHECK_EQ(PacketDiag::COMPANION_VERSION, 22);
 }
 
 TEST(packet_profile_layout) {

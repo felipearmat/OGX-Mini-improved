@@ -232,7 +232,7 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
 
     switch (att_handle) {
         case Handle::FW_VERSION:
-            fw_version = FIRMWARE_VERSION;
+            fw_version = OGXM_VERSION;  // the fork's version (the web app checks it against the releases)
             if (buffer)  {
                 std::memcpy(buffer, reinterpret_cast<const uint8_t*>(fw_version.c_str()), fw_version.size());
             }

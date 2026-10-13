@@ -126,6 +126,9 @@ namespace diag {
     // its boot.
     void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
                         uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops);
+    // The ESP32's OGX-Mini-improved version (OGXM_VERSION), and a copy of it ("" while unknown).
+    void companion_version(const char* version);
+    size_t companion_version_copy(char* out, size_t out_len);
 
     // ---- Wired USB controllers (USB host), by device address ----
     void usb_mounted(uint8_t address, uint32_t now_ms, uint16_t vid, uint16_t pid, uint16_t bcd_device,

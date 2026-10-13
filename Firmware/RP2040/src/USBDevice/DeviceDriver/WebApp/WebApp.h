@@ -49,6 +49,10 @@ private:
         SYSTEM = 0x75,
         /* Custom: what this hardware supports (UserSettings/Capabilities.h), 4 bytes little-endian. */
         GET_CAPABILITIES = 0x76,
+        /* Custom: versions, NUL-separated text: this firmware's OGX-Mini-improved version, the
+         * board (OGXM_BOARD, as in the release file names), then the hybrid's ESP32 version ("" if
+         * none or not heard yet). The web app compares them with the latest release. */
+        GET_VERSION = 0x77,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -118,6 +122,7 @@ private:
     bool write_dongle_settings();
     bool write_kbm_settings();
     bool write_diagnostics();
+    bool write_chunked(PacketID id, const char* data, size_t len);  // up to 255 chunks
     bool write_touch(uint8_t index, const Gamepad::PadIn& pad_in);
 };
 

@@ -36,6 +36,7 @@
 #include "TaskQueue/TaskQueue.h"
 #if defined(CONFIG_EN_USB_HOST)
 #include "pio_usb.h"
+#include "USBHost/PioHostPort.h"
 #include "USBHost/HostManager.h"
 #include "Input/InputSlot.h"
 #endif
@@ -176,6 +177,12 @@ static void record_diag(const PacketDiag& diag) {
         case PacketDiag::COMPANION_SLOT:
             diag::companion_slot(diag.slot, d16(0), d8(2) != 0, d16(3));
             break;
+        case PacketDiag::COMPANION_VERSION: {
+            char version[PacketDiag::kData + 1]{};
+            std::memcpy(version, diag.data, PacketDiag::kData);
+            diag::companion_version(version);
+            break;
+        }
         case PacketDiag::COMPANION_INFO: {
             char firmware[PacketDiag::kData - 11 + 1]{};
             std::memcpy(firmware, &diag.data[11], sizeof(firmware) - 1);
@@ -493,34 +500,21 @@ static void init_i2c_slave() {
 }
 
 #if defined(CONFIG_EN_USB_HOST)
-/* Custom: USB host port (wired controllers, DualShock 3 pairing), on Core0. PIO USB has no
- * hardware SOF: pio_usb_host_frame() runs from a 1 kHz timer. */
-static repeating_timer_t s_pio_usb_sof_timer;
-
-static bool pio_usb_sof_timer_cb(repeating_timer_t* rt) {
-    (void)rt;
-    pio_usb_host_frame();
-    return true;
-}
-
-/* Started from Core0's loop once a device is plugged in (Pico-PIO-USB does not reliably see a hot
- * plug), then served from that loop, as on the Pico W. */
+/* Custom: USB host port (wired controllers, DualShock 3 pairing), on Core0: started once a device
+ * is plugged in (Pico-PIO-USB does not reliably see a hot plug), then served from Core0's loop,
+ * as on the Pico W (USBHost/PioHostPort.h). */
 static void usb_host_tick() {
     static bool s_started = false;
     if (!s_started) {
-        if (!board_api::usb::host_connected()) {
+        if (!board_api::usb::host_connected() || !pio_host_port::start()) {
             return;
         }
-        pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
-        pio_cfg.skip_alarm_pool = true;
-        tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
-        tuh_init(BOARD_TUH_RHPORT);
-        add_repeating_timer_us(-1000, pio_usb_sof_timer_cb, nullptr, &s_pio_usb_sof_timer);
         HostManager& host_manager = HostManager::get_instance();
         TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 200, true,
             [&host_manager] { host_manager.send_feedback(); });
         s_started = true;
     }
+    pio_host_port::service_frames();
     tuh_task();
 }
 #endif

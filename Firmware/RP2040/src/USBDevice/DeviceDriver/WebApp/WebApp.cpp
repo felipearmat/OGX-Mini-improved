@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cstdio>
 #include "class/cdc/cdc_device.h"
 #include "bsp/board_api.h"
 
@@ -277,12 +279,17 @@ bool WebAppDevice::write_diagnostics()
     static char report[12 * 1024];
 #endif
     const size_t len = diag::report_json(report, sizeof(report), board_api::ms_since_boot());
+    return write_chunked(PacketID::GET_DIAGNOSTICS, report, len);
+}
+
+bool WebAppDevice::write_chunked(PacketID id, const char* data, size_t len)
+{
     Packet packet_in;
     const size_t chunk = packet_in.data.size();
     const size_t total = (len + chunk - 1) / chunk;
     if (total == 0 || total > 255)
         return false;
-    packet_in.header.packet_id = PacketID::GET_DIAGNOSTICS;
+    packet_in.header.packet_id = id;
     packet_in.header.max_gamepads = MAX_GAMEPADS;
     packet_in.header.chunks_total = static_cast<uint8_t>(total);
     for (size_t i = 0; i < total; ++i)
@@ -291,7 +298,7 @@ bool WebAppDevice::write_diagnostics()
         const size_t n = std::min(chunk, len - offset);
         packet_in.header.chunk_idx = static_cast<uint8_t>(i);
         packet_in.header.chunk_len = static_cast<uint8_t>(n);
-        std::memcpy(packet_in.data.data(), report + offset, n);
+        std::memcpy(packet_in.data.data(), data + offset, n);
         if (!write_packet(packet_in))
             return false;
     }
@@ -482,6 +489,21 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 for (int i = 0; i < 4; ++i)
                     reply.data[i] = static_cast<uint8_t>(caps >> (8 * i));
                 write_packet(reply);
+                break;
+            }
+
+            case PacketID::GET_VERSION:
+            {
+#if !defined(OGXM_BOARD_NAME)
+#define OGXM_BOARD_NAME "unknown"
+#endif
+                char companion[40]{};
+                diag::companion_version_copy(companion, sizeof(companion));
+                char text[160];
+                const int len = std::snprintf(text, sizeof(text), "%s%c%s%c%s", OGXM_VERSION, '\0',
+                                              OGXM_BOARD_NAME, '\0', companion);
+                write_chunked(PacketID::GET_VERSION, text,
+                              static_cast<size_t>(len < 0 ? 0 : std::min<int>(len, sizeof(text) - 1)));
                 break;
             }
 

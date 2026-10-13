@@ -483,7 +483,8 @@ void BTManager::send_companion_summary()
         const uint16_t lost_x10 = total ? static_cast<uint16_t>(lost * 1000u / total) : 0;
         diag::companion_slot(i, static_cast<uint16_t>(reports / kPeriodS), lost_valid && total > 0, lost_x10);
     }
-    diag::companion_info(btstack_run_loop_get_time_ms(), FIRMWARE_VERSION,
+    diag::companion_version(OGXM_VERSION);
+    diag::companion_info(btstack_run_loop_get_time_ms(), "",
                          static_cast<uint32_t>(esp_timer_get_time() / 1000000), high_tx_power_ == 1,
                          i2c_driver_.write_errors(), i2c_driver_.read_errors(), i2c_driver_.queue_drops());
 }

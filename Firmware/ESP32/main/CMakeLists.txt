@@ -38,4 +38,5 @@ idf_component_register(
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
         FIRMWARE_NAME=\"${FW_NAME}\"
         FIRMWARE_VERSION=\"${FW_VERSION}\"
+        OGXM_VERSION=\"${OGXM_VERSION}\"
 )

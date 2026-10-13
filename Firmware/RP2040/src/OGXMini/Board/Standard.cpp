@@ -9,6 +9,7 @@
 #include "tusb.h"
 #include "bsp/board_api.h"
 #include "pio_usb.h"
+#include "USBHost/PioHostPort.h"
 
 #include "USBHost/HostManager.h"
 #include "USBHost/GPIOHost/GPIOHost.h"
@@ -29,71 +30,22 @@ constexpr uint32_t FEEDBACK_DELAY_MS = 200;
 
 Gamepad _gamepads[MAX_GAMEPADS];
 
-static repeating_timer_t s_pio_usb_sof_timer;
-static bool s_pio_usb_sof_hw_timer = false;
 /** Set during intentional mode-change reboot so host_mounted(false) does not queue a second teardown. */
 static std::atomic<bool> s_driver_reboot_pending{false};
 /** Debounce transient PIO USB umount before tearing down the USB device stack. */
 static std::atomic<bool> s_host_teardown_scheduled{false};
 constexpr uint32_t HOST_UNMOUNT_DEBOUNCE_MS = 1500;
 
-static void pio_usb_sof_timer_stop() {
-    if (!s_pio_usb_sof_hw_timer) {
-        return;
-    }
-    cancel_repeating_timer(&s_pio_usb_sof_timer);
-    s_pio_usb_sof_hw_timer = false;
-}
-
-static bool pio_usb_sof_timer_cb(repeating_timer_t* rt) {
-    (void)rt;
-    pio_usb_host_frame();
-    return true;
-}
-
-static void pio_usb_sof_timer_start() {
-    if (s_pio_usb_sof_hw_timer) {
-        return;
-    }
-    if (add_repeating_timer_us(-1000, pio_usb_sof_timer_cb, nullptr, &s_pio_usb_sof_timer)) {
-        s_pio_usb_sof_hw_timer = true;
-    }
-}
-
-/** PIO USB has no hardware SOF; run pio_usb_host_frame() at ~1 kHz or IN/OUT transfers stall. */
-static void pio_usb_sof_service_due_frames() {
-    if (s_pio_usb_sof_hw_timer) {
-        return;
-    }
-    static absolute_time_t next_pio_frame;
-    static bool next_inited = false;
-    if (!next_inited) {
-        next_pio_frame = get_absolute_time();
-        next_inited = true;
-    }
-    absolute_time_t now = get_absolute_time();
-    while (absolute_time_diff_us(next_pio_frame, now) >= 0) {
-        pio_usb_host_frame();
-        next_pio_frame = delayed_by_us(next_pio_frame, 1000);
-        now = get_absolute_time();
-    }
-}
-
-static void configure_pio_usb_host() {
-    pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
-    pio_cfg.skip_alarm_pool = true;
-    tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
-}
-
+/** Host stack and, when the SOF timer could not start, the frames due (USBHost/PioHostPort.h). */
 static void pio_usb_host_loop_tick() {
-    pio_usb_sof_service_due_frames();
+    pio_host_port::service_frames();
     tuh_task();
 }
 
 namespace board_api_usbh {
 
 void stop_pio_usb_host() {
-    pio_usb_sof_timer_stop();
+    pio_host_port::stop_sof_timer();
     multicore_reset_core1();
     sleep_ms(50);
     (void)tuh_deinit(BOARD_TUH_RHPORT);
@@ -116,10 +68,7 @@ void core1_task() {
         sleep_ms(100);
     }
 
-    configure_pio_usb_host();
-    board_api_usbh::suspend_line_irq();
-    tuh_init(BOARD_TUH_RHPORT);
-    pio_usb_sof_timer_start();
+    pio_host_port::start();
 
     uint32_t tid_feedback = TaskQueue::Core1::get_new_task_id();
     TaskQueue::Core1::queue_delayed_task(tid_feedback, FEEDBACK_DELAY_MS, true,
@@ -128,7 +77,7 @@ void core1_task() {
     });
 
     while (true) {
-        pio_usb_sof_service_due_frames();
+        pio_host_port::service_frames();
         TaskQueue::Core1::process_tasks();
         tuh_task();
     }
@@ -222,10 +171,7 @@ void standard::run() {
             sleep_ms(100);
         }
 
-        configure_pio_usb_host();
-        board_api_usbh::suspend_line_irq();
-        tuh_init(BOARD_TUH_RHPORT);
-        pio_usb_sof_timer_start();
+        pio_host_port::start();
 
         uint32_t tid_feedback = TaskQueue::Core0::get_new_task_id();
         TaskQueue::Core0::queue_delayed_task(tid_feedback, FEEDBACK_DELAY_MS, true, [&host_manager]() {

@@ -566,7 +566,7 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 
 struct Companion {
     bool present;
-    char firmware[24];
+    char firmware[40];
     uint32_t uptime_s;
     bool high_tx_power;
     uint32_t i2c_write_errors, i2c_read_errors, queue_drops;
@@ -591,13 +591,29 @@ void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bo
 {
     Lock l;
     s_companion.present = true;
-    std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", firmware ? firmware : "");
+    if (firmware && firmware[0])  // older ESP32 firmware: its version came here, cut short
+        std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", firmware);
     s_companion.uptime_s = uptime_s;
     s_companion.high_tx_power = high_tx_power;
     s_companion.i2c_write_errors = i2c_write_errors;
     s_companion.i2c_read_errors = i2c_read_errors;
     s_companion.queue_drops = queue_drops;
     s_companion.seen_ms = now_ms;
+}
+
+void companion_version(const char* version)
+{
+    Lock l;
+    s_companion.present = true;
+    std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", version ? version : "");
+}
+
+size_t companion_version_copy(char* out, size_t out_len)
+{
+    if (!out || out_len == 0) return 0;
+    Lock l;
+    std::snprintf(out, out_len, "%s", s_companion.firmware);
+    return std::strlen(out);
 }
 
 void slot_battery(size_t slot, uint8_t level)
@@ -1003,6 +1019,9 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     Lock l;
     w.raw("{\"firmware\":");
     w.str(s_info.firmware_version);
+#if defined(FIRMWARE_VERSION)
+    w.key_str("base_firmware", FIRMWARE_VERSION);  // the original project's version it builds on
+#endif
     w.key_str("board", s_info.board);
     w.key_str("chip", s_info.chip);
     w.raw(",\"clock_mhz\":%lu", static_cast<unsigned long>(s_info.clock_mhz));

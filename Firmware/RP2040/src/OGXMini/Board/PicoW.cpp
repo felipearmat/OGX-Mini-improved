@@ -35,6 +35,7 @@
 #if defined(CONFIG_EN_USB_HOST)
 #include "host/hcd.h"
 #include "pio_usb.h"
+#include "USBHost/PioHostPort.h"
 #include "USBHost/HostManager.h"
 #include "Input/InputSlot.h"
 #include <pico/flash.h>
@@ -72,40 +73,12 @@ constexpr int32_t PIO_LINE_STABLE_US = 40 * 1000;
 constexpr uint32_t USB_FEEDBACK_INTERVAL_MS = 200;
 
 static bool s_pio_usb_tuh_inited = false;
-/** When true, `pio_usb_host_frame()` runs from SDK repeating_timer at 1 kHz (not from main-loop catch-up). */
-static bool s_pico_w_usb_sof_hw_timer = false;
-static repeating_timer_t s_pico_w_usb_sof_timer;
 static bool s_bt_new_conn_off_for_usb = false;
 /** Line high continuously since this time (valid while s_usb_line_debounce_armed). */
 static absolute_time_t s_usb_line_high_since;
 static bool s_usb_line_debounce_armed = false;
 static uint32_t s_last_usb_feedback_wall_ms = 0;
 
-static bool pico_w_usb_sof_timer_cb(repeating_timer_t* rt) {
-    (void)rt;
-    pio_usb_host_frame();
-    return true;
-}
-
-static void pico_w_usb_sof_timer_start() {
-    if (s_pico_w_usb_sof_hw_timer) {
-        return;
-    }
-    /* skip_alarm_pool: PIO-USB does not start its own SOF timer. Main-loop + sleep_ms(1) cannot hold 1 kHz
-     * SOF under CYW43/BT load — wired input dies in ~1–2 s. Use SDK repeating_timer (separate from
-     * the alarm_pool that collides on Pico W) like a dedicated Core1 loop in Wii mode. */
-    if (add_repeating_timer_us(-1000, pico_w_usb_sof_timer_cb, nullptr, &s_pico_w_usb_sof_timer)) {
-        s_pico_w_usb_sof_hw_timer = true;
-    }
-}
-
-static void pico_w_usb_sof_timer_stop() {
-    if (!s_pico_w_usb_sof_hw_timer) {
-        return;
-    }
-    cancel_repeating_timer(&s_pico_w_usb_sof_timer);
-    s_pico_w_usb_sof_hw_timer = false;
-}
 
 /** Debounce any unplug hint (line / stack) past USB bus reset glitches (10–50 ms). */
 constexpr int32_t USB_UNPLUG_DEBOUNCE_US = 60 * 1000;
@@ -128,7 +101,7 @@ static bool pico_w_tuh_any_device_configured() {
 }
 
 static void pico_w_usb_host_full_stop() {
-    pico_w_usb_sof_timer_stop();
+    pio_host_port::stop_sof_timer();
     (void)tuh_deinit(BOARD_TUH_RHPORT);
     s_pio_usb_tuh_inited = false;
     s_usb_line_debounce_armed = false;
@@ -146,7 +119,7 @@ namespace board_api_usbh {
  */
 void stop_pio_usb_host() {
     OGXM_LOG("PicoW: stop_pio_usb_host (SOF stop + Core1 reset + tuh_deinit)\n");
-    pico_w_usb_sof_timer_stop();
+    pio_host_port::stop_sof_timer();
     multicore_reset_core1();
     sleep_ms(50);
     if (s_pio_usb_tuh_inited) {
@@ -244,23 +217,19 @@ static void pico_w_pio_usb_bt_mux_tick() {
         // main() already called flash_safe_execute_core_init() on Core0; do not call from Core1 BT timer (deadlock risk).
         hm.initialize(_gamepads);
         // PIO USB takes over D+/D−; GPIO edge IRQs on those pins must be off or IO_IRQ floods and BT stalls.
-        board_api_usbh::suspend_line_irq();
-        pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
-        pio_cfg.alarm_pool = nullptr;
-        pio_cfg.skip_alarm_pool = true;
-        pio_cfg.tx_ch = 2;
-        tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
-        if (!tuh_init(BOARD_TUH_RHPORT)) {
+        /* USBHost/PioHostPort: D+ / D- edge IRQs off (PIO owns the lines), host stack, 1 kHz SOF
+         * timer (Main-loop + sleep_ms(1) cannot hold 1 kHz SOF under CYW43/BT load). CYW43 claims
+         * DMA 0 and 1: PIO USB TX on channel 2. */
+        if (!pio_host_port::start(2)) {
             s_usb_line_debounce_armed = false;
             s_bt_new_conn_off_for_usb = false;
             bluepad32::wired_usb_release_enable_bt_pairing();
             return;
         }
         s_pio_usb_tuh_inited = true;
-        pico_w_usb_sof_timer_start();
     }
 
-    if (!s_pico_w_usb_sof_hw_timer) {
+    if (!pio_host_port::sof_timer_running()) {
         pio_usb_host_frame();
     }
 
@@ -303,7 +272,7 @@ void pico_w::poll_usb_host_mux_from_core0() {
         return;
     }
 
-    if (s_pico_w_usb_sof_hw_timer) {
+    if (pio_host_port::sof_timer_running()) {
         /* SOF is 1 kHz from repeating_timer; run TinyUSB + mux every visit (no 1 ms gate). */
         pico_w_pio_usb_bt_mux_tick();
         return;

@@ -76,7 +76,12 @@ def system_command(name):
     packet = bytearray(PACKET_LEN)
     packet[0:9] = bytes([PACKET_LEN, SYSTEM, WEBAPP_DRIVER, 1, 0, 0, 1, 0, 1])
     packet[9] = command
-    with serial.Serial(port, 115200, timeout=0.2) as link:
+    try:
+        link = serial.Serial(port, 115200, timeout=0.2)
+    except serial.SerialException as error:
+        sys.exit(f"Could not open {port} ({error}). Is the web app (or another program) connected to the "
+                 "adapter? Disconnect it and try again.")
+    with link:
         link.reset_input_buffer()
         link.write(packet)
         deadline = time.monotonic() + 3.0

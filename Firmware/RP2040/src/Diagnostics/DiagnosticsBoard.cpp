@@ -56,7 +56,7 @@ void board_boot()
 #else
     const char* chip = "RP2040";
 #endif
-    init(BoardInfo{FIRMWARE_VERSION, OGXM_BOARD_NAME, chip, clock_get_hz(clk_sys) / 1000000, build,
+    init(BoardInfo{OGXM_VERSION, OGXM_BOARD_NAME, chip, clock_get_hz(clk_sys) / 1000000, build,
                    driver_name(mode), reset, MAX_GAMEPADS});
     UserSettings::get_instance().load_diag_session();
     event(to_ms_since_boot(get_absolute_time()), "boot: mode %s, last reset: %s", driver_name(mode), reset);

@@ -458,7 +458,9 @@ cmake --build build
 `ADAFRUIT_FEATHER` (controller on the board's USB-A port; plug it in after boot if it isn't
 detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
 hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
-is not used), `ESP32_BLUERETRO_I2C`. Maintainer-tested: Pico 2 W (this fork); Feather USB Host, Pico W,
+is not used), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
+outside this project's shared Bluetooth code; the `ESP32_BLUEPAD32_I2C*` hybrid does everything
+it does and more). Maintainer-tested: Pico 2 W (this fork); Feather USB Host, Pico W,
 Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 
 **Options:** `MAX_GAMEPADS` (1–4, default 1; see [Limitations](#limitations)),

@@ -162,7 +162,9 @@ namespace Esp32Bridge
             /* What the ESP32 measured itself (Diagnostics.h companion_*), every few seconds. */
             COMPANION_SLOT,  // slot; reports per s, lost valid (8), lost x10
             COMPANION_INFO,  // uptime s (32), high tx power (8), I2C write errors, read errors,
-                             // queue drops (16 each, saturated), firmware (NUL-padded)
+                             // queue drops (16 each, saturated), firmware (NUL-padded; empty
+                             // since COMPANION_VERSION)
+            COMPANION_VERSION, // the ESP32's OGX-Mini-improved version (NUL-padded)
         };
         enum DeviceInfoField : uint8_t { MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE };
         static constexpr size_t kData = 28;
