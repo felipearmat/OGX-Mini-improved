@@ -10,8 +10,10 @@ about 3 s), which shows up as a USB serial port.
   ogxm_hybrid.py flash-esp32 BUILD_DIR       flash the hybrid's ESP32 (idf.py build output, or a
                                              folder with bootloader.bin, partition-table.bin and
                                              the app .bin)
-  ogxm_hybrid.py monitor [--log FILE]        the kept log (previous session) then the live log of
-                                             both boards; Ctrl+C returns the adapter to its mode
+  ogxm_hybrid.py monitor [--log FILE] [--seconds N]
+                                             the kept log (previous session) then the live log of
+                                             both boards, for N seconds or until Ctrl+C; the
+                                             adapter returns to its mode however the tool ends
   ogxm_hybrid.py reboot
 
 Needs pyserial; flash-esp32 needs esptool (pip install pyserial esptool); --uf2 uses picotool if
@@ -22,6 +24,7 @@ import json
 import os
 import pathlib
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -220,24 +223,42 @@ def cmd_flash_esp32(args):
     print("ESP32 flashed; the adapter restarts in its mode.")
 
 
+class _Stop(Exception):
+    pass
+
+
+def _stop_on_signal(_signum, _frame):
+    raise _Stop()
+
+
 def cmd_monitor(args):
-    system_command("esp32-monitor")
-    port = find_port(MONITOR_PRODUCT, timeout=15.0)
+    # Already in monitor mode (an earlier run that could not finish): read it again.
+    port = find_port(MONITOR_PRODUCT)
+    if port is None:
+        system_command("esp32-monitor")
+        port = find_port(MONITOR_PRODUCT, timeout=15.0)
     if port is None:
         sys.exit("The monitor port did not show up.")
     out = open(args.log, "ab") if args.log else None
-    print("Kept log first, then live output. Ctrl+C to stop.\n")
+    # Killed or the terminal closed: still send the adapter back to its mode (finally below).
+    for sig in (signal.SIGTERM, getattr(signal, "SIGHUP", None)):
+        if sig is not None:
+            signal.signal(sig, _stop_on_signal)
+    until = time.monotonic() + args.seconds if args.seconds else None
+    print("Kept log first, then live output. " + (f"{args.seconds} s." if until else "Ctrl+C to stop.") + "\n")
     try:
         with serial.Serial(port, 115200, timeout=0.2) as link:
             try:
-                while True:
+                while until is None or time.monotonic() < until:
                     data = link.read(512)
                     if data:
                         sys.stdout.write(data.decode("utf-8", "replace"))
                         sys.stdout.flush()
                         if out:
                             out.write(data)
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, _Stop):
+                pass
+            finally:
                 link.write(COMPLETE_FLAG)  # back to the adapter's mode
                 link.flush()
     finally:
@@ -261,6 +282,7 @@ def main():
     p.set_defaults(func=cmd_flash_esp32)
     p = sub.add_parser("monitor")
     p.add_argument("--log")
+    p.add_argument("--seconds", type=float, default=0, help="stop after this long (default: until Ctrl+C)")
     p.set_defaults(func=cmd_monitor)
     args = parser.parse_args()
     args.func(args)
