@@ -113,7 +113,7 @@ TEST(input_gap_is_logged_once_per_window) {
     diag::slot_report(0, now += 6000); // logged, with the one before
     std::string r = report(now);
     CHECK(has(r, "slot 0: no input for 120 ms"));
-    CHECK(has(r, "slot 0: no input for 6000 ms (and 1 shorter gaps before)"));
+    CHECK(has(r, "slot 0: no input 6000 ms, +1"));
     CHECK(!has(r, "no input for 90 ms"));
 }
 

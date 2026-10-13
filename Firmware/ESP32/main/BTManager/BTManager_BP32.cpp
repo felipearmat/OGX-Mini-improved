@@ -109,7 +109,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     }
     if (was_ready && !any_slot)
     {
-        diag_event("last controller disconnected, restarting for a clean reconnect");
+        diag_event("last slot gone: restarting");
         restart_after_ms(bt_pad::kLastPadRebootDelayMs);
     }
 }
@@ -149,8 +149,8 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
                              static_cast<uint8_t>(device->controller_type), le, device->conn.handle,
                              device->conn.btaddr);
         link_diag::on_slot_ready(idx);
-        diag_event("slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
-                   device->product_id, le ? "LE" : "Classic");
+        diag_event("slot %d ready %04x:%04x %s: %s", idx, device->vendor_id,
+                   device->product_id, le ? "LE" : "Classic", device->name);
     }
     if (!outputs_[output].connected.exchange(true))
     {

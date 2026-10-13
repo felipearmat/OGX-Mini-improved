@@ -103,7 +103,7 @@ static void diag_usb_mounted(uint8_t dev_addr, uint16_t vid, uint16_t pid, const
     snprintf(driver, sizeof(driver), "%s/%u", cls, static_cast<unsigned>(type));
     const uint32_t now = board_api::ms_since_boot();
     diag::usb_mounted(dev_addr, now, vid, pid, 0, static_cast<uint8_t>(tuh_speed_get(dev_addr)), driver);
-    diag::event(now, "wired controller %04x:%04x (%s)", vid, pid, driver);
+    diag::event(now, "wired %04x:%04x (%s)", vid, pid, driver);
     tuh_descriptor_get_device(dev_addr, s_diag_desc, sizeof(s_diag_desc), diag_desc_done, 0);
 }
 

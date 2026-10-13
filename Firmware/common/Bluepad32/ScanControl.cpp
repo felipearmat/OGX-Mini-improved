@@ -81,7 +81,7 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
     s_open = open;
     if (s_stop_request.exchange(false) && (open || outputs > 0)) {
         s_stopped = true;
-        event(now, "search for new controllers stopped from the controller");
+        event(now, "search stopped (controller)");
     }
 
     const uint16_t reduced_s = dongle_settings::reduced_search_s(settings);
@@ -112,10 +112,10 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
             uni_bt_le_scan_stop();
             if (previous != scan_policy::Scan::Off) {
                 if (!open) {
-                    std::snprintf(text, sizeof(text), "search for new controllers off: all %d slot(s) in use", outputs);
+                    std::snprintf(text, sizeof(text), "search off: all %d slots used", outputs);
                     event(now, text);
                 } else if (!s_stopped) {
-                    event(now, "search for new controllers off: search time over");
+                    event(now, "search off: time over");
                 }
             }
             break;
@@ -151,7 +151,7 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
                     uni_bt_bredr_scan_stop();  // as device_ready does with a pad connected
             }
             if (previous != want)
-                event(now, is_reduced ? "search for new controllers reduced" : "search for new controllers full");
+                event(now, is_reduced ? "search reduced (10%)" : "search full");
             break;
         }
     }

@@ -191,7 +191,7 @@ static void idle_check(uint32_t now_ms) {
             uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
             if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID || bt_output_idx(d) != idx)
                 continue;
-            diag::event(now_ms, "slot %d: no input for %u min, turning it off", i, minutes);
+            diag::event(now_ms, "slot %d idle %u min: off", i, minutes);
             bt_pad::turn_off(d);
         }
     }
@@ -768,7 +768,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
         if (!others && s_bt_slot_was_ready[idx])
             diag::session_freeze(now);
         diag::slot_disconnected(static_cast<size_t>(idx), now);
-        diag::event(now, "slot %d disconnected: %s", idx, device->name);
+        diag::event(now, "slot %d gone: %s", idx, device->name);
     }
 
     if (uni_hid_parser_switch2_is_ble_device(device)) {
@@ -939,8 +939,8 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
                              device->product_id, static_cast<uint8_t>(device->controller_type), le,
                              device->conn.handle, device->conn.btaddr);
         link_diag::on_slot_ready(idx);
-        diag::event(now, "slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
-                    device->product_id, le ? "LE" : "Classic");
+        diag::event(now, "slot %d ready %04x:%04x %s: %s", idx, device->vendor_id,
+                    device->product_id, le ? "LE" : "Classic", device->name);
     }
     s_bt_slot_was_ready[idx] = true;
     flydigi_apex4_bt_on_ready(device);

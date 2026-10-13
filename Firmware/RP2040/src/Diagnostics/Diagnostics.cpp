@@ -518,7 +518,7 @@ void slot_report(size_t slot, uint32_t now_ms)
     }
     if (gap) {  // event() takes the lock itself
         if (unlogged)
-            event(now_ms, "slot %u: no input for %lu ms (and %lu shorter gaps before)", static_cast<unsigned>(slot),
+            event(now_ms, "slot %u: no input %lu ms, +%lu", static_cast<unsigned>(slot),
                   static_cast<unsigned long>(gap), static_cast<unsigned long>(unlogged));
         else
             event(now_ms, "slot %u: no input for %lu ms", static_cast<unsigned>(slot), static_cast<unsigned long>(gap));

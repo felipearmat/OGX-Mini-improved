@@ -82,7 +82,7 @@ void tud_umount_cb(void) {
 
 void tud_suspend_cb(bool remote_wakeup_en) {
 	diag::usb_output_state(board_api::ms_since_boot(), tud_mounted(), true);
-	diag::event(board_api::ms_since_boot(), "USB suspended (host allows wakeup: %s)", remote_wakeup_en ? "yes" : "no");
+	diag::event(board_api::ms_since_boot(), "USB suspended (wakeup %s)", remote_wakeup_en ? "yes" : "no");
 }
 
 /* Custom: a report the host read (HID output modes), for the diagnostics' output rate. */

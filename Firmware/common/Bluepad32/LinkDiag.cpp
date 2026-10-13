@@ -95,7 +95,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         const uint16_t lat = hci_subevent_le_connection_complete_get_conn_latency(packet);
                         const uint16_t to = hci_subevent_le_connection_complete_get_supervision_timeout(packet);
                         diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                        diag::event(now, "LE 0x%04x %u.%02u ms lat %u to %u", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
                     }
                     break;
@@ -106,7 +106,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         const uint16_t lat = hci_subevent_le_enhanced_connection_complete_v1_get_conn_latency(packet);
                         const uint16_t to = hci_subevent_le_enhanced_connection_complete_v1_get_supervision_timeout(packet);
                         diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                        diag::event(now, "LE 0x%04x %u.%02u ms lat %u to %u", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
                     }
                     break;
@@ -117,7 +117,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         const uint16_t lat = hci_subevent_le_connection_update_complete_get_conn_latency(packet);
                         const uint16_t to = hci_subevent_le_connection_update_complete_get_supervision_timeout(packet);
                         diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE updated 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
+                        diag::event(now, "LE 0x%04x now %u.%02u ms lat %u", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
                     }
                     break;
@@ -132,7 +132,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                 diag::remote_version(h, hci_event_read_remote_version_information_complete_get_version(packet), company,
                                      hci_event_read_remote_version_information_complete_get_subversion(packet));
                 const char* vendor = diag::company_name(company);
-                diag::event(now, "link 0x%04x: Bluetooth chip %s (0x%04x)", h, vendor ? vendor : "?", company);
+                diag::event(now, "link 0x%04x chip %s", h, vendor ? vendor : "?");
             }
             break;
         case HCI_EVENT_COMMAND_COMPLETE: {
@@ -161,7 +161,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                 const uint8_t mode = hci_event_mode_change_get_mode(packet);
                 const uint16_t iv = hci_event_mode_change_get_interval(packet);
                 diag::link_mode(h, mode, iv);
-                diag::event(now, "link 0x%04x: %s mode, interval %u.%03u ms", h,
+                diag::event(now, "link 0x%04x %s %u.%03u ms", h,
                             mode == 2 ? "sniff" : mode == 0 ? "active" : mode == 1 ? "hold" : "park",
                             iv * 625 / 1000, iv * 625 % 1000);
             }

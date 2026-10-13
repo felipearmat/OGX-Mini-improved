@@ -288,14 +288,14 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
             dongle_settings::get());
         if (result.stop_search)
         {
-            bt_manager.diag_event("search for new controllers stopped from the controller");
+            bt_manager.diag_event("search stopped (controller)");
             scan_control::request_stop();
             bt_manager.stop_search_feedback();
             bt_manager.apply_scan(false, false);
         }
         else if (result.new_driver != DeviceDriverType::NONE)
         {
-            bt_manager.diag_event("mode changed by the button combo");
+            bt_manager.diag_event("mode change by button combo");
             if (settings.remote())
             {
                 /* The RP2040 stores it and restarts in the new mode; sent until it reports it. */
@@ -461,7 +461,7 @@ void BTManager::apply_tx_power(bool high)
     esp_bredr_tx_power_set(ESP_PWR_LVL_N0, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, high ? ESP_PWR_LVL_P9 : ESP_PWR_LVL_P3);
-    diag_event("transmit power: %s", high ? "high (+9 dBm)" : "default (+3 dBm)");
+    diag_event("TX power: %s", high ? "high (+9 dBm)" : "default (+3 dBm)");
 }
 
 /* Every 5 s, what the ESP32 measured itself, for the diagnostics report (companion). */
@@ -594,7 +594,7 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
                                       ? get_connected_bp32_device(i) : nullptr;
             if (d)
             {
-                bt_manager.diag_event("slot %d: no input for %u min, turning it off", i, minutes);
+                bt_manager.diag_event("slot %d idle %u min: off", i, minutes);
                 bt_pad::turn_off(d);
             }
         }
@@ -749,8 +749,7 @@ void BTManager::disconnect_combo_timer_cb(btstack_timer_source *ts)
         bt_manager.send_neutral(static_cast<uint8_t>(output));
     }
 
-    bt_manager.diag_event("slot %d: disconnect combo, restart in %lu ms", slot,
-                          static_cast<unsigned long>(bt_pad::kComboRebootDelayMs));
+    bt_manager.diag_event("slot %d: off combo, restarting", slot);
     restart_after_ms(bt_pad::kComboRebootDelayMs);  // armed before touching the pad
     bt_pad::disconnect_with_partner(bp_device);
 }
