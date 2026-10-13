@@ -29,6 +29,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Board/ogxm_log.h"
 #include "Bluepad32/ScanControl.h"
 #include "Bluepad32/BtPad.h"
+#include "Bluepad32/LinkDiag.h"
 #include "Bluepad32/ComboHold.h"
 #include "Bluepad32/IdleOff.h"
 #include "Diagnostics/Diagnostics.h"
@@ -198,10 +199,10 @@ static void idle_check(uint32_t now_ms) {
 
 
 /* Custom: diagnostics — remote version still to ask, and the periodic link queries. */
-static bool s_diag_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
-static bool s_diag_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
-static bool s_diag_tx_asked_max = false;  // which level the last Read Transmit Power Level asked for
-static void diag_query_links(uint32_t now_ms);
+static bool bt_slot_connected(int slot)
+{
+    return slot >= 0 && slot < CONFIG_BLUEPAD32_MAX_DEVICES && bt_devices_[slot].connected;
+}
 static void apply_scan_policy(int exclude_idx, bool force = false);
 static bool scan_reduced();
 
@@ -389,7 +390,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
     }
     /* Custom: diagnostics rates roll over; link queries for each connected pad. */
     diag::tick(now_ms);
-    diag_query_links(now_ms);
+    link_diag::query(now_ms, bt_slot_connected);  // Bluepad32/LinkDiag, shared with the ESP32
     idle_check(now_ms);
     apply_scan_policy(-1);  // Custom: also catches a Joy-Con pair completed after device_ready
     if (feedback_timer_set_)
@@ -956,8 +957,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         diag::slot_connected(static_cast<size_t>(idx), now, device->name, device->vendor_id,
                              device->product_id, static_cast<uint8_t>(device->controller_type), le,
                              device->conn.handle, device->conn.btaddr);
-        s_diag_version_pending[idx] = true;
-        s_diag_tx_max_pending[idx] = true;
+        link_diag::on_slot_ready(idx);
         diag::event(now, "slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
                     device->product_id, le ? "LE" : "Classic");
     }
@@ -1141,7 +1141,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     if (SteamActive::is_enabled()) {
         SteamPassthrough::input_has_touchpad =
             (device->controller_type == CONTROLLER_TYPE_PS5Controller);
-        SteamBtReport::update_from_uni_gamepad(uni_gp);
+        SteamBtReport::store_ps5_core(bt_pad::ps5_core_from(uni_gp));  // Bluepad32/BtPad.h, shared
         if (device->controller_type == CONTROLLER_TYPE_PS5Controller)
             SteamTouchpad::apply_to_passthrough(gp_in.touch_raw, gp_in.touchpad_click != 0);
     }
@@ -1408,247 +1408,6 @@ void on_usb_device_resume() {
 #endif
 }
 
-/* Custom: LE connection parameters, RSSI and disconnect reasons for the diagnostics. */
-static_assert(CONFIG_BLUEPAD32_MAX_DEVICES <= diag::kSlots, "diagnostics slots");
-static btstack_packet_callback_registration_t s_diag_hci_cb;
-
-/* Read AFH Channel Map (Status Parameters, OCF 0x0006): not in BTstack's command table. */
-static const hci_cmd_t s_hci_read_afh_channel_map = {HCI_OPCODE(0x05, 0x0006), "H"};
-static uint8_t count_bits(const uint8_t* map, unsigned bits)
-{
-    uint8_t n = 0;
-    for (unsigned i = 0; i < bits; ++i)
-        if (map[i / 8] & (1u << (i % 8)))
-            ++n;
-    return n;
-}
-
-/* One HCI query per pass, rotating (remote version and maximum transmit power once per pad;
- * then RSSI, channel map, failed contacts and current transmit power), so diagnostics never
- * crowd the command queue. */
-static void diag_query_links(uint32_t now_ms)
-{
-    static uint32_t s_last_ms = 0;
-    static uint8_t s_step = 0;
-    if (now_ms - s_last_ms < 700)
-        return;
-    s_last_ms = now_ms;
-    diag::searching(uni_bt_enable_new_connections_is_enabled());
-    for (uint8_t n = 0; n < CONFIG_BLUEPAD32_MAX_DEVICES; ++n) {
-        const uint8_t i = static_cast<uint8_t>((s_step / 4 + n) % CONFIG_BLUEPAD32_MAX_DEVICES);
-        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-        if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
-            continue;
-        if (!hci_can_send_command_packet_now())
-            return;
-        const hci_con_handle_t h = d->conn.handle;
-        const bool le = gap_get_connection_type(h) == GAP_CONNECTION_LE;
-        uint8_t major = 0, minor = 0;
-        if (uni_hid_parser_switch_get_firmware_version(d, &major, &minor))
-            diag::slot_switch_firmware(i, major, minor);
-        if (s_diag_version_pending[i]) {
-            s_diag_version_pending[i] = false;
-            hci_send_cmd(&hci_read_remote_version_information, h);
-            return;
-        }
-        if (s_diag_tx_max_pending[i]) {
-            s_diag_tx_max_pending[i] = false;
-            s_diag_tx_asked_max = true;
-            hci_send_cmd(&hci_read_transmit_power_level, h, 1);  // 1 = maximum
-            return;
-        }
-        switch (s_step++ % 4) {
-            case 0: gap_read_rssi(h); break;
-            case 1:
-                if (le) hci_send_cmd(&hci_le_read_channel_map, h);
-                else hci_send_cmd(&s_hci_read_afh_channel_map, h);
-                break;
-            case 2:
-                if (!le) hci_send_cmd(&hci_read_failed_contact_counter, h);
-                break;
-            default:
-                s_diag_tx_asked_max = false;
-                hci_send_cmd(&hci_read_transmit_power_level, h, 0);  // 0 = current
-                break;
-        }
-        return;
-    }
-}
-
-static void diag_hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size)
-{
-    (void)channel;
-    (void)size;
-    if (packet_type != HCI_EVENT_PACKET)
-        return;
-    const uint32_t now = to_ms_since_boot(get_absolute_time());
-    switch (hci_event_packet_get_type(packet)) {
-        case HCI_EVENT_LE_META:
-            switch (hci_event_le_meta_get_subevent_code(packet)) {
-                case HCI_SUBEVENT_LE_CONNECTION_COMPLETE:
-                    if (hci_subevent_le_connection_complete_get_status(packet) == 0) {
-                        const uint16_t h = hci_subevent_le_connection_complete_get_connection_handle(packet);
-                        const uint16_t iv = hci_subevent_le_connection_complete_get_conn_interval(packet);
-                        const uint16_t lat = hci_subevent_le_connection_complete_get_conn_latency(packet);
-                        const uint16_t to = hci_subevent_le_connection_complete_get_supervision_timeout(packet);
-                        diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
-                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
-                    }
-                    break;
-                case HCI_SUBEVENT_LE_ENHANCED_CONNECTION_COMPLETE_V1:
-                    if (hci_subevent_le_enhanced_connection_complete_v1_get_status(packet) == 0) {
-                        const uint16_t h = hci_subevent_le_enhanced_connection_complete_v1_get_connection_handle(packet);
-                        const uint16_t iv = hci_subevent_le_enhanced_connection_complete_v1_get_conn_interval(packet);
-                        const uint16_t lat = hci_subevent_le_enhanced_connection_complete_v1_get_conn_latency(packet);
-                        const uint16_t to = hci_subevent_le_enhanced_connection_complete_v1_get_supervision_timeout(packet);
-                        diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE connected 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
-                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
-                    }
-                    break;
-                case HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE:
-                    if (hci_subevent_le_connection_update_complete_get_status(packet) == 0) {
-                        const uint16_t h = hci_subevent_le_connection_update_complete_get_connection_handle(packet);
-                        const uint16_t iv = hci_subevent_le_connection_update_complete_get_conn_interval(packet);
-                        const uint16_t lat = hci_subevent_le_connection_update_complete_get_conn_latency(packet);
-                        const uint16_t to = hci_subevent_le_connection_update_complete_get_supervision_timeout(packet);
-                        diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE updated 0x%04x: interval %u.%02u ms, latency %u, timeout %u ms", h,
-                                    iv * 125 / 100, iv * 125 % 100, lat, to * 10);
-                    }
-                    break;
-                default:
-                    break;
-            }
-            break;
-        case HCI_EVENT_READ_REMOTE_VERSION_INFORMATION_COMPLETE:
-            if (hci_event_read_remote_version_information_complete_get_status(packet) == 0) {
-                const uint16_t h = hci_event_read_remote_version_information_complete_get_connection_handle(packet);
-                const uint16_t company = hci_event_read_remote_version_information_complete_get_manufacturer_name(packet);
-                diag::remote_version(h, hci_event_read_remote_version_information_complete_get_version(packet), company,
-                                     hci_event_read_remote_version_information_complete_get_subversion(packet));
-                const char* vendor = diag::company_name(company);
-                diag::event(now, "link 0x%04x: Bluetooth chip %s (0x%04x)", h, vendor ? vendor : "?", company);
-            }
-            break;
-        case HCI_EVENT_COMMAND_COMPLETE: {
-            const uint16_t op = hci_event_command_complete_get_command_opcode(packet);
-            const uint8_t* r = hci_event_command_complete_get_return_parameters(packet);
-            if (r[0] != 0)  // status
-                break;
-            const uint16_t h = little_endian_read_16(r, 1);
-            if (op == s_hci_read_afh_channel_map.opcode)
-                diag::channels(h, count_bits(&r[4], 79), 79);  // status, handle, mode, map[10]
-            else if (op == hci_le_read_channel_map.opcode)
-                diag::channels(h, count_bits(&r[3], 37), 37);  // status, handle, map[5]
-            else if (op == hci_read_failed_contact_counter.opcode)
-                diag::failed_contacts(h, little_endian_read_16(r, 3));
-            else if (op == hci_read_transmit_power_level.opcode)
-                diag::tx_power(h, s_diag_tx_asked_max, static_cast<int8_t>(r[3]));  // status, handle, level
-            break;
-        }
-        case GAP_EVENT_RSSI_MEASUREMENT:
-            diag::rssi(gap_event_rssi_measurement_get_con_handle(packet),
-                       static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet)));
-            break;
-        case HCI_EVENT_MODE_CHANGE:
-            if (hci_event_mode_change_get_status(packet) == 0) {
-                const uint16_t h = hci_event_mode_change_get_handle(packet);
-                const uint8_t mode = hci_event_mode_change_get_mode(packet);
-                const uint16_t iv = hci_event_mode_change_get_interval(packet);
-                diag::link_mode(h, mode, iv);
-                diag::event(now, "link 0x%04x: %s mode, interval %u.%03u ms", h,
-                            mode == 2 ? "sniff" : mode == 0 ? "active" : mode == 1 ? "hold" : "park",
-                            iv * 625 / 1000, iv * 625 % 1000);
-            }
-            break;
-        case HCI_EVENT_INQUIRY_COMPLETE:
-            diag::inquiry_complete(now);
-            break;
-        case GAP_EVENT_ADVERTISING_REPORT:
-        case GAP_EVENT_EXTENDED_ADVERTISING_REPORT:
-            diag::le_adv_report();
-            break;
-        case HCI_EVENT_DISCONNECTION_COMPLETE:
-            diag::event(now, "link 0x%04x closed, reason 0x%02x",
-                        hci_event_disconnection_complete_get_connection_handle(packet),
-                        hci_event_disconnection_complete_get_reason(packet));
-            break;
-        default:
-            break;
-    }
-}
-
-} // namespace bluepad32
-
-/* Custom: Bluepad32 diagnostics hooks (bluepad32_diagnostics_hooks.diff). */
-extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len)
-{
-    const int slot = uni_hid_device_get_idx_for_instance(d);
-    if (slot < 0 || !report || len == 0)
-        return;
-    /* Input timing per physical device (each half of a merged Joy-Con pair on its own); Switch
-     * subcommand replies (0x21) are not input. */
-    if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
-          d->controller_type == CONTROLLER_TYPE_SwitchProController) || report[0] != 0x21)
-        diag::slot_report(static_cast<size_t>(slot), to_ms_since_boot(get_absolute_time()));
-    /* The pads' own report counters: DS4 report 0x11 (6 bits, byte 9), DualSense 0x31 (byte 8). */
-    if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len >= 10)
-        diag::slot_counter(static_cast<size_t>(slot), report[9] >> 2, 6);
-    else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len >= 9)
-        diag::slot_counter(static_cast<size_t>(slot), report[8], 8);
-    /* Switch pads: the timer in byte 1 of the standard report 0x30, which moves by a few counts
-     * per report (learnt). */
-    else if ((d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
-              d->controller_type == CONTROLLER_TYPE_SwitchProController) && report[0] == 0x30 && len >= 2)
-        diag::slot_counter(static_cast<size_t>(slot), report[1], 8, 0);
-}
-
-extern "C" void uni_diag_on_device_information(const uint8_t* packet, uint16_t size)
-{
-    (void)size;
-    switch (hci_event_gattservice_meta_get_subevent_code(packet)) {
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_MANUFACTURER_NAME:
-            if (gattservice_subevent_device_information_manufacturer_name_get_att_status(packet) == 0)
-                diag::device_information(gattservice_subevent_device_information_manufacturer_name_get_con_handle(packet),
-                                         "manufacturer", gattservice_subevent_device_information_manufacturer_name_get_value(packet));
-            break;
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_MODEL_NUMBER:
-            if (gattservice_subevent_device_information_model_number_get_att_status(packet) == 0)
-                diag::device_information(gattservice_subevent_device_information_model_number_get_con_handle(packet),
-                                         "model", gattservice_subevent_device_information_model_number_get_value(packet));
-            break;
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_FIRMWARE_REVISION:
-            if (gattservice_subevent_device_information_firmware_revision_get_att_status(packet) == 0)
-                diag::device_information(gattservice_subevent_device_information_firmware_revision_get_con_handle(packet),
-                                         "firmware", gattservice_subevent_device_information_firmware_revision_get_value(packet));
-            break;
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_HARDWARE_REVISION:
-            if (gattservice_subevent_device_information_hardware_revision_get_att_status(packet) == 0)
-                diag::device_information(gattservice_subevent_device_information_hardware_revision_get_con_handle(packet),
-                                         "hardware", gattservice_subevent_device_information_hardware_revision_get_value(packet));
-            break;
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_SOFTWARE_REVISION:
-            if (gattservice_subevent_device_information_software_revision_get_att_status(packet) == 0)
-                diag::device_information(gattservice_subevent_device_information_software_revision_get_con_handle(packet),
-                                         "software", gattservice_subevent_device_information_software_revision_get_value(packet));
-            break;
-        case GATTSERVICE_SUBEVENT_DEVICE_INFORMATION_PNP_ID:
-            if (gattservice_subevent_device_information_pnp_id_get_att_status(packet) == 0)
-                diag::pnp_id(gattservice_subevent_device_information_pnp_id_get_con_handle(packet),
-                             gattservice_subevent_device_information_pnp_id_get_vendor_source_id(packet),
-                             gattservice_subevent_device_information_pnp_id_get_vendor_id(packet),
-                             gattservice_subevent_device_information_pnp_id_get_product_id(packet),
-                             gattservice_subevent_device_information_pnp_id_get_product_version(packet));
-            break;
-        default:
-            break;
-    }
-}
-
-namespace bluepad32 {
-
 void init(Gamepad(&gamepads)[MAX_GAMEPADS])
 {
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
@@ -1658,8 +1417,7 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
 
     uni_platform_set_custom(get_driver());
     uni_init(0, nullptr);
-    s_diag_hci_cb.callback = &diag_hci_handler;
-    hci_add_event_handler(&s_diag_hci_cb);
+    link_diag::init();
     /* Custom: which half of a merged Joy-Con pair provides motion. */
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
     /* Custom: a lone Joy-Con waits for its other half (the search times decide how hard the

@@ -6,9 +6,11 @@
 
 #include "Board/ogxm_log.h"
 #include "BTManager/BTManager.h"
-#include "BLEServer/BLEServer.h"
 #include "Bluepad32/BtPad.h"
 #include "UserSettings/DongleSettings.h"
+#include "Bluepad32/LinkDiag.h"
+#include "Diagnostics/Diagnostics.h"
+#include "Diagnostics/DiagForward.h"
 
 /* Pad behaviour shared with the Pico W path lives in Firmware/common/Bluepad32 (BtPad.h,
  * ScanControl, IdleOff.h, ComboHold.h); this file connects it to the I2C link. */
@@ -81,7 +83,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     slot.lightbar = Lightbar{};
     slot.host_rumble_ok_ms = 0;
     slot.battery_sent = 0;
-    diag_send(I2CDriver::PacketDiag::SLOT_GONE, static_cast<uint8_t>(idx), nullptr, 0);
+    diag::slot_disconnected(static_cast<size_t>(idx), btstack_run_loop_get_time_ms());
     diag_event("slot %d disconnected", idx);
 
     if (output >= 0 && output < MAX_GAMEPADS)
@@ -142,20 +144,11 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
     slot.host_rumble_ok_ms = grace_ms ? now_ms + grace_ms : 0;
     {
         /* Diagnostics: the controller, as the Pico W path records it (Diagnostics.h). */
-        diag_send(I2CDriver::PacketDiag::SLOT_NAME, static_cast<uint8_t>(idx), device->name,
-                  strnlen(device->name, I2CDriver::PacketDiag::kData));
         const bool le = gap_get_connection_type(device->conn.handle) == GAP_CONNECTION_LE;
-        uint8_t ready[16]{};
-        ready[0] = device->vendor_id & 0xFF;
-        ready[1] = device->vendor_id >> 8;
-        ready[2] = device->product_id & 0xFF;
-        ready[3] = device->product_id >> 8;
-        ready[4] = static_cast<uint8_t>(device->controller_type);
-        ready[5] = le ? 1 : 0;
-        ready[6] = device->conn.handle & 0xFF;
-        ready[7] = device->conn.handle >> 8;
-        std::memcpy(&ready[8], device->conn.btaddr, 6);
-        diag_send(I2CDriver::PacketDiag::SLOT_READY, static_cast<uint8_t>(idx), ready, sizeof(ready));
+        diag::slot_connected(static_cast<size_t>(idx), now_ms, device->name, device->vendor_id, device->product_id,
+                             static_cast<uint8_t>(device->controller_type), le, device->conn.handle,
+                             device->conn.btaddr);
+        link_diag::on_slot_ready(idx);
         diag_event("slot %d ready: %s (%04x:%04x, %s)", idx, device->name, device->vendor_id,
                    device->product_id, le ? "LE" : "Classic");
     }
@@ -234,7 +227,7 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     if (ext.battery != slots_[idx].battery_sent && ext.battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
     {
         slots_[idx].battery_sent = ext.battery;
-        diag_send(I2CDriver::PacketDiag::BATTERY, static_cast<uint8_t>(idx), &ext.battery, 1);
+        diag::slot_battery(static_cast<size_t>(idx), ext.battery);
     }
 
     I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
@@ -249,6 +242,13 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     packet_in.joystick_rx = mapped.joystick_rx;
     packet_in.joystick_ry = mapped.joystick_ry;
     packet_in.bt_slot = static_cast<uint8_t>(idx + 1);
+    uint8_t counter_value = 0, counter_bits = 0, counter_unit = 0;
+    if (diag_forward::take_counter(idx, counter_value, counter_bits, counter_unit))
+    {
+        packet_in.counter_value = counter_value;
+        packet_in.counter_bits = counter_bits;
+        packet_in.counter_unit = counter_unit;
+    }
 
     /* SET_PAD goes out on every report (the RP2040 measures the input timing for the diagnostics
      * from it); the extension only when it changed, before the SET_PAD that applies it. */
@@ -256,6 +256,16 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     {
         output.ext = ext;
         i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), ext);
+    }
+    /* STEAM mode: the pad's own input for the passthrough report, before the SET_PAD it goes with
+     * (as the Pico W path builds it: Bluepad32/BtPad.h ps5_core_from). */
+    if (UserSettings::get_instance().get_current_driver() == DeviceDriverType::STEAM)
+    {
+        I2CDriver::PacketPadRaw raw;
+        raw.index = static_cast<uint8_t>(out);
+        raw.flags = bp_device->controller_type == CONTROLLER_TYPE_PS5Controller ? I2CDriver::PacketPadRaw::DUALSENSE : 0;
+        raw.core = bt_pad::ps5_core_from(uni_gp);
+        i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), raw);
     }
     output.packet_in = packet_in;
     i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), packet_in);

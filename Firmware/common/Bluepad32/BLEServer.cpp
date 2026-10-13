@@ -2,18 +2,18 @@
 #include <string>
 #include <algorithm>
 
-#include "att_delayed_response.h"
 #include "btstack.h"
+#include "ble/att_server.h"  // not pulled in by btstack.h on every port
 
-#include "BLEServer/BLEServer.h"
-#include "Gamepad/I2CWirePad.h"
+#include "BLEServer/att_delayed_response.h"  // generated per firmware from Bluepad32/att_delayed_response.gatt
+#include "Bluepad32/BLEServer.h"
+#include "Bluepad32/BleStore.h"
 #include "UserSettings/UserProfile.h"
-#include "UserSettings/UserSettings.h"
-#include "TaskQueue/TaskQueue.h"
 
 namespace BLEServer {
 
 static constexpr uint16_t PACKET_LEN_MAX = 20;
+static constexpr size_t kLivePadLen = 23;  // the web app's legacy pad layout (Gamepad/I2CWirePad.h)
 
 namespace Handle {
     static constexpr uint16_t FW_VERSION    = ATT_CHARACTERISTIC_12345678_1234_1234_1234_123456789020_01_VALUE_HANDLE;
@@ -59,7 +59,7 @@ namespace ADV {
 #pragma pack(push, 1)
 struct SetupPacket {
     DeviceDriverType device_type{DeviceDriverType::NONE};
-    uint8_t max_gamepads{MAX_GAMEPADS};
+    uint8_t max_gamepads{1};
     uint8_t player_idx{0};
     uint8_t profile_id{0};
 };
@@ -107,15 +107,15 @@ private:
 
     bool set_profile() {
         if (setup_packet_.profile_id == 0xFF) {
-            if (setup_packet_.player_idx >= UserSettings::MAX_PROFILES) {
+            if (setup_packet_.player_idx >= ble_store::kMaxProfiles) {
                 return false;
             }
-            profile_ = UserSettings::get_instance().get_profile_by_index(setup_packet_.player_idx);
+            profile_ = ble_store::profile_by_index(setup_packet_.player_idx);
         } else {
-            if (setup_packet_.profile_id > UserSettings::MAX_PROFILES) {
+            if (setup_packet_.profile_id > ble_store::kMaxProfiles) {
                 return false;
             }
-            profile_ = UserSettings::get_instance().get_profile_by_id(setup_packet_.profile_id);
+            profile_ = ble_store::profile_by_id(setup_packet_.profile_id);
         }
         return true;
     }
@@ -158,21 +158,7 @@ public:
     }
 
     bool commit_profile() {
-        bool success = false;
-        if (setup_packet_.device_type != DeviceDriverType::NONE) {
-            success = TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1000, false,
-                [driver_type = setup_packet_.device_type, profile = profile_, index = setup_packet_.player_idx]
-                {
-                    UserSettings::get_instance().store_profile_and_driver_type(driver_type, index, profile);
-                });
-        } else {
-            success = TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1000, false,
-                [index = setup_packet_.player_idx, profile = profile_]
-                {
-                    UserSettings::get_instance().store_profile(index, profile);
-                });
-        }
-        return success;
+        return ble_store::save_profile(setup_packet_.player_idx, profile_, setup_packet_.device_type);
     }
 
 private:
@@ -181,7 +167,6 @@ private:
     size_t current_offset_ = 0;
 };
 
-std::array<Gamepad*, MAX_GAMEPADS> gamepads_;
 ProfileReader profile_reader_;
 ProfileWriter profile_writer_;
 
@@ -194,7 +179,8 @@ static int verify_write(const uint16_t buffer_size, const uint16_t expected_size
 
 /* Custom: KBM settings can be longer than one ATT packet: reads go out in blobs (offset) and a
  * long write arrives as prepared writes, gathered here until the execute. */
-static uint8_t s_kbm_write_buf[sizeof(kbm_settings::Settings)];
+static constexpr size_t kKbmSettingsLen = 48;  // USBDevice/DeviceDriver/KBM/KbmSettings.h
+static uint8_t s_kbm_write_buf[kKbmSettingsLen];
 static uint16_t s_kbm_write_len = 0;
 
 static int kbm_settings_write(uint16_t transaction_mode, uint16_t offset, const uint8_t* buffer, uint16_t buffer_size) {
@@ -213,15 +199,9 @@ static int kbm_settings_write(uint16_t transaction_mode, uint16_t offset, const 
         if (transaction_mode == ATT_TRANSACTION_MODE_ACTIVE)
             return 0;  // wait for the execute
     }
-    kbm_settings::Settings settings{};
-    const bool ok = kbm_settings::decode(s_kbm_write_buf, s_kbm_write_len, settings);
+    const bool ok = ble_store::save_kbm_settings(s_kbm_write_buf, s_kbm_write_len);
     s_kbm_write_len = 0;
-    if (!ok)
-        return ATT_ERROR_VALUE_NOT_ALLOWED;
-    /* Stored and applied from Core0; no reboot. */
-    TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1, false,
-        [settings] { UserSettings::get_instance().store_kbm_settings(settings); });
-    return 0;
+    return ok ? 0 : ATT_ERROR_VALUE_NOT_ALLOWED;
 }
 
 static void disconnect_client_cb(btstack_timer_source_t *ts) {
@@ -249,7 +229,6 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
                                     uint16_t buffer_size) {
     std::string fw_version;
     std::string fw_name;
-    Gamepad::PadIn pad_in;
 
     switch (att_handle) {
         case Handle::FW_VERSION:
@@ -268,10 +247,10 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
 
         case Handle::GET_SETUP:
             if (buffer) {
-                buffer[0] = static_cast<uint8_t>(UserSettings::get_instance().get_current_driver());
-                buffer[1] = MAX_GAMEPADS;
+                buffer[0] = static_cast<uint8_t>(ble_store::current_driver());
+                buffer[1] = ble_store::max_gamepads();
                 buffer[2] = 0;
-                buffer[3] = UserSettings::get_instance().get_active_profile_id(0);
+                buffer[3] = ble_store::active_profile(0);
             }
             return static_cast<uint16_t>(sizeof(SetupPacket));
 
@@ -283,27 +262,25 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
 
         case Handle::DONGLE_SETTINGS:
             if (buffer) {
-                const dongle_settings::Settings& settings = dongle_settings::get();
+                const dongle_settings::Settings& settings = ble_store::dongle_settings();
                 std::memcpy(buffer, &settings, std::min<size_t>(sizeof(settings), buffer_size));
             }
             return static_cast<uint16_t>(sizeof(dongle_settings::Settings));
 
         case Handle::KBM_SETTINGS:
         {
-            const kbm_settings::Settings& settings = kbm_settings::get();
-            return att_read_callback_handle_blob(reinterpret_cast<const uint8_t*>(&settings),
-                                                 sizeof(settings), offset, buffer, buffer_size);
+            uint8_t settings[kKbmSettingsLen]{};
+            const size_t len = ble_store::kbm_settings(settings, sizeof(settings));
+            return att_read_callback_handle_blob(settings, static_cast<uint16_t>(len), offset, buffer, buffer_size);
         }
 
         case Handle::GAMEPAD:
             /* Custom fix: legacy 23-byte layout expected by the web app (PadIn grew IMU and
              * touchpad fields), and never copy more than the ATT buffer holds. */
             if (buffer) {
-                pad_in = gamepads_.front()->get_pad_in();
-                const I2CWirePadIn wire = i2c_wire_pad_from(pad_in);
-                std::memcpy(buffer, &wire, std::min<size_t>(sizeof(wire), buffer_size));
+                return static_cast<uint16_t>(ble_store::live_pad(buffer, buffer_size));
             }
-            return static_cast<uint16_t>(sizeof(I2CWirePadIn));
+            return static_cast<uint16_t>(kLivePadLen);
 
         default:
             break;
@@ -362,10 +339,9 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
                 ret = ATT_ERROR_VALUE_NOT_ALLOWED;
                 break;
             }
-            /* Store and reboot from Core0, like a profile write. */
+            /* Stored, then the board restarts, like a profile write. */
             queue_disconnect(connection_handle, 500);
-            TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1000, false,
-                [settings] { UserSettings::get_instance().store_dongle_settings(settings); });
+            ble_store::save_dongle_settings(settings);
             break;
         }
 
@@ -379,13 +355,7 @@ static int att_write_callback(  hci_con_handle_t connection_handle,
     return ret;
 }
 
-void init_server(Gamepad(&gamepads)[MAX_GAMEPADS]) {
-    for (uint8_t i = 0; i < MAX_GAMEPADS; i++) {
-        gamepads_[i] = &gamepads[i];
-    }
-
-    UserSettings::get_instance().initialize_flash();
-
+void init_server() {
     // setup ATT server
     att_server_init(profile_data, att_read_callback, att_write_callback);
 

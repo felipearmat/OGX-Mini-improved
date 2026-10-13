@@ -82,6 +82,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
     ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp
+    ${COMMON}/Diagnostics/DiagNames.cpp
     ${SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${SRC}/Diagnostics/CrashHandler.cpp
     ${SRC}/Board/ReportedMac.cpp
@@ -218,6 +219,7 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
     add_compile_definitions(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C=1)
     set(EN_ESP32 TRUE)
     set(EN_UART_BRIDGE TRUE)
+    set(EN_USB_HOST TRUE)  # Custom: USB host port on GP0 / GP1 (wired controllers, DS3 pairing)
     # Custom: the same hybrid on a Pico 2 / Pico 2 W (RP2350, Pico pinout, 4 MB flash). The
     # Pico 2 W radio is not used: Bluetooth comes from the ESP32, and the pins wired to the
     # CYW43 (GP23 / 24 / 25 / 29) are not touched.
@@ -472,15 +474,17 @@ if(EN_BLUETOOTH)
     add_compile_definitions(CONFIG_EN_BLUETOOTH=1)
     message(STATUS "Bluetooth enabled.")
 
-    generate_gatt_header(${BTSTACK_ROOT} ${SRC}/BLEServer/att_delayed_response.gatt ${SRC}/BLEServer/att_delayed_response.h)
+    generate_gatt_header(${BTSTACK_ROOT} ${COMMON}/Bluepad32/att_delayed_response.gatt ${SRC}/BLEServer/att_delayed_response.h)
     
     list(APPEND SOURCES_BOARD
         ${SRC}/Bluepad32/Bluepad32.cpp
         ${COMMON}/Bluepad32/ScanControl.cpp
+        ${COMMON}/Bluepad32/LinkDiag.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${COMMON}/Board/ModeIndicator.cpp
         ${COMMON}/Bluepad32/JoyConSettings.cpp
-        ${SRC}/BLEServer/BLEServer.cpp
+        ${COMMON}/Bluepad32/BLEServer.cpp
+        ${SRC}/BLEServer/BleStore.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtProbe.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBt.cpp
         ${SRC}/USBHost/HostDriver/FlydigiApex4Wukong/FlydigiApex4WukongBtL2cap.cpp

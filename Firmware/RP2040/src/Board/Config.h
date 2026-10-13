@@ -101,6 +101,12 @@
     #define MODE_SEL_PIN        21
     #define ESP_PROG_PIN        20 // ESP32 IO0
     #define ESP_RST_PIN         8  // ESP32 EN
+    /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP0,
+     * D- GP1, 5 V from VBUS), as on the Pico W. */
+    #define PIO_USB_DP_PIN      0
+    #ifndef PIO_USB_SWAP_DP_DM
+    #define PIO_USB_SWAP_DP_DM  0
+    #endif
 
     #if MAX_GAMEPADS > 1
         #undef MAX_GAMEPADS
@@ -185,6 +191,13 @@
         PIO_USB_PINOUT_DPDM \
     }
 #endif // defined(PIO_USB_DP_PIN)
+
+/* Boards that tell a DualShock 3 on the USB host port their Bluetooth address (USB pairing):
+ * the radio is the RP2040's own (Bluepad32) or the hybrid's ESP32 (Board/BtAdapterAddress.h). */
+#if defined(CONFIG_EN_USB_HOST) && \
+    (defined(CONFIG_EN_BLUETOOTH) || defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C))
+    #define OGXM_DS3_BT_PAIRING 1
+#endif
 
 /* Boards that run the Pico W firmware path (CYW43439 BT + optional PIO USB host mux). */
 #if defined(CONFIG_OGXM_BOARD_PI_PICOW) || defined(CONFIG_OGXM_BOARD_PI_PICO2W) || \

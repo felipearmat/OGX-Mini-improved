@@ -5,6 +5,7 @@
 #include <array>
 
 #include "tusb.h"
+#include "Board/Config.h"
 
 #include "Descriptors/PS3.h"
 #include "USBHost/HostDriver/HostDriver.h"
@@ -30,7 +31,7 @@ private:
 
     static const tusb_control_request_t ENABLE_USB_REQUEST;
     static const tusb_control_request_t RUMBLE_REQUEST;
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
     /** HID feature report: program DualShock 3 master Bluetooth address (see Bluepad32 sixaxispairer). */
     static const tusb_control_request_t BT_MAC_FEATURE_REQUEST;
     static bool local_bt_addr_is_nonzero(const uint8_t addr[6]);
@@ -48,7 +49,7 @@ private:
 #else
     static constexpr uint32_t KEEPALIVE_MS = 0u;
 #endif
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
     /** Persistent buffer for SET_REPORT (feature 0xF5). */
     std::array<uint8_t, 8> bt_pair_buf_{};
     bool ds3_bt_pair_deferred_{false};

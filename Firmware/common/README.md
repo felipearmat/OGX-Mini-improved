@@ -17,6 +17,9 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 | `Bluepad32/BtPad.h` | how a Bluetooth pad behaves, for every board that runs Bluepad32 (Pico W / Pico 2 W and the hybrid's ESP32): input mapping, rumble, connection setup, disconnect combo, BLE keepalives, reboot timing |
 | `Bluepad32/ScanPolicy.h`, `Bluepad32/ScanControl.*` | when to search for new controllers, and applying it to Bluepad32 / BTstack |
 | `Bluepad32/ComboHold.h`, `Bluepad32/IdleOff.h`, `Bluepad32/IdleMotion.h` | the disconnect combo hold; turning an idle controller off (motion counts as use) |
+| `Bluepad32/BLEServer.*`, `Bluepad32/BleStore.h`, `Bluepad32/att_delayed_response.gatt` | the web app over Bluetooth LE; each firmware implements the storage (`BleStore.cpp`) |
+| `Bluepad32/LinkDiag.*` | link details for the diagnostics (HCI queries and events, Bluepad32 hooks); on the ESP32 `diag::` forwards them to the RP2040 |
+| `Diagnostics/Diagnostics.h`, `Diagnostics/DiagNames.cpp` | the diagnostics API (the report itself is RP2040 code) and its name tables |
 | `Bluepad32/JoyConSettings.*` | Joy-Con motion orientation and pair rumble (dongle options) |
 | `UserSettings/ComboCheck.h` | mode combos, Start + L3, a lone Joy-Con's stick as the D-pad, combos turned off in the web app |
 | `UserSettings/DongleSettings.*` | the dongle options (web app); on the hybrid the RP2040 sends them to the ESP32 |
@@ -33,7 +36,7 @@ goes (a local `Gamepad` on the Pico W, the I2C packet on the ESP32).
   the same path under `RP2040/src` or `ESP32/main`.
 - **No platform headers** (pico-sdk, ESP-IDF, FreeRTOS, TinyUSB, BTstack). The one platform
   interface shared code may use is `Board/ogxm_log.h` (`OGXM_LOG`), which each firmware
-  provides. **Exception:** `Bluepad32/` may include Bluepad32 (`uni*.h`, `parser/*.h`): only
+  provides. **Exception:** `Bluepad32/` may include Bluepad32 and BTstack (`uni*.h`, `parser/*.h`, `btstack*.h`): only
   boards that run Bluepad32 build it, and no other shared file may include it.
 - **Wire and storage values never move.** `Firmware/RP2040/tests/test_esp32_bridge.cpp` pins the I2C layout,
   the mode IDs and the button bits; add new IDs at the end.

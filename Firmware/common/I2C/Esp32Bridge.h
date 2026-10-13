@@ -7,6 +7,7 @@
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/DongleSettings.h"
 #include "UserSettings/UserProfile.h"
+#include "Gamepad/Ps5Core.h"
 
 /* I2C link between the RP2040 (USB side, I2C slave) and the ESP32 companion running
  * Bluepad32 (I2C master): board ESP32_BLUEPAD32_I2C. Both firmwares build from this one
@@ -42,7 +43,10 @@ namespace Esp32Bridge
         GET_EXT,    // ESP32 -> RP2040 request, then the RP2040's PacketOutExt on the next read
         SET_DIAG,   // ESP32 -> RP2040: Bluetooth diagnostics for the web app's report (PacketDiag)
         GET_PROFILE,// ESP32 -> RP2040 request (PacketProfile), then that chunk on the next read
-        SET_PROFILE // ESP32 -> RP2040: a profile saved over BLE, in chunks (PacketProfile)
+        SET_PROFILE,// ESP32 -> RP2040: a profile saved over BLE, in chunks (PacketProfile)
+        GET_BLOB,   // ESP32 -> RP2040 request (PacketBlob), then that chunk on the next read
+        SET_BLOB,   // ESP32 -> RP2040: settings saved over BLE, in chunks (PacketBlob)
+        SET_PAD_RAW // ESP32 -> RP2040: STEAM mode, the pad's own input (PacketPadRaw), before SET_PAD
     };
 
     #pragma pack(push, 1)
@@ -62,7 +66,12 @@ namespace Esp32Bridge
         int16_t          joystick_ry{0};
         uint8_t          analog[10]{0};  // Gamepad ANALOG_OFF_* order; the ESP32 sends zeros
         uint8_t          bt_slot{0};     // version 2: Bluetooth slot + 1 of this report (0 = none)
-        uint8_t          reserved[4]{0};
+        /* Version 2: the controller's own report counter in this report (diagnostics: reports
+         * the controller sent that never arrived), when counter_bits > 0. */
+        uint8_t          counter_value{0};
+        uint8_t          counter_bits{0};
+        uint8_t          counter_unit{0};  // step per report; 0 = learn it
+        uint8_t          reserved[1]{0};
     };
     static_assert(sizeof(PacketIn) == 32, "Esp32Bridge::PacketIn must stay 32 bytes");
     static_assert(offsetof(PacketIn, dpad) == 4, "Esp32Bridge::PacketIn layout changed");
@@ -135,7 +144,23 @@ namespace Esp32Bridge
             BATTERY,         // data[0]: level, Bluepad32 scale (0 = unknown, 1..255)
             EVENT,           // data[0]: 1 on the last part; data[1..]: text (an event in parts)
             SEARCHING,       // data[0]: new controllers accepted
+            ADAPTER_ADDRESS, // data[0..5]: the ESP32's Bluetooth address (DualShock 3 USB pairing)
+            /* Link details (Bluepad32/LinkDiag), each Diagnostics.h call with its arguments in
+             * order, 16-bit values little-endian; `slot` unused unless named. */
+            SWITCH_FIRMWARE, // slot; major, minor
+            LE_PARAMETERS,   // handle, interval, latency, timeout
+            REMOTE_VERSION,  // handle, version (8), company, subversion
+            DEVICE_INFO,     // handle, field (DeviceInfoField), value (NUL-padded)
+            PNP_ID,          // handle, source (8), vid, pid, version
+            RSSI,            // handle, dBm (signed 8)
+            CHANNELS,        // handle, used (8), total (8)
+            FAILED_CONTACTS, // handle, count
+            TX_POWER,        // handle, maximum (8), dBm (signed 8)
+            LINK_MODE,       // handle, mode (8), interval
+            INQUIRY_COMPLETE,
+            LE_ADV_REPORTS,  // count since the last one
         };
+        enum DeviceInfoField : uint8_t { MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE };
         static constexpr size_t kData = 28;
         static constexpr size_t kEventPart = kData - 1;
 
@@ -162,6 +187,42 @@ namespace Esp32Bridge
     };
     static_assert(sizeof(PacketProfile) == 32, "Esp32Bridge::PacketProfile must stay 32 bytes");
     static_assert(offsetof(PacketProfile, data) == 6, "Esp32Bridge::PacketProfile layout changed");
+    /* Other settings the BLE web app reads and writes on the ESP32, kept by the RP2040. */
+    struct PacketBlob
+    {
+        enum Kind : uint8_t
+        {
+            DONGLE_SETTINGS = 1,  // UserSettings/DongleSettings.h (stored, then the RP2040 restarts)
+            KBM_SETTINGS = 2,     // mouse + keyboard mode mapping (applied without a restart)
+        };
+        static constexpr size_t kData = 26;
+        static constexpr size_t kMaxLen = 64;
+
+        uint8_t  packet_len{sizeof(PacketBlob)};
+        PacketID packet_id{PacketID::GET_BLOB};
+        uint8_t  kind{0};
+        uint8_t  chunk{0};
+        uint8_t  total_len{0};  // bytes of the whole blob (GET: in the reply; 0 = none)
+        uint8_t  reserved{0};
+        uint8_t  data[kData]{};
+    };
+    static_assert(sizeof(PacketBlob) == 32, "Esp32Bridge::PacketBlob must stay 32 bytes");
+    static_assert(offsetof(PacketBlob, data) == 6, "Esp32Bridge::PacketBlob layout changed");
+    /* STEAM mode only: the pad's input as it came (no profile) for the passthrough report, as the
+     * Pico W path builds it (USBDevice/DeviceDriver/Steam/SteamBtReport.h). */
+    struct PacketPadRaw
+    {
+        static constexpr uint8_t DUALSENSE = 0x01;  // the pad has the DualSense touchpad
+
+        uint8_t  packet_len{sizeof(PacketPadRaw)};
+        PacketID packet_id{PacketID::SET_PAD_RAW};
+        uint8_t  index{0};
+        uint8_t  flags{0};
+        Ps5Core  core{};
+        uint8_t  reserved[19]{};
+    };
+    static_assert(sizeof(PacketPadRaw) == 32, "Esp32Bridge::PacketPadRaw must stay 32 bytes");
+    static_assert(offsetof(PacketPadRaw, core) == 4, "Esp32Bridge::PacketPadRaw layout changed");
     #pragma pack(pop)
 
     /* Fletcher-16 over the profiles (in ID order): tells the ESP32 when to fetch them again. Never 0,

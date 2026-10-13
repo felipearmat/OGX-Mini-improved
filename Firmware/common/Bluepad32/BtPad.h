@@ -21,6 +21,7 @@
 #include "Bluepad32/JoyConSettings.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
+#include "Gamepad/Ps5Core.h"
 #include "Gamepad/GamepadMapper.h"
 #include "Gamepad/RumbleTiming.h"
 
@@ -387,6 +388,59 @@ namespace bt_pad {
             default:
                 return motion_source::NONE;
         }
+    }
+
+    /* A DualSense's own input for the STEAM mode passthrough (Gamepad/Ps5Core.h). */
+    inline Ps5Core ps5_core_from(const uni_gamepad_t* gp)
+    {
+        auto stick = [](int32_t axis) {
+            const int32_t b = axis / 4 + 127;
+            return static_cast<uint8_t>(b < 0 ? 0 : (b > 255 ? 255 : b));
+        };
+        auto trigger = [](int32_t value) {
+            const int32_t b = value >> 2;
+            return static_cast<uint8_t>(b < 0 ? 0 : (b > 255 ? 255 : b));
+        };
+        Ps5Core core;
+        core.joystick_lx = stick(gp->axis_x);
+        core.joystick_ly = stick(gp->axis_y);
+        core.joystick_rx = stick(gp->axis_rx);
+        core.joystick_ry = stick(gp->axis_ry);
+        core.trigger_l = trigger(gp->brake);
+        core.trigger_r = trigger(gp->throttle);
+
+        uint8_t b0 = ps5_bits::DPAD_CENTER;
+        switch (gp->dpad) {
+            case DPAD_UP:                b0 = ps5_bits::DPAD_UP;         break;
+            case DPAD_DOWN:              b0 = ps5_bits::DPAD_DOWN;       break;
+            case DPAD_LEFT:              b0 = ps5_bits::DPAD_LEFT;       break;
+            case DPAD_RIGHT:             b0 = ps5_bits::DPAD_RIGHT;      break;
+            case DPAD_UP | DPAD_RIGHT:   b0 = ps5_bits::DPAD_UP_RIGHT;   break;
+            case DPAD_DOWN | DPAD_RIGHT: b0 = ps5_bits::DPAD_RIGHT_DOWN; break;
+            case DPAD_DOWN | DPAD_LEFT:  b0 = ps5_bits::DPAD_DOWN_LEFT;  break;
+            case DPAD_UP | DPAD_LEFT:    b0 = ps5_bits::DPAD_LEFT_UP;    break;
+            default: break;
+        }
+        if (gp->buttons & BUTTON_X) b0 |= ps5_bits::SQUARE;
+        if (gp->buttons & BUTTON_A) b0 |= ps5_bits::CROSS;
+        if (gp->buttons & BUTTON_B) b0 |= ps5_bits::CIRCLE;
+        if (gp->buttons & BUTTON_Y) b0 |= ps5_bits::TRIANGLE;
+        core.buttons[0] = b0;
+
+        uint8_t b1 = 0;
+        if (gp->buttons & BUTTON_SHOULDER_L) b1 |= ps5_bits::L1;
+        if (gp->buttons & BUTTON_SHOULDER_R) b1 |= ps5_bits::R1;
+        if (gp->misc_buttons & MISC_BUTTON_BACK) b1 |= ps5_bits::SHARE;
+        if (gp->misc_buttons & MISC_BUTTON_START) b1 |= ps5_bits::OPTIONS;
+        if (gp->buttons & BUTTON_THUMB_L) b1 |= ps5_bits::L3;
+        if (gp->buttons & BUTTON_THUMB_R) b1 |= ps5_bits::R3;
+        core.buttons[1] = b1;
+
+        uint8_t b2 = 0;
+        if (gp->misc_buttons & MISC_BUTTON_SYSTEM) b2 |= ps5_bits::PS_HOME;
+        if (gp->misc_buttons & MISC_BUTTON_CAPTURE) b2 |= ps5_bits::MUTE;
+        core.buttons[2] = b2;
+        return core;
     }
 
     /* A pad's input after its user profile, in the output's terms (GamepadBits). */

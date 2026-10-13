@@ -25,7 +25,8 @@
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
 #include "Bluepad32/Bluepad32.h"
-#include "BLEServer/BLEServer.h"
+#include "Bluepad32/BLEServer.h"
+#include "BLEServer/BleStore.h"
 #include "Board/ModeIndicator.h"
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
@@ -432,7 +433,8 @@ void core1_task() {
     OGXM_LOG("PicoW Core1: init_bluetooth done\n");
     board_api::set_led(true);
     OGXM_LOG("PicoW Core1: set_led(true) done\n");
-    BLEServer::init_server(_gamepads);
+    ble_store::init(&_gamepads[0]);
+    BLEServer::init_server();
     OGXM_LOG("PicoW Core1: BLEServer init done, entering run_task\n");
     /* PIO USB mux runs on Core0 main loop (poll_usb_host_mux_from_core0), not here — avoids sleep_ms panic. */
     bluepad32::run_task(_gamepads);
@@ -548,7 +550,8 @@ void pico_w::run() {
             OGXM_LOG("PicoW run: Core0 calling init_bluetooth/set_led/BLEServer\n");
             board_api::init_bluetooth();
             board_api::set_led(true);
-            BLEServer::init_server(_gamepads);
+            ble_store::init(&_gamepads[0]);
+            BLEServer::init_server();
             OGXM_LOG("PicoW run: Core0 BT/LED/BLEServer done, launching Core1\n");
             if (current_driver == DeviceDriverType::DREAMCAST) {
                 dreamcast_set_core1_device_mode(input_src != HostInputSource::DREAMCAST_GPIO);

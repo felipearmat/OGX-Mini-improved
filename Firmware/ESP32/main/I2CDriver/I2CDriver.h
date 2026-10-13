@@ -30,6 +30,8 @@ public:
     using PacketOutExt = Esp32Bridge::PacketOutExt;
     using PacketDiag = Esp32Bridge::PacketDiag;
     using PacketProfile = Esp32Bridge::PacketProfile;
+    using PacketBlob = Esp32Bridge::PacketBlob;
+    using PacketPadRaw = Esp32Bridge::PacketPadRaw;
     static constexpr uint8_t PROFILE_COUNT = 8;  // UserSettings::MAX_PROFILES on both sides
     using Profiles = std::array<UserProfile, PROFILE_COUNT>;
     enum class PacketResp : uint8_t { OK = 1, ERROR };
@@ -46,6 +48,7 @@ public:
     void read_packet(uint8_t address, std::function<void(const PacketOut&)> callback);
     void write_packet(uint8_t address, const PacketInExt& data_in);
     void write_packet(uint8_t address, const PacketDiag& data_in);
+    void write_packet(uint8_t address, const PacketPadRaw& data_in);
     /* GET_EXT request, then the RP2040's PacketOutExt (an older RP2040 answers a PacketOut,
      * which is dropped). */
     void read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback);
@@ -53,6 +56,9 @@ public:
     void read_profiles(uint8_t address, std::function<void(const Profiles&)> callback);
     /* A profile saved over BLE, to the RP2040 (SET_PROFILE chunks). */
     void write_profile(uint8_t address, const UserProfile& profile, uint8_t player_idx, DeviceDriverType driver);
+    /* A settings blob kept by the RP2040 (GET_BLOB chunks), and one saved over BLE (SET_BLOB). */
+    void read_blob(uint8_t address, uint8_t kind, std::function<void(const uint8_t* data, size_t len)> callback);
+    void write_blob(uint8_t address, uint8_t kind, const uint8_t* data, size_t len);
 
 private:
     using TaskQueue = RingBuffer<std::function<void()>, CONFIG_I2C_RING_BUFFER_SIZE>;

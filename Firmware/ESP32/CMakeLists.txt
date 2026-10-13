@@ -22,7 +22,7 @@ init_git_submodules(${EXTERNAL_DIR}
 apply_lib_patches(${EXTERNAL_DIR})
 generate_gatt_header(
     $ENV{BTSTACK_ROOT}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../RP2040/src/BLEServer/att_delayed_response.gatt
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/Bluepad32/att_delayed_response.gatt
     ${CMAKE_CURRENT_SOURCE_DIR}/main/BLEServer/att_delayed_response.h
     )
 

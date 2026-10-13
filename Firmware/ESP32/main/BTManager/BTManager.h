@@ -38,6 +38,11 @@ public:
     /* A profile or the output mode was saved (web app over BLE): apply it now. */
     void on_settings_saved();
 
+    /* For the BLE web app (BLEServer/BleStore.cpp): the RP2040's mouse + keyboard mapping (fetched
+     * every few seconds), and settings saved over BLE sent to it. */
+    size_t kbm_settings(uint8_t* out, size_t len);
+    void send_settings_blob(uint8_t kind, const uint8_t* data, size_t len);
+
 private:
     BTManager() = default;
     ~BTManager() = default;
@@ -110,6 +115,9 @@ private:
     btstack_context_callback_registration_t profiles_cb_reg_;
     DeviceDriverType pending_driver_{DeviceDriverType::NONE};
     uint8_t pending_driver_ticks_{0};
+    uint8_t kbm_rx_[I2CDriver::PacketBlob::kMaxLen]{};
+    size_t kbm_rx_len_{0};
+    std::mutex kbm_mutex_;
 
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;

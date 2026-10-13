@@ -11,12 +11,23 @@
 
 #include "USBHost/HostDriver/PS3/PS3.h"
 
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING) && defined(CONFIG_EN_BLUETOOTH)
 extern "C" {
 /* Do not include bt/uni_bt.h here: it pulls BTstack, whose btstack_hid.h redefines
  * HID_REPORT_TYPE_* / hid_report_type_t and breaks compilation with TinyUSB hid.h. */
 typedef uint8_t uni_bt_bd_addr_t[6];
 void uni_bt_get_local_bd_addr_safe(uni_bt_bd_addr_t addr);
+}
+/* The adapter's Bluetooth address: the RP2040's own radio (Bluepad32). */
+static bool adapter_bt_address(uint8_t addr[6]) {
+    uni_bt_get_local_bd_addr_safe(addr);
+    return true;
+}
+#elif defined(OGXM_DS3_BT_PAIRING)
+#include "Board/BtAdapterAddress.h"
+/* The adapter's Bluetooth address: the hybrid's ESP32, sent over I2C. */
+static bool adapter_bt_address(uint8_t addr[6]) {
+    return bt_adapter_address::get(addr);
 }
 #endif
 
@@ -61,7 +72,7 @@ const tusb_control_request_t PS3Host::RUMBLE_REQUEST =
     .wLength = sizeof(PS3::OutReport)
 };
 
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
 /* Same as bluepad32/tools/sixaxispairer — DualShock 3 stores host BD_ADDR for Bluetooth. */
 const tusb_control_request_t PS3Host::BT_MAC_FEATURE_REQUEST = {
     .bmRequestType = 0x21,
@@ -81,9 +92,8 @@ bool PS3Host::local_bt_addr_is_nonzero(const uint8_t addr[6]) {
 }
 
 bool PS3Host::program_ds3_bt_host(uint8_t address) {
-    uni_bt_bd_addr_t addr{};
-    uni_bt_get_local_bd_addr_safe(addr);
-    if (!local_bt_addr_is_nonzero(addr)) {
+    uint8_t addr[6]{};
+    if (!adapter_bt_address(addr) || !local_bt_addr_is_nonzero(addr)) {
         return false;
     }
     bt_pair_buf_[0] = 0xF5;
@@ -165,7 +175,7 @@ void PS3Host::initialize(Gamepad& gamepad, uint8_t address, uint8_t instance, co
 
     init_host_out_report(out_report_, idx_);
     reports_enabled_ = false;
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
     ds3_bt_pair_deferred_ = false;
 #endif
 
@@ -174,7 +184,7 @@ void PS3Host::initialize(Gamepad& gamepad, uint8_t address, uint8_t instance, co
     (void)send_control_xfer_wait(address, &ENABLE_USB_REQUEST, enable_usb_data, 150u);
     (void)send_control_output_sync(address, &out_report_);
 
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
     /* Program master BD_ADDR so the pad can reconnect wirelessly after unplug (sixaxispairer).
      * Must run here — the old GET 0xF2 async chain was skipped once wired init marked DONE. */
     if (!program_ds3_bt_host(address)) {
@@ -190,7 +200,7 @@ void PS3Host::initialize(Gamepad& gamepad, uint8_t address, uint8_t instance, co
 
 void PS3Host::process_report(Gamepad& gamepad, uint8_t address, uint8_t instance, const uint8_t* report, uint16_t len)
 {
-#if defined(CONFIG_EN_BLUETOOTH)
+#if defined(OGXM_DS3_BT_PAIRING)
     try_deferred_ds3_bt_pair(address);
 #endif
     const PS3::InReport* in_report = reinterpret_cast<const PS3::InReport*>(report);

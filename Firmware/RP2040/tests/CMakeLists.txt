@@ -52,7 +52,7 @@ ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_COMMON}/Bluepad
 
 ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
-ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagnostics.cpp)
+ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagnostics.cpp ${FW_COMMON}/Diagnostics/DiagNames.cpp)
 
 ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
 

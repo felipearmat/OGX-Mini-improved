@@ -9,8 +9,8 @@ Fails when:
      firmware (the include path would pick one or the other);
   4. a file in Firmware/common includes a platform header (pico-sdk, ESP-IDF, FreeRTOS,
      TinyUSB, BTstack): shared code must build for every board. Firmware/common/Bluepad32 may
-     include Bluepad32 (uni*.h, parser/*.h): only boards that run Bluepad32 build it, so no
-     other shared file may include it;
+     include Bluepad32 and BTstack (uni*.h, parser/*.h, btstack*.h): only boards that run
+     Bluepad32 build it, so no other shared file may include it;
   5. a quoted #include in either firmware or in Firmware/common names an existing file with
      different upper / lower case: it builds on macOS / Windows, not on Linux (CI).
 
@@ -27,7 +27,7 @@ PLATFORM_INCLUDE = re.compile(
     r'#\s*include\s*[<"]\s*(pico/|hardware/|esp_|driver/|freertos/|nvs|sdkconfig\.h|tusb|'
     r'btstack|uni[_.]|bsp/)'
 )
-BLUEPAD32_INCLUDE = re.compile(r'#\s*include\s*[<"]\s*(uni[_.]|parser/|bt/uni_)')
+BLUEPAD32_INCLUDE = re.compile(r'#\s*include\s*[<"]\s*(uni[_.]|parser/|bt/uni_|btstack)')
 SHARED_BLUEPAD32_INCLUDE = re.compile(r'#\s*include\s*"Bluepad32/')
 
 

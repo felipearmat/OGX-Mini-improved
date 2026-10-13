@@ -13,9 +13,12 @@
 #include "Board/board_api.h"
 #include "Board/ModeIndicator.h"
 #include "BTManager/BTManager.h"
-#include "BLEServer/BLEServer.h"
+#include "Bluepad32/BLEServer.h"
 #include "Bluepad32/ScanControl.h"
 #include "UserSettings/DongleSettings.h"
+#include "Bluepad32/LinkDiag.h"
+#include "Diagnostics/Diagnostics.h"
+#include "Diagnostics/DiagForward.h"
 
 void BTManager::run_task()
 {
@@ -24,6 +27,10 @@ void BTManager::run_task()
     dongle_settings::set(dongle_settings::defaults());  // until the RP2040 sends its own (GET_EXT)
 
     apply_profiles();
+    diag_forward::set_sender([](const I2CDriver::PacketDiag& packet)
+        {
+            get_instance().i2c_driver_.write_packet(Esp32Bridge::SLAVE_ADDR, packet);
+        });
     UserSettings::get_instance().set_remote_store(
         [this](const UserProfile& profile, uint8_t index, DeviceDriverType driver)
         {
@@ -57,6 +64,7 @@ void BTManager::run_task()
     /* As on the Pico W path: a lone Joy-Con waits for its other half and merges with it; which
      * half of a pair provides motion comes from the dongle settings. */
     uni_hid_parser_switch_set_joycon_pairing(true);
+    link_diag::init();  // link details for the diagnostics (Bluepad32/LinkDiag, shared)
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
 
     /* Board LED: the output mode's blink code after boot (Board/ModeIndicator.h), then the search
@@ -95,27 +103,15 @@ void BTManager::diag_send(uint8_t kind, uint8_t slot, const void* data, size_t l
     i2c_driver_.write_packet(Esp32Bridge::SLAVE_ADDR, packet);
 }
 
-/* An event line, also logged here; sent in parts (Diagnostics keeps kEventText characters). */
+/* An event line for the diagnostics report (Diagnostics/DiagForward: also logged here). */
 void BTManager::diag_event(const char* fmt, ...)
 {
-    char text[72];
+    char text[diag::kEventText];
     va_list args;
     va_start(args, fmt);
     std::vsnprintf(text, sizeof(text), fmt, args);
     va_end(args);
-    OGXM_LOG("BP32: %s\n", text);
-
-    const size_t len = std::strlen(text);
-    size_t sent = 0;
-    do
-    {
-        uint8_t part[I2CDriver::PacketDiag::kData]{};
-        const size_t n = std::min(len - sent, I2CDriver::PacketDiag::kEventPart);
-        std::memcpy(&part[1], text + sent, n);
-        sent += n;
-        part[0] = sent >= len ? 1 : 0;
-        diag_send(I2CDriver::PacketDiag::EVENT, 0, part, sizeof(part));
-    } while (sent < len);
+    diag::event(btstack_run_loop_get_time_ms(), "%s", text);
 }
 
 uint8_t BTManager::slave_addr(uint8_t output)
@@ -138,6 +134,19 @@ void BTManager::apply_profiles()
 void BTManager::on_settings_saved()
 {
     apply_profiles();
+}
+
+size_t BTManager::kbm_settings(uint8_t* out, size_t len)
+{
+    std::lock_guard<std::mutex> lock(kbm_mutex_);
+    const size_t n = std::min(len, kbm_rx_len_);
+    std::memcpy(out, kbm_rx_, n);
+    return n;
+}
+
+void BTManager::send_settings_blob(uint8_t kind, const uint8_t* data, size_t len)
+{
+    i2c_driver_.write_blob(Esp32Bridge::SLAVE_ADDR, kind, data, len);
 }
 
 bool BTManager::is_connected(uint8_t index)
@@ -175,8 +184,7 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     if (searching != bt_manager.searching_sent_)
     {
         bt_manager.searching_sent_ = searching;
-        const uint8_t flag = searching ? 1 : 0;
-        bt_manager.diag_send(I2CDriver::PacketDiag::SEARCHING, 0, &flag, 1);
+        diag::searching(searching);
     }
 
     if constexpr (board_api::NUM_LEDS == 1)
@@ -535,6 +543,30 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
         }
     }
     bt_manager.apply_scan(false, false);  // also catches a Joy-Con pair completed after device_ready
+    link_diag::query(now_ms, [](int slot)
+        {
+            return slot >= 0 && slot < static_cast<int>(get_instance().slots_.size()) && get_instance().slots_[slot].connected;
+        });
+    diag_forward::tick();
+
+    /* The ESP32's Bluetooth address for the RP2040 (DualShock 3 pairing on its USB host port),
+     * every 2 s so it is back soon after the RP2040 restarts. */
+    static uint8_t address_ticks = 0;
+    if (++address_ticks >= 2000 / FEEDBACK_TIME_MS)
+    {
+        address_ticks = 0;
+        /* and the mouse + keyboard mapping for the BLE web app (it changes without a restart) */
+        bt_manager.i2c_driver_.read_blob(Esp32Bridge::SLAVE_ADDR, I2CDriver::PacketBlob::KBM_SETTINGS,
+            [&bt_manager](const uint8_t* data, size_t len)
+            {
+                std::lock_guard<std::mutex> lock(bt_manager.kbm_mutex_);
+                bt_manager.kbm_rx_len_ = std::min(len, sizeof(bt_manager.kbm_rx_));
+                std::memcpy(bt_manager.kbm_rx_, data, bt_manager.kbm_rx_len_);
+            });
+        bd_addr_t address;
+        gap_local_bd_addr(address);
+        bt_manager.diag_send(I2CDriver::PacketDiag::ADAPTER_ADDRESS, 0, address, sizeof(address));
+    }
 
     btstack_run_loop_set_timer(ts, FEEDBACK_TIME_MS);
     btstack_run_loop_add_timer(ts);

@@ -30,7 +30,9 @@ TEST(packet_in_layout) {
     CHECK_EQ(offsetof(PacketIn, joystick_ry), 15u);
     CHECK_EQ(offsetof(PacketIn, analog), 17u);
     CHECK_EQ(offsetof(PacketIn, bt_slot), 27u);
-    CHECK_EQ(offsetof(PacketIn, reserved), 28u);
+    CHECK_EQ(offsetof(PacketIn, counter_value), 28u);
+    CHECK_EQ(offsetof(PacketIn, counter_bits), 29u);
+    CHECK_EQ(offsetof(PacketIn, counter_unit), 30u);
 }
 
 TEST(packet_out_layout) {
@@ -63,6 +65,12 @@ TEST(packet_ids_are_stable) {
     CHECK_EQ(static_cast<int>(PacketID::SET_DIAG), 6);
     CHECK_EQ(static_cast<int>(PacketID::GET_PROFILE), 7);
     CHECK_EQ(static_cast<int>(PacketID::SET_PROFILE), 8);
+    CHECK_EQ(static_cast<int>(PacketID::GET_BLOB), 9);
+    CHECK_EQ(static_cast<int>(PacketID::SET_BLOB), 10);
+    CHECK_EQ(static_cast<int>(PacketID::SET_PAD_RAW), 11);
+    CHECK_EQ(sizeof(PacketPadRaw), 32u);
+    CHECK_EQ(offsetof(PacketPadRaw, flags), 3u);
+    CHECK_EQ(offsetof(PacketPadRaw, core), 4u);
 }
 
 TEST(packet_in_ext_layout) {
@@ -115,6 +123,9 @@ TEST(packet_diag_layout) {
     CHECK_EQ(PacketDiag::BATTERY, 4);
     CHECK_EQ(PacketDiag::EVENT, 5);
     CHECK_EQ(PacketDiag::SEARCHING, 6);
+    CHECK_EQ(PacketDiag::ADAPTER_ADDRESS, 7);
+    CHECK_EQ(PacketDiag::SWITCH_FIRMWARE, 8);
+    CHECK_EQ(PacketDiag::LE_ADV_REPORTS, 19);
 }
 
 TEST(packet_profile_layout) {
@@ -127,6 +138,17 @@ TEST(packet_profile_layout) {
     CHECK_EQ(offsetof(PacketProfile, data), 6u);
     CHECK(PacketProfile::kChunks * PacketProfile::kData >= sizeof(UserProfile));
     CHECK((PacketProfile::kChunks - 1) * PacketProfile::kData < sizeof(UserProfile));
+}
+
+TEST(packet_blob_layout) {
+    CHECK_EQ(sizeof(PacketBlob), 32u);
+    CHECK_EQ(offsetof(PacketBlob, kind), 2u);
+    CHECK_EQ(offsetof(PacketBlob, chunk), 3u);
+    CHECK_EQ(offsetof(PacketBlob, total_len), 4u);
+    CHECK_EQ(offsetof(PacketBlob, data), 6u);
+    CHECK_EQ(PacketBlob::DONGLE_SETTINGS, 1);
+    CHECK_EQ(PacketBlob::KBM_SETTINGS, 2);
+    CHECK(sizeof(dongle_settings::Settings) <= PacketBlob::kMaxLen);
 }
 
 TEST(profiles_crc_changes_with_a_profile) {

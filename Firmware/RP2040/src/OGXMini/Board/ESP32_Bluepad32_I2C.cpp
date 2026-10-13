@@ -18,15 +18,26 @@
 #include "Board/board_api.h"
 #include "Board/esp32_api.h"
 #include "Board/BootMode.h"
+#include "Board/BtAdapterAddress.h"
 #include "Board/LogRing.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
 #include "UserSettings/DongleSettings.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
+#include "USBDevice/DeviceDriver/Steam/SteamActive.h"
+#include "USBDevice/DeviceDriver/Steam/SteamBtReport.h"
+#include "USBDevice/DeviceDriver/Steam/SteamPassthrough.h"
+#include "USBDevice/DeviceDriver/Steam/SteamTouchpad.h"
 #include "Diagnostics/Diagnostics.h"
 #include "USBDevice/DeviceDriver/MotionOutputActive.h"
 #include "TaskQueue/TaskQueue.h"
+#if defined(CONFIG_EN_USB_HOST)
+#include "pio_usb.h"
+#include "USBHost/HostManager.h"
+#include "Input/InputSlot.h"
+#endif
 
 // Wire format shared with the ESP32 companion firmware: I2C/Esp32Bridge.h
 using Esp32Bridge::PacketID;
@@ -36,6 +47,23 @@ using Esp32Bridge::PacketInExt;
 using Esp32Bridge::PacketOutExt;
 using Esp32Bridge::PacketDiag;
 using Esp32Bridge::PacketProfile;
+using Esp32Bridge::PacketBlob;
+using Esp32Bridge::PacketPadRaw;
+
+/* Settings blobs for the ESP32's BLE web app (GET_BLOB / SET_BLOB): the current bytes of a kind. */
+static size_t blob_bytes(uint8_t kind, const uint8_t*& data) {
+    switch (kind) {
+        case PacketBlob::DONGLE_SETTINGS:
+            data = reinterpret_cast<const uint8_t*>(&dongle_settings::get());
+            return sizeof(dongle_settings::Settings);
+        case PacketBlob::KBM_SETTINGS:
+            data = reinterpret_cast<const uint8_t*>(&kbm_settings::get());
+            return sizeof(kbm_settings::Settings);
+        default:
+            data = nullptr;
+            return 0;
+    }
+}
 
 /* The settings live here (USB web app, flash); the ESP32 maps its pads with them and its BLE web
  * app edits them through the I2C link (GET_PROFILE / SET_PROFILE). Saving reboots the RP2040, so
@@ -61,6 +89,8 @@ static void record_diag(const PacketDiag& diag) {
     const uint32_t now = to_ms_since_boot(get_absolute_time());
     if (diag.slot >= diag::kSlots)
         return;
+    auto d8 = [&diag](size_t i) { return diag.data[i]; };
+    auto d16 = [&diag](size_t i) { return static_cast<uint16_t>(diag.data[i] | (diag.data[i + 1] << 8)); };
     switch (diag.kind) {
         case PacketDiag::SLOT_NAME:
             std::memcpy(names[diag.slot], diag.data, PacketDiag::kData);
@@ -94,6 +124,52 @@ static void record_diag(const PacketDiag& diag) {
         }
         case PacketDiag::SEARCHING:
             diag::searching(diag.data[0] != 0);
+            break;
+        case PacketDiag::ADAPTER_ADDRESS:
+            bt_adapter_address::set(diag.data);  // DualShock 3 USB pairing (USB host port)
+            break;
+        /* Link details (Bluepad32/LinkDiag on the ESP32): the same Diagnostics.h calls. */
+        case PacketDiag::SWITCH_FIRMWARE:
+            diag::slot_switch_firmware(diag.slot, d8(0), d8(1));
+            break;
+        case PacketDiag::LE_PARAMETERS:
+            diag::le_parameters(d16(0), d16(2), d16(4), d16(6));
+            break;
+        case PacketDiag::REMOTE_VERSION:
+            diag::remote_version(d16(0), d8(2), d16(3), d16(5));
+            break;
+        case PacketDiag::DEVICE_INFO: {
+            static const char* const kFields[] = {"manufacturer", "model", "firmware", "hardware", "software"};
+            char value[PacketDiag::kData - 2]{};
+            std::memcpy(value, &diag.data[3], sizeof(value) - 1);
+            if (d8(2) < 5)
+                diag::device_information(d16(0), kFields[d8(2)], value);
+            break;
+        }
+        case PacketDiag::PNP_ID:
+            diag::pnp_id(d16(0), d8(2), d16(3), d16(5), d16(7));
+            break;
+        case PacketDiag::RSSI:
+            diag::rssi(d16(0), static_cast<int8_t>(d8(2)));
+            break;
+        case PacketDiag::CHANNELS:
+            diag::channels(d16(0), d8(2), d8(3));
+            break;
+        case PacketDiag::FAILED_CONTACTS:
+            diag::failed_contacts(d16(0), d16(2));
+            break;
+        case PacketDiag::TX_POWER:
+            diag::tx_power(d16(0), d8(2) != 0, static_cast<int8_t>(d8(3)));
+            break;
+        case PacketDiag::LINK_MODE:
+            diag::link_mode(d16(0), d8(2), d16(3));
+            break;
+        case PacketDiag::INQUIRY_COMPLETE:
+            diag::inquiry_complete(now);
+            break;
+        case PacketDiag::LE_ADV_REPORTS:
+            for (uint16_t i = d16(0); i > 0; --i)
+                diag::le_adv_report();
             break;
         default:
             break;
@@ -171,6 +247,11 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static PacketProfile profile_request;  // answer the next read with this chunk
     static bool profile_requested = false;
     static uint8_t incoming[sizeof(UserProfile)];  // a profile saved over BLE, chunk by chunk
+    static PacketBlob blob_request;  // answer the next read with this chunk
+    static bool blob_requested = false;
+    static uint8_t incoming_blob[PacketBlob::kMaxLen];  // settings saved over BLE
+    static bool raw_seen = false;      // a SET_PAD_RAW came with this report
+    static bool raw_dualsense = false;
     static_assert(sizeof(PacketInExt) <= sizeof(PacketIn), "the receive buffer holds every ESP32 packet");
     static DeviceDriverType current_device_type = 
         UserSettings::get_instance().get_current_driver();
@@ -187,12 +268,41 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                 break;
             }
             switch (packet_in.packet_id) {
+                case PacketID::SET_PAD_RAW: {
+                    PacketPadRaw raw;
+                    std::memcpy(static_cast<void*>(&raw), &packet_in, sizeof(raw));
+                    if (SteamActive::is_enabled()) {
+                        SteamBtReport::store_ps5_core(raw.core);  // as the Pico W path does
+                        raw_seen = true;
+                        raw_dualsense = (raw.flags & PacketPadRaw::DUALSENSE) != 0;
+                    }
+                    break;
+                }
                 case PacketID::SET_PAD:
-                    if (packet_in.index < MAX_GAMEPADS) {
+                    /* STEAM mode: the passthrough report of this report (SET_PAD_RAW came first). */
+                    if (SteamActive::is_enabled()) {
+                        SteamPassthrough::input_has_touchpad = raw_seen && raw_dualsense;
+                        if (raw_seen && raw_dualsense && packet_in.index < MAX_GAMEPADS) {
+                            const PacketInExt& ext = _pad_ext[packet_in.index];
+                            SteamTouchpad::apply_to_passthrough(ext.touch_raw, (ext.flags & PacketInExt::TOUCHPAD_CLICK) != 0);
+                        }
+                        raw_seen = false;
+                    }
+                    if (packet_in.index < MAX_GAMEPADS
+#if defined(CONFIG_EN_USB_HOST)
+                        /* A controller on the USB host port has the output: Bluetooth waits. */
+                        && !InputSlot::usb_owns(packet_in.index)
+#endif
+                    ) {
                         _gamepads[packet_in.index].set_pad_in(pad_in_from_packet(packet_in));
                     }
                     if (packet_in.bt_slot > 0 && packet_in.bt_slot <= diag::kSlots) {
-                        diag::slot_report(packet_in.bt_slot - 1u, to_ms_since_boot(get_absolute_time()));
+                        const size_t slot = packet_in.bt_slot - 1u;
+                        diag::slot_report(slot, to_ms_since_boot(get_absolute_time()));
+                        if (packet_in.counter_bits > 0) {
+                            diag::slot_counter(slot, packet_in.counter_value, packet_in.counter_bits,
+                                               packet_in.counter_unit);
+                        }
                     }
                     break;
                 case PacketID::SET_DIAG: {
@@ -212,6 +322,37 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                 case PacketID::GET_EXT:
                     ext_requested = true;
                     break;
+                case PacketID::GET_BLOB:
+                    std::memcpy(static_cast<void*>(&blob_request), &packet_in, sizeof(blob_request));
+                    blob_requested = true;
+                    break;
+                case PacketID::SET_BLOB: {
+                    PacketBlob chunk;
+                    std::memcpy(static_cast<void*>(&chunk), &packet_in, sizeof(chunk));
+                    const size_t offset = chunk.chunk * PacketBlob::kData;
+                    if (chunk.total_len == 0 || chunk.total_len > PacketBlob::kMaxLen || offset >= chunk.total_len) {
+                        break;
+                    }
+                    const size_t len = std::min(PacketBlob::kData, static_cast<size_t>(chunk.total_len) - offset);
+                    std::memcpy(incoming_blob + offset, chunk.data, len);
+                    if (offset + len != chunk.total_len) {
+                        break;  // more chunks to come
+                    }
+                    if (chunk.kind == PacketBlob::DONGLE_SETTINGS) {
+                        dongle_settings::Settings settings{};
+                        if (dongle_settings::decode(incoming_blob, chunk.total_len, settings)) {
+                            TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 100, false,
+                                [settings] { UserSettings::get_instance().store_dongle_settings(settings); });
+                        }
+                    } else if (chunk.kind == PacketBlob::KBM_SETTINGS) {
+                        kbm_settings::Settings settings{};
+                        if (kbm_settings::decode(incoming_blob, chunk.total_len, settings)) {
+                            TaskQueue::Core0::queue_delayed_task(TaskQueue::Core0::get_new_task_id(), 1, false,
+                                [settings] { UserSettings::get_instance().store_kbm_settings(settings); });
+                        }
+                    }
+                    break;
+                }
                 case PacketID::GET_PROFILE:
                     std::memcpy(static_cast<void*>(&profile_request), &packet_in, sizeof(profile_request));
                     profile_requested = true;
@@ -266,6 +407,19 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             count = 0;
             break;
         case I2C_SLAVE_REQUEST:
+            if (blob_requested) {
+                blob_requested = false;
+                PacketBlob reply = blob_request;
+                const uint8_t* data = nullptr;
+                const size_t total = blob_bytes(reply.kind, data);
+                const size_t offset = reply.chunk * PacketBlob::kData;
+                reply.total_len = static_cast<uint8_t>(total);
+                if (data && offset < total) {
+                    std::memcpy(reply.data, data + offset, std::min(PacketBlob::kData, total - offset));
+                }
+                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
+                break;
+            }
             if (profile_requested) {
                 profile_requested = false;
                 PacketProfile reply = profile_request;
@@ -304,7 +458,8 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     }
 }
 
-static void core1_task() {
+/* I2C slave to the ESP32, its interrupt on Core0 (Core1 runs the USB host port). */
+static void init_i2c_slave() {
     i2c_init(I2C_PORT, I2C_BAUDRATE);
 
     gpio_init(I2C_SDA_PIN);
@@ -317,11 +472,42 @@ static void core1_task() {
     i2c_slave_init(I2C_PORT, Esp32Bridge::SLAVE_ADDR, &slave_handler);
 
     OGXM_LOG("I2C Driver initialized\n");
+}
+
+#if defined(CONFIG_EN_USB_HOST)
+/* Custom: USB host port (wired controllers, DualShock 3 pairing) on Core1, as on the Pico. PIO USB
+ * has no hardware SOF: pio_usb_host_frame() runs from a 1 kHz timer. */
+static repeating_timer_t s_pio_usb_sof_timer;
+
+static bool pio_usb_sof_timer_cb(repeating_timer_t* rt) {
+    (void)rt;
+    pio_usb_host_frame();
+    return true;
+}
+
+static void core1_task() {
+    HostManager& host_manager = HostManager::get_instance();
+    host_manager.initialize(_gamepads);
+    // Pico-PIO-USB does not reliably see a hot plug: start the host stack once a device is there
+    while (!board_api::usb::host_connected()) {
+        sleep_ms(100);
+    }
+    pio_usb_configuration_t pio_cfg = PIO_USB_CONFIG;
+    pio_cfg.skip_alarm_pool = true;
+    tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
+    tuh_init(BOARD_TUH_RHPORT);
+    add_repeating_timer_us(-1000, pio_usb_sof_timer_cb, nullptr, &s_pio_usb_sof_timer);
+
+    const uint32_t tid_feedback = TaskQueue::Core1::get_new_task_id();
+    TaskQueue::Core1::queue_delayed_task(tid_feedback, 200, true,
+        [&host_manager] { host_manager.send_feedback(); });
 
     while (true) {
-        tight_loop_contents();
+        TaskQueue::Core1::process_tasks();
+        tuh_task();
     }
 }
+#endif
 
 void run_uart_bridge() {
     /* Programming: the ESP32 waits in its ROM bootloader (esptool then runs with --before
@@ -386,8 +572,11 @@ void esp32_bp32_i2c::run() {
         return;
     }
 
+    init_i2c_slave();
+#if defined(CONFIG_EN_USB_HOST)
     multicore_reset_core1();
     multicore_launch_core1(core1_task);
+#endif
 
     /* The ESP32's serial output (its log, boot messages) into the kept log (Board/LogRing.h),
      * readable later through the monitor mode. */

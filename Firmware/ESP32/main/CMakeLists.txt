@@ -7,7 +7,8 @@ idf_component_register(
         "Board/board_api.cpp"
         "BTManager/BTManager.cpp"
         "BTManager/BTManager_BP32.cpp"
-        "BLEServer/BLEServer.cpp"
+        "BLEServer/BleStore.cpp"
+        "../../common/Bluepad32/BLEServer.cpp"
         "I2CDriver/I2CDriver.cpp"
         "UserSettings/UserSettings.cpp"
         # Shared with the RP2040 firmware (Firmware/common/README.md)
@@ -18,6 +19,9 @@ idf_component_register(
         "../../common/UserSettings/DongleSettings.cpp"
         "../../common/Bluepad32/JoyConSettings.cpp"
         "../../common/Bluepad32/ScanControl.cpp"
+        "../../common/Bluepad32/LinkDiag.cpp"
+        "../../common/Diagnostics/DiagNames.cpp"
+        "Diagnostics/DiagForward.cpp"
     INCLUDE_DIRS 
         "."
         "../../common"
