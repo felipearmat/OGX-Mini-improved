@@ -140,7 +140,13 @@ def esp32_images(build_dir):
     args_file = build / "flasher_args.json"
     if args_file.exists():
         flash = json.loads(args_file.read_text())["flash_files"]
-        return [(offset, str(build / path)) for offset, path in sorted(flash.items(), key=lambda i: int(i[0], 16))]
+        images = []
+        for offset, path in sorted(flash.items(), key=lambda i: int(i[0], 16)):
+            full = build / path
+            if not full.exists():
+                full = build / pathlib.Path(path).name  # the files copied into one folder
+            images.append((offset, str(full)))
+        return images
     apps = [p for p in build.glob("*.bin") if p.name not in ("bootloader.bin", "partition-table.bin")]
     if len(apps) != 1:
         sys.exit(f"{build}: expected one app .bin next to bootloader.bin and partition-table.bin")
