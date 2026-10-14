@@ -85,10 +85,12 @@ void uart_bridge_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 
 void uart_bridge_line_coding_cb(uint8_t itf, cdc_line_coding_t const* lc) {
 	uart_data_t *ud = &UART_DATA[itf];
-	if (mutex_try_enter(&ud->lc_mtx, NULL)) {
-		ud->usb_lc = *lc;
-		mutex_exit(&ud->lc_mtx);
-	}
+	/* Wait for the lock: Core1 takes it on every pass of its loop, and a rate dropped here
+	 * (try_enter) left the UART at the rate the host set first (9600 on macOS) for the whole
+	 * session. Core1 only holds it for a moment. */
+	mutex_enter_blocking(&ud->lc_mtx);
+	ud->usb_lc = *lc;
+	mutex_exit(&ud->lc_mtx);
 }
 
 void update_uart_cfg(uint8_t itf) {

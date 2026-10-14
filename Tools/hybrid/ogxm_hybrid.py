@@ -211,8 +211,8 @@ def cmd_flash_esp32(args):
     time.sleep(BRIDGE_GUARD_S)
     returncode = run_esptool(port, args.baud, images)
     if returncode != 0 and bridge_bootloader(port):
-        # A failed attempt (a faster rate the bridge did not follow) can leave the ESP32 out of
-        # its bootloader or at another rate: back to the bootloader, once more at 115200.
+        # A failed attempt can leave the ESP32 out of its bootloader or at another rate: back to
+        # the bootloader, once more at 115200.
         print("Retrying at 115200 baud...")
         returncode = run_esptool(port, 115200, images)
     with serial.Serial(port, 115200, timeout=0.5) as link:
@@ -277,8 +277,8 @@ def main():
     p.set_defaults(func=cmd_bootsel)
     p = sub.add_parser("flash-esp32")
     p.add_argument("build_dir")
-    p.add_argument("--baud", type=int, default=115200,
-                   help="115200 (default) is what the bridge follows reliably; faster rates fall back to it")
+    p.add_argument("--baud", type=int, default=460800,
+                   help="esptool's rate through the bridge (default 460800); a failed attempt is retried at 115200")
     p.set_defaults(func=cmd_flash_esp32)
     p = sub.add_parser("monitor")
     p.add_argument("--log")

@@ -143,7 +143,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 |---|---|---|
 | 11.1 | Web App mode; `ogxm_hybrid.py ports` | one port, product "OGX-Mini" |
 | 11.2 | `ogxm_hybrid.py flash-esp32 <ESP32 build>` | bridge port "OGX-Mini ESP32 bridge" appears, esptool writes and verifies, the adapter restarts in its mode and the pad reconnects |
-| 11.3 | `flash-esp32 --baud 460800` | same, faster (if it fails, note it: 115200 is the safe rate) |
+| 11.3 | `flash-esp32 --baud 115200` | same, slower (the default is 460800) |
 | 11.4 | `ogxm_hybrid.py bootsel --uf2 <hybrid UF2>` | the Pico restarts with it; mode and profiles kept |
 | 11.5 | Play 2 min with the ESP32 log build, combo to Web App mode, `ogxm_hybrid.py monitor --log run.txt` | "OGX-Mini ESP32 monitor" port: the kept `[esp]` lines from the session (and `[rp]` lines with a Debug Pico), then live ESP32 output; Ctrl+C returns to the mode |
 | 11.6 | Power-cycle, then `monitor` | the kept log is empty (RAM only), live output works |
