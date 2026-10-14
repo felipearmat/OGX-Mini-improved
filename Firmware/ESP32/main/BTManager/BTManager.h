@@ -154,7 +154,8 @@ private:
     static void feedback_timer_cb(btstack_timer_source *ts);
     static void driver_update_timer_cb(btstack_timer_source *ts);
     static void disconnect_combo_timer_cb(btstack_timer_source *ts);
-    static void restart_after_ms(uint32_t delay_ms);
+    static void restart_after_ms(uint32_t delay_ms, bool last_pad = false);
+    static bool cancel_last_pad_restart();
     static void scan_event(uint32_t now_ms, const char* text);
 
     //Bluepad32 driver

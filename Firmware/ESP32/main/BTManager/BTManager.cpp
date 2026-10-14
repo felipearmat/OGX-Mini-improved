@@ -756,9 +756,11 @@ void BTManager::disconnect_combo_timer_cb(btstack_timer_source *ts)
 
 /* Restart from an esp_timer, not the BTstack run loop: it happens even if the BT stack stalls
  * while the pads go away (the Pico W path arms its hardware watchdog for the same reason). */
-void BTManager::restart_after_ms(uint32_t delay_ms)
+static esp_timer_handle_t restart_timer = nullptr;
+static bool restart_for_last_pad = false;  // a pad connecting in the meantime calls it off
+
+void BTManager::restart_after_ms(uint32_t delay_ms, bool last_pad)
 {
-    static esp_timer_handle_t restart_timer = nullptr;
     if (restart_timer == nullptr)
     {
         const esp_timer_create_args_t args = {
@@ -776,6 +778,24 @@ void BTManager::restart_after_ms(uint32_t delay_ms)
     }
     if (!esp_timer_is_active(restart_timer))
     {
+        restart_for_last_pad = last_pad;
         esp_timer_start_once(restart_timer, static_cast<uint64_t>(delay_ms) * 1000u);
     }
+    else if (!last_pad)
+    {
+        restart_for_last_pad = false;  // a combo restart is never called off
+    }
+}
+
+/* A pad connected while the restart after the last one leaving was pending: the stack is in use
+ * again, and restarting would drop the new pad (the RP2040 would keep its slot until then). */
+bool BTManager::cancel_last_pad_restart()
+{
+    if (restart_timer == nullptr || !restart_for_last_pad || !esp_timer_is_active(restart_timer))
+    {
+        return false;
+    }
+    esp_timer_stop(restart_timer);
+    restart_for_last_pad = false;
+    return true;
 }

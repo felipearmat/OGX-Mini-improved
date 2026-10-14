@@ -42,7 +42,12 @@ uni_error_t BTManager::device_discovered_cb(bd_addr_t addr, const char* name, ui
 
 void BTManager::device_connected_cb(uni_hid_device_t* device)
 {
-    OGXM_LOG("BP32: Device connected, addr:  %p, index: %i\n", device, uni_hid_device_get_idx_for_instance(device));
+    const int idx = uni_hid_device_get_idx_for_instance(device);
+    OGXM_LOG("BP32: Device connected, addr:  %p, index: %i\n", device, idx);
+    if (cancel_last_pad_restart())
+    {
+        diag_event("slot %d connected: no restart", idx);
+    }
 }
 
 /* The output a pad feeds: its Joy-Con pair's output, else its own slot's, else a free one. */
@@ -114,7 +119,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     if (was_ready && !any_slot)
     {
         diag_event("last slot gone: restarting");
-        restart_after_ms(bt_pad::kLastPadRebootDelayMs);
+        restart_after_ms(bt_pad::kLastPadRebootDelayMs, true);
     }
 }
 

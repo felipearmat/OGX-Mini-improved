@@ -597,16 +597,28 @@ void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16
 void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
                     uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops)
 {
-    Lock l;
-    s_companion.present = true;
-    if (firmware && firmware[0])  // older ESP32 firmware: its version came here, cut short
-        std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", firmware);
-    s_companion.uptime_s = uptime_s;
-    s_companion.high_tx_power = high_tx_power;
-    s_companion.i2c_write_errors = i2c_write_errors;
-    s_companion.i2c_read_errors = i2c_read_errors;
-    s_companion.queue_drops = queue_drops;
-    s_companion.seen_ms = now_ms;
+    bool restarted = false;
+    {
+        Lock l;
+        /* The ESP32 restarted (its uptime went back): its controllers are gone, even those it did
+         * not report leaving (a restart drops every link at once). */
+        if (s_companion.present && uptime_s < s_companion.uptime_s) {
+            restarted = true;
+            for (auto& slot : s_slots)
+                slot.active = false;
+        }
+        s_companion.present = true;
+        if (firmware && firmware[0])  // older ESP32 firmware: its version came here, cut short
+            std::snprintf(s_companion.firmware, sizeof(s_companion.firmware), "%s", firmware);
+        s_companion.uptime_s = uptime_s;
+        s_companion.high_tx_power = high_tx_power;
+        s_companion.i2c_write_errors = i2c_write_errors;
+        s_companion.i2c_read_errors = i2c_read_errors;
+        s_companion.queue_drops = queue_drops;
+        s_companion.seen_ms = now_ms;
+    }
+    if (restarted)
+        event(now_ms, "ESP32 restarted");  // takes the lock itself
 }
 
 void companion_version(const char* version)

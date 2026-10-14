@@ -128,6 +128,18 @@ TEST(joycon_timer_with_a_fractional_step_loses_nothing) {
     CHECK(!has(r, "\"lost_reports_pct\":null"));
 }
 
+TEST(esp32_restart_clears_its_controllers) {
+    // The hybrid's ESP32 restarts (its uptime goes back) without reporting the pads leaving.
+    setup();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    diag::companion_info(1000, "", 80, false, 0, 0, 0);
+    CHECK(has(report(2000), "\"slot\":0"));
+    diag::companion_info(3000, "", 2, false, 0, 0, 0);
+    std::string r = report(4000);
+    CHECK(!has(r, "\"slot\":0"));
+    CHECK(has(r, "ESP32 restarted"));
+}
+
 TEST(input_gap_is_logged_once_per_window) {
     setup();
     diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
