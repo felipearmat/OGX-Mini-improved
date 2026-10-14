@@ -198,7 +198,6 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         return;  // no further input from a pad that is going away
     }
     output.idle.note_input(uni_gp, now_ms, FEEDBACK_TIME_MS + 100);
-    ++slots_[idx].reports;
 
     const bt_pad::Input mapped = bt_pad::map_input(bp_device, uni_gp, output.mapper);
 
@@ -242,9 +241,14 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     packet_in.joystick_ly = mapped.joystick_ly;
     packet_in.joystick_rx = mapped.joystick_rx;
     packet_in.joystick_ry = mapped.joystick_ry;
-    packet_in.bt_slot = static_cast<uint8_t>(idx + 1);
+    /* Diagnostics per physical controller: each half of a merged Joy-Con pair on its own slot. */
+    const int report_slot = diag_forward::take_report_slot();
+    const int diag_slot = report_slot >= 0 && report_slot < static_cast<int>(slots_.size()) &&
+                                  slots_[report_slot].connected
+                              ? report_slot : idx;
+    packet_in.bt_slot = static_cast<uint8_t>(diag_slot + 1);
     uint8_t counter_value = 0, counter_bits = 0, counter_unit = 0;
-    if (diag_forward::take_counter(idx, counter_value, counter_bits, counter_unit))
+    if (diag_forward::take_counter(diag_slot, counter_value, counter_bits, counter_unit))
     {
         packet_in.counter_value = counter_value;
         packet_in.counter_bits = counter_bits;

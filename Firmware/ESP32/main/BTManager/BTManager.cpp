@@ -473,15 +473,14 @@ void BTManager::send_companion_summary()
         uint32_t received = 0, lost = 0;
         bool lost_valid = false;
         diag_forward::take_slot_stats(i, received, lost, lost_valid);
-        const uint32_t reports = slots_[i].reports;
-        slots_[i].reports = 0;
         if (!slots_[i].connected)
         {
             continue;
         }
         const uint32_t total = received + lost;
         const uint16_t lost_x10 = total ? static_cast<uint16_t>(lost * 1000u / total) : 0;
-        diag::companion_slot(i, static_cast<uint16_t>(reports / kPeriodS), lost_valid && total > 0, lost_x10);
+        // received: per physical controller (diag::slot_report), each half of a Joy-Con pair on its own
+        diag::companion_slot(i, static_cast<uint16_t>(received / kPeriodS), lost_valid && total > 0, lost_x10);
     }
     diag::companion_version(OGXM_VERSION);
     diag::companion_info(btstack_run_loop_get_time_ms(), "",

@@ -26,6 +26,9 @@ struct Counter
     bool lost_valid{false};
 };
 Counter s_counters[diag::kSlots];
+/* The slot whose report is being processed: a merged Joy-Con pair hands both halves' input to the
+ * pair's primary device, so the SET_PAD it produces carries this slot for the timing instead. */
+int s_report_slot = -1;
 uint32_t s_le_adv_reports = 0;
 
 /* Writes little-endian fields into a packet's data. */
@@ -78,6 +81,13 @@ bool take_counter(int slot, uint8_t& value, uint8_t& bits, uint8_t& unit)
     bits = c.bits;
     unit = c.unit;
     return true;
+}
+
+int take_report_slot()
+{
+    const int slot = s_report_slot;
+    s_report_slot = -1;
+    return slot;
 }
 
 void take_slot_stats(int slot, uint32_t& received, uint32_t& lost, bool& lost_valid)
@@ -166,9 +176,11 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
 
 void slot_report(size_t slot, uint32_t now_ms)
 {
-    // Measured on the RP2040 from SET_PAD (PacketIn::bt_slot), one per report.
-    (void)slot;
+    // Timing: measured on the RP2040 from SET_PAD (PacketIn::bt_slot), one per report.
     (void)now_ms;
+    if (slot >= kSlots) return;
+    ++s_counters[slot].received;
+    s_report_slot = static_cast<int>(slot);
 }
 
 void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
@@ -184,12 +196,8 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
         const uint8_t mask = static_cast<uint8_t>((1u << bits) - 1u);
         if (c.seen) {
             const uint8_t steps = static_cast<uint8_t>(((c.value - c.last) & mask) / unit);
-            if (steps > 0) {
-                ++c.received;
+            if (steps > 0)
                 c.lost += steps - 1u;
-            }
-        } else {
-            ++c.received;
         }
         c.seen = true;
         c.lost_valid = true;

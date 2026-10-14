@@ -70,7 +70,6 @@ private:
         bt_pad::KeepaliveState keepalive;
         Lightbar lightbar;              // last colour sent
         uint8_t battery_sent{0};        // last battery level sent to the diagnostics
-        uint32_t reports{0};            // reports received since the last summary (diagnostics)
         btstack_timer_source_t mode_lightbar_timer;
     };
 

@@ -17,6 +17,10 @@ namespace diag_forward {
      * SET_PAD; false when there is none. */
     bool take_counter(int slot, uint8_t& value, uint8_t& bits, uint8_t& unit);
 
+    /* The physical slot of the report being processed (diag::slot_report), once; -1 when none.
+     * Differs from the device passed to the controller callback for a merged Joy-Con pair. */
+    int take_report_slot();
+
     /* Every feedback tick: counts gathered since the last one (BLE advertising reports). */
     void tick();
 
