@@ -452,7 +452,6 @@ static void init_complete_cb(void) {
     uni_bt_set_gap_max_peridic_length(UNI_BT_MAX_PERIODIC_LENGTH);
     uni_bt_set_gap_min_peridic_length(UNI_BT_MIN_PERIODIC_LENGTH);
 
-    gap_set_local_name("Nintendo");  // EXPERIMENT P2
     uni_bt_enable_new_connections_unsafe(true);
     // uni_bt_del_keys_unsafe();  // use -DOGXM_BT_CLEAR_KEYS_ON_BOOT=1 or ogxm_bt_debug_clear_keys()
     uni_property_dump_all();
@@ -1400,7 +1399,6 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
     uni_platform_set_custom(get_driver());
     uni_init(0, nullptr);
     link_diag::init();
-    link_diag::set_poll_latency_us(5000);  // EXPERIMENT P2
     /* Custom: which half of a merged Joy-Con pair provides motion. */
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
     /* Custom: a lone Joy-Con waits for its other half (the search times decide how hard the
