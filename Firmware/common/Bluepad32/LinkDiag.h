@@ -11,7 +11,7 @@
 namespace link_diag {
 
     void init();                    // after uni_init(): HCI event handler
-    void on_slot_ready(int slot);   // ask its remote version and maximum transmit power once
+    void on_slot_ready(int slot);   // ask its maximum transmit power (and QoS) once; the remote version is asked on every connection
     /* Ask the controller to poll each Classic link at least this often (HCI QoS Setup, guaranteed
      * service), once per pad; 0 (default) leaves it to the controller. The ESP32's controller
      * otherwise leaves gaps of up to about 90 ms on a Joy-Con pair; the Pico W's links are in sniff. */

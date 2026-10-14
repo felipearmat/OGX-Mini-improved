@@ -10,7 +10,13 @@ namespace link_diag {
 
 static_assert(CONFIG_BLUEPAD32_MAX_DEVICES <= diag::kSlots, "diagnostics slots");
 static btstack_packet_callback_registration_t s_hci_cb;
-static bool s_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+#if defined(ENABLE_BLE)
+static btstack_packet_callback_registration_t s_sm_cb;
+#endif
+/* Links whose remote version is still to be asked: every connection, also one whose pairing then
+ * fails (the controller's Bluetooth chip and firmware sub-version in the report). */
+static hci_con_handle_t s_version_handles[4] = {HCI_CON_HANDLE_INVALID, HCI_CON_HANDLE_INVALID,
+                                                HCI_CON_HANDLE_INVALID, HCI_CON_HANDLE_INVALID};
 static bool s_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_qos_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static uint32_t s_poll_latency_us = 0;  // set_poll_latency_us(); 0 = the controller's own polling
@@ -39,6 +45,18 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         return;
     s_last_ms = now_ms;
     diag::searching(uni_bt_enable_new_connections_is_enabled());
+    for (auto& vh : s_version_handles) {
+        if (vh == HCI_CON_HANDLE_INVALID)
+            continue;
+        if (!hci_can_send_command_packet_now())
+            return;
+        const hci_con_handle_t h = vh;
+        vh = HCI_CON_HANDLE_INVALID;
+        if (gap_get_connection_type(h) != GAP_CONNECTION_INVALID) {
+            hci_send_cmd(&hci_read_remote_version_information, h);
+            return;
+        }
+    }
     for (uint8_t n = 0; n < CONFIG_BLUEPAD32_MAX_DEVICES; ++n) {
         const uint8_t i = static_cast<uint8_t>((s_step / 4 + n) % CONFIG_BLUEPAD32_MAX_DEVICES);
         uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
@@ -51,11 +69,6 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         uint8_t major = 0, minor = 0;
         if (uni_hid_parser_switch_get_firmware_version(d, &major, &minor))
             diag::slot_switch_firmware(i, major, minor);
-        if (s_version_pending[i]) {
-            s_version_pending[i] = false;
-            hci_send_cmd(&hci_read_remote_version_information, h);
-            return;
-        }
         if (!le && s_qos_pending[i] && s_poll_latency_us) {  // QoS Setup: guaranteed service
             s_qos_pending[i] = false;
             hci_send_cmd(&hci_qos_setup, h, 0, 2, 12000, 0, s_poll_latency_us, 0xFFFFFFFF);
@@ -85,6 +98,52 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
     }
 }
 
+static void ask_version(hci_con_handle_t h)
+{
+    for (auto& vh : s_version_handles)
+        if (vh == h)
+            return;
+    for (auto& vh : s_version_handles)
+        if (vh == HCI_CON_HANDLE_INVALID) {
+            vh = h;
+            return;
+        }
+}
+
+#if defined(ENABLE_BLE)
+/* Pairing (Security Manager, BLE): where a controller's pairing stops, for the report. */
+static void sm_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size)
+{
+    (void)channel;
+    (void)size;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    const uint32_t now = btstack_run_loop_get_time_ms();
+    switch (hci_event_packet_get_type(packet)) {
+        case SM_EVENT_PAIRING_STARTED:
+            diag::event(now, "LE 0x%04x pairing", sm_event_pairing_started_get_handle(packet));
+            break;
+        case SM_EVENT_PAIRING_COMPLETE:
+            if (sm_event_pairing_complete_get_status(packet) == ERROR_CODE_SUCCESS)
+                diag::event(now, "LE 0x%04x paired", sm_event_pairing_complete_get_handle(packet));
+            else
+                diag::event(now, "LE 0x%04x pair fail 0x%02x r%u", sm_event_pairing_complete_get_handle(packet),
+                            sm_event_pairing_complete_get_status(packet), sm_event_pairing_complete_get_reason(packet));
+            break;
+        case SM_EVENT_REENCRYPTION_STARTED:
+            diag::event(now, "LE 0x%04x old key", sm_event_reencryption_started_get_handle(packet));
+            break;
+        case SM_EVENT_REENCRYPTION_COMPLETE:
+            diag::event(now, "LE 0x%04x old key 0x%02x", sm_event_reencryption_complete_get_handle(packet),
+                        sm_event_reencryption_complete_get_status(packet));
+            break;
+        default:
+            break;
+    }
+}
+
+#endif  // ENABLE_BLE
+
 static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size)
 {
     (void)channel;
@@ -104,6 +163,10 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         diag::le_parameters(h, iv, lat, to);
                         diag::event(now, "LE 0x%04x %u.%02u ms lat %u to %u", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
+                        bd_addr_t a;
+                        hci_subevent_le_connection_complete_get_peer_address(packet, a);
+                        diag::event(now, "LE 0x%04x from %02X:%02X:%02X", h, a[0], a[1], a[2]);
+                        ask_version(h);
                     }
                     break;
                 case HCI_SUBEVENT_LE_ENHANCED_CONNECTION_COMPLETE_V1:
@@ -115,6 +178,10 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         diag::le_parameters(h, iv, lat, to);
                         diag::event(now, "LE 0x%04x %u.%02u ms lat %u to %u", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
+                        bd_addr_t a;
+                        hci_subevent_le_enhanced_connection_complete_v1_get_peer_addresss(packet, a);  // BTstack spells it so
+                        diag::event(now, "LE 0x%04x from %02X:%02X:%02X", h, a[0], a[1], a[2]);
+                        ask_version(h);
                     }
                     break;
                 case HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE:
@@ -139,7 +206,9 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                 diag::remote_version(h, hci_event_read_remote_version_information_complete_get_version(packet), company,
                                      hci_event_read_remote_version_information_complete_get_subversion(packet));
                 const char* vendor = diag::company_name(company);
-                diag::event(now, "link 0x%04x chip %s", h, vendor ? vendor : "?");
+                diag::event(now, "link 0x%04x chip %s v%u s%04x", h, vendor ? vendor : "?",
+                            hci_event_read_remote_version_information_complete_get_version(packet),
+                            hci_event_read_remote_version_information_complete_get_subversion(packet));
             }
             break;
         case HCI_EVENT_COMMAND_COMPLETE: {
@@ -185,7 +254,22 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
         case GAP_EVENT_EXTENDED_ADVERTISING_REPORT:
             diag::le_adv_report();
             break;
+        case HCI_EVENT_CONNECTION_COMPLETE:
+            if (hci_event_connection_complete_get_status(packet) == 0)
+                ask_version(hci_event_connection_complete_get_connection_handle(packet));
+            break;
+        case HCI_EVENT_SIMPLE_PAIRING_COMPLETE:
+            if (hci_event_simple_pairing_complete_get_status(packet) != 0) {
+                bd_addr_t a;
+                hci_event_simple_pairing_complete_get_bd_addr(packet, a);
+                diag::event(now, "SSP %02X:%02X:%02X fail 0x%02x", a[0], a[1], a[2],
+                            hci_event_simple_pairing_complete_get_status(packet));
+            }
+            break;
         case HCI_EVENT_DISCONNECTION_COMPLETE:
+            for (auto& vh : s_version_handles)
+                if (vh == hci_event_disconnection_complete_get_connection_handle(packet))
+                    vh = HCI_CON_HANDLE_INVALID;
             diag::event(now, "link 0x%04x closed, reason 0x%02x",
                         hci_event_disconnection_complete_get_connection_handle(packet),
                         hci_event_disconnection_complete_get_reason(packet));
@@ -199,13 +283,16 @@ void init()
 {
     s_hci_cb.callback = &hci_handler;
     hci_add_event_handler(&s_hci_cb);
+#if defined(ENABLE_BLE)
+    s_sm_cb.callback = &sm_handler;
+    sm_add_event_handler(&s_sm_cb);
+#endif
 }
 
 void on_slot_ready(int slot)
 {
     if (slot < 0 || slot >= CONFIG_BLUEPAD32_MAX_DEVICES)
         return;
-    s_version_pending[slot] = true;
     s_tx_max_pending[slot] = true;
     s_qos_pending[slot] = true;
 }
