@@ -22,6 +22,10 @@ void BTManager::init(int argc, const char** arg_V)
 
 void BTManager::init_complete_cb(void)
 {
+    /* Switch controllers behave with a host named "Nintendo": with any other name a Joy-Con pair asks
+     * for sniff mode and the ESP32's controller drops one of the two links (Bluepad32 #158); with it
+     * both stay in active mode. Same fix as BlueRetro (#146, v25.04). The BLE name is separate. */
+    gap_set_local_name("Nintendo");
     uni_bt_enable_new_connections_unsafe(true);
     // uni_bt_del_keys_unsafe();
     uni_property_dump_all();
