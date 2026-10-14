@@ -110,7 +110,8 @@ struct Slot {
     bool counter_seen;
     uint32_t counter_last, counter_received, counter_lost, counter_steps, counter_big_steps;
     uint32_t counter_step_hist[5];  // steps of 1, 2, 3, 4, 5 or more (in units)
-    uint8_t counter_unit;           // counter values per report; 0 while learning it
+    uint8_t counter_unit;           // counter values per report, rounded (report field)
+    uint16_t counter_unit_x16;      // counter values per report in 1/16; 0 while learning it
     uint8_t counter_learn[8];       // steps of 1-8 seen while learning
     uint8_t counter_learnt;
     // Gap events: last one logged, and gaps since then not logged
@@ -535,24 +536,31 @@ void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
     value &= mask;
     if (!s.counter_seen) {
         s.counter_unit = unit;
+        s.counter_unit_x16 = static_cast<uint16_t>(unit * 16u);
     } else {
         const uint32_t step = (value - s.counter_last) & mask;
         if (step == 0) return;  // repeated report
         if (step >= (mask + 1) / 2) {
             ++s.counter_steps;
             ++s.counter_big_steps;
-        } else if (s.counter_unit == 0) {
-            // Learning how far the counter moves per report: the most common step.
+        } else if (s.counter_unit_x16 == 0) {
+            /* Learning how far the counter moves per report: the most common step and the one just
+             * above it, weighted. A timer that is not a multiple of the report interval alternates
+             * between the two (a Joy-Con: 2, 2, 2, 3 ticks of 5 ms = one report every 11.25 ms);
+             * a lost report (a step of twice or more) stays out. */
             if (step <= sizeof(s.counter_learn)) ++s.counter_learn[step - 1];
             if (++s.counter_learnt >= kCounterLearnSteps) {
                 uint8_t best = 0;
                 for (uint8_t i = 1; i < sizeof(s.counter_learn); ++i)
                     if (s.counter_learn[i] > s.counter_learn[best]) best = i;
-                s.counter_unit = static_cast<uint8_t>(best + 1);
+                const uint32_t na = s.counter_learn[best];
+                const uint32_t nb = best + 1u < sizeof(s.counter_learn) ? s.counter_learn[best + 1] : 0u;
+                s.counter_unit_x16 = static_cast<uint16_t>(((best + 1u) * na + (best + 2u) * nb) * 16u / (na + nb));
+                s.counter_unit = static_cast<uint8_t>((s.counter_unit_x16 + 8u) / 16u);
             }
         } else {
             ++s.counter_steps;
-            const uint32_t reports = (step + s.counter_unit / 2) / s.counter_unit;  // reports it advanced
+            const uint32_t reports = (step * 16u + s.counter_unit_x16 / 2u) / s.counter_unit_x16;  // reports it advanced
             if (reports >= 1) {
                 s.counter_lost += reports - 1;
                 ++s.counter_step_hist[reports < 5 ? reports - 1 : 4];
@@ -1076,7 +1084,12 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
                 for (uint32_t i = 1; i < 5; ++i)
                     if (s.counter_step_hist[i] > s.counter_step_hist[mode]) mode = i;
                 w.raw(",\"counter_usual_step\":\"%lu%s\"", static_cast<unsigned long>(mode + 1), mode == 4 ? "+" : "");
-                if (s.counter_unit > 1) w.raw(",\"counter_unit\":%u", s.counter_unit);
+                if (s.counter_unit_x16 > 16) {
+                    if (s.counter_unit_x16 % 16 == 0)
+                        w.raw(",\"counter_unit\":%u", s.counter_unit_x16 / 16u);
+                    else
+                        w.raw(",\"counter_unit\":%u.%02u", s.counter_unit_x16 / 16u, (s.counter_unit_x16 % 16u) * 100u / 16u);
+                }
             } else {
                 w.raw(",\"lost_reports_pct\":null");
             }

@@ -102,6 +102,32 @@ TEST(switch_timer_unit_is_learnt) {
     CHECK(!has(r, "\"lost_reports_pct\":0.0"));
 }
 
+TEST(joycon_timer_with_a_fractional_step_loses_nothing) {
+    // A Joy-Con in active mode: one report every 11.25 ms on a 5 ms timer, so the timer moves
+    // 2, 2, 2, 3 per report. None lost: the steps of 3 are part of the cadence.
+    setup();
+    diag::slot_connected(0, 0, "Joy-Con (R)", 0x057e, 0x2007, 1, false, 0x0b, kAddr);
+    uint32_t t = 0;
+    for (int i = 0; i < 400; ++i) {
+        t += (i % 4 == 3) ? 3 : 2;
+        diag::slot_counter(0, t, 8, 0);
+    }
+    std::string r = report(10);
+    CHECK(has(r, "\"counter_unit\":2.25"));
+    CHECK(has(r, "\"lost_reports_pct\":0.0"));
+    // The same with one report lost every 20 (a step of 4 or 5 in place of 2 or 3).
+    setup();
+    diag::slot_connected(0, 0, "Joy-Con (R)", 0x057e, 0x2007, 1, false, 0x0b, kAddr);
+    t = 0;
+    for (int i = 0; i < 400; ++i) {
+        t += ((i % 4 == 3) ? 3 : 2) + ((i % 20 == 19) ? 2 : 0);
+        diag::slot_counter(0, t, 8, 0);
+    }
+    r = report(10);
+    CHECK(!has(r, "\"lost_reports_pct\":0.0"));
+    CHECK(!has(r, "\"lost_reports_pct\":null"));
+}
+
 TEST(input_gap_is_logged_once_per_window) {
     setup();
     diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
