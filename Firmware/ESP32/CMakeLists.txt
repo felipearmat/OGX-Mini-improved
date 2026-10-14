@@ -37,6 +37,9 @@ set(EXTRA_COMPONENT_DIRS
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 include($ENV{BTSTACK_ROOT}/port/esp32/components/btstack/cmake/BTstack_project.cmake)
+# DS4 over Bluetooth: no report interval asked (0 ms); the 4 ms one gives an uneven interval on
+# the ESP32's controller (bluepad32_ds4_poll_interval.diff).
+idf_build_set_property(COMPILE_DEFINITIONS "UNI_DS4_BT_POLL_INTERVAL_MS=0" APPEND)
 project("${FW_NAME}-${FW_VERSION}-ESP32")
 
 idf_build_set_property(COMPILE_OPTIONS 

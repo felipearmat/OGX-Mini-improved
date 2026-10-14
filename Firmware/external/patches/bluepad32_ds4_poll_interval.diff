@@ -1,0 +1,21 @@
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds4.c b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
+index 5583a2e..85e27ca 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_ds4.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
+@@ -595,10 +595,15 @@ static ds4_instance_t* get_ds4_instance(uni_hid_device_t* d) {
+     return (ds4_instance_t*)&d->parser_data[0];
+ }
+ 
++/* Bluetooth report interval asked of the DS4, in ms (0 = as fast as the link allows). */
++#ifndef UNI_DS4_BT_POLL_INTERVAL_MS
++#define UNI_DS4_BT_POLL_INTERVAL_MS 4
++#endif
++
+ static void ds4_send_output_report(uni_hid_device_t* d, ds4_output_report_t* out) {
+     out->transaction_type = (HID_MESSAGE_TYPE_DATA << 4) | HID_REPORT_TYPE_OUTPUT;
+     out->report_id = 0x11;  // taken from HID descriptor
+-    out->unk0[0] = 0xc4;    // HID alone + poll interval
++    out->unk0[0] = 0xc0 | (UNI_DS4_BT_POLL_INTERVAL_MS & 0x0f);  // HID alone + poll interval (ms)
+     out->crc32 = ~uni_crc32_le(0xffffffff, (uint8_t*)out, sizeof(*out) - 4);
+ 
+     uni_hid_device_send_intr_report(d, (uint8_t*)out, sizeof(*out));
