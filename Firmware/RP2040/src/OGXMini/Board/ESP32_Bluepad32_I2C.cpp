@@ -9,6 +9,7 @@
 #include <hardware/gpio.h>
 #include <hardware/i2c.h>
 #include <hardware/uart.h>
+#include <hardware/watchdog.h>
 
 #include "tusb.h"
 #include "bsp/board_api.h"
@@ -70,6 +71,9 @@ static size_t blob_bytes(uint8_t kind, const uint8_t*& data) {
 /* The settings live here (USB web app, flash); the ESP32 maps its pads with them and its BLE web
  * app edits them through the I2C link (GET_PROFILE / SET_PROFILE). Saving reboots the RP2040, so
  * the copy taken at boot stays current. */
+/* Main-loop watchdog (run()): longest the loop may go without a pass before the adapter reboots. */
+static constexpr uint32_t kHangWatchdogMs = 5000;
+
 static UserProfile _profiles[UserSettings::MAX_PROFILES];
 static uint16_t _profiles_crc = 0;
 static uint8_t _active_profile[MAX_GAMEPADS];
@@ -607,7 +611,14 @@ void esp32_bp32_i2c::run() {
 
     tud_init(BOARD_TUD_RHPORT);
 
+    /* Hang recovery: a stuck main loop (USB, the ESP32's log, the USB host port) reboots the
+     * adapter instead of leaving it frozen; the report then shows "watchdog timeout (hang
+     * recovery)" as the last reset. The settings writes in the loop take well under this. The
+     * reboots that arm the watchdog themselves (mode change, flash writes) never come back here. */
+    watchdog_enable(kHangWatchdogMs, true);
+
     while (true) {
+        watchdog_update();
         TaskQueue::Core0::process_tasks();
 
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
