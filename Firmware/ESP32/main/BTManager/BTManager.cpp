@@ -66,6 +66,7 @@ void BTManager::run_task()
      * half of a pair provides motion comes from the dongle settings. */
     uni_hid_parser_switch_set_joycon_pairing(true);
     link_diag::init();  // link details for the diagnostics (Bluepad32/LinkDiag, shared)
+    link_diag::set_poll_latency_us(5000);  // each Classic pad polled at least every 5 ms
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
 
     /* Board LED: the output mode's blink code after boot (Board/ModeIndicator.h), then the search

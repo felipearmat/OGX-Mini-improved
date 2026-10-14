@@ -12,6 +12,8 @@ static_assert(CONFIG_BLUEPAD32_MAX_DEVICES <= diag::kSlots, "diagnostics slots")
 static btstack_packet_callback_registration_t s_hci_cb;
 static bool s_version_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+static bool s_qos_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+static uint32_t s_poll_latency_us = 0;  // set_poll_latency_us(); 0 = the controller's own polling
 static bool s_tx_asked_max = false;  // which level the last Read Transmit Power Level asked for
 
 
@@ -52,6 +54,11 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         if (s_version_pending[i]) {
             s_version_pending[i] = false;
             hci_send_cmd(&hci_read_remote_version_information, h);
+            return;
+        }
+        if (!le && s_qos_pending[i] && s_poll_latency_us) {  // QoS Setup: guaranteed service
+            s_qos_pending[i] = false;
+            hci_send_cmd(&hci_qos_setup, h, 0, 2, 12000, 0, s_poll_latency_us, 0xFFFFFFFF);
             return;
         }
         if (s_tx_max_pending[i]) {
@@ -166,6 +173,11 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                             iv * 625 / 1000, iv * 625 % 1000);
             }
             break;
+        case HCI_EVENT_QOS_SETUP_COMPLETE:  // status, handle, flags, service type, rate, peak, latency
+            if (packet[2] == 0)
+                diag::event(now, "link 0x%04x poll %lu us", little_endian_read_16(packet, 3),
+                            (unsigned long)little_endian_read_32(packet, 15));
+            break;
         case HCI_EVENT_INQUIRY_COMPLETE:
             diag::inquiry_complete(now);
             break;
@@ -195,6 +207,12 @@ void on_slot_ready(int slot)
         return;
     s_version_pending[slot] = true;
     s_tx_max_pending[slot] = true;
+    s_qos_pending[slot] = true;
+}
+
+void set_poll_latency_us(uint32_t us)
+{
+    s_poll_latency_us = us;
 }
 
 } // namespace link_diag
