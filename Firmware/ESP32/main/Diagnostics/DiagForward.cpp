@@ -268,12 +268,13 @@ void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots)
     Writer(PacketDiag::LINK_MODE).u16(con_handle).u8(mode).u16(interval_slots).send();
 }
 
-void searching(bool accepting_new_controllers)
+void searching(bool accepting_new_controllers, bool reduced)
 {
     static int s_sent = -1;  // asked every pass: send on change
-    if (s_sent == (accepting_new_controllers ? 1 : 0)) return;
-    s_sent = accepting_new_controllers ? 1 : 0;
-    Writer(PacketDiag::SEARCHING).u8(accepting_new_controllers ? 1 : 0).send();
+    const int state = (accepting_new_controllers ? 1 : 0) | (reduced ? 2 : 0);
+    if (s_sent == state) return;
+    s_sent = state;
+    Writer(PacketDiag::SEARCHING).u8(accepting_new_controllers ? 1 : 0).u8(reduced ? 1 : 0).send();
 }
 
 void inquiry_complete(uint32_t now_ms)

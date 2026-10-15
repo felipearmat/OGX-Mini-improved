@@ -38,6 +38,8 @@ namespace board_api
     void init_board();
     void set_led(uint8_t index, bool state);
     void set_led(bool state);
+    // Colour of the external RGB status LED when set_led(true) (Kconfig ENABLE_EXT_RGB).
+    void set_led_color(uint8_t r, uint8_t g, uint8_t b);
 }
 
 #endif // _BOARD_API_H_

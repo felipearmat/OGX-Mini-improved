@@ -5,31 +5,40 @@
 The Pico 2 will likely require 4.7k resistors between the USB data lines and ground to work correctly.
 ![OGX-Mini](../images/DiagramPico2.png)
 
-# Pico 2 W external RGB status LED
-Optional. One WS2812B (a 5 V addressable LED, e.g. cut from a strip) shows the output mode on the
-Pico 2 W, and on the Pico 2 / Pico 2 W of the [ESP32 hybrid](#pi-pico--esp32) (soldered to the Pico,
-not the ESP32): it blinks the mode number at boot, blinks while pairing and stays on when a controller is
-connected, in the mode colour (XInput green, Switch red, DInput blue, PS4 light blue, STEAM purple,
-original Xbox yellow, PS3 dark blue, others white). The onboard LED keeps working as before.
+# External RGB status LED
+Optional. One WS2812B (a 5 V addressable LED, e.g. cut from a strip) shows the adapter's status in
+the output mode colour (XInput green, Switch red, DInput blue, PS4 light blue, STEAM purple,
+original Xbox yellow, PS3 dark blue, others white): it blinks the mode number at boot, blinks while
+searching for controllers (fast; slow for the reduced search) and stays on when it stops (a
+controller connected and no free slot). The onboard LEDs keep working as before.
 
-| WS2812B | Pico 2 W |
-|---|---|
-| 5V | VBUS (pin 40) |
-| GND | GND (pin 8 or 38) |
-| DIN | GP6 (pin 9) through a 330 Ω resistor (220 to 470 Ω) |
+Where to solder it:
+
+| Board | LED on | DIN pin |
+|---|---|---|
+| Pico 2 W | the Pico | GP6 (pin 9) |
+| [ESP32 hybrid](#pi-pico--esp32) with a Pico 2 / Pico 2 W | the Pico **or** the ESP32 | GP6 (pin 9) / ESP32 GPIO 4 |
+| ESP32 hybrid with an RP2040 Pico | the ESP32 | ESP32 GPIO 4 |
+
+Both firmwares drive their pin whether or not an LED is there, so one LED on either board works.
+
+| WS2812B | Pico | ESP32 |
+|---|---|---|
+| 5V | VBUS (pin 40) | 5V (VIN) |
+| GND | GND (pin 8 or 38) | GND |
+| DIN | GP6 through a 330 Ω resistor (220 to 470 Ω) | GPIO 4 through a 330 Ω resistor |
 
 - Wire to the **DIN** side (strips print an arrow from DIN to DOUT).
-- More LEDs can be chained (DOUT to the next DIN, 5V and GND in parallel) for later use; the status
-  is shown on the first one and the others stay off. Set `OGXM_EXT_RGB_COUNT` to how many are chained.
 - The data line is 3.3 V and the LED expects 3.5 V at 5 V supply. With short wires this works in
-  practice; if colours flicker or are wrong, power the first LED through a 1N4148 diode (anode on
-  VBUS, cathode on the LED's 5V) so 3.3 V is a valid high for it.
-- Build options: `OGXM_EXT_RGB_PIN` (default `6`, `-1` = none), `OGXM_EXT_RGB_COUNT` (1 to 4),
+  practice; if colours flicker or are wrong, power the LED through a 1N4148 diode (anode on 5V,
+  cathode on the LED's 5V) so 3.3 V is a valid high for it.
+- Pico build options: `OGXM_EXT_RGB_PIN` (default `6`, `-1` = none), `OGXM_EXT_RGB_COUNT` (1 to 4;
+  more LEDs can be chained, DOUT to the next DIN, for later use: the status is on the first one),
   `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`). GP6 is free in every mode (debug UART is
   GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
-  use GP8 and GP16 to GP21). The LED uses PIO block 2.
-- Hybrid: "pairing" means the ESP32 accepts new controllers. The hybrid's RP2040 build
-  (`ESP32_BLUEPAD32_I2C`) has no LED option: the RP2040 has no third PIO block.
+  use GP8 and GP16 to GP21). The LED uses PIO block 2, which the RP2040 does not have.
+- ESP32 options (`idf.py menuconfig`, *OGXMini Options*): `ENABLE_EXT_RGB` (on), `EXT_RGB_PIN`
+  (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral.
 
 # Pi Pico + ESP32
 The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;

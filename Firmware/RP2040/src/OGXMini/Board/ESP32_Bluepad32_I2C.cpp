@@ -23,6 +23,7 @@
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
 #include "Board/ModeIndicator.h"
+#include "Board/StatusLed.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
@@ -131,7 +132,7 @@ static void record_diag(const PacketDiag& diag) {
             break;
         }
         case PacketDiag::SEARCHING:
-            diag::searching(diag.data[0] != 0);
+            diag::searching(diag.data[0] != 0, diag.data[1] != 0);
             break;
         case PacketDiag::ADAPTER_ADDRESS:
             bt_adapter_address::set(diag.data);  // DualShock 3 USB pairing (USB host port)
@@ -525,38 +526,30 @@ static void usb_host_tick() {
 #endif
 
 #if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
-/* Custom: external RGB status LED (hardware/README.md), in the output mode colour as on the
- * Pico 2 W: the mode's blink code at boot, then fast blink while the ESP32 accepts new controllers
- * and solid once it stops (every slot in use, search stopped from the controller) or a wired
- * controller is on the USB host port. */
-static constexpr uint32_t kLedBlinkMs = 250;
-
+/* Custom: external RGB status LED (hardware/README.md) in the output mode colour: the shared
+ * status LED (Board/StatusLed.h) with the search state the ESP32 reports; a wired controller on
+ * the USB host port counts as no search. */
 static void status_led_tick() {
+    static status_led::Blinker s_led;
     static uint32_t s_next_ms = 0;
-    static bool s_blink = false;
-    static int s_shown = -1;  // last LED state written, -1 = unknown
 
     const uint32_t now = board_api::ms_since_boot();
     if (static_cast<int32_t>(now - s_next_ms) < 0) {
         return;
     }
-    bool code_led_on = false;
-    uint32_t code_step_ms = 0;
-    if (mode_indicator::next_step(code_led_on, code_step_ms)) {
-        board_api::set_led(code_led_on);
-        s_shown = -1;
-        s_next_ms = now + code_step_ms;
-        return;
-    }
-    s_blink = !s_blink;
+    bool reduced = false;
     /* Nothing from the ESP32 yet: it boots searching. */
-    const bool searching = !board_api::usb::host_any_pad_mounted() && diag::accepting_new_controllers(true);
-    const int led = (searching ? s_blink : true) ? 1 : 0;
-    if (led != s_shown) {
-        board_api::set_led(led != 0);
-        s_shown = led;
+    const bool searching = !board_api::usb::host_any_pad_mounted() &&
+                           diag::accepting_new_controllers(true, reduced);
+    const status_led::Search search = !searching ? status_led::Search::NONE
+                                    : reduced ? status_led::Search::REDUCED
+                                    : status_led::Search::FULL;
+    bool on = false;
+    uint32_t next_ms = 0;
+    if (s_led.step(search, on, next_ms)) {
+        board_api::set_led(on);
     }
-    s_next_ms = now + kLedBlinkMs;
+    s_next_ms = now + next_ms;
 }
 #endif
 

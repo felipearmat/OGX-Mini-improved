@@ -127,9 +127,9 @@ is listed under [Building from source](#building-from-source).
    new mode and remembers it.
 
 A DualShock 4 / DualSense lightbar shows the mode colour until the host sets its own colour. An
-optional external WS2812B LED on the Pico 2 W (GP6; also on the Pico 2 / Pico 2 W of the ESP32
-hybrid) repeats the blink code and states in the
-mode colour: [wiring](hardware/README.md#pico-2-w-external-rgb-status-led).
+optional external WS2812B LED on the Pico 2 W (GP6) or on the ESP32 hybrid (Pico 2 GP6 or ESP32
+GPIO 4) repeats the blink code and states in the
+mode colour: [wiring](hardware/README.md#external-rgb-status-led).
 
 ## Output modes
 

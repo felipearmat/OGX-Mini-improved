@@ -33,7 +33,8 @@ function(ogxm_add_test NAME)
     add_test(NAME ${NAME} COMMAND ${NAME})
 endfunction()
 
-ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_COMMON}/Board/ModeIndicator.cpp)
+ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_COMMON}/Board/ModeIndicator.cpp
+              ${FW_COMMON}/Board/StatusLed.cpp)
 
 ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)

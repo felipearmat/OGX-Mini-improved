@@ -493,6 +493,7 @@ if(EN_BLUETOOTH)
         ${COMMON}/Bluepad32/LinkDiag.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${COMMON}/Board/ModeIndicator.cpp
+        ${COMMON}/Board/StatusLed.cpp
         ${COMMON}/Bluepad32/JoyConSettings.cpp
         ${COMMON}/Bluepad32/BLEServer.cpp
         ${SRC}/BLEServer/BleStore.cpp
@@ -571,6 +572,7 @@ if(EN_ESP32)
         list(APPEND SOURCES_BOARD
             ${COMMON}/Bluepad32/JoyConSettings.cpp
             ${COMMON}/Board/ModeIndicator.cpp
+            ${COMMON}/Board/StatusLed.cpp
         )
     endif()
     list(APPEND LIBS_BOARD

@@ -211,6 +211,7 @@ Link s_pending[kSlots];
 UsbDevice s_usb[kUsbDevices];
 bool s_searching = false;
 bool s_searching_known = false;
+bool s_search_reduced = false;
 bool s_inquiry_seen = false;
 uint32_t s_last_inquiry_ms = 0;
 uint32_t s_inquiries = 0;
@@ -749,16 +750,18 @@ void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots)
     }
 }
 
-void searching(bool accepting_new_controllers)
+void searching(bool accepting_new_controllers, bool reduced)
 {
     Lock l;
     s_searching = accepting_new_controllers;
+    s_search_reduced = reduced;
     s_searching_known = true;
 }
 
-bool accepting_new_controllers(bool unknown)
+bool accepting_new_controllers(bool unknown, bool& reduced)
 {
     Lock l;
+    reduced = s_searching_known && s_search_reduced;
     return s_searching_known ? s_searching : unknown;
 }
 
@@ -1206,7 +1209,7 @@ void reset_for_tests()
     s_companion = Companion{};
     for (auto& p : s_pending) p = Link{};
     for (auto& u : s_usb) u = UsbDevice{};
-    s_searching = s_searching_known = false;
+    s_searching = s_searching_known = s_search_reduced = false;
     s_inquiry_seen = false;
     s_last_inquiry_ms = 0;
     s_inquiries = 0;

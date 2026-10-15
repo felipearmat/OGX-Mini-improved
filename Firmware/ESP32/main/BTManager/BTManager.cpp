@@ -13,6 +13,7 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "Board/ModeIndicator.h"
+#include "Board/StatusLed.h"
 #include "BTManager/BTManager.h"
 #include "Bluepad32/BLEServer.h"
 #include "Bluepad32/ScanControl.h"
@@ -71,7 +72,7 @@ void BTManager::run_task()
 
     /* Board LED: the output mode's blink code after boot (Board/ModeIndicator.h), then the search
      * state, as on the Pico W. */
-    mode_indicator::begin(UserSettings::get_instance().get_current_driver());
+    begin_mode_indicator(UserSettings::get_instance().get_current_driver());
     led_timer_.process = check_led_cb;
     led_timer_.context = nullptr;
     btstack_run_loop_set_timer(&led_timer_, LED_CHECK_TIME_MS);
@@ -173,40 +174,30 @@ bool BTManager::any_connected()
 }
 
 /* LED: the mode blink code first; then fast blink = full search, slow blink = reduced search,
- * solid = no search (every slot in use), as on the Pico W. Several LEDs (several RP2040s): one per
- * output, solid when its pad is connected. */
+ * solid = no search (every slot in use), as on the Pico W (Board/StatusLed.h), on the GPIO LED and
+ * the external RGB one. Several LEDs (several RP2040s): one per output, solid when its pad is
+ * connected. */
 void BTManager::check_led_cb(btstack_timer_source *ts)
 {
     static bool led_state = false;
     uint32_t next_ms = LED_CHECK_TIME_MS;
 
-    /* Whether new controllers are accepted, for the diagnostics (as the Pico W records it). */
-    BTManager& bt_manager = get_instance();
+    /* Whether new controllers are accepted and at which rate, for the diagnostics and the
+     * RP2040's status LED (forwarded on a change). */
     const bool searching = uni_bt_enable_new_connections_is_enabled();
-    if (searching != bt_manager.searching_sent_)
-    {
-        bt_manager.searching_sent_ = searching;
-        diag::searching(searching);
-    }
+    const bool reduced = searching && scan_control::reduced();
+    diag::searching(searching, reduced);
 
-    if constexpr (board_api::NUM_LEDS == 1)
+    if constexpr (board_api::NUM_LEDS <= 1)
     {
+        static status_led::Blinker s_led;
+        const status_led::Search search = !searching ? status_led::Search::NONE
+                                        : reduced ? status_led::Search::REDUCED
+                                        : status_led::Search::FULL;
         bool on = false;
-        uint32_t duration_ms = 0;
-        if (mode_indicator::active() && mode_indicator::next_step(on, duration_ms))
+        if (s_led.step(search, on, next_ms))
         {
             board_api::set_led(on);
-            next_ms = duration_ms;
-        }
-        else if (get_instance().searching_sent_)
-        {
-            led_state = !led_state;
-            board_api::set_led(led_state);
-            next_ms = scan_control::reduced() ? LED_SLOW_BLINK_MS : LED_FAST_BLINK_MS;
-        }
-        else
-        {
-            board_api::set_led(true);
         }
     }
     else
@@ -220,6 +211,17 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
 
     btstack_run_loop_set_timer(ts, next_ms);
     btstack_run_loop_add_timer(ts);
+}
+
+/* The output mode's blink code, and its colour on the external RGB status LED. */
+void BTManager::begin_mode_indicator(DeviceDriverType driver)
+{
+    mode_indicator::begin(driver);
+#if defined(CONFIG_ENABLE_EXT_RGB)
+    uint8_t r, g, b;
+    mode_indicator::led_color(driver, CONFIG_EXT_RGB_BRIGHTNESS, r, g, b);
+    board_api::set_led_color(r, g, b);
+#endif
 }
 
 void BTManager::send_driver_type(DeviceDriverType driver_type)
@@ -349,7 +351,7 @@ void BTManager::adopt_driver(DeviceDriverType driver, bool mode_change)
         return;  // the ESP32 restarts once the last one is gone, in the new mode
     }
     apply_profiles();
-    mode_indicator::begin(driver);
+    begin_mode_indicator(driver);
     for (uint8_t i = 0; i < slots_.size(); ++i)
     {
         uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;

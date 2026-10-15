@@ -37,6 +37,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "UserSettings/DongleSettings.h"
 #include "Bluepad32/JoyConSettings.h"
 #include "Board/ModeIndicator.h"
+#include "Board/StatusLed.h"
 #include "Gamepad/RumbleTiming.h"
 #include "Board/ReportedMac.h"
 #include "Input/InputSlot.h"
@@ -139,8 +140,6 @@ static void schedule_disconnect_combo(int idx)
 static constexpr uint32_t FEEDBACK_TIME_MS = 250;
 static_assert(FEEDBACK_TIME_MS == switch_rumble::kFeedbackPeriodMs, "keep Gamepad/RumbleTiming.h in sync");
 static constexpr uint32_t LED_CHECK_TIME_MS = 500;
-static constexpr uint32_t LED_FAST_BLINK_MS = 250;   // Custom: full search for new controllers
-static constexpr uint32_t LED_SLOW_BLINK_MS = 1000;  // Custom: reduced search
 /** Idle pairing health check — restarts BR/LE scan if they died during long USB suspend (e.g. 360 standby). */
 static constexpr uint32_t PAIRING_WATCHDOG_MS = 45000;
 /** If no HID input report reaches us for this long while "connected", the BT link is zombie
@@ -402,40 +401,26 @@ static void send_feedback_cb(btstack_timer_source *ts)
 
 static void check_led_cb(btstack_timer_source *ts)
 {
-    static bool led_state = false;
-    static int s_led_shown = -1;  // last LED state written, -1 = unknown
-
-    /* Custom: boot blink code showing the output mode (see Board/ModeIndicator.h). */
-    bool code_led_on = false;
-    uint32_t code_step_ms = 0;
-    if (mode_indicator::next_step(code_led_on, code_step_ms)) {
-        board_api::set_led(code_led_on);
-        s_led_shown = -1;
-        btstack_run_loop_set_timer(ts, code_step_ms);
-        btstack_run_loop_add_timer(ts);
-        return;
-    }
-
-    led_state = !led_state;
+    /* Custom: the mode's blink code, then the search for new controllers (Board/StatusLed.h);
+     * a wired USB host controller active on the Pico W mux counts as no search. */
+    static status_led::Blinker s_led;
 
 #if defined(CONFIG_TARGET_PICO_W) && defined(CONFIG_EN_USB_HOST)
     const bool wired_host_pad = board_api::usb::host_any_pad_mounted();
 #else
     const bool wired_host_pad = false;
 #endif
-    /* Custom: the LED shows the search for new controllers (Bluepad32/ScanPolicy.h): fast blink =
-     * full search, slow blink = reduced (a slot open for over a minute, e.g. a lone Joy-Con),
-     * solid = no search (every slot in use, search times used up or stopped from the controller,
-     * or a wired USB host controller active on the Pico W mux). */
     const bool searching = !wired_host_pad && uni_bt_enable_new_connections_is_enabled();
-    /* Only when it changes: on a Pico W the LED is on the CYW43, each change is a bus transfer. */
-    const int led = (searching ? led_state : true) ? 1 : 0;
-    if (led != s_led_shown) {
-        board_api::set_led(led != 0);
-        s_led_shown = led;
+    const status_led::Search search = !searching ? status_led::Search::NONE
+                                    : scan_reduced() ? status_led::Search::REDUCED
+                                    : status_led::Search::FULL;
+    bool on = false;
+    uint32_t next_ms = 0;
+    if (s_led.step(search, on, next_ms)) {
+        board_api::set_led(on);
     }
 
-    btstack_run_loop_set_timer(ts, searching && scan_reduced() ? LED_SLOW_BLINK_MS : LED_FAST_BLINK_MS);
+    btstack_run_loop_set_timer(ts, next_ms);
     btstack_run_loop_add_timer(ts);
 }
 

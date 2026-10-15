@@ -62,7 +62,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_diagnostics` | Diagnostics: controller identity, link and input timing, wired controllers, USB output, the session summary kept across the mode change, the JSON report. |
 | `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`); mode combos unique and holding Start; every hybrid mode reachable by combo and none of them a GPIO or Wii mode. |
 | `test_spin_lock_budget` | Claimed spin locks stay within the Pico SDK's 8 (one more freezes a Release build at boot). |
-| `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct). |
+| `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct); the shared status LED (`StatusLed`): blink code first, fast / slow blink by search state, solid without search, written only on a change. |
 
 Checked at build time instead: the Bluetooth per-pad arrays stay sized for every Bluetooth slot
 (`static_assert`s in `Bluepad32.cpp`).

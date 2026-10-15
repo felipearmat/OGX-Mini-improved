@@ -143,12 +143,15 @@ TEST(esp32_restart_clears_its_controllers) {
 TEST(search_state_for_the_status_led) {
     // The hybrid's status LED blinks while the ESP32 accepts new controllers.
     setup();
-    CHECK(diag::accepting_new_controllers(true));   // nothing reported yet
-    CHECK(!diag::accepting_new_controllers(false));
+    bool reduced = true;
+    CHECK(diag::accepting_new_controllers(true, reduced));   // nothing reported yet
+    CHECK(!reduced);
+    CHECK(!diag::accepting_new_controllers(false, reduced));
     diag::searching(false);
-    CHECK(!diag::accepting_new_controllers(true));
-    diag::searching(true);
-    CHECK(diag::accepting_new_controllers(false));
+    CHECK(!diag::accepting_new_controllers(true, reduced));
+    diag::searching(true, true);
+    CHECK(diag::accepting_new_controllers(false, reduced));
+    CHECK(reduced);
 }
 
 TEST(input_gap_is_logged_once_per_window) {

@@ -37,6 +37,25 @@ menu "OGXMini Options"
         default 15
         depends on ENABLE_LED_1
 
+    config ENABLE_EXT_RGB
+        bool "External WS2812 status LED (mode colour)"
+        default y
+        help
+            One WS2812B on EXT_RGB_PIN shows the status LED in the output mode colour, as the
+            Pico 2 W's external LED (hardware/README.md). Harmless with nothing wired to the pin.
+
+    config EXT_RGB_PIN
+        int "External WS2812 status LED pin"
+        default 4
+        range 0 33
+        depends on ENABLE_EXT_RGB
+
+    config EXT_RGB_BRIGHTNESS
+        int "External WS2812 status LED brightness (1 to 255)"
+        default 48
+        range 1 255
+        depends on ENABLE_EXT_RGB
+
     config ENABLE_LED_2
         bool "Enable LED 2"
         default n

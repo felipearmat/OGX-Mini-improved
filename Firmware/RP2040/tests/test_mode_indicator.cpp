@@ -1,5 +1,6 @@
-// Boot blink code and lightbar colour per output mode.
+// Boot blink code and lightbar colour per output mode; the shared status LED.
 #include "Board/ModeIndicator.h"
+#include "Board/StatusLed.h"
 #include "test.h"
 
 namespace {
@@ -104,6 +105,44 @@ TEST(led_colours_stay_distinct_at_default_brightness) {
     for (int i = 0; i < kModes; ++i)
         for (int j = i + 1; j < kModes; ++j)
             CHECK(colours[i] != colours[j]);
+}
+
+TEST(status_led_plays_the_code_then_blinks_while_searching) {
+    using status_led::Search;
+    status_led::Blinker led;
+    bool on = false;
+    uint32_t ms = 0;
+    mode_indicator::begin(DeviceDriverType::XINPUT);
+    int code_steps = 0;
+    while (mode_indicator::active()) {
+        CHECK(led.step(Search::FULL, on, ms));  // every code step is written
+        ++code_steps;
+    }
+    CHECK_EQ(code_steps, 6);  // (on, off, pause) twice
+
+    CHECK(led.step(Search::FULL, on, ms));
+    const bool first = on;
+    CHECK_EQ(ms, status_led::kFastBlinkMs);
+    CHECK(led.step(Search::FULL, on, ms));
+    CHECK(on != first);
+    CHECK(led.step(Search::REDUCED, on, ms));
+    CHECK_EQ(ms, status_led::kSlowBlinkMs);
+}
+
+TEST(status_led_is_solid_without_search_and_written_once) {
+    using status_led::Search;
+    status_led::Blinker led;
+    bool on = false;
+    uint32_t ms = 0;
+    CHECK(led.step(Search::NONE, on, ms));
+    CHECK(on);
+    CHECK(!led.step(Search::NONE, on, ms));  // unchanged: no write
+    CHECK(on);
+    CHECK(!led.step(Search::NONE, on, ms));
+    // Search back on: blinks again from the next change.
+    bool changed = false;
+    for (int i = 0; i < 2; ++i) changed |= led.step(Search::FULL, on, ms);
+    CHECK(changed);
 }
 
 TEST_MAIN()

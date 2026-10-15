@@ -5,10 +5,12 @@
 
 #include "sdkconfig.h"
 #include "Board/board_api.h"
+#include "Board/ExtRgbLed.h"
 
 namespace board_api {
 
 SemaphoreHandle_t leds_mutex_ = nullptr;
+uint8_t status_rgb_[3]{};  // the external RGB status LED's colour when on
 // SemaphoreHandle_t reset_mutex_ = nullptr;
 
 void init_board()
@@ -30,6 +32,7 @@ void init_board()
             gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
             gpio_set_level(LED_PIN, 0);
         }
+        ext_rgb_led::init();
         xSemaphoreGive(leds_mutex_);
     }
     // if (xSemaphoreTake(reset_mutex_, portMAX_DELAY))
@@ -59,16 +62,27 @@ void set_led(uint8_t index, bool state)
     }
 }
 
-//Set first LED
+//Set first LED (and the external RGB status LED, in its colour)
 void set_led(bool state)
 {
-    if constexpr (NUM_LEDS < 1)
-    {
-        return;
-    }
     if (xSemaphoreTake(leds_mutex_, portMAX_DELAY))
     {
-        gpio_set_level(LED_PINS[0], state ? 1 : 0);
+        if constexpr (NUM_LEDS > 0)
+        {
+            gpio_set_level(LED_PINS[0], state ? 1 : 0);
+        }
+        ext_rgb_led::set(state ? status_rgb_[0] : 0, state ? status_rgb_[1] : 0, state ? status_rgb_[2] : 0);
+        xSemaphoreGive(leds_mutex_);
+    }
+}
+
+void set_led_color(uint8_t r, uint8_t g, uint8_t b)
+{
+    if (xSemaphoreTake(leds_mutex_, portMAX_DELAY))
+    {
+        status_rgb_[0] = r;
+        status_rgb_[1] = g;
+        status_rgb_[2] = b;
         xSemaphoreGive(leds_mutex_);
     }
 }

@@ -143,7 +143,7 @@ namespace Esp32Bridge
             SLOT_GONE,       // the slot's controller disconnected
             BATTERY,         // data[0]: level, Bluepad32 scale (0 = unknown, 1..255)
             EVENT,           // data[0]: 1 on the last part; data[1..]: text (an event in parts)
-            SEARCHING,       // data[0]: new controllers accepted
+            SEARCHING,       // data[0]: new controllers accepted; data[1]: at the reduced rate
             ADAPTER_ADDRESS, // data[0..5]: the ESP32's Bluetooth address (DualShock 3 USB pairing)
             /* Link details (Bluepad32/LinkDiag), each Diagnostics.h call with its arguments in
              * order, 16-bit values little-endian; `slot` unused unless named. */

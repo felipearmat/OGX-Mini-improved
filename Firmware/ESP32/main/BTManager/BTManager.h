@@ -55,8 +55,6 @@ private:
     static constexpr uint32_t FEEDBACK_TIME_MS = switch_rumble::kFeedbackPeriodMs;
     static constexpr uint32_t RUMBLE_DURATION_MS = switch_rumble::kRumbleDurationMs;
     static constexpr uint32_t LED_CHECK_TIME_MS = 500;
-    static constexpr uint32_t LED_FAST_BLINK_MS = 250;   // full search for new controllers
-    static constexpr uint32_t LED_SLOW_BLINK_MS = 1000;  // reduced search
     static constexpr uint16_t STOP_SEARCH_RUMBLE_MS = 400;
 
     /* One Bluetooth slot (Bluepad32 device index). */
@@ -101,7 +99,6 @@ private:
     std::mutex ext_mutex_;
     FBContext ext_context_;
     bool motion_output_{false};
-    bool searching_sent_{false};
     int high_tx_power_{-1};  // applied transmit power option (-1: not yet)
     void apply_tx_power(bool high);
     void send_companion_summary();
@@ -148,6 +145,7 @@ private:
 
     static uni_hid_device_t* get_connected_bp32_device(uint8_t slot);
     static void check_led_cb(btstack_timer_source *ts);
+    static void begin_mode_indicator(DeviceDriverType driver);
     static void mode_lightbar_cb(btstack_timer_source *ts);
     static void output_feedback_cb(void* context);
     static void ext_feedback_cb(void* context);
