@@ -30,21 +30,35 @@ uint8_t blink_count(DeviceDriverType driver)
     }
 }
 
+/* Seven base colours, each in a full and a light tone (mixed with white, never dimmed: a dim LED
+ * loses its hue), grouped by console family so the colour tells the family and the blink count
+ * the mode: Nintendo reds, Xbox greens, PlayStation blues and purples, yellow and orange for the
+ * mouse + keyboard and Dreamcast, white for DInput / the web app. */
 void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
 {
     switch (driver)
     {
-        case DeviceDriverType::XINPUT: r = 0x00; g = 0xFF; b = 0x00; break; // green
-        case DeviceDriverType::SWITCH: r = 0xFF; g = 0x00; b = 0x00; break; // red
-        case DeviceDriverType::DINPUT: r = 0x00; g = 0x00; b = 0xFF; break; // blue
-        case DeviceDriverType::PS4:    r = 0x00; g = 0xFF; b = 0xFF; break; // light blue (hue 180)
-        case DeviceDriverType::PS3:    r = 0x00; g = 0x00; b = 0x50; break; // dark blue
-        case DeviceDriverType::STEAM:  r = 0x80; g = 0x00; b = 0xFF; break; // purple
-        case DeviceDriverType::KBM:    r = 0xFF; g = 0x50; b = 0x00; break; // orange
+        // Nintendo
+        case DeviceDriverType::SWITCH:    r = 0xFF; g = 0x00; b = 0x00; break; // red
+        case DeviceDriverType::WIIU:      r = 0xFF; g = 0x40; b = 0x80; break; // pink (GameCube adapter)
+        case DeviceDriverType::WII:       r = 0xFF; g = 0x60; b = 0x00; break; // red-orange
+        case DeviceDriverType::GAMECUBE:
+        case DeviceDriverType::N64:       r = 0xFF; g = 0xA0; b = 0x80; break; // salmon
+        // Xbox
+        case DeviceDriverType::XINPUT:    r = 0x00; g = 0xFF; b = 0x00; break; // green
         case DeviceDriverType::XBOXOG:
         case DeviceDriverType::XBOXOG_SB:
-        case DeviceDriverType::XBOXOG_XR: r = 0xFF; g = 0xB0; b = 0x00; break; // yellow
-        default:                       r = 0xFF; g = 0xFF; b = 0xFF; break; // white
+        case DeviceDriverType::XBOXOG_XR: r = 0xA0; g = 0xFF; b = 0xA0; break; // light green
+        // PlayStation (STEAM is a DualSense)
+        case DeviceDriverType::PS1PS2:
+        case DeviceDriverType::PSCLASSIC: r = 0xD0; g = 0xA0; b = 0xFF; break; // lilac
+        case DeviceDriverType::PS3:       r = 0x00; g = 0xFF; b = 0xFF; break; // light blue
+        case DeviceDriverType::PS4:       r = 0x00; g = 0x00; b = 0xFF; break; // blue
+        case DeviceDriverType::STEAM:     r = 0xA0; g = 0x00; b = 0xFF; break; // purple
+        // Others
+        case DeviceDriverType::KBM:       r = 0xFF; g = 0xE0; b = 0x00; break; // yellow
+        case DeviceDriverType::DREAMCAST: r = 0xFF; g = 0xA0; b = 0x00; break; // orange
+        default:                          r = 0xFF; g = 0xFF; b = 0xFF; break; // white (DInput, web app)
     }
 }
 

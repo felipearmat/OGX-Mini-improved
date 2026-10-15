@@ -141,21 +141,21 @@ LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 |---|---|---|---|---|---|---|
 | XInput | Start + Up | Xbox 360 controller | 1 | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
 | Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
-| DInput | Start + RB + Left | generic gamepad | 3 | blue | yes | PC and other hosts that take a generic gamepad |
-| PS4 | Start + LB + Left | DualShock 4 | 4 | light blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
+| DInput | Start + RB + Left | generic gamepad | 3 | white | yes | PC and other hosts that take a generic gamepad |
+| PS4 | Start + LB + Left | DualShock 4 | 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
 | STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
-| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | yellow | yes | Original Xbox console |
-| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | yellow | — | Original Xbox console |
-| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | yellow | — | Original Xbox console (only in builds with the remote ROM) |
-| PS3 | Start + Left | DualShock 3 | 7 | dark blue | yes | PS3 console (motion for Sixaxis games), PC |
-| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | orange | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
-| PS Classic | Start + A | PlayStation Classic controller | 7 | white | yes | PlayStation Classic console |
-| Wii U (GameCube adapter) | Start + LB + Down | Wii U GameCube adapter | 7 | white | yes | Wii U, in Super Smash Bros. only; the one mode tested with several controllers |
-| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | white | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
-| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | white | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
-| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | white | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
-| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | white | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
-| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | white | — | N64 through the controller cable; Pico W / Pico 2 W |
+| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light green | yes | Original Xbox console |
+| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light green | — | Original Xbox console |
+| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light green | — | Original Xbox console (only in builds with the remote ROM) |
+| PS3 | Start + Left | DualShock 3 | 7 | light blue | yes | PS3 console (motion for Sixaxis games), PC |
+| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | yellow | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
+| PS Classic | Start + A | PlayStation Classic controller | 7 | lilac | yes | PlayStation Classic console |
+| Wii U (GameCube adapter) | Start + LB + Down | Wii U GameCube adapter | 7 | pink | yes | Wii U, in Super Smash Bros. only; the one mode tested with several controllers |
+| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | red-orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
+| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | lilac | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
+| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | salmon | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
+| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | orange | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
+| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | salmon | — | N64 through the controller cable; Pico W / Pico 2 W |
 | Web App | Start + LB + RB | web app device | 7 | white | yes | Settings and diagnostics in the browser, over USB |
 <!-- END GENERATED: mode-table -->
 

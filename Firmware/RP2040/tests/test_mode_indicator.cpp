@@ -55,11 +55,14 @@ TEST(each_repetition_ends_with_led_off_pause) {
 }
 
 TEST(lightbar_colours_are_distinct) {
-    const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
-                                      DeviceDriverType::DINPUT, DeviceDriverType::PS4,
-                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU,
-                                      DeviceDriverType::KBM};
+    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants, DInput = web app).
+    const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
+                                      DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
+                                      DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
+                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
+                                      DeviceDriverType::PS4,       DeviceDriverType::STEAM,
+                                      DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
+                                      DeviceDriverType::DINPUT};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -79,21 +82,24 @@ TEST(led_colour_scales_and_keeps_lit_channels_visible) {
     CHECK_EQ(r, 0);
     CHECK_EQ(g, 51);
     CHECK_EQ(b, 0);
-    // PS3 dark blue (0x50) would round to 0 at very low brightness.
-    mode_indicator::led_color(DeviceDriverType::PS3, 2, r, g, b);
-    CHECK_EQ(r, 0);
-    CHECK_EQ(g, 0);
+    // The light green's 0xA0 channels would round to 0 at the lowest brightness.
+    mode_indicator::led_color(DeviceDriverType::XBOXOG, 1, r, g, b);
+    CHECK_EQ(r, 1);
+    CHECK_EQ(g, 1);
     CHECK_EQ(b, 1);
-    mode_indicator::led_color(DeviceDriverType::PS3, 0, r, g, b);
-    CHECK_EQ(b, 0);
+    mode_indicator::led_color(DeviceDriverType::XBOXOG, 0, r, g, b);
+    CHECK_EQ(r, 0);
 }
 
 TEST(led_colours_stay_distinct_at_default_brightness) {
-    const DeviceDriverType modes[] = {DeviceDriverType::XINPUT, DeviceDriverType::SWITCH,
-                                      DeviceDriverType::DINPUT, DeviceDriverType::PS4,
-                                      DeviceDriverType::STEAM,  DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS3,    DeviceDriverType::WIIU,
-                                      DeviceDriverType::KBM};
+    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants, DInput = web app).
+    const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
+                                      DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
+                                      DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
+                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
+                                      DeviceDriverType::PS4,       DeviceDriverType::STEAM,
+                                      DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
+                                      DeviceDriverType::DINPUT};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {

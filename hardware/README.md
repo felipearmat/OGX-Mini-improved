@@ -7,8 +7,9 @@ The Pico 2 will likely require 4.7k resistors between the USB data lines and gro
 
 # External RGB status LED
 Optional. One WS2812B (a 5 V addressable LED, e.g. cut from a strip) shows the adapter's status in
-the output mode colour (XInput green, Switch red, DInput blue, PS4 light blue, STEAM purple,
-original Xbox yellow, PS3 dark blue, others white): it blinks the mode number at boot, blinks while
+the output mode colour (the [mode table](../README.md#output-modes) lists each one: Nintendo
+reds, Xbox greens, PlayStation blues and purples, yellow / orange for mouse + keyboard and
+Dreamcast, white for DInput): it blinks the mode number at boot, blinks while
 searching for controllers (fast; slow for the reduced search) and stays on when it stops (a
 controller connected and no free slot). The onboard LEDs keep working as before.
 
