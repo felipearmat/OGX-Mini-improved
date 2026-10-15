@@ -756,6 +756,12 @@ void searching(bool accepting_new_controllers)
     s_searching_known = true;
 }
 
+bool accepting_new_controllers(bool unknown)
+{
+    Lock l;
+    return s_searching_known ? s_searching : unknown;
+}
+
 void le_adv_report()
 {
     Lock l;

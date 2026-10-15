@@ -22,6 +22,7 @@
 #include "Board/BtAdapterAddress.h"
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
+#include "Board/ModeIndicator.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
@@ -523,6 +524,42 @@ static void usb_host_tick() {
 }
 #endif
 
+#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
+/* Custom: external RGB status LED (hardware/README.md), in the output mode colour as on the
+ * Pico 2 W: the mode's blink code at boot, then fast blink while the ESP32 accepts new controllers
+ * and solid once it stops (every slot in use, search stopped from the controller) or a wired
+ * controller is on the USB host port. */
+static constexpr uint32_t kLedBlinkMs = 250;
+
+static void status_led_tick() {
+    static uint32_t s_next_ms = 0;
+    static bool s_blink = false;
+    static int s_shown = -1;  // last LED state written, -1 = unknown
+
+    const uint32_t now = board_api::ms_since_boot();
+    if (static_cast<int32_t>(now - s_next_ms) < 0) {
+        return;
+    }
+    bool code_led_on = false;
+    uint32_t code_step_ms = 0;
+    if (mode_indicator::next_step(code_led_on, code_step_ms)) {
+        board_api::set_led(code_led_on);
+        s_shown = -1;
+        s_next_ms = now + code_step_ms;
+        return;
+    }
+    s_blink = !s_blink;
+    /* Nothing from the ESP32 yet: it boots searching. */
+    const bool searching = !board_api::usb::host_any_pad_mounted() && diag::accepting_new_controllers(true);
+    const int led = (searching ? s_blink : true) ? 1 : 0;
+    if (led != s_shown) {
+        board_api::set_led(led != 0);
+        s_shown = led;
+    }
+    s_next_ms = now + kLedBlinkMs;
+}
+#endif
+
 static void core1_task() {
     init_i2c_slave();
     while (true) {
@@ -572,6 +609,13 @@ void esp32_bp32_i2c::initialize() {
     }
     _current_driver = user_settings.get_current_driver();
 
+#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
+    /* Custom: the RGB status LED lights in the output mode colour. */
+    uint8_t led_r, led_g, led_b;
+    mode_indicator::led_color(_current_driver, RGB_BRIGHTNESS, led_r, led_g, led_b);
+    board_api::set_led_color(led_r, led_g, led_b);
+#endif
+
     /* UART bridge: GP21 to GND at boot (jumper), a retail update, or asked over USB in Web App
      * mode (Board/BootMode.h: ESP32 update or log monitor), so the adapter's USB port does it all. */
     const boot_mode::Mode boot = boot_mode::take();
@@ -616,6 +660,9 @@ void esp32_bp32_i2c::run() {
      * recovery)" as the last reset. The settings writes in the loop take well under this. The
      * reboots that arm the watchdog themselves (mode change, flash writes) never come back here. */
     watchdog_enable(kHangWatchdogMs, true);
+#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
+    mode_indicator::begin(_current_driver);
+#endif
 
     while (true) {
         watchdog_update();
@@ -635,6 +682,9 @@ void esp32_bp32_i2c::run() {
         }
 #if defined(CONFIG_EN_USB_HOST)
         usb_host_tick();
+#endif
+#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
+        status_led_tick();
 #endif
         sleep_ms(1);
     }

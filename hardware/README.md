@@ -7,7 +7,8 @@ The Pico 2 will likely require 4.7k resistors between the USB data lines and gro
 
 # Pico 2 W external RGB status LED
 Optional. One WS2812B (a 5 V addressable LED, e.g. cut from a strip) shows the output mode on the
-Pico 2 W: it blinks the mode number at boot, blinks while pairing and stays on when a controller is
+Pico 2 W, and on the Pico 2 / Pico 2 W of the [ESP32 hybrid](#pi-pico--esp32) (soldered to the Pico,
+not the ESP32): it blinks the mode number at boot, blinks while pairing and stays on when a controller is
 connected, in the mode colour (XInput green, Switch red, DInput blue, PS4 light blue, STEAM purple,
 original Xbox yellow, PS3 dark blue, others white). The onboard LED keeps working as before.
 
@@ -25,7 +26,10 @@ original Xbox yellow, PS3 dark blue, others white). The onboard LED keeps workin
   VBUS, cathode on the LED's 5V) so 3.3 V is a valid high for it.
 - Build options: `OGXM_EXT_RGB_PIN` (default `6`, `-1` = none), `OGXM_EXT_RGB_COUNT` (1 to 4),
   `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`). GP6 is free in every mode (debug UART is
-  GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26). The LED uses PIO block 2.
+  GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
+  use GP8 and GP16 to GP21). The LED uses PIO block 2.
+- Hybrid: "pairing" means the ESP32 accepts new controllers. The hybrid's RP2040 build
+  (`ESP32_BLUEPAD32_I2C`) has no LED option: the RP2040 has no third PIO block.
 
 # Pi Pico + ESP32
 The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;

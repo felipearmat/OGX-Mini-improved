@@ -113,6 +113,8 @@ namespace diag {
     // Whether new controllers are accepted (Bluepad32's flag), and each finished BR/EDR inquiry
     // (the radio really searching, which costs the connected pads air time).
     void searching(bool accepting_new_controllers);
+    // The last value reported above; `unknown` until the first one (RP2040: the hybrid's status LED).
+    bool accepting_new_controllers(bool unknown);
     void inquiry_complete(uint32_t now_ms);
     // Each BLE advertising report: the LE scan is running (it shares the radio with the pads).
     void le_adv_report();

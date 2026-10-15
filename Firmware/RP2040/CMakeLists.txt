@@ -151,6 +151,27 @@ set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in s
 set(FLASH_SIZE_MB 2)
 set(PICO_BOARD none)
 
+# Custom: external WS2812 status LED on a Pico 2 / Pico 2 W board (see hardware/README.md).
+macro(ogxm_ext_rgb_options)
+    set(OGXM_EXT_RGB_PIN 6 CACHE STRING "Pico 2 W: GPIO of an external WS2812 status LED, -1 = none")
+    set(OGXM_EXT_RGB_COUNT 1 CACHE STRING "Pico 2 W: WS2812 LEDs chained on that pin, 1 to 4")
+    set(OGXM_EXT_RGB_BRIGHTNESS 48 CACHE STRING "Pico 2 W: WS2812 status LED brightness, 1 to 255")
+    if(NOT OGXM_EXT_RGB_PIN EQUAL -1)
+        if(OGXM_EXT_RGB_COUNT LESS 1 OR OGXM_EXT_RGB_COUNT GREATER 4)
+            message(FATAL_ERROR "OGXM_EXT_RGB_COUNT must be between 1 and 4")
+        endif()
+        if(OGXM_EXT_RGB_BRIGHTNESS LESS 1 OR OGXM_EXT_RGB_BRIGHTNESS GREATER 255)
+            message(FATAL_ERROR "OGXM_EXT_RGB_BRIGHTNESS must be between 1 and 255")
+        endif()
+        set(EN_RGB TRUE)
+        add_compile_definitions(
+            OGXM_EXT_RGB_PIN=${OGXM_EXT_RGB_PIN}
+            OGXM_EXT_RGB_COUNT=${OGXM_EXT_RGB_COUNT}
+            OGXM_EXT_RGB_BRIGHTNESS=${OGXM_EXT_RGB_BRIGHTNESS}
+        )
+    endif()
+endmacro()
+
 if (OGXM_BOARD STREQUAL "PI_PICO")
     add_compile_definitions(CONFIG_OGXM_BOARD_PI_PICO=1)
     set(EN_USB_HOST TRUE)
@@ -175,24 +196,7 @@ elseif(OGXM_BOARD STREQUAL "PI_PICO2W")
     set(PICO_BOARD pico2_w)
     set(PICO_PLATFORM rp2350)
     set(FLASH_SIZE_MB 4)
-    # Custom: external WS2812 status LED (see hardware/README.md).
-    set(OGXM_EXT_RGB_PIN 6 CACHE STRING "Pico 2 W: GPIO of an external WS2812 status LED, -1 = none")
-    set(OGXM_EXT_RGB_COUNT 1 CACHE STRING "Pico 2 W: WS2812 LEDs chained on that pin, 1 to 4")
-    set(OGXM_EXT_RGB_BRIGHTNESS 48 CACHE STRING "Pico 2 W: WS2812 status LED brightness, 1 to 255")
-    if(NOT OGXM_EXT_RGB_PIN EQUAL -1)
-        if(OGXM_EXT_RGB_COUNT LESS 1 OR OGXM_EXT_RGB_COUNT GREATER 4)
-            message(FATAL_ERROR "OGXM_EXT_RGB_COUNT must be between 1 and 4")
-        endif()
-        if(OGXM_EXT_RGB_BRIGHTNESS LESS 1 OR OGXM_EXT_RGB_BRIGHTNESS GREATER 255)
-            message(FATAL_ERROR "OGXM_EXT_RGB_BRIGHTNESS must be between 1 and 255")
-        endif()
-        set(EN_RGB TRUE)
-        add_compile_definitions(
-            OGXM_EXT_RGB_PIN=${OGXM_EXT_RGB_PIN}
-            OGXM_EXT_RGB_COUNT=${OGXM_EXT_RGB_COUNT}
-            OGXM_EXT_RGB_BRIGHTNESS=${OGXM_EXT_RGB_BRIGHTNESS}
-        )
-    endif()
+    ogxm_ext_rgb_options()  # Custom: external WS2812 status LED
 
 elseif(OGXM_BOARD STREQUAL "ADAFRUIT_FEATHER")
     add_compile_definitions(CONFIG_OGXM_BOARD_ADAFRUIT_FEATHER=1)
@@ -227,6 +231,7 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
         set(PICO_BOARD pico2)
         set(PICO_PLATFORM rp2350)
         set(FLASH_SIZE_MB 4)
+        ogxm_ext_rgb_options()  # Custom: external WS2812 status LED (PIO block 2 is free here)
     endif()
 
     if(OGXM_RETAIL STREQUAL "TRUE")
@@ -565,6 +570,7 @@ if(EN_ESP32)
         # Joy-Con motion orientation for pads the ESP32 forwards (Firmware/common/Bluepad32)
         list(APPEND SOURCES_BOARD
             ${COMMON}/Bluepad32/JoyConSettings.cpp
+            ${COMMON}/Board/ModeIndicator.cpp
         )
     endif()
     list(APPEND LIBS_BOARD

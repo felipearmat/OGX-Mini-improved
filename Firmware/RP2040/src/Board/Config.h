@@ -107,6 +107,14 @@
     #ifndef PIO_USB_SWAP_DP_DM
     #define PIO_USB_SWAP_DP_DM  0
     #endif
+    #if defined(OGXM_EXT_RGB_PIN)
+    // Custom: external WS2812 status LED (Pico 2 / Pico 2 W only, CMake OGXM_EXT_RGB_*), on pio2
+    // as on the Pico 2 W: pio0 / pio1 belong to the USB host port.
+    #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
+    #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
+    #define RGB_PXL_PIO         pio2
+    #define RGB_BRIGHTNESS      OGXM_EXT_RGB_BRIGHTNESS
+    #endif
 
     #if MAX_GAMEPADS > 1
         #undef MAX_GAMEPADS

@@ -140,6 +140,17 @@ TEST(esp32_restart_clears_its_controllers) {
     CHECK(has(r, "ESP32 restarted"));
 }
 
+TEST(search_state_for_the_status_led) {
+    // The hybrid's status LED blinks while the ESP32 accepts new controllers.
+    setup();
+    CHECK(diag::accepting_new_controllers(true));   // nothing reported yet
+    CHECK(!diag::accepting_new_controllers(false));
+    diag::searching(false);
+    CHECK(!diag::accepting_new_controllers(true));
+    diag::searching(true);
+    CHECK(diag::accepting_new_controllers(false));
+}
+
 TEST(input_gap_is_logged_once_per_window) {
     setup();
     diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
