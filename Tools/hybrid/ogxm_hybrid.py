@@ -2,7 +2,7 @@
 """Maintain an OGX-Mini adapter through its own USB port.
 
 On the RP2040 + ESP32 hybrid everything goes through the RP2040 / RP2350's USB port: the ESP32 is
-flashed and its log read through it. The adapter must be in D-Input/Debug mode (hold Start + LB + RB
+flashed and its log read through it. The adapter must be in D-Input/Debug mode (hold Start + RB + Left
 about 3 s), which shows up as a USB serial port.
 
   ogxm_hybrid.py ports                       list OGX-Mini serial ports
@@ -67,7 +67,7 @@ def find_port(product, timeout=0.0):
 def webapp_port():
     port = find_port(WEBAPP_PRODUCT)
     if port is None:
-        sys.exit("No adapter in D-Input/Debug mode found. Hold Start + LB + RB about 3 s on a controller "
+        sys.exit("No adapter in D-Input/Debug mode found. Hold Start + RB + Left about 3 s on a controller "
                  "(or pick D-Input/Debug in the web app), then try again.")
     return port
 

@@ -478,7 +478,8 @@ static void input_update_wiimote(){
         case NO_EXTENSION:{
             float pointer_delta_x = 0, pointer_delta_y = 0;
 
-            memcpy(&wiimote.usr, &input_report->wiimote, 14);
+            /* Custom: the report is volatile (filled by the other core); copied as plain bytes. */
+            memcpy(&wiimote.usr, (const void *)&input_report->wiimote, 14);
 
             pointer_delta_x += (input_report->wiimote.ir_x / 127.0) * 0.008;
             pointer_delta_y += (input_report->wiimote.ir_y / 127.0) * 0.008;
@@ -492,10 +493,11 @@ static void input_update_wiimote(){
         case WIIMOTE_AND_NUNCHUCK:{
             // Wiimote
             float pointer_delta_x = 0, pointer_delta_y = 0;
-            memcpy(&wiimote.usr, &input_report->wiimote, 14);
+            /* Custom: the report is volatile (filled by the other core); copied as plain bytes. */
+            memcpy(&wiimote.usr, (const void *)&input_report->wiimote, 14);
 
             // Nunchuck
-            memcpy(&wiimote.usr.nunchuk, &input_report->nunchuk, sizeof(struct wiimote_nunchuk));
+            memcpy(&wiimote.usr.nunchuk, (const void *)&input_report->nunchuk, sizeof(struct wiimote_nunchuk));
 
             pointer_delta_x += (input_report->wiimote.ir_x / 127.0) * 0.008;
             pointer_delta_y += (input_report->wiimote.ir_y / 127.0) * 0.008;
@@ -539,7 +541,7 @@ static void input_update_wiimote(){
         }
             break;
         case CLASSIC_CONTROLLER:
-            memcpy(&wiimote.usr.classic, &input_report->classic, sizeof(struct wiimote_classic));
+            memcpy(&wiimote.usr.classic, (const void *)&input_report->classic, sizeof(struct wiimote_classic));
             break;
         default:
             break;

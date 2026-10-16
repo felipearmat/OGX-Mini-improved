@@ -238,6 +238,8 @@ void uni_bt_le_scan_stop(void) {}
 void uni_bt_enable_new_connections_unsafe(bool enabled) {
     (void)enabled;
 }
+void uni_bt_start_scanning_and_autoconnect_unsafe(void) {}
+void uni_bt_stop_scanning_unsafe(void) {}
 void gap_connectable_control(uint8_t enable) {
     (void)enable;
 }

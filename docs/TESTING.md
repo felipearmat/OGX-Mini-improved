@@ -8,8 +8,8 @@ automated tests on a real adapter (settings saved live, restarts, the ESP32 link
 [Tools/bench](../Tools/bench/README.md).
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
-`host-tests`), together with the Pico 2 W firmware builds (each with a limit of compiler warnings:
-a new warning fails the build), the firmware rules (`python3 .github/scripts/check_firmware_rules.py`:
+`host-tests`), together with the Pico 2 W firmware builds (Release builds have no compiler warnings; one
+fails the build), the firmware rules (`python3 .github/scripts/check_firmware_rules.py`:
 checks in the source for bugs that only showed on hardware, such as a Core1 entry that does not
 register for the flash lockout), the ESP32 companion firmware build, the
 shared-sources check (`python3 .github/scripts/check_shared_sources.py`, see

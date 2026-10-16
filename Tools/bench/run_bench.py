@@ -5,7 +5,7 @@
   run_bench.py --hybrid ESP32_BLUEPAD32_I2C_PICO2.uf2 --esp32 build-dir
   run_bench.py --solo A.uf2 --hybrid B.uf2 --esp32 dir      both, one after the other
 
-The adapter must start in D-Input/Debug mode (Start + LB + RB). The Pico is flashed through its
+The adapter must start in D-Input/Debug mode (Start + RB + Left). The Pico is flashed through its
 own USB port (SYSTEM bootloader command, then picotool), the hybrid's ESP32 through the Pico's
 bridge (Tools/hybrid/ogxm_hybrid.py flash-esp32). Extra arguments after "--" go to pytest.
 """
@@ -38,7 +38,11 @@ def flash_pico(uf2):
 def flash_esp32(build_dir):
     subprocess.run([sys.executable, str(HYBRID_TOOL), "flash-esp32", str(build_dir)], check=True)
     time.sleep(3)
-    Adapter.open(timeout=60).close()
+    a = Adapter.open(timeout=60)
+    try:
+        a.wait_companion(timeout=40)  # the tests start with the ESP32 up
+    finally:
+        a.close()
 
 
 def run_pytest(label, extra):

@@ -12,7 +12,13 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   device on one of its ports after a UF2 copy), back-powering through the ESP32's pins when the
   ESP32 has its own supply, the Pico's restart path. The bench test
   `test_log_monitor_returns_to_dinput` (Tools/bench) caught it once; repeat it straight on the
-  computer's port, without the hub, to tell the hub apart.
+  computer's port, without the hub, to tell the hub apart. 2026-10-16: going into the bridge to
+  flash the ESP32, the Pico left USB and came back by replugging the dongle alone (the hub
+  untouched), which points at the Pico's side; an earlier case needed the hub reconnected (macOS
+  kept a stale BOOTSEL device on its port), so there may be two problems.
+- **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
+  `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
+  Release builds have none and CI keeps them at zero.
 
 ## Output modes
 

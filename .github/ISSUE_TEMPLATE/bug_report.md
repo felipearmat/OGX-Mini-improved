@@ -28,6 +28,6 @@ It will look like this: HID\VID_046D&PID_C05A
 Pi Pico, Adafruit Feather, RP2040-Zero...
 
 **Diagnostics log report**
-For lag, disconnects, pairing problems or the adapter freezing / restarting: right after the problem, switch the adapter to Web App mode (Start + Left Bumper + Right Bumper, 3 s) without unplugging it, connect the web app over USB, open Diagnostics, click Generate log report and attach the file here. Steps: Firmware/RP2040/docs/Web_App_Guide.md
+For lag, disconnects, pairing problems or the adapter freezing / restarting: right after the problem, switch the adapter to Web App mode (Start + Right Bumper + D-pad Left, 3 s) without unplugging it, connect the web app over USB, open Diagnostics, click Generate log report and attach the file here. Steps: Firmware/RP2040/docs/Web_App_Guide.md
 
 See Firmware/RP2040/docs/Support_Issue_Requirements.md for everything a support issue needs.

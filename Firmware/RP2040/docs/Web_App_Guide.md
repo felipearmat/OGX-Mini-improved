@@ -14,7 +14,7 @@ The [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) changes m
 ## Connecting
 
 1. Plug the adapter into a PC.
-2. Put it in **D-Input/Debug mode**: hold **Start + Left Bumper + Right Bumper** for about 3 seconds. The adapter restarts in that mode.
+2. Put it in **D-Input/Debug mode**: hold **Start + Right Bumper + D-pad Left** for about 3 seconds. The adapter restarts in that mode.
 3. Open the web app in a Chromium-based browser (Chrome, Edge, Brave): Web Serial is not available in Firefox or Safari.
 4. Click **Connect via USB** and pick the OGX-Mini.
 
@@ -63,7 +63,7 @@ It is not a replacement for the adapter-side report capture required for [mappin
 ## How to generate a report
 
 1. Use the adapter in the mode you play with until the problem happens.
-2. **Without unplugging it**, switch to D-Input/Debug mode (**Start + Left Bumper + Right Bumper**, about 3 s).
+2. **Without unplugging it**, switch to D-Input/Debug mode (**Start + Right Bumper + D-pad Left**, about 3 s).
 3. Connect the web app over USB, open **Diagnostics** and click **Generate log report**. A file named `ogx-mini-report-<date>.json` is saved.
 4. Attach that file to the issue, and say which mode and controller the problem happened with.
 

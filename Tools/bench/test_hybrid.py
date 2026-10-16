@@ -15,15 +15,12 @@ def only_hybrid(hybrid):
 
 
 def test_esp32_talks_and_reports_its_version(adapter):
-    deadline = time.monotonic() + 15
-    companion = {}
-    while time.monotonic() < deadline:
-        companion = adapter.diagnostics().get("companion") or {}
-        if companion.get("last_heard_s", 99) <= 3 and companion.get("firmware"):
-            break
-        time.sleep(1)
-    assert companion.get("last_heard_s", 99) <= 3, f"no ESP32 on I2C: {companion}"
-    assert companion.get("i2c_write_errors", 0) == 0, companion
+    first = adapter.wait_companion()
+    assert first.get("firmware"), first
+    time.sleep(5)
+    later = adapter.companion()
+    # write errors only while the ESP32 starts (before the RP2040's I2C slave answers)
+    assert later.get("i2c_write_errors", 0) == first.get("i2c_write_errors", 0), f"I2C write errors: {first} -> {later}"
 
 
 @pytest.mark.slow

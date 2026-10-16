@@ -287,7 +287,7 @@ void run_esp32(Rp2040& rp, D flash, uint32_t ms, uint32_t ext_delay_ms = 50) {
 }  // namespace
 
 TEST(a_fresh_esp32_does_not_undo_the_mode_the_rp2040_restarted_in) {
-    // The bug: Start + LB + RB restarted the RP2040 in D-Input/Debug; the ESP32, still holding
+    // The bug: the mode combo restarted the RP2040 in D-Input/Debug; the ESP32, still holding
     // Switch in its flash, sent it before reading the RP2040's answer and the RP2040 went back.
     Rp2040 rp{D::DINPUT_DEBUG};
     run_esp32(rp, D::SWITCH, 10000);
@@ -311,7 +311,7 @@ TEST(an_rp2040_that_keeps_no_settings_takes_the_esp32s_mode) {
 TEST(a_combo_on_the_esp32_changes_the_mode_once_in_sync) {
     Rp2040 rp{D::PS4};
     run_esp32(rp, D::PS4, 1000);
-    rp.set_driver(D::DINPUT_DEBUG);  // Start + LB + RB
+    rp.set_driver(D::DINPUT_DEBUG);  // Start + RB + Left
     CHECK(rp.mode == D::DINPUT_DEBUG);
     CHECK_EQ(rp.restarts, 1);
     // An older ESP32 asking for the Web App mode means DInput: no restart loop.

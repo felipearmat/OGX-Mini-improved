@@ -435,7 +435,7 @@ static void check_led_cb(btstack_timer_source *ts)
 #else
     const bool wired_host_pad = false;
 #endif
-    const bool searching = !wired_host_pad && uni_bt_enable_new_connections_is_enabled();
+    const bool searching = !wired_host_pad && uni_bt_is_scanning();
     const status_led::Search search = !searching ? status_led::Search::NONE
                                     : scan_reduced() ? status_led::Search::REDUCED
                                     : status_led::Search::FULL;
@@ -462,7 +462,7 @@ static void init_complete_cb(void) {
     uni_bt_set_gap_max_peridic_length(UNI_BT_MAX_PERIODIC_LENGTH);
     uni_bt_set_gap_min_peridic_length(UNI_BT_MIN_PERIODIC_LENGTH);
 
-    uni_bt_enable_new_connections_unsafe(true);
+    uni_bt_start_scanning_and_autoconnect_unsafe();
     // uni_bt_del_keys_unsafe();  // use -DOGXM_BT_CLEAR_KEYS_ON_BOOT=1 or ogxm_bt_debug_clear_keys()
     uni_property_dump_all();
     ogxm_classic_pairing_debug_init();
@@ -544,7 +544,7 @@ static bool device_is_ble_hogp(const uni_hid_device_t* d) {
 /** CYW43: periodic BR/EDR inquiry while a Classic ACL link is up can drop DS4/PS3 in ~1–2 s. */
 static void maybe_restart_bredr_inquiry_after_disconnect(int disconnected_idx) {
 #if defined(CONFIG_TARGET_PICO_W)
-    if (!uni_bt_enable_new_connections_is_enabled())
+    if (!uni_bt_is_scanning())
         return;
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         if (i == static_cast<unsigned>(disconnected_idx))
@@ -572,7 +572,7 @@ static void maybe_restart_bredr_inquiry_after_disconnect(int disconnected_idx) {
  */
 static void maybe_restart_ble_scan_after_disconnect(int disconnected_idx) {
 #if defined(CONFIG_TARGET_PICO_W)
-    if (!uni_bt_enable_new_connections_is_enabled())
+    if (!uni_bt_is_scanning())
         return;
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         if (i == static_cast<unsigned>(disconnected_idx))
@@ -709,8 +709,8 @@ static void ensure_idle_pairing_scans(int disconnected_idx) {
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
     gap_connectable_control(1);
-    if (!uni_bt_enable_new_connections_is_enabled())
-        uni_bt_enable_new_connections_unsafe(true);
+    if (!uni_bt_is_scanning())
+        uni_bt_start_scanning_and_autoconnect_unsafe();
 }
 
 static btstack_timer_source_t s_pairing_watchdog_timer;
@@ -752,7 +752,7 @@ static void restore_bt_pairing_mode(int disconnected_idx) {
     maybe_restart_bredr_inquiry_after_disconnect(disconnected_idx);
     maybe_restart_ble_scan_after_disconnect(disconnected_idx);
     gap_connectable_control(1);
-    uni_bt_enable_new_connections_unsafe(true);
+    uni_bt_start_scanning_and_autoconnect_unsafe();
 #endif
 }
 
@@ -1368,7 +1368,7 @@ void wired_usb_takeover_disconnect_bt() {
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         uni_bt_disconnect_device_safe(i);
     }
-    uni_bt_enable_new_connections_safe(false);
+    uni_bt_stop_scanning_safe();
 }
 
 /* Custom: the reboot after the last controller disconnects, asked for by the BT core. */
@@ -1391,7 +1391,7 @@ void wired_usb_release_enable_bt_pairing() {
     s_usb_resume_bt_reg.context = nullptr;
     btstack_run_loop_execute_on_main_thread(&s_usb_resume_bt_reg);
 #else
-    uni_bt_enable_new_connections_safe(true);
+    uni_bt_start_scanning_and_autoconnect_safe();
 #endif
 }
 
@@ -1465,7 +1465,7 @@ void run_task(Gamepad(&gamepads)[MAX_GAMEPADS])
         for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
             uni_bt_disconnect_device_safe(i);
         }
-        uni_bt_enable_new_connections_safe(false);
+        uni_bt_stop_scanning_safe();
         OGXM_LOG("BT: applied deferred USB quiet (pad was plugged during BT bring-up)\n");
     }
     btstack_run_loop_execute();

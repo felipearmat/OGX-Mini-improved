@@ -10,7 +10,7 @@ pip install pyserial esptool
 python3 ogxm_hybrid.py ports
 ```
 
-The adapter must be in **D-Input/Debug mode** (hold Start + LB + RB about 3 s on a controller, or pick it
+The adapter must be in **D-Input/Debug mode** (hold Start + RB + Left about 3 s on a controller, or pick it
 in the web app): it then shows up as a USB serial port the tool talks to (the web app's `SYSTEM`
 command, 0x75).
 
@@ -27,6 +27,6 @@ UF2 to it. Then, with the adapter in D-Input/Debug mode, `flash-esp32` the compa
 **Updates:** `bootsel --uf2` for the Pico side, `flash-esp32` for the ESP32 side, both through the
 adapter's USB port.
 
-**Logs:** play, switch to D-Input/Debug mode with the combo (Start + LB + RB) (the kept log survives that restart), then
+**Logs:** play, switch to D-Input/Debug mode with the combo (the kept log survives that restart), then
 `monitor`. The ESP32 "logs" build prints Bluepad32's log; the release build only its boot messages
 and the events also shown in the web app's diagnostics report.

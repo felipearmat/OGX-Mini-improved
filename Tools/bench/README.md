@@ -1,7 +1,7 @@
 # Bench tests
 
 Automated tests against a real adapter on the computer's USB port, in **D-Input/Debug** mode
-(Start + LB + RB). They cover what unit tests can't: the firmware running on the board, flash
+(Start + RB + Left). They cover what unit tests can't: the firmware running on the board, flash
 writes, restarts, the RP2040 + ESP32 link. Run them before taking a build to the field.
 
 | File | Checks |

@@ -44,7 +44,7 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
     if (now_ms - s_last_ms < 700)
         return;
     s_last_ms = now_ms;
-    diag::searching(uni_bt_enable_new_connections_is_enabled());
+    diag::searching(uni_bt_is_scanning());
     for (auto& vh : s_version_handles) {
         if (vh == HCI_CON_HANDLE_INVALID)
             continue;

@@ -54,6 +54,7 @@ set(SOURCES_BOARD
     ${SRC}/Input/InputSlot.cpp
 
     ${SRC}/Board/ogxm_log.cpp
+    ${SRC}/Board/getentropy.c
     ${SRC}/Board/esp32_api.cpp
     ${SRC}/Board/board_api.cpp
     ${SRC}/Board/board_api_private/board_api_led.cpp

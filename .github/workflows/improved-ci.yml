@@ -138,7 +138,7 @@ jobs:
             board: PI_PICO2W
             build_type: Release
             flags: ""
-            max_warnings: 25
+            max_warnings: 0
           - name: PI_PICO2W-DebugLite
             board: PI_PICO2W
             build_type: Debug
@@ -149,7 +149,7 @@ jobs:
             board: ESP32_BLUEPAD32_I2C_PICO2
             build_type: Release
             flags: ""
-            max_warnings: 1
+            max_warnings: 0
     steps:
       - uses: actions/checkout@v4
 
@@ -205,8 +205,8 @@ jobs:
           mkdir -p out
           for f in build/*.uf2; do cp "$f" "out/$(basename "${f%.uf2}")-${{ matrix.name }}-${GITHUB_SHA::7}.uf2"; done
 
-      # Known warnings today (deprecated Bluepad32 search calls, the Wiimote library): a new one
-      # fails the build, so it is seen when it comes in.
+      # Release builds have no compiler warnings (ours, the libraries' and the toolchain's): a new
+      # one fails the build, so it is fixed when it comes in.
       - name: No new compiler warnings
         if: matrix.max_warnings != ''
         run: |

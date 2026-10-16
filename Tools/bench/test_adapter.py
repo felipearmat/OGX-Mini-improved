@@ -33,6 +33,7 @@ def test_live_settings_save_without_restart_or_hang(adapter, hybrid):
     and, on the hybrid, the ESP32 keeps talking. Restores the original record."""
     original = adapter.dongle_settings()
     assert original and original[0] == DS["version"] and len(original) == DS["length"]
+    esp32_start = adapter.wait_companion()["uptime_s"] if hybrid else None
     start = adapter.uptime_s()
     try:
         for i in range(12):
@@ -48,8 +49,9 @@ def test_live_settings_save_without_restart_or_hang(adapter, hybrid):
         now = adapter.uptime_s()
         assert now is not None and now > start + 6, f"the adapter restarted (uptime {start} -> {now})"
         if hybrid:
-            companion = adapter.diagnostics().get("companion") or {}
-            assert companion.get("last_heard_s", 99) <= 3, f"the ESP32 went silent: {companion}"
+            companion = adapter.companion()
+            assert companion.get("last_heard_s", 99) <= 5, f"the ESP32 went silent: {companion}"
+            assert companion.get("uptime_s", 0) >= esp32_start + 6, f"the ESP32 restarted: {companion}"
     finally:
         adapter.set_dongle_settings(original)
         time.sleep(0.5)

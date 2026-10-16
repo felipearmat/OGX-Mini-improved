@@ -126,18 +126,19 @@ TEST(disabled_mode_combo_does_nothing) {
 }
 
 TEST(dinput_debug_cannot_be_turned_off) {
-    // D-Input/Debug is where the web app connects: both its combos work whatever the mask says.
+    // D-Input/Debug is where the web app connects: its combo (Start + RB + Left) works whatever
+    // the mask says. Start + LB + RB, the former Web App mode combo, is free.
     dongle_settings::Settings settings = dongle_settings::defaults();
     settings.combo_disabled_modes = 1u << static_cast<uint8_t>(DeviceDriverType::DINPUT_DEBUG);
     CHECK(dongle_settings::mode_combo_enabled(settings, static_cast<uint8_t>(DeviceDriverType::DINPUT_DEBUG)));
     mode_combos::ComboCheck debug;
-    CHECK_EQ(static_cast<int>(hold(debug, GamepadBits::BUTTON_START | GamepadBits::BUTTON_LB | GamepadBits::BUTTON_RB,
-                                   0, false, 0, 0, settings).new_driver),
-             static_cast<int>(DeviceDriverType::DINPUT_DEBUG));
-    mode_combos::ComboCheck other;
-    CHECK_EQ(static_cast<int>(hold(other, GamepadBits::BUTTON_START | GamepadBits::BUTTON_RB, GamepadBits::DPAD_LEFT,
+    CHECK_EQ(static_cast<int>(hold(debug, GamepadBits::BUTTON_START | GamepadBits::BUTTON_RB, GamepadBits::DPAD_LEFT,
                                    false, 0, 0, settings).new_driver),
              static_cast<int>(DeviceDriverType::DINPUT_DEBUG));
+    mode_combos::ComboCheck freed;
+    CHECK_EQ(static_cast<int>(hold(freed, GamepadBits::BUTTON_START | GamepadBits::BUTTON_LB | GamepadBits::BUTTON_RB,
+                                   0, false, 0, 0, settings).new_driver),
+             static_cast<int>(DeviceDriverType::NONE));
 }
 
 TEST_MAIN()

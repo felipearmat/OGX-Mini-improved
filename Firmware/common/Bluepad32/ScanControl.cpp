@@ -24,7 +24,7 @@ static uint16_t s_inquiry_min = scan_policy::kFullMinPeriod, s_inquiry_max = sca
 static void inquiry_restart_cb(btstack_timer_source_t* ts)
 {
     /* The search may have been turned off meanwhile (the other Joy-Con paired). */
-    if (s_scan_state == scan_policy::Scan::Off || !uni_bt_enable_new_connections_is_enabled())
+    if (s_scan_state == scan_policy::Scan::Off || !uni_bt_is_scanning())
         return;
     const uint8_t status = gap_inquiry_periodic_start(scan_policy::kInquiryLength, s_inquiry_max, s_inquiry_min);
     if (status == ERROR_CODE_COMMAND_DISALLOWED && ++s_inquiry_restart_tries < 40) {
@@ -99,7 +99,7 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
 
     /* Bluepad32 turns the search back on by itself for a lone Joy-Con: an Off state is applied
      * again when that happened, and on every pad change (force). */
-    const bool off_undone = want == scan_policy::Scan::Off && uni_bt_enable_new_connections_is_enabled();
+    const bool off_undone = want == scan_policy::Scan::Off && uni_bt_is_scanning();
     if (want == s_scan_state && !force && !off_undone)
         return;
     const scan_policy::Scan previous = s_scan_state;
@@ -107,7 +107,7 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
 
     switch (want) {
         case scan_policy::Scan::Off:
-            uni_bt_enable_new_connections_unsafe(false);  // stops BR/EDR inquiry and the BLE scan
+            uni_bt_stop_scanning_unsafe();  // stops BR/EDR inquiry and the BLE scan
             uni_bt_bredr_scan_stop();                     // also when started outside that flag
             uni_bt_le_scan_stop();
             if (previous != scan_policy::Scan::Off) {
@@ -130,12 +130,12 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
                 /* No pad: the pairing paths run the search (the platform's, or here). */
                 uni_bt_set_gap_min_peridic_length(min_period);
                 uni_bt_set_gap_max_peridic_length(max_period);
-                if (start_when_empty && !uni_bt_enable_new_connections_is_enabled())
-                    uni_bt_enable_new_connections_unsafe(true);
+                if (start_when_empty && !uni_bt_is_scanning())
+                    uni_bt_start_scanning_and_autoconnect_unsafe();
                 break;
             }
-            if (!uni_bt_enable_new_connections_is_enabled())
-                uni_bt_enable_new_connections_unsafe(true);  // starts BR/EDR inquiry and the BLE scan
+            if (!uni_bt_is_scanning())
+                uni_bt_start_scanning_and_autoconnect_unsafe();  // starts BR/EDR inquiry and the BLE scan
             if (awaiting) {
                 /* Lone Joy-Con: BLE scan off (as its own path does), inquiry with this timing. */
                 uni_bt_le_scan_stop();

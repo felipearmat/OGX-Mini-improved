@@ -192,7 +192,7 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
 
     /* Whether new controllers are accepted and at which rate, for the diagnostics and the
      * RP2040's status LED (forwarded on a change). */
-    const bool searching = uni_bt_enable_new_connections_is_enabled();
+    const bool searching = uni_bt_is_scanning();
     const bool reduced = searching && scan_control::reduced();
     diag::searching(searching, reduced);
 

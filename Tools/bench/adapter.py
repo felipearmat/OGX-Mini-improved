@@ -129,6 +129,21 @@ class Adapter:
 
     # ---- state ----
 
+    def companion(self):
+        report = self.diagnostics()
+        return (report or {}).get("companion") or {}
+
+    def wait_companion(self, timeout=30.0, min_uptime_s=5):
+        """Hybrid: wait until the ESP32 talks and has been up a few seconds (after a restart)."""
+        deadline = time.monotonic() + timeout
+        companion = {}
+        while time.monotonic() < deadline:
+            companion = self.companion()
+            if companion.get("last_heard_s", 99) <= 3 and companion.get("uptime_s", 0) >= min_uptime_s:
+                return companion
+            time.sleep(1)
+        raise AssertionError(f"the ESP32 did not come up: {companion}")
+
     def uptime_s(self):
         report = self.diagnostics()
         return report["uptime_ms"] / 1000 if report else None

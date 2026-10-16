@@ -1,0 +1,44 @@
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
+index e8431b5..c69a406 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
+@@ -658,7 +658,7 @@ static void switch_try_joycon_pair(uni_hid_device_t* d) {
+         return;
+     }
+ 
+-    uni_bt_enable_new_connections_unsafe(true);
++    uni_bt_start_scanning_and_autoconnect_unsafe();
+     switch_resume_partner_scan();
+     logi("Switch: Joy-Con solo — BR/EDR inquiry on for partner Joy-Con\n");
+ }
+@@ -1988,7 +1988,7 @@ void uni_hid_parser_switch_teardown(uni_hid_device_t* d) {
+         d->controller_type != CONTROLLER_TYPE_SwitchJoyConRight)
+         return;
+     switch_break_joycon_pair(d);
+-    uni_bt_enable_new_connections_unsafe(true);
++    uni_bt_start_scanning_and_autoconnect_unsafe();
+     uni_hid_parser_switch_resume_partner_scan_if_needed();
+ }
+ 
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch2.c b/src/components/bluepad32/parser/uni_hid_parser_switch2.c
+index a378a19..fdbae46 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_switch2.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_switch2.c
+@@ -307,7 +307,7 @@ static void sw2_try_joycon_pair(uni_hid_device_t* d) {
+         return;
+     }
+ 
+-    uni_bt_enable_new_connections_unsafe(true);
++    uni_bt_start_scanning_and_autoconnect_unsafe();
+     uni_bt_le_scan_start();
+     logi("Switch2: Joy-Con solo — BLE scan on for partner Joy-Con\n");
+ }
+@@ -1308,7 +1308,7 @@ void uni_hid_parser_switch2_teardown(uni_hid_device_t* d) {
+         return;
+     sw2_break_joycon_pair(d);
+     if (sw2_is_joycon_pid(d->product_id))
+-        uni_bt_enable_new_connections_unsafe(true);
++        uni_bt_start_scanning_and_autoconnect_unsafe();
+     int idx = uni_hid_device_get_idx_for_instance(d);
+     if (idx >= 0 && idx < CONFIG_BLUEPAD32_MAX_DEVICES) {
+         sw2_first_input_logged[idx] = 0;

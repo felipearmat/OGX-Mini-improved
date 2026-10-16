@@ -212,6 +212,11 @@ function(apply_lib_patches EXTERNAL_DIR)
     ogxm_apply_patch_series("Bluepad32 DS4 poll interval (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
         "${EXTERNAL_DIR}/patches/bluepad32_ds4_poll_interval.diff")
 
+    # Switch parsers: the scan calls Bluepad32 itself marks deprecated, replaced by the ones they
+    # forward to (no change in behaviour; no compiler warnings left in the firmware builds).
+    ogxm_apply_patch_series("Bluepad32 without deprecated scan calls (OGX-Mini-improved)" "${EXTERNAL_DIR}/bluepad32"
+        "${EXTERNAL_DIR}/patches/bluepad32_no_deprecated_scan_calls.diff")
+
     # Pico SDK 2.1.x still lists BTstack's old hids_client.c; Bluepad32's BTstack
     # v1.8 renamed it to hids_host.c. Patch the SDK cmake when using that tree.
     set(PICO_SDK_HIDS_PATCH "${EXTERNAL_DIR}/patches/pico_sdk_hids_host.diff")
