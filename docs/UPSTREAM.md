@@ -13,12 +13,26 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Next fix PRs (send before any feature PR)
 
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
-one. Still open upstream: #139 / #140 (diagnostics). Merged: #129 (Switch Pro motion), #132 (rumble
-output queue / SDL mapping), #138 (touchpad press / Capture).
+one. Nothing open upstream (2026-10-16). Merged: #129 (Switch Pro motion), #132 (rumble output
+queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
+#139 / #140 (diagnostics, 2026-10-14).
 
+0. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
+   `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
+   so a settings write could hang Core1 executing from flash), with
+   `.github/scripts/check_firmware_rules.py`. Every board with flash writes while Core1 runs.
+   High priority, standalone.
+0b. **USB host port second start** — 5bee335: Pico-PIO-USB's DMA channel, state machines and
+   programs released before the host port starts again (panic "DMA channel 2 is already claimed"
+   on the second wired plug, Pico W / Pico 2 W). Standalone.
 1. **3dda3e9** — DInput 27-byte input report (macOS showed no input). Standalone.
 2. **f1f49e9** — PC wake: one wake request per suspend, XInput / STEAM able to wake.
-3. **8c59260** — BTstack logs in Debug builds only (inverted condition).
+3. **8c59260** — BTstack logs in Debug builds only (inverted condition). With the warning part of
+   e752d7b (Release builds without warnings: Bluepad32's deprecated scan calls, the Wiimote
+   library's volatile `memcpy`, `_getentropy`) and the two small ones of 2a0aa04
+   (variable-length array in `verify_datetime`, unused packet buffer in `WebAppDevice::process`).
+3b. **Diagnostics follow-ups on #139 / #140** — 4707bfb (Joy-Cons shown with about 20% lost:
+   fractional counter step) and 44abe63 (shorter event texts, kept whole in the stored session).
 4. **Trigger settings lost on a second profile apply** — the `TriggerSettings` part of 5945d2d.
    Every board. Minimal upstream version: `TriggerSettings::raw_has_customization()` and the six
    lines of `Gamepad::set_profile_settings()` that use it; with its unit test.
@@ -41,6 +55,14 @@ output queue / SDL mapping), #138 (touchpad press / Capture).
    host port with DualShock 3 pairing, DualSense passthrough** — the commits after b7ea46e (see
    CHANGELOG). The `SYSTEM` web app command and `Tools/hybrid` are useful upstream on every board
    (USB bootloader without the button). After the hardware test.
+10. **Hybrid fixes found on hardware (2026-10-13 to 10-16)**, on top of 8 and 9: UART bridge line
+   coding never dropped (fix part of 2bbea65: ESP32 flashing failed about 4 in 10), DS4 report
+   interval 0 ms on the ESP32 (4942a75, 55% lost), Bluetooth name "Nintendo" (616c652, Joy-Con
+   pair dropping a half), QoS 5 ms poll per Classic link (54e1eaf), a pad connecting calls off the
+   last-pad restart (f7b7afa), I2C slave back on Core1 (fae5835), one BTstack configuration on the
+   ESP32 (9e03880), per-half Joy-Con diagnostics (5698d1c), main-loop and boot watchdogs with the
+   boot stage in the report (59e4786, 1997c79), mode change undone after the restart (ModeSync
+   part of cc0526d).
 
 The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
 then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so
@@ -74,17 +96,22 @@ later fixes reach every board in one PR.
 | 77f69f3 | STEAM output: DualSense rumble flags as SDL / Steam send them | merged #114 | Goes with the STEAM output-report PR. |
 | dd957f9 | DInput output: analog button pressure from the wrong buttons | merged #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |
 | b3b200f, 87ba6b7 | Motion (gyro/accel) in Switch Pro output mode | merged #129 (+ 6e63762) | Treated as a fix: Switch output had no motion at all. Includes the three Joy-Con adapter options (CMake defaults), on top of #128. 6e63762 (aligned copies for apply_orientation, Release hang) added to the PR 2026-10-02. |
-| 06238bd | Bluetooth pads: host motors swapped in `set_rumble()` (strong request on the small motor) | open #136 (2026-10-07) | Every BT pad with two motors. Verified on hardware (DS4, web app Rumble Test). |
+| 06238bd | Bluetooth pads: host motors swapped in `set_rumble()` (strong request on the small motor) | merged #136 (2026-10-08) | Every BT pad with two motors. Verified on hardware (DS4, web app Rumble Test). |
 | fefe680 | Web App mode: rumble test (`SET_GP_OUT`, 0x81) | merged #135 | First of the firmware PRs the web app needs. |
-| fcc1471, a8a202c, 7b0ffbc | Web App mode: unmapped buttons, `GP_TOUCH` (0x82) touchpad packet, live input capped at 100 Hz, TX FIFO cleared on open | open #137 (2026-10-07) | Second of the web app firmware PRs. |
+| fcc1471, a8a202c, 7b0ffbc | Web App mode: unmapped buttons, `GP_TOUCH` (0x82) touchpad packet, live input capped at 100 Hz, TX FIFO cleared on open | merged #137 (2026-10-08) | Second of the web app firmware PRs. |
 | a1e3d7c | Bluetooth: DS4 / DualSense touchpad press and Switch Capture as the Misc button (DualSense mute left out) | merged #138 (2026-10-07) | Third of the web app firmware PRs. Verified on hardware (DS4, with #137). |
-| ee7dc25 (live part) | Web App mode: diagnostics report (`GET_DIAGNOSTICS`, 0x74): BT / wired controllers, link (from events only), input timing, search state, events ring; Bluepad32 diagnostics hooks patch | open #139 (2026-10-07) | RAM only, no extra Bluetooth commands. Reduced 2026-10-07 (force push): the HCI link queries (RSSI, channel map, failed contacts, remote version) moved to the link-diagnostics option PR. Verified on hardware (Pico 2 W, DS4). |
-| ee7dc25 (session / crash part) | Diagnostics: session summary kept across reboots (RAM + flash key `diag_session`, v1), events across reboots, crash record (hard fault / panic), input-to-output latency for every session end, mode-change / options events | open #140 (2026-10-07) | Builds on #139. Latency is read on every session freeze (the fork only recorded it on the button combo). Switch firmware version left out (its Bluepad32 patch does not apply on upstream). Verified on hardware (Pico 2 W, DS4). |
+| ee7dc25 (live part) | Web App mode: diagnostics report (`GET_DIAGNOSTICS`, 0x74): BT / wired controllers, link (from events only), input timing, search state, events ring; Bluepad32 diagnostics hooks patch | merged #139 (2026-10-14) | RAM only, no extra Bluetooth commands. Reduced 2026-10-07 (force push): the HCI link queries (RSSI, channel map, failed contacts, remote version) moved to the link-diagnostics option PR. Verified on hardware (Pico 2 W, DS4). |
+| ee7dc25 (session / crash part) | Diagnostics: session summary kept across reboots (RAM + flash key `diag_session`, v1), events across reboots, crash record (hard fault / panic), input-to-output latency for every session end, mode-change / options events | merged #140 (2026-10-14) | Builds on #139. Latency is read on every session freeze (the fork only recorded it on the button combo). Switch firmware version left out (its Bluepad32 patch does not apply on upstream). Verified on hardware (Pico 2 W, DS4). |
 | (todo) | Diagnostics: "Detailed link diagnostics" dongle option, off by default (`OGXM_DIAGNOSTICS_LINK`), applied without a restart: RSSI, channels in use, failed contacts, controller Bluetooth chip | todo | Builds on #140; fork first, then upstream; web app checkbox in WebApp #2. |
 | 8c59260 | btstack_config: BTstack logs in Debug builds only (condition was inverted) | todo | Release compiled log calls with no output; Debug had none. Small. |
 | f1f49e9 | PC wake: Switch / DInput / Wii U / PS Classic woke the PC on every loop while suspended; XInput / STEAM never woke it | todo | Bug fix (the first part is an upstream bug: the PC wakes right after suspending). `wake_host_on_press()` in DeviceDriver.h + udev rule in Tools/linux. Verified on hardware (Ally X). |
 | 87431fb | ESP32 companion firmware did not build: ESP-IDF 5.5, BTstack port used in place, missing `<string>`; Switch setup patch reads the SPI address where the request is built | todo | Upstream bug (the hybrid can't be built there either). The Switch setup patch part goes with the Bluepad32 setup-robustness patch. |
 | 09f005a | ESP32: `#include` with the wrong case in `board_api.cpp` | todo | Upstream bug, fails on Linux only. One line; send with 87431fb. |
+| cc0526d (lockout part) | Core1 registers for the flash lockout on every board (`multicore_lockout_victim_init()`), firmware rule check in CI | todo | Next fix PR 0. Standard / 4-channel / BlueRetro / hybrid: a settings write could hang Core1. Verified on hardware (hybrid, Pico 2 W: 12 live saves in a row). |
+| 5bee335 | USB host port: release Pico-PIO-USB's DMA channel, state machines and programs before a second start | todo | Next fix PR 0b. Panic on the second wired plug (Pico W / Pico 2 W). Seen in a stored crash record; not reproduced on hardware. |
+| e752d7b (warning part), 2a0aa04 (VLA, unused buffer) | Release builds without compiler warnings | todo | With 8c59260 (next fix PR 3). Bluepad32 part as a patch (`bluepad32_no_deprecated_scan_calls.diff`), also for Bluepad32 upstream. |
+| 4707bfb, 44abe63 | Diagnostics: fractional counter step (Joy-Con loss shown as 20%), shorter event texts | todo | Next fix PR 3b, on top of #139 / #140. |
+| 2bbea65 (bridge part) | UART bridge: the host's line coding was dropped when Core1 held the lock (`mutex_try_enter`) | todo | Hybrid ESP32 flashing failed about 4 in 10 (9600 baud kept). Upstream's bridge has the same code. With next fix PR 10 or alone. |
 | 3dda3e9 | DInput output: the 27-byte input report the descriptor declares (19 were sent) | todo | macOS drops short input reports: DInput showed no input at all there. Standalone, with the descriptor-size unit test. |
 | ff5b909 (ESP32 CMake part) | ESP32 component: `FWDefines.cmake` included from its own directory (`CMAKE_CURRENT_LIST_DIR`) | todo | A build directory outside `Firmware/ESP32` (`idf.py -B`) failed. One line; send with 87431fb. |
 | 7f8b279 (fix part) | Hybrid rumble: RP2040 sends the peak since the last read; ESP32 plays longer than its read period and holds DS4 rumble 6 s after connect | todo | Rumble was weak and choppy on the hybrid. The connection rumble in the same commit is a feature. Uses `RumbleTiming.h` in `Firmware/common` (offer after 9f6deb1, or inline the constants). |
@@ -96,9 +123,11 @@ later fixes reach every board in one PR.
 
 | Commit (OGX-Mini-improved-WebApp) | Change | Status | Notes |
 |---|---|---|---|
-| be79a54 | Output modes: add Wii U, PS4 and STEAM to the mode lists | pr #2 | Firmware accepts them; multi-controller builds could not pick Wii U. |
-| 1b964bc | Diagnostics panel and log report (USB), larger receive buffers, packet resync | pr #2 (added 2026-10-07) | Needs firmware #139. Session / crash display already in the panel (shown once the follow-up firmware PR sends them). |
-| 508fe48, 3b249fe | Adapter Options panel | todo | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
+| be79a54 | Output modes: add Wii U, PS4 and STEAM to the mode lists | merged #2 (2026-10-14) | Firmware accepts them; multi-controller builds could not pick Wii U. |
+| 1b964bc | Diagnostics panel and log report (USB), larger receive buffers, packet resync | merged #2 (2026-10-14) | Needs firmware #139. Session / crash display already in the panel (shown once the follow-up firmware PR sends them). |
+| 508fe48, 3b249fe | Adapter Options panel | todo |
+| 4ae300c and earlier | Status LED panel, mode colour wheel, D-Input/Debug in the mode lists, capabilities, unit / contract tests | todo | After the firmware features they use (rows above). |
+| eeb326f, e95834e | Playwright end-to-end tests against the firmware's virtual adapter | todo | With the virtual adapter. | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
 
 ## Features (offer, upstream may or may not want them)
 
@@ -117,6 +146,11 @@ later fixes reach every board in one PR.
 | e9b8735 | Mouse + Keyboard output mode (keyboard, mouse, media keys; mapping from the web app) | todo | Feature; web app side in OGX-Mini-improved-WebApp. After the fixes are accepted. |
 | c859a0a | Mode combos: single Joy-Con stick at the edge acts as the D-pad | todo | Send only after every fix is accepted upstream and a build with all of them is tested on a Pico 2 W (decided 2026-10-02). |
 | 6b8620a | cmake: regenerate the GATT header when the .gatt file changes | merged #121 | Small build fix. |
+| cc0526d, aa40929, e752d7b (combo part) | D-Input/Debug: DInput and the Web App mode in one composite device (HID + CDC, own ID `cafe:4010`), its combo can't be turned off, Web App mode (100) read as D-Input/Debug | todo | Changes DInput's identity (the ShanWan PS3 answer is gone): discuss upstream first. Web app side in the same feature. |
+| cc0526d, c8364f5, 12a551c, abc0835 | Status LED options (Pico, Pico GP6, ESP32, ESP32 GPIO 4, brightness; Adapter Options v6) and the web app's colour per mode (`GET_LED_COLORS` / `SET_LED_COLORS` / `LED_PREVIEW`), palette by console family | todo | After the mode indicator (6e3d25b) and 0720fea. Verified on hardware (hybrid, Pico 2 W). |
+| e91f18d (capabilities part) | `GET_CAPABILITIES`: the web app shows only what the hardware has | todo | Needed by the Adapter Options / Status LED panels upstream. |
+| c9e3b33 | Firmware version from the git tag, `GET_VERSION` (firmware, board, ESP32) for the web app's update check | todo | |
+| 2a0aa04, cc0526d (contract) | Virtual adapter (the web app side of the firmware built for the PC) and the firmware / web app contract file | todo | With the host unit tests (f0ab2f2); upstream's web app could run the same Playwright suite. |
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 6 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
 
 ## Other projects
@@ -130,4 +164,5 @@ later fixes reach every board in one PR.
 - `docs/TODO.md`, `docs/ROADMAP.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork's `README.md` (rewritten: use cases, hardware, generated mode table) and fork notes in the docs.
 - CI checks `.github/scripts/check_shared_sources.py`, `gen_docs_tables.py` and `check_doc_links.py` (could be offered with `Firmware/common` and a README that uses the generated table).
 - Removal of the `WebApp` submodule (points to the unmaintained wiredopposite web app; this fork uses OGX-Mini-improved-WebApp).
+- `Tools/bench` (bench tests on the fork's own hardware) and the `Tools/hybrid` conveniences (6c20ec8, c6a5a73).
 - `.github/workflows/build.yml`: release job limited to the original repository (keeps the fork from publishing releases).
