@@ -7,15 +7,17 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 - **The adapter sometimes does not come back on USB after a restart** (into the ESP32 bridge or log
   monitor, after flashing the ESP32, rarely after a mode change; seen with the ESP32 on the Pico's
-  VBUS and on its own USB port). Replugging the dongle is not always enough; reconnecting the USB
-  hub or another port brings it back. Suspects, not confirmed: the USB hub (macOS once kept a stale
-  device on one of its ports after a UF2 copy), back-powering through the ESP32's pins when the
-  ESP32 has its own supply, the Pico's restart path. The bench test
-  `test_log_monitor_returns_to_dinput` (Tools/bench) caught it once; repeat it straight on the
-  computer's port, without the hub, to tell the hub apart. 2026-10-16: going into the bridge to
-  flash the ESP32, the Pico left USB and came back by replugging the dongle alone (the hub
-  untouched), which points at the Pico's side; an earlier case needed the hub reconnected (macOS
-  kept a stale BOOTSEL device on its port), so there may be two problems.
+  VBUS and on its own USB port). 2026-10-16, reproduced with a script cycling reboot / log monitor
+  / bridge on the hybrid (firmware ca7ad13): 1 in 25 transitions, going back from the log monitor
+  to D-Input/Debug. The device was gone from its hub port altogether (no enumeration attempt in
+  macOS's IOUSB tree, the hub and its other devices fine), the ESP32 still running (its LED
+  searching), and it stayed so until the dongle alone was replugged: the RP2040 stopped somewhere
+  in its boot before USB started, where no watchdog ran. The hybrid's boot is now covered by the
+  watchdog from `main()` and records its stage (`Board/BootStage.h`), so such a hang reboots the
+  adapter and the report reads `watchdog timeout during boot (<stage>)`; checked with a forced
+  hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
+  the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
+  (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.

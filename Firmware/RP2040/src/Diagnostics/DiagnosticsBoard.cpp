@@ -3,6 +3,10 @@
 #include <hardware/watchdog.h>
 #include <pico/time.h>
 
+#include <cstdio>
+
+#include "Board/BootStage.h"
+
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagnosticsBoard.h"
 #include "UserSettings/UserSettings.h"
@@ -41,10 +45,19 @@ const char* driver_name(DeviceDriverType type)
 void board_boot()
 {
     /* watchdog_reboot() (mode change, settings saved) leaves scratch 4 clear; a watchdog that
-     * fired because something hung leaves the "enabled" marker. */
-    const char* reset = watchdog_enable_caused_reboot() ? "watchdog timeout (hang recovery)"
-                        : watchdog_caused_reboot()      ? "reboot (mode change / settings saved)"
-                                                        : "power-on or reset";
+     * fired because something hung leaves the "enabled" marker. Read at the start of the boot
+     * (Board/BootStage.h), before this boot arms the watchdog itself. */
+    const boot_stage::Previous& previous = boot_stage::previous();
+    const char* reset = previous.hang          ? "watchdog timeout (hang recovery)"
+                        : previous.by_watchdog ? "reboot (mode change / settings saved)"
+                                               : "power-on or reset";
+    /* A hang before the main loop: the stage it stopped in. */
+    static char boot_hang[64];
+    if (previous.hang && previous.stage != boot_stage::Stage::NONE && previous.stage != boot_stage::Stage::RUNNING)
+    {
+        std::snprintf(boot_hang, sizeof(boot_hang), "watchdog timeout during boot (%s)", boot_stage::name(previous.stage));
+        reset = boot_hang;
+    }
     const DeviceDriverType mode = UserSettings::get_instance().get_current_driver();
 #if defined(CONFIG_OGXM_DEBUG)
     const char* build = "Debug";

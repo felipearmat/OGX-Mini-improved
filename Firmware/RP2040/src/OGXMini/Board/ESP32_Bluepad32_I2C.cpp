@@ -19,6 +19,7 @@
 #include "Board/board_api.h"
 #include "Board/esp32_api.h"
 #include "Board/BootMode.h"
+#include "Board/BootStage.h"
 #include "Board/BtAdapterAddress.h"
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
@@ -619,9 +620,12 @@ bool update_needed(UserSettings& user_settings) {
 }
 
 void esp32_bp32_i2c::initialize() {
+    boot_stage::set(boot_stage::Stage::BOARD_INIT);
     board_api::init_board();
+    boot_stage::set(boot_stage::Stage::ESP32_PINS);
     esp32_api::init();
 
+    boot_stage::set(boot_stage::Stage::FLASH);
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
 
@@ -652,31 +656,41 @@ void esp32_bp32_i2c::initialize() {
         _uart_bridge_mode ? 
             DeviceDriverType::UART_BRIDGE : user_settings.get_current_driver();
 
+    boot_stage::set(boot_stage::Stage::DRIVER);
     DeviceManager::get_instance().initialize_driver(driver_type, _gamepads);
 }
 
 void esp32_bp32_i2c::run() {
     if (_uart_bridge_mode) {
+        /* Waits for the computer as long as it takes: no boot watchdog (leaving the bridge arms
+         * one again, usb::disconnect_all). */
+        boot_stage::set(boot_stage::Stage::UART_BRIDGE);
+        watchdog_disable();
         run_uart_bridge();
         return;
     }
 
+    boot_stage::set(boot_stage::Stage::CORE1);
     multicore_reset_core1();
     multicore_launch_core1(core1_task);
 #if defined(CONFIG_EN_USB_HOST)
+    boot_stage::set(boot_stage::Stage::USB_HOST);
     HostManager::get_instance().initialize(_gamepads);
 #endif
 
     /* The ESP32's serial output (its log, boot messages) into the kept log (Board/LogRing.h),
      * readable later through the monitor mode. */
+    boot_stage::set(boot_stage::Stage::ESP32_UART);
     uart_init(uart0, 115200);
     gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
 
+    boot_stage::set(boot_stage::Stage::ESP32_RESET);
     esp32_api::reset();
 
     DeviceDriver* device_driver = DeviceManager::get_instance().get_driver();
 
+    boot_stage::set(boot_stage::Stage::USB_DEVICE);
     tud_init(BOARD_TUD_RHPORT);
 
     /* Hang recovery: a stuck main loop (USB, the ESP32's log, the USB host port) reboots the
@@ -684,6 +698,7 @@ void esp32_bp32_i2c::run() {
      * recovery)" as the last reset. The settings writes in the loop take well under this. The
      * reboots that arm the watchdog themselves (mode change, flash writes) never come back here. */
     watchdog_enable(kHangWatchdogMs, true);
+    boot_stage::set(boot_stage::Stage::RUNNING);
     mode_indicator::begin(_current_driver);
 
     while (true) {
