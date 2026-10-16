@@ -22,7 +22,7 @@ queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rum
    so a settings write could hang Core1 executing from flash), with
    `.github/scripts/check_firmware_rules.py`. Every board with flash writes while Core1 runs.
    High priority, standalone.
-0a. **The same report resent with no controller** — the `get_pad_in()` part of this commit
+0a. **The same report resent with no controller** — a94c0e4
    (`Gamepad.h`): the "new input" flag cleared once the neutral state is delivered. Every board,
    every output driver that checks `new_pad_in()`. Small, with its unit test.
 0b. **USB host port second start** — 5bee335: Pico-PIO-USB's DMA channel, state machines and
@@ -111,7 +111,7 @@ later fixes reach every board in one PR.
 | 87431fb | ESP32 companion firmware did not build: ESP-IDF 5.5, BTstack port used in place, missing `<string>`; Switch setup patch reads the SPI address where the request is built | todo | Upstream bug (the hybrid can't be built there either). The Switch setup patch part goes with the Bluepad32 setup-robustness patch. |
 | 09f005a | ESP32: `#include` with the wrong case in `board_api.cpp` | todo | Upstream bug, fails on Linux only. One line; send with 87431fb. |
 | cc0526d (lockout part) | Core1 registers for the flash lockout on every board (`multicore_lockout_victim_init()`), firmware rule check in CI | todo | Next fix PR 0. Standard / 4-channel / BlueRetro / hybrid: a settings write could hang Core1. Verified on hardware (hybrid, Pico 2 W: 12 live saves in a row). |
-| (this commit) | `Gamepad::get_pad_in()`: the "new input" flag stayed set with no pad after boot or a disconnect, so every driver resent the same report on every loop | todo | Next fix PR 0a. Verified on hardware (hybrid: 0 bytes a second idle). |
+| a94c0e4 | `Gamepad::get_pad_in()`: the "new input" flag stayed set with no pad after boot or a disconnect, so every driver resent the same report on every loop | todo | Next fix PR 0a. Verified on hardware (hybrid: 0 bytes a second idle). |
 | 5bee335 | USB host port: release Pico-PIO-USB's DMA channel, state machines and programs before a second start | todo | Next fix PR 0b. Panic on the second wired plug (Pico W / Pico 2 W). Seen in a stored crash record; not reproduced on hardware. |
 | e752d7b (warning part), 2a0aa04 (VLA, unused buffer) | Release builds without compiler warnings | todo | With 8c59260 (next fix PR 3). Bluepad32 part as a patch (`bluepad32_no_deprecated_scan_calls.diff`), also for Bluepad32 upstream. |
 | 4707bfb, 44abe63 | Diagnostics: fractional counter step (Joy-Con loss shown as 20%), shorter event texts | todo | Next fix PR 3b, on top of #139 / #140. |
