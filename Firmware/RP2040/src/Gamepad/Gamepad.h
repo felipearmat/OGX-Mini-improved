@@ -191,6 +191,12 @@ public:
             }
         } else {
             pad_in = last_pad_in_;
+            /* Custom fix: nothing queued. What reset_pad_in() asked for (the neutral state, once)
+             * is delivered now; the flag stayed set until a pad reported again, so with no pad
+             * (after boot or a disconnect) every driver rebuilt and resent the same report on
+             * every loop. A Bluetooth report published meanwhile keeps new_pad_in() true. */
+            if (!(bt_pad_middle_state_.load(std::memory_order_acquire) & BT_PAD_MAILBOX_DIRTY))
+                new_pad_in_.store(false);
         }
         mutex_exit(&pad_in_mutex_);
         return pad_in;

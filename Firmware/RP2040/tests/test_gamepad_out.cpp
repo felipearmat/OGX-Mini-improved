@@ -1,9 +1,13 @@
-// Host -> pad output path of Gamepad (rumble peak latch, host lightbar).
+// Host -> pad output path of Gamepad (rumble peak latch, host lightbar), and when it reports new
+// input. Regression covered (input): with no pad, after boot or a disconnect (reset_pad_in), the
+// "new input" flag stayed set, so every output driver resent the same neutral report on every loop.
 // Regression covered: the Bluetooth feedback loop samples rumble every 250 ms, so a host pulse
 // that started and ended between two samples (Steam's ~200 ms trigger test) never reached the
 // pad. take_pad_out_peak() returns the strongest rumble since the previous call.
 #include "Gamepad/Gamepad.h"
 #include "test.h"
+
+uint64_t mock_time_us = 0;  // pico/time.h (tests/mocks)
 
 namespace {
 
@@ -27,6 +31,30 @@ TEST(short_pulse_between_samples_is_not_lost) {
     const Gamepad::PadOut next = gp.take_pad_out_peak();
     CHECK_EQ(next.rumble_l, 0);
     CHECK_EQ(next.rumble_r, 0);
+}
+
+TEST(no_pad_reports_its_neutral_state_once) {
+    Gamepad gp;  // the constructor resets the input, as a disconnect does
+    CHECK(gp.new_pad_in());
+    (void)gp.get_pad_in();
+    CHECK(!gp.new_pad_in());  // nothing new until a pad reports
+    (void)gp.get_pad_in();
+    CHECK(!gp.new_pad_in());
+}
+
+TEST(a_disconnect_reports_the_neutral_state_once) {
+    Gamepad gp;
+    (void)gp.get_pad_in();
+    Gamepad::PadIn in;
+    in.buttons = 1;
+    gp.set_pad_in(in);
+    CHECK(gp.new_pad_in());
+    CHECK_EQ(gp.get_pad_in().buttons, 1);
+    CHECK(!gp.new_pad_in());
+    gp.reset_pad_in();  // the pad went away
+    CHECK(gp.new_pad_in());
+    CHECK_EQ(gp.get_pad_in().buttons, 0);
+    CHECK(!gp.new_pad_in());
 }
 
 TEST(peak_is_per_motor) {
