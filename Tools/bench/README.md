@@ -16,6 +16,29 @@ python -m pytest Tools/bench -v -m "not slow"       # without the restarts
 Tools/bench/run_bench.py --solo PI_PICO2W.uf2 --hybrid ESP32_BLUEPAD32_I2C_PICO2.uf2 --esp32 esp32-build/
 ```
 
+| `test_logger.py` | `logger.py` against the firmware's virtual adapter on a pseudo-terminal (no board): kept log and first report recorded, each line once across runs, dropped bytes reported, old files cleaned up |
+
+## Logger
+
+`logger.py` keeps everything the adapter says while you work with it, so a problem can be looked
+at afterwards:
+
+```sh
+python Tools/bench/logger.py --dir ~/ogxm-logs        # Ctrl+C to stop; --echo prints as well
+```
+
+One text file per day (`YYYY-MM-DD.log`): `[usb]` the adapter appearing and leaving USB (mode,
+port, how long it was away, the computer's USB tree when it does not come back), `[rp]` / `[esp]`
+the adapter's kept log (its diagnostics events and the hybrid's ESP32 output, `GET_LOG` every 10
+s), `[diag]` a line when the diagnostics report shows another boot, a crash or other
+controllers, with the whole report saved in `reports/`. Files older than 14 days, then the oldest
+beyond 200 MB, are deleted (`--keep-days`, `--max-mb`).
+
+It reads the port only in D-Input/Debug, only while no other program has it open (the web app
+keeps it for its whole session) and only for a moment, under an flock that the bench tests and
+`Tools/hybrid` take too. In another output mode there is no serial port: the `[usb]` lines go on,
+and the kept log (it survives the mode change, not unplugging) is read once the adapter is back.
+
 `run_bench.py` flashes each build (the Pico through its own USB port, the hybrid's ESP32 through
 the Pico's bridge) and runs the tests on it. The tests restore the settings and colours they
 change. Close the web app first: it holds the serial port.

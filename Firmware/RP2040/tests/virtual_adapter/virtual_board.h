@@ -1,9 +1,11 @@
 // The board under the virtual adapter: the USB serial port on stdin / stdout and the flash in a
 // file (tests/mocks/hardware/flash.h keeps it in RAM; this saves it after every change).
 //
-// Optional control channel on fd 3, one command per line, for what is not serial data:
+// Optional control channel on fd 3 (or the fd in OGXM_CONTROL_FD), one command per line, for what
+// is not serial data:
 //   D1 / D0   the page opened / closed the port (DTR). Without fd 3 the port is open from the start.
 //   M<n>      the mode combo for output mode n was held (ModeCombos.h)
+//   L<text>   a line of the ESP32's serial output, into the kept log (Board/LogRing.h)
 // and from the adapter, at boot:
 //   MODE <n>  the output mode it runs in; the serial port exists in D-Input/Debug (6) only.
 //   LED <rrggbb>  the external status LED's colour, when it changes (D-Input/Debug).

@@ -50,6 +50,14 @@ jobs:
           cmake --build build-tests
           ctest --test-dir build-tests --output-on-failure
 
+      # Tools/bench/logger.py against the virtual adapter the tests built (no board needed).
+      - name: Bench logger tests
+        env:
+          OGXM_VIRTUAL_ADAPTER: build-tests/virtual_adapter/virtual_adapter
+        run: |
+          .github/scripts/retry.sh 5 5m -- python3 -m pip install --user -r Tools/bench/requirements.txt
+          python3 -m pytest Tools/bench/test_logger.py -v
+
   # The web app (OGX-Mini-improved-WebApp, master) in Chromium against this firmware's virtual
   # adapter (Firmware/RP2040/tests/virtual_adapter): a protocol or settings change the web app does
   # not follow fails here. The web app's own CI runs the same suite against this repository's master.

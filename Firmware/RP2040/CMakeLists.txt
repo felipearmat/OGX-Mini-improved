@@ -85,6 +85,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
     ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp
+    ${SRC}/Board/LogRing.cpp
     ${COMMON}/Diagnostics/DiagNames.cpp
     ${SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${SRC}/Diagnostics/CrashHandler.cpp
@@ -579,10 +580,6 @@ if(EN_ESP32)
         hardware_i2c
         hardware_pio
         hardware_dma
-    )
-    # The kept log both boards' output goes to, read through the USB port (Board/LogRing.h)
-    list(APPEND SOURCES_BOARD
-        ${SRC}/Board/LogRing.cpp
     )
 endif()
 

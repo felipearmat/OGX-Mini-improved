@@ -51,6 +51,12 @@ namespace webapp_protocol {
          * picking one. Data: active (0 / 1), r, g, b. Ends after kPreviewMs without a new one, or
          * when the web app disconnects. Answered with an empty LED_PREVIEW. */
         LED_PREVIEW = 0x7A,
+        /* Custom: the kept log (RP2040 Board/LogRing.h: diagnostics events, the hybrid's ESP32
+         * output), read without leaving the mode. Data: position to read from (uint32,
+         * little-endian; 0 = the oldest kept byte). Answer, in chunks: the position of the first
+         * byte sent (later than asked when bytes were dropped), the position after the newest
+         * byte (both uint32), then up to kLogBytes of text. */
+        GET_LOG = 0x7B,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -60,6 +66,8 @@ namespace webapp_protocol {
         GP_TOUCH = 0x82,
         RESP_ERROR = 0xFF
     };
+
+    constexpr size_t kLogBytes = 2048;  // GET_LOG text per answer
 
     enum SystemCommand : uint8_t
     {

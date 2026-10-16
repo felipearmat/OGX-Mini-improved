@@ -1,10 +1,13 @@
 #include "Diagnostics/Diagnostics.h"
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 
 #include "pico/critical_section.h"
+
+#include "Board/LogRing.h"
 
 namespace diag {
 
@@ -426,14 +429,22 @@ void event(uint32_t now_ms, const char* fmt, ...)
     va_start(ap, fmt);
     std::vsnprintf(text, sizeof(text), fmt, ap);
     va_end(ap);
-    Lock l;
-    Event& e = s_events[s_event_next];
-    e.ms = now_ms;
-    e.boot = static_cast<uint8_t>(s_p.boot);
-    std::memcpy(e.text, text, sizeof(text));
-    s_event_next = (s_event_next + 1) % kEvents;
-    if (s_event_count < kEvents) ++s_event_count;
-    s_p.check = persist_check();
+    {
+        Lock l;
+        Event& e = s_events[s_event_next];
+        e.ms = now_ms;
+        e.boot = static_cast<uint8_t>(s_p.boot);
+        std::memcpy(e.text, text, sizeof(text));
+        s_event_next = (s_event_next + 1) % kEvents;
+        if (s_event_count < kEvents) ++s_event_count;
+        s_p.check = persist_check();
+    }
+    /* Custom: also into the kept log (Board/LogRing.h), with the time since boot. */
+    char line[kEventText + 16];
+    const int n = std::snprintf(line, sizeof(line), "%lu.%03lu %s\n", static_cast<unsigned long>(now_ms / 1000),
+                                static_cast<unsigned long>(now_ms % 1000), text);
+    if (n > 0)
+        log_ring_append("rp", line, std::min(static_cast<size_t>(n), sizeof(line) - 1));
 }
 
 void crash_record(const CrashInfo& crash)

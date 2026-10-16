@@ -18,6 +18,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
+- **Hybrid: part of the ESP32's serial output lost at boot** — the kept log shows pieces missing
+  from the ESP32's first lines ("rst:… Initializing" read as "rstizing", a MAC address cut short).
+  The RP2040 reads its UART in the main loop only; its 32-byte RX FIFO lasts about 2.8 ms at
+  115200, likely less than the loop takes while booting. Suspected, not measured: read it from the
+  UART interrupt or DMA.
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.

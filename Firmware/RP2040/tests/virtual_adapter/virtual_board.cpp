@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "Board/LogRing.h"
 #include "hardware/flash.h"
 #include "tusb.h"
 
@@ -47,9 +48,11 @@ void save_flash()
 
 void start(const char* flash_file)
 {
-    if (fcntl(kControlFd, F_GETFD) != -1)  // before any file of ours can take fd 3
+    const char* env = std::getenv("OGXM_CONTROL_FD");
+    const int control = env ? std::atoi(env) : kControlFd;
+    if (fcntl(control, F_GETFD) != -1)  // before any file of ours can take fd 3
     {
-        s_control = kControlFd;
+        s_control = control;
         s_dtr = false;  // until the page opens the port
     }
     s_flash_file = flash_file;
@@ -75,6 +78,11 @@ void control_command(const std::string& line)
         s_dtr = false;
         s_rx.clear();
         s_tx.clear();
+    }
+    else if (line.size() > 1 && line[0] == 'L')
+    {
+        const std::string text = line.substr(1) + "\n";
+        log_ring_append("esp", text.data(), text.size());  // as the hybrid keeps the ESP32's output
     }
     else if (line.size() > 1 && line[0] == 'M')
         s_mode_request = std::atoi(line.c_str() + 1);

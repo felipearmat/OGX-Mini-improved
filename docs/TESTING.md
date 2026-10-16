@@ -5,7 +5,8 @@ computer's own compiler (no Pico SDK, no board needed) and run in under a second
 every commit and PR: each one pins a bug that was found on hardware, so a failing test means that
 bug is back. Hardware checks for the RP2040 + ESP32 hybrid: [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
 automated tests on a real adapter (settings saved live, restarts, the ESP32 link):
-[Tools/bench](../Tools/bench/README.md); the web app against the firmware's own code, no board
+[Tools/bench](../Tools/bench/README.md), whose `logger.py` keeps everything the adapter says on the
+bench in files; the web app against the firmware's own code, no board
 needed: [Virtual adapter](#virtual-adapter-web-app-end-to-end-tests) below.
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job

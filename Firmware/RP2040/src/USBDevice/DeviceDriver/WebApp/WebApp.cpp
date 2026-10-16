@@ -11,6 +11,7 @@
 #include "UserSettings/Capabilities.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/Diagnostics.h"
+#include "Board/LogRing.h"
 #include "Descriptors/CDCDev.h"
 #include "Board/ModeIndicator.h"
 #include "UserSettings/BoardCapabilities.h"
@@ -304,6 +305,17 @@ bool WebAppDevice::write_diagnostics()
     return write_chunked(PacketID::GET_DIAGNOSTICS, report, len);
 }
 
+/* Custom: the kept log from `since` on (WebAppProtocol.h GET_LOG). */
+bool WebAppDevice::write_log(uint32_t since)
+{
+    static uint8_t answer[8 + webapp_protocol::kLogBytes];
+    uint32_t start = 0, total = 0;
+    const size_t n = log_ring_read_since(since, &start, &total, answer + 8, webapp_protocol::kLogBytes);
+    std::memcpy(answer, &start, 4);
+    std::memcpy(answer + 4, &total, 4);
+    return write_chunked(PacketID::GET_LOG, reinterpret_cast<const char*>(answer), 8 + n);
+}
+
 bool WebAppDevice::write_chunked(PacketID id, const char* data, size_t len)
 {
     Packet packet_in;
@@ -523,6 +535,19 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     return;
                 }
                 break;
+
+            case PacketID::GET_LOG:
+            {
+                uint32_t since = 0;
+                if (packet_out.header.chunk_len >= 4)
+                    std::memcpy(&since, packet_out.data.data(), 4);
+                if (!write_log(since))
+                {
+                    write_error();
+                    return;
+                }
+                break;
+            }
 
             case PacketID::SET_GP_OUT:
             {

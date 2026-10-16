@@ -38,7 +38,9 @@ def find_port(product=PRODUCT, timeout=0.0):
 class Adapter:
     def __init__(self, port):
         self.port = port
-        self.link = serial.Serial(port, 115200, timeout=0.05)
+        # exclusive: an flock on the port, so the logger (logger.py), the bench and Tools/hybrid
+        # never read the same port at once (each one's bytes would go to the other).
+        self.link = serial.Serial(port, 115200, timeout=0.05, exclusive=True)
 
     @classmethod
     def open(cls, timeout=30.0):
@@ -98,6 +100,14 @@ class Adapter:
     def diagnostics(self):
         data = self.request("GET_DIAGNOSTICS", wait=4.0)
         return json.loads(data) if data else None
+
+    def log_since(self, since):
+        """GET_LOG: the kept log from position `since` (Board/LogRing.h). Returns (start, total,
+        bytes): `start` > `since` when bytes were dropped; None on a firmware without it."""
+        data = self.request("GET_LOG", int(since).to_bytes(4, "little"), wait=3.0)
+        if not data or len(data) < 8:
+            return None
+        return int.from_bytes(data[0:4], "little"), int.from_bytes(data[4:8], "little"), data[8:]
 
     def capabilities(self):
         data = self.request("GET_CAPABILITIES")

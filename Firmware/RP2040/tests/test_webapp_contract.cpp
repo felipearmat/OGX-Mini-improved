@@ -76,7 +76,7 @@ std::string contract_json() {
         N(PacketID, SET_PROFILE), N(PacketID, GET_DONGLE_SETTINGS), N(PacketID, SET_DONGLE_SETTINGS),
         N(PacketID, GET_KBM_SETTINGS), N(PacketID, SET_KBM_SETTINGS), N(PacketID, GET_DIAGNOSTICS),
         N(PacketID, SYSTEM), N(PacketID, GET_CAPABILITIES), N(PacketID, GET_VERSION),
-        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW),
+        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW), N(PacketID, GET_LOG),
         N(PacketID, SET_GP_IN), N(PacketID, SET_GP_OUT), N(PacketID, GP_TOUCH), N(PacketID, RESP_ERROR),
     };
     const std::vector<Named> system = {
@@ -86,6 +86,7 @@ std::string contract_json() {
     o << "  \"packet\": {\n"
       << "    \"length\": " << webapp_protocol::kPacketLength << ",\n"
       << "    \"header_length\": " << webapp_protocol::kHeaderLength << ",\n"
+      << "    \"log_bytes\": " << webapp_protocol::kLogBytes << ",\n"
       << "    \"ids\": " << object_json(ids, "    ") << ",\n"
       << "    \"system\": " << object_json(system, "    ") << "\n"
       << "  },\n";

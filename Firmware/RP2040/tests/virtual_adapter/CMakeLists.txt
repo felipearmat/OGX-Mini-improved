@@ -26,6 +26,7 @@ add_executable(virtual_adapter
     ${FW_SRC}/UserSettings/UserSettings.cpp
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
     ${FW_SRC}/Diagnostics/Diagnostics.cpp
+    ${FW_SRC}/Board/LogRing.cpp
     ${FW_SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${FW_COMMON}/Diagnostics/DiagNames.cpp
     ${FW_COMMON}/UserSettings/UserProfile.cpp

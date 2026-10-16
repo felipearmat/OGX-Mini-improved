@@ -79,11 +79,18 @@ def system_command(name):
     packet = bytearray(PACKET_LEN)
     packet[0:9] = bytes([PACKET_LEN, SYSTEM, WEBAPP_DRIVER, 1, 0, 0, 1, 0, 1])
     packet[9] = command
-    try:
-        link = serial.Serial(port, 115200, timeout=0.2)
-    except serial.SerialException as error:
-        sys.exit(f"Could not open {port} ({error}). Is the web app (or another program) connected to the "
-                 "adapter? Disconnect it and try again.")
+    # exclusive (an flock): never at the same time as Tools/bench (its logger reads the port for a
+    # moment now and then, so a busy port is tried again for a few seconds).
+    deadline = time.monotonic() + 5.0
+    while True:
+        try:
+            link = serial.Serial(port, 115200, timeout=0.2, exclusive=True)
+            break
+        except serial.SerialException as error:
+            if time.monotonic() > deadline:
+                sys.exit(f"Could not open {port} ({error}). Is the web app (or another program) connected to "
+                         "the adapter? Disconnect it and try again.")
+            time.sleep(0.3)
     with link:
         link.reset_input_buffer()
         link.write(packet)

@@ -2,6 +2,7 @@
   "packet": {
     "length": 64,
     "header_length": 9,
+    "log_bytes": 2048,
     "ids": {
       "GET_PROFILE_BY_ID": 80,
       "GET_PROFILE_BY_IDX": 85,
@@ -18,6 +19,7 @@
       "GET_LED_COLORS": 120,
       "SET_LED_COLORS": 121,
       "LED_PREVIEW": 122,
+      "GET_LOG": 123,
       "SET_GP_IN": 128,
       "SET_GP_OUT": 129,
       "GP_TOUCH": 130,
