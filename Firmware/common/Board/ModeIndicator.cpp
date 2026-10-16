@@ -19,7 +19,7 @@ uint8_t blink_count(DeviceDriverType driver)
     {
         case DeviceDriverType::XINPUT: return 1;
         case DeviceDriverType::SWITCH: return 2;
-        case DeviceDriverType::DINPUT: return 3;
+        case DeviceDriverType::DINPUT_DEBUG: return 3;
         case DeviceDriverType::PS4:    return 4;
         case DeviceDriverType::STEAM:  return 5;
         case DeviceDriverType::XBOXOG:
@@ -59,7 +59,7 @@ void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
         // Others
         case DeviceDriverType::KBM:       r = 0xFF; g = 0xFF; b = 0x00; break; // yellow
         case DeviceDriverType::DREAMCAST: r = 0x40; g = 0x40; b = 0xFF; break; // light blue-violet
-        default:                          r = 0xFF; g = 0xFF; b = 0xFF; break; // white (DInput / Debug)
+        default:                          r = 0xFF; g = 0xFF; b = 0xFF; break; // white (D-Input/Debug)
     }
 }
 
@@ -85,7 +85,7 @@ static int color_slot(DeviceDriverType driver)
     const int v = static_cast<int>(driver);
     if (driver == DeviceDriverType::WEBAPP)
     {
-        return static_cast<int>(DeviceDriverType::DINPUT);
+        return static_cast<int>(DeviceDriverType::DINPUT_DEBUG);
     }
     return v < static_cast<int>(ModeColors::kColorSlots) ? v : -1;
 }

@@ -104,7 +104,8 @@ namespace dongle_settings {
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
-    // Whether the button combo may switch to this output mode (DeviceDriverType value).
+    // Whether the button combo may switch to this output mode (DeviceDriverType value). Always
+    // true for D-Input/Debug (the way back to the web app), whatever the mask says.
     bool mode_combo_enabled(const Settings& settings, uint8_t driver);
 
     // Search times (seconds; reduced may be kSearchNoLimit). set clamps to 0-600.

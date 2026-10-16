@@ -24,7 +24,7 @@ int count_blinks(DeviceDriverType mode) {
 TEST(blink_count_per_mode) {
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XINPUT), 1);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::SWITCH), 2);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::DINPUT), 3);
+    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::DINPUT_DEBUG), 3);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS4), 4);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::STEAM), 5);
     CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG), 6);
@@ -62,7 +62,7 @@ TEST(lightbar_colours_are_distinct) {
                                       DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
                                       DeviceDriverType::PS4,       DeviceDriverType::STEAM,
                                       DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
-                                      DeviceDriverType::DINPUT};
+                                      DeviceDriverType::DINPUT_DEBUG};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -99,7 +99,7 @@ TEST(led_colours_stay_distinct_at_default_brightness) {
                                       DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
                                       DeviceDriverType::PS4,       DeviceDriverType::STEAM,
                                       DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
-                                      DeviceDriverType::DINPUT};
+                                      DeviceDriverType::DINPUT_DEBUG};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -161,7 +161,7 @@ TEST(custom_colours_override_and_generation) {
     CHECK_EQ(r, 0xFF); CHECK_EQ(g, 0); CHECK_EQ(b, 0);
     // a colour for one mode; the web app mode uses DInput's slot
     colors.rgb[static_cast<int>(DeviceDriverType::SWITCH)][1] = 0x80;
-    colors.rgb[static_cast<int>(DeviceDriverType::DINPUT)][2] = 0x40;
+    colors.rgb[static_cast<int>(DeviceDriverType::DINPUT_DEBUG)][2] = 0x40;
     mode_indicator::set_custom_colors(colors);
     CHECK(mode_indicator::color_generation() != gen0);
     mode_indicator::shown_color(DeviceDriverType::SWITCH, r, g, b);

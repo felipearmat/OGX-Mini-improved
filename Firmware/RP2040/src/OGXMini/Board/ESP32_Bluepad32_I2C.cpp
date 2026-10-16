@@ -29,6 +29,7 @@
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
+#include "I2C/ModeSync.h"
 #include "UserSettings/DongleSettings.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "USBDevice/DeviceDriver/Steam/SteamActive.h"
@@ -274,9 +275,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static PacketIn packet_in;
     static PacketOut packet_out;
     static bool ext_requested = false;  // answer the next read with a PacketOutExt
-    /* Mode changes from the ESP32 count only once it has had two of our PacketOutExt: until it
-     * reads one, a freshly started ESP32 sends the mode in its own flash (for an RP2040 that keeps
-     * no settings), which would undo the mode this RP2040 restarted in. */
+    /* Mode changes from the ESP32 count once it has read our PacketOutExt (I2C/ModeSync.h). */
     static uint8_t ext_replies = 0;
     static PacketProfile profile_request;  // answer the next read with this chunk
     static bool profile_requested = false;
@@ -423,9 +422,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     break;
                 }
                 case PacketID::SET_DRIVER:
-                    if (ext_replies >= 2 &&
-                        packet_in.device_driver != DeviceDriverType::NONE &&
-                        normalized(packet_in.device_driver) != current_device_type) {
+                    if (mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type)) {
                         OGXM_LOG("I2C: Driver change detected.\n");
                         //Any writes to flash should be done on Core0
                         TaskQueue::Core0::queue_delayed_task(
@@ -475,7 +472,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             }
             if (ext_requested) {
                 ext_requested = false;
-                if (ext_replies < 2) {
+                if (ext_replies < mode_sync::kRepliesBeforeRequests) {
                     ++ext_replies;
                 }
                 const PacketOutExt reply = ext_reply(packet_in.index);

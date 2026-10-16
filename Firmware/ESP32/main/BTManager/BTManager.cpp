@@ -21,6 +21,7 @@
 #include "Bluepad32/LinkDiag.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagForward.h"
+#include "I2C/ModeSync.h"
 
 void BTManager::run_task()
 {
@@ -123,14 +124,14 @@ uint8_t BTManager::slave_addr(uint8_t output)
     return I2CDriver::MULTI_SLAVE ? output + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR;
 }
 
-/* Profiles depend on the output mode too (XInput: stock stick feel; DInput / Debug with the web app
+/* Profiles depend on the output mode too (XInput: stock stick feel; D-Input/Debug with the web app
  * open: the default mapping, so the web app shows the controller's own buttons), as on the Pico W
  * path: applied at boot, on every mode change, when the web app saves one and when it opens or
  * closes. */
 void BTManager::apply_profiles()
 {
     DeviceDriverType driver = UserSettings::get_instance().get_current_driver();
-    if (web_app_open_ && driver == DeviceDriverType::DINPUT)
+    if (web_app_open_ && driver == DeviceDriverType::DINPUT_DEBUG)
     {
         driver = DeviceDriverType::WEBAPP;  // the default mapping (Gamepad/GamepadMapper.h)
     }
@@ -353,10 +354,10 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
 
     if (!settings.remote())
     {
-        /* An RP2040 that keeps no settings (it never answers GET_EXT): it takes the mode from us.
-         * Only after 3 s without an answer: a freshly started ESP32 would otherwise push the mode
-         * in its own flash onto an RP2040 that just restarted in another one. */
-        if (btstack_run_loop_get_time_ms() - bt_manager.boot_ms_ >= kNoSettingsRp2040Ms)
+        /* An RP2040 that keeps no settings (it never answers GET_EXT) takes the mode from us, after
+         * a wait (I2C/ModeSync.h): a freshly started ESP32 would otherwise push the mode in its own
+         * flash onto an RP2040 that just restarted in another one. */
+        if (mode_sync::esp32_sends_own_mode(settings.remote(), btstack_run_loop_get_time_ms() - bt_manager.boot_ms_))
         {
             bt_manager.send_driver_type(settings.get_current_driver());
         }

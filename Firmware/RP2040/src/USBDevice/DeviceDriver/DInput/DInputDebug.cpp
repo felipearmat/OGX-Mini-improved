@@ -49,6 +49,6 @@ void DInputDebugDevice::apply_mapping(uint8_t idx, Gamepad& gamepad)
     unmapped_[idx] = want;
     UserSettings& user_settings = UserSettings::get_instance();
     gamepad.set_profile(user_settings.get_profile_by_index(idx),
-                        want ? DeviceDriverType::WEBAPP : DeviceDriverType::DINPUT);
+                        want ? DeviceDriverType::WEBAPP : DeviceDriverType::DINPUT_DEBUG);
 #endif
 }

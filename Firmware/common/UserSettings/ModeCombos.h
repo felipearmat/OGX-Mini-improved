@@ -26,18 +26,14 @@ namespace mode_combos {
 
     using B = GamepadBits;
 
-    /* Start + LB + RB: DInput / Debug, the way to the web app. Always on, even when DInput's
-     * combo is turned off in the web app (the other one, Start + RB + Left, then is off). */
-    constexpr uint32_t DEBUG_COMBO = combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB);
-
     /* Wii, GameCube and N64 are fixed builds only (OGXM_FIXED_DRIVER), without a combo. */
     constexpr std::array<ModeCombo, 15> MODE_COMBOS = {{
         { combo(B::BUTTON_START,                                 B::DPAD_RIGHT), DeviceDriverType::XBOXOG    },
         { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_SB },
         { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_XR },
-        { combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB),                  DeviceDriverType::DINPUT    },
+        { combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB),                  DeviceDriverType::DINPUT_DEBUG    },
         { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_UP),    DeviceDriverType::KBM       },
-        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_LEFT),  DeviceDriverType::DINPUT    },
+        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_LEFT),  DeviceDriverType::DINPUT_DEBUG    },
         { combo(B::BUTTON_START,                                 B::DPAD_DOWN),  DeviceDriverType::SWITCH    },
         { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_DOWN),  DeviceDriverType::WIIU      },
         { combo(B::BUTTON_START,                                 B::DPAD_UP),    DeviceDriverType::XINPUT    },
@@ -56,7 +52,7 @@ namespace mode_combos {
      * the default. */
     constexpr DeviceDriverType HYBRID_MODES[] = {
         DeviceDriverType::XBOXOG,
-        DeviceDriverType::DINPUT,
+        DeviceDriverType::DINPUT_DEBUG,
         DeviceDriverType::SWITCH,
         DeviceDriverType::PS3,
         DeviceDriverType::PS4,

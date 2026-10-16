@@ -99,7 +99,7 @@ namespace DInput
     #pragma pack(pop)
     static_assert(sizeof(DeviceInReport) == 27, "DInput::DeviceInReport must match the 27-byte report descriptor");
 
-    /* Custom: DInput / Debug mode — the gamepad and the web app's serial port in one device
+    /* Custom: D-Input/Debug mode — the gamepad and the web app's serial port in one device
      * (strings: USBDevice/DeviceDriver/WebApp, CDCDesc: "OGX-Mini", the board's serial number, the
      * port named "OGX-Mini Debug"). Own ID: 0xCAFE (the web app's former mode) with a PID of its
      * own, so hosts do not reuse what they cached for another interface layout. */

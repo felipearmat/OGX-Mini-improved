@@ -112,9 +112,9 @@ namespace mode_combos {
                     break;
                 }
             }
-            /* Modes whose combo is turned off in the web app (the DInput / Debug combo, the way to
-             * the web app, always stays on). */
-            if (driver != DeviceDriverType::NONE && active != DEBUG_COMBO &&
+            /* Modes whose combo is turned off in the web app. D-Input/Debug, where the web app
+             * connects, can't be turned off (dongle_settings::mode_combo_enabled). */
+            if (driver != DeviceDriverType::NONE &&
                 !dongle_settings::mode_combo_enabled(settings, static_cast<uint8_t>(driver)))
                 return result;
             if (driver != current)

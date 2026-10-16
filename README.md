@@ -141,7 +141,7 @@ LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 |---|---|---|---|---|---|---|
 | XInput | Start + Up | Xbox 360 controller | 1 | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
 | Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
-| DInput / Debug | Start + LB + RB or Start + RB + Left | generic gamepad + the web app's serial port | 3 | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
+| D-Input/Debug | Start + LB + RB or Start + RB + Left | generic gamepad + the web app's serial port | 3 | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
 | PS4 | Start + LB + Left | DualShock 4 | 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
 | STEAM | Start + LB + Up | DualSense + mouse | 5 | lilac | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
 | Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light lime | yes | Original Xbox console |

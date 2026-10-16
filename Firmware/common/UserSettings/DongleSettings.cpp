@@ -1,4 +1,5 @@
 #include "UserSettings/DongleSettings.h"
+#include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 
 #ifndef OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
 #define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 0
@@ -168,6 +169,9 @@ void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s)
 
 bool mode_combo_enabled(const Settings& settings, uint8_t driver)
 {
+    /* D-Input/Debug is the way back to the web app: its combos are always on. */
+    if (driver == static_cast<uint8_t>(DeviceDriverType::DINPUT_DEBUG))
+        return true;
     return driver >= 32 || (settings.combo_disabled_modes & (1u << driver)) == 0;
 }
 

@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "I2C/Esp32Bridge.h"
+#include "I2C/ModeSync.h"
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/ModeCombos.h"
@@ -187,7 +188,7 @@ TEST(mode_ids_are_stable) {
     CHECK_EQ(static_cast<int>(DeviceDriverType::XBOXOG_XR), 3);
     CHECK_EQ(static_cast<int>(DeviceDriverType::XINPUT), 4);
     CHECK_EQ(static_cast<int>(DeviceDriverType::PS3), 5);
-    CHECK_EQ(static_cast<int>(DeviceDriverType::DINPUT), 6);
+    CHECK_EQ(static_cast<int>(DeviceDriverType::DINPUT_DEBUG), 6);
     CHECK_EQ(static_cast<int>(DeviceDriverType::PSCLASSIC), 7);
     CHECK_EQ(static_cast<int>(DeviceDriverType::SWITCH), 8);
     CHECK_EQ(static_cast<int>(DeviceDriverType::WIIU), 9);
@@ -247,6 +248,87 @@ TEST(hybrid_modes_are_reachable_and_usb_only) {
               mode != DeviceDriverType::DREAMCAST && mode != DeviceDriverType::N64 &&
               mode != DeviceDriverType::WII);
     }
+}
+
+// ---- Who decides the mode at start-up (I2C/ModeSync.h) ----
+
+namespace {
+
+using D = DeviceDriverType;
+
+/* The RP2040 side: its stored mode, how many PacketOutExt it has sent, its restarts. */
+struct Rp2040 {
+    D mode;
+    bool keeps_settings{true};
+    uint8_t replies{0};
+    int restarts{0};
+    void restart_into(D d) { mode = normalized(d); replies = 0; ++restarts; }
+    bool answer_get_ext() {  // false: an older RP2040 that never answers it
+        if (!keeps_settings) return false;
+        if (replies < mode_sync::kRepliesBeforeRequests) ++replies;
+        return true;
+    }
+    void set_driver(D d) {
+        if (keeps_settings ? mode_sync::rp2040_accepts(replies, d, mode) : normalized(d) != mode)
+            restart_into(d);
+    }
+};
+
+/* The ESP32 side, freshly started with `flash` stored: one tick every 50 ms, each asking GET_EXT
+ * (answered after `ext_delay_ms`) and, per the rule, sending its own mode. */
+void run_esp32(Rp2040& rp, D flash, uint32_t ms, uint32_t ext_delay_ms = 50) {
+    bool remote = false;
+    for (uint32_t t = 0; t < ms; t += 50) {
+        if (t >= ext_delay_ms && rp.answer_get_ext()) remote = true;
+        if (mode_sync::esp32_sends_own_mode(remote, t)) rp.set_driver(flash);
+    }
+}
+
+}  // namespace
+
+TEST(a_fresh_esp32_does_not_undo_the_mode_the_rp2040_restarted_in) {
+    // The bug: Start + LB + RB restarted the RP2040 in D-Input/Debug; the ESP32, still holding
+    // Switch in its flash, sent it before reading the RP2040's answer and the RP2040 went back.
+    Rp2040 rp{D::DINPUT_DEBUG};
+    run_esp32(rp, D::SWITCH, 10000);
+    CHECK(rp.mode == D::DINPUT_DEBUG);
+    CHECK_EQ(rp.restarts, 0);
+    // Even when the RP2040's first answer is late (it is still starting USB).
+    Rp2040 slow{D::DINPUT_DEBUG};
+    run_esp32(slow, D::SWITCH, 10000, 1500);
+    CHECK(slow.mode == D::DINPUT_DEBUG);
+}
+
+TEST(an_rp2040_that_keeps_no_settings_takes_the_esp32s_mode) {
+    Rp2040 old{D::XBOXOG};
+    old.keeps_settings = false;
+    run_esp32(old, D::SWITCH, 2000);
+    CHECK(old.mode == D::XBOXOG);  // not before the wait
+    run_esp32(old, D::SWITCH, 10000);
+    CHECK(old.mode == D::SWITCH);
+}
+
+TEST(a_combo_on_the_esp32_changes_the_mode_once_in_sync) {
+    Rp2040 rp{D::PS4};
+    run_esp32(rp, D::PS4, 1000);
+    rp.set_driver(D::DINPUT_DEBUG);  // Start + LB + RB
+    CHECK(rp.mode == D::DINPUT_DEBUG);
+    CHECK_EQ(rp.restarts, 1);
+    // An older ESP32 asking for the Web App mode means DInput: no restart loop.
+    rp.answer_get_ext();
+    rp.answer_get_ext();
+    rp.set_driver(D::WEBAPP);
+    CHECK_EQ(rp.restarts, 1);
+}
+
+TEST(mode_requests_wait_for_the_rp2040s_answers) {
+    CHECK(!mode_sync::rp2040_accepts(0, D::SWITCH, D::DINPUT_DEBUG));
+    CHECK(!mode_sync::rp2040_accepts(1, D::SWITCH, D::DINPUT_DEBUG));
+    CHECK(mode_sync::rp2040_accepts(2, D::SWITCH, D::DINPUT_DEBUG));
+    CHECK(!mode_sync::rp2040_accepts(2, D::NONE, D::DINPUT_DEBUG));
+    CHECK(!mode_sync::esp32_sends_own_mode(false, 100));
+    CHECK(!mode_sync::esp32_sends_own_mode(true, 60000));
+    CHECK(mode_sync::esp32_sends_own_mode(false, mode_sync::kNoSettingsRp2040Ms));
 }
 
 TEST_MAIN()

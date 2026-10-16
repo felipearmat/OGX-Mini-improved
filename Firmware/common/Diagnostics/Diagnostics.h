@@ -113,7 +113,7 @@ namespace diag {
     // Whether new controllers are accepted (Bluepad32's flag), and each finished BR/EDR inquiry
     // (the radio really searching, which costs the connected pads air time).
     // `reduced`: the search runs at its reduced rate (Bluepad32/ScanPolicy.h).
-    // The web app opened the adapter's serial port (DInput / Debug mode): this boot's session is
+    // The web app opened the adapter's serial port (D-Input/Debug mode): this boot's session is
     // a web app one, so it does not replace the last real session in the report.
     void web_app_opened();
     void searching(bool accepting_new_controllers, bool reduced = false);

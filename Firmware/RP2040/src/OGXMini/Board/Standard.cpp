@@ -214,9 +214,9 @@ void standard::run() {
         multicore_reset_core1();
         multicore_launch_core1(core1_task);
 
-        /* Custom: DInput / Debug starts USB right away, so the web app connects without a
+        /* Custom: D-Input/Debug starts USB right away, so the web app connects without a
          * controller (as the Web App mode did). */
-        if (current_driver != DeviceDriverType::DINPUT) {
+        if (current_driver != DeviceDriverType::DINPUT_DEBUG) {
             while (!tud_inited()) {
                 TaskQueue::Core0::process_tasks();
                 sleep_ms(100);

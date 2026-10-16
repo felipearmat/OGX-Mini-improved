@@ -31,7 +31,7 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
                                         Gamepad(&gamepads)[MAX_GAMEPADS]) {
     //TODO: Put gamepad setup in the drivers themselves
     bool has_analog = false;
-    driver_type = normalized(driver_type);  // Custom: the Web App mode is DInput / Debug
+    driver_type = normalized(driver_type);  // Custom: the Web App mode is D-Input/Debug
     current_driver_type_ = driver_type;
     SteamActive::set(driver_type == DeviceDriverType::STEAM);
     MotionOutputActive::set(driver_type == DeviceDriverType::PS3 ||
@@ -40,7 +40,7 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
     printf("Attempting to allocate driver\n");
     
     switch (driver_type) {
-        case DeviceDriverType::DINPUT:
+        case DeviceDriverType::DINPUT_DEBUG:
             printf("DINPUT / Debug Loaded\n"); 
             has_analog = true;
             device_driver_ = std::make_unique<DInputDebugDevice>();

@@ -24,7 +24,7 @@ public:
 
     void line_state_cb(uint8_t itf, bool dtr, bool rts) override;
 
-    /* Custom: the web app has the serial port open (DInput / Debug mode). */
+    /* Custom: the web app has the serial port open (D-Input/Debug mode). */
     static bool connected() { return tud_cdc_connected(); }
 
 private:
@@ -37,7 +37,7 @@ private:
     {
         uint8_t packet_len{64};
         PacketID packet_id{PacketID::NONE};
-        DeviceDriverType device_driver{DeviceDriverType::DINPUT};  // Custom: the mode the web app runs in (D-Input/Debug)
+        DeviceDriverType device_driver{DeviceDriverType::DINPUT_DEBUG};  // Custom: the mode the web app runs in (D-Input/Debug)
         uint8_t max_gamepads{MAX_GAMEPADS};
         uint8_t player_idx{0};
         uint8_t profile_id{0};

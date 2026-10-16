@@ -404,7 +404,7 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     write_error();
                     return;
                 }
-                /* Custom: a mode other than the current one (DInput / Debug, where the web app runs)
+                /* Custom: a mode other than the current one (D-Input/Debug, where the web app runs)
                  * is stored with the profile and the adapter restarts in it. */
                 if (normalized(packet_out.header.device_driver) != user_settings_.get_current_driver() &&
                     user_settings_.is_valid_driver(packet_out.header.device_driver))

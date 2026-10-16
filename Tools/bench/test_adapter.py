@@ -15,7 +15,7 @@ def test_answers_with_version_capabilities_and_report(adapter, caps):
     version = adapter.version()
     assert version and version[0].startswith("improved-"), version
     report = adapter.diagnostics()
-    assert report["output_mode"] == "DINPUT"
+    assert report["output_mode"] == "DINPUT_DEBUG"
     assert "watchdog" not in report.get("last_reset", ""), f"last restart: {report.get('last_reset')}"
     assert report.get("last_crash") is None, report.get("last_crash")
 

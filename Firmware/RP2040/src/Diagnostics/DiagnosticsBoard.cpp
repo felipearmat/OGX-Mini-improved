@@ -24,7 +24,7 @@ const char* driver_name(DeviceDriverType type)
         case DeviceDriverType::PS4:       return "PS4";
         case DeviceDriverType::STEAM:     return "STEAM";
         case DeviceDriverType::KBM:       return "KBM";
-        case DeviceDriverType::DINPUT:    return "DINPUT";
+        case DeviceDriverType::DINPUT_DEBUG:    return "DINPUT_DEBUG";
         case DeviceDriverType::PSCLASSIC: return "PSCLASSIC";
         case DeviceDriverType::SWITCH:    return "SWITCH";
         case DeviceDriverType::WIIU:      return "WIIU";

@@ -144,7 +144,7 @@ bool DInputDevice::vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_co
 
 const uint16_t* DInputDevice::get_descriptor_string_cb(uint8_t index, uint16_t langid)
 {
-    return nullptr;  // DInput / Debug (DInputDebug.cpp) gives the strings
+    return nullptr;  // D-Input/Debug (DInputDebug.cpp) gives the strings
 }
 
 const uint8_t* DInputDevice::get_descriptor_device_cb()

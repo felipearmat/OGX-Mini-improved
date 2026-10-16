@@ -38,7 +38,9 @@ ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_COMMON}/Board/Mod
 
 # Custom: what the web app must agree on (Firmware/common/contract/webapp_contract.json).
 ogxm_add_test(test_webapp_contract test_webapp_contract.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp
-              ${FW_COMMON}/Board/ModeIndicator.cpp)
+              ${FW_COMMON}/Board/ModeIndicator.cpp ${FW_COMMON}/UserSettings/UserProfile.cpp
+              ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp)
+target_link_libraries(test_webapp_contract PRIVATE fixmath)
 target_compile_definitions(test_webapp_contract PRIVATE
     OGXM_CONTRACT_PATH="${FW_COMMON}/contract/webapp_contract.json")
 

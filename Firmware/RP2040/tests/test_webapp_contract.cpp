@@ -16,6 +16,8 @@
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/Capabilities.h"
 #include "UserSettings/DongleSettings.h"
+#include "UserSettings/UserProfile.h"
+#include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "UserSettings/WebAppProtocol.h"
 #include "test.h"
 
@@ -55,7 +57,7 @@ std::string object_json(const std::vector<Named>& items, const char* indent) {
 const std::vector<Named>& modes() {
     using D = DeviceDriverType;
     static const std::vector<Named> list = {
-        N(D, XBOXOG), N(D, XBOXOG_SB), N(D, XBOXOG_XR), N(D, XINPUT), N(D, PS3), N(D, DINPUT),
+        N(D, XBOXOG), N(D, XBOXOG_SB), N(D, XBOXOG_XR), N(D, XINPUT), N(D, PS3), N(D, DINPUT_DEBUG),
         N(D, PSCLASSIC), N(D, SWITCH), N(D, WIIU), N(D, WII), N(D, PS1PS2), N(D, GAMECUBE),
         N(D, DREAMCAST), N(D, N64), N(D, PS4), N(D, STEAM), N(D, KBM), N(D, WEBAPP),
     };
@@ -142,6 +144,46 @@ std::string contract_json() {
     }
     o << "    ]\n  },\n";
 
+    // Profile (GET / SET_PROFILE): what the web app edits, with the stick and trigger blocks
+#define P(field) Named{#field, static_cast<unsigned>(offsetof(UserProfile, field))}
+    const std::vector<Named> profile_offsets = {
+        P(id), P(joystick_settings_l), P(joystick_settings_r), P(trigger_settings_l), P(trigger_settings_r),
+        P(dpad_up), P(dpad_down), P(dpad_left), P(dpad_right), P(button_a), P(button_b), P(button_x),
+        P(button_y), P(button_l3), P(button_r3), P(button_back), P(button_start), P(button_lb), P(button_rb),
+        P(button_sys), P(button_misc), P(analog_enabled), P(analog_off_up), P(analog_off_down),
+        P(analog_off_left), P(analog_off_right), P(analog_off_a), P(analog_off_b), P(analog_off_x),
+        P(analog_off_y), P(analog_off_lb), P(analog_off_rb),
+    };
+#undef P
+#define J(field) Named{#field, static_cast<unsigned>(offsetof(JoystickSettingsRaw, field))}
+    const std::vector<Named> joystick_offsets = {
+        J(dz_inner), J(dz_outer), J(anti_dz_circle), J(anti_dz_circle_y_scale), J(anti_dz_square),
+        J(anti_dz_square_y_scale), J(anti_dz_angular), J(anti_dz_outer), J(axis_restrict), J(angle_restrict),
+        J(diag_scale_min), J(diag_scale_max), J(curve), J(uncap_radius), J(invert_y), J(invert_x),
+    };
+#undef J
+#define T(field) Named{#field, static_cast<unsigned>(offsetof(TriggerSettingsRaw, field))}
+    const std::vector<Named> trigger_offsets = {T(dz_inner), T(dz_outer), T(anti_dz_inner), T(anti_dz_outer), T(curve)};
+#undef T
+    const UserProfile profile{};
+    o << "  \"profile\": {\n"
+      << "    \"length\": " << sizeof(UserProfile) << ",\n"
+      << "    \"joystick_length\": " << sizeof(JoystickSettingsRaw) << ",\n"
+      << "    \"trigger_length\": " << sizeof(TriggerSettingsRaw) << ",\n"
+      << "    \"offsets\": " << object_json(profile_offsets, "    ") << ",\n"
+      << "    \"joystick_offsets\": " << object_json(joystick_offsets, "    ") << ",\n"
+      << "    \"trigger_offsets\": " << object_json(trigger_offsets, "    ") << ",\n"
+      << "    \"defaults\": " << bytes_json(reinterpret_cast<const uint8_t*>(&profile), sizeof(profile)) << "\n"
+      << "  },\n";
+
+    // Mouse + keyboard mapping (GET / SET_KBM_SETTINGS)
+    const kbm_settings::Settings kbm = kbm_settings::defaults();
+    o << "  \"kbm_settings\": {\n"
+      << "    \"version\": " << unsigned(kbm.version) << ",\n"
+      << "    \"length\": " << sizeof(kbm) << ",\n"
+      << "    \"defaults\": " << bytes_json(reinterpret_cast<const uint8_t*>(&kbm), sizeof(kbm)) << "\n"
+      << "  },\n";
+
     // Colour per mode
     using mode_indicator::ModeColors;
     o << "  \"mode_colors\": {\n"
@@ -181,7 +223,7 @@ TEST(committed_contract_matches_the_firmware) {
 }
 
 TEST(old_web_app_mode_reads_as_dinput) {
-    CHECK(normalized(DeviceDriverType::WEBAPP) == DeviceDriverType::DINPUT);
+    CHECK(normalized(DeviceDriverType::WEBAPP) == DeviceDriverType::DINPUT_DEBUG);
     CHECK(normalized(DeviceDriverType::PS4) == DeviceDriverType::PS4);
 }
 

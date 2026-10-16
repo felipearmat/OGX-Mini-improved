@@ -28,7 +28,7 @@ END = "<!-- END GENERATED: mode-table -->"
 MODE_INFO = {
     "XINPUT": ("XInput", "Xbox 360 controller", "PC, Steam, Xbox 360 console (authenticates like an original pad)"),
     "SWITCH": ("Switch Pro", "Switch Pro Controller", "Switch / Switch 2 / Lite, PC; motion and HD rumble"),
-    "DINPUT": ("DInput / Debug", "generic gamepad + the web app's serial port", "PC and other hosts that take a generic gamepad; the web app connects over USB in this mode"),
+    "DINPUT_DEBUG": ("D-Input/Debug", "generic gamepad + the web app's serial port", "PC and other hosts that take a generic gamepad; the web app connects over USB in this mode"),
     "PS4": ("PS4", "DualShock 4", "PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter"),
     "STEAM": ("STEAM", "DualSense + mouse", "Steam / SteamOS / Bazzite; touchpad as mouse"),
     "XBOXOG": ("Original Xbox", "Xbox controller (Duke)", "Original Xbox console"),
@@ -44,7 +44,7 @@ MODE_INFO = {
     "DREAMCAST": ("Dreamcast", "Dreamcast controller (wired)", "Dreamcast through the controller cable; Pico W / Pico 2 W"),
     "N64": ("N64", "N64 controller (wired)", "N64 through the controller cable; Pico W / Pico 2 W"),
 }
-NOT_A_MODE = {"NONE", "UART_BRIDGE", "WEBAPP"}  # internal states (WEBAPP: the former Web App mode, now DINPUT)
+NOT_A_MODE = {"NONE", "UART_BRIDGE", "WEBAPP"}  # internal states (WEBAPP: the former Web App mode, now DINPUT_DEBUG)
 
 BUTTON_NAMES = {
     "BUTTON_START": "Start", "BUTTON_BACK": "Select", "BUTTON_LB": "LB", "BUTTON_RB": "RB",

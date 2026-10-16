@@ -15,7 +15,7 @@
 #if MAX_GAMEPADS > 1
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] =
 {
-    DeviceDriverType::DINPUT, 
+    DeviceDriverType::DINPUT_DEBUG, 
     DeviceDriverType::SWITCH, 
 };
 #else
@@ -224,7 +224,7 @@ DeviceDriverType UserSettings::DEFAULT_DRIVER()
 
 bool UserSettings::is_valid_driver(DeviceDriverType mode)
 {
-    mode = normalized(mode);  // the Web App mode is DInput / Debug
+    mode = normalized(mode);  // the Web App mode is D-Input/Debug
     for (const auto& driver : VALID_DRIVER_TYPES)
     {
         if (mode == driver)

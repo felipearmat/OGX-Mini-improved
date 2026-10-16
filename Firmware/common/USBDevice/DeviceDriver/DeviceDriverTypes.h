@@ -11,7 +11,7 @@ enum class DeviceDriverType : uint8_t
     XBOXOG_XR,
     XINPUT,
     PS3,
-    DINPUT,
+    DINPUT_DEBUG,  // Custom: D-Input/Debug: the DInput gamepad and the web app's serial port (was DINPUT)
     PSCLASSIC,
     SWITCH,
     WIIU,
@@ -23,17 +23,17 @@ enum class DeviceDriverType : uint8_t
     PS4,       // DualShock 4 USB HID (CUH-ZCT1x-class descriptor)
     STEAM,     // SteamOS/Bazzite: DualSense USB gamepad + HID mouse (touchpad passthrough)
     KBM,       // Custom: USB keyboard + mouse + media keys driven by the pad (USBDevice/DeviceDriver/KBM/KbmSettings)
-    /* Custom: the former Web App mode, now part of DInput / Debug (DINPUT). Kept as a value: read
-     * from flash or sent by an older web app or ESP32, it means DINPUT (normalized()), and the
+    /* Custom: the former Web App mode, now part of D-Input/Debug (DINPUT_DEBUG). Kept as a value:
+     * read from flash or sent by an older web app or ESP32, it means DINPUT_DEBUG (normalized()), and the
      * gamepad mapping code takes it for "the web app is open: the default mapping". */
     WEBAPP = 100,
     UART_BRIDGE
 };
 
-/* Custom: the mode a stored or received value stands for (the Web App mode is DInput / Debug). */
+/* Custom: the mode a stored or received value stands for (the Web App mode is D-Input/Debug). */
 constexpr DeviceDriverType normalized(DeviceDriverType driver)
 {
-    return driver == DeviceDriverType::WEBAPP ? DeviceDriverType::DINPUT : driver;
+    return driver == DeviceDriverType::WEBAPP ? DeviceDriverType::DINPUT_DEBUG : driver;
 }
 
 #endif // _DEVICE_DRIVER_TYPES_H_

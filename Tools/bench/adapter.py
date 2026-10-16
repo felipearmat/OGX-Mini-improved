@@ -16,7 +16,7 @@ IDS = CONTRACT["packet"]["ids"]
 SYSTEM_COMMANDS = CONTRACT["packet"]["system"]
 PACKET_LEN = CONTRACT["packet"]["length"]
 HEADER_LEN = CONTRACT["packet"]["header_length"]
-DINPUT = CONTRACT["modes"]["DINPUT"]
+DINPUT = CONTRACT["modes"]["DINPUT_DEBUG"]
 
 VID = 0xCAFE
 PRODUCT = "OGX-Mini"                     # D-Input/Debug (the bridge and monitor ports have their own names)

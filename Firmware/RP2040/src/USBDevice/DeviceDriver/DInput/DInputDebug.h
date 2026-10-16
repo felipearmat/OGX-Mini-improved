@@ -7,7 +7,7 @@
 #include "USBDevice/DeviceDriver/DInput/DInput.h"
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 
-/* Custom: DInput / Debug mode — the DInput gamepad (one per MAX_GAMEPADS) and the web app's
+/* Custom: D-Input/Debug mode — the DInput gamepad (one per MAX_GAMEPADS) and the web app's
  * serial port in one USB device (Descriptors/DInput.h). The web app's protocol
  * (USBDevice/DeviceDriver/WebApp) runs next to the gamepad: settings, profiles, diagnostics,
  * flashing the hybrid's ESP32. While the web app is open the gamepad sends the controller's own

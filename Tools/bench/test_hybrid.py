@@ -39,6 +39,6 @@ def test_log_monitor_returns_to_dinput(adapter):
         link.flush()
     back = Adapter.open(timeout=40)
     try:
-        assert back.diagnostics()["output_mode"] == "DINPUT"
+        assert back.diagnostics()["output_mode"] == "DINPUT_DEBUG"
     finally:
         back.close()

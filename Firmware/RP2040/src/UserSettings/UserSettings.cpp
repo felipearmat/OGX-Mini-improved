@@ -54,7 +54,7 @@ static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
 #else
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 #if defined(CONFIG_EN_4CH)
-    DeviceDriverType::DINPUT,  // Custom: DInput / Debug, where the web app connects
+    DeviceDriverType::DINPUT_DEBUG,  // Custom: D-Input/Debug, where the web app connects
     DeviceDriverType::XBOXOG, 
     DeviceDriverType::XBOXOG_SB, 
     DeviceDriverType::XINPUT,
@@ -69,7 +69,7 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
     #endif
 
 #elif MAX_GAMEPADS > 1
-    DeviceDriverType::DINPUT, 
+    DeviceDriverType::DINPUT_DEBUG, 
     DeviceDriverType::SWITCH, 
     DeviceDriverType::WIIU,
     DeviceDriverType::WII,
@@ -77,7 +77,7 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 #else // MAX_GAMEPADS == 1
     DeviceDriverType::XBOXOG, 
     DeviceDriverType::XBOXOG_SB, 
-    DeviceDriverType::DINPUT, 
+    DeviceDriverType::DINPUT_DEBUG, 
     DeviceDriverType::SWITCH, 
     DeviceDriverType::WIIU,
     DeviceDriverType::WII,
@@ -338,7 +338,7 @@ UserProfile UserSettings::get_profile_by_id(const uint8_t profile_id)
 
 bool UserSettings::is_valid_driver(DeviceDriverType driver)
 {
-    driver = normalized(driver);  // Custom: the Web App mode is DInput / Debug
+    driver = normalized(driver);  // Custom: the Web App mode is D-Input/Debug
     for (const auto& valid_driver : VALID_DRIVER_TYPES)
     {
         if (driver == valid_driver)
