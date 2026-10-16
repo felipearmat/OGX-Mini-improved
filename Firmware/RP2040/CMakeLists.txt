@@ -58,6 +58,8 @@ set(SOURCES_BOARD
     ${SRC}/Board/board_api.cpp
     ${SRC}/Board/board_api_private/board_api_led.cpp
     ${SRC}/Board/board_api_private/board_api_rgb.cpp
+    ${COMMON}/Board/ModeIndicator.cpp
+    ${COMMON}/Board/StatusLed.cpp
     ${SRC}/Board/board_api_private/board_api_bt.cpp
     ${SRC}/Board/board_api_private/board_api_usbh.cpp
     
@@ -100,6 +102,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/XboxOG/XboxOG_SB.cpp
     ${SRC}/USBDevice/DeviceDriver/XboxOG/XboxOG_XR.cpp
     ${SRC}/USBDevice/DeviceDriver/DInput/DInput.cpp
+    ${SRC}/USBDevice/DeviceDriver/DInput/DInputDebug.cpp
     ${SRC}/USBDevice/DeviceDriver/WebApp/WebApp.cpp
     ${SRC}/USBDevice/DeviceDriver/XInput/tud_xinput/tud_xinput.cpp
     ${SRC}/USBDevice/DeviceDriver/XboxOG/tud_xid/tud_xid.cpp
@@ -492,8 +495,6 @@ if(EN_BLUETOOTH)
         ${COMMON}/Bluepad32/ScanControl.cpp
         ${COMMON}/Bluepad32/LinkDiag.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
-        ${COMMON}/Board/ModeIndicator.cpp
-        ${COMMON}/Board/StatusLed.cpp
         ${COMMON}/Bluepad32/JoyConSettings.cpp
         ${COMMON}/Bluepad32/BLEServer.cpp
         ${SRC}/BLEServer/BleStore.cpp
@@ -571,8 +572,6 @@ if(EN_ESP32)
         # Joy-Con motion orientation for pads the ESP32 forwards (Firmware/common/Bluepad32)
         list(APPEND SOURCES_BOARD
             ${COMMON}/Bluepad32/JoyConSettings.cpp
-            ${COMMON}/Board/ModeIndicator.cpp
-            ${COMMON}/Board/StatusLed.cpp
         )
     endif()
     list(APPEND LIBS_BOARD

@@ -8,8 +8,8 @@ The Pico 2 will likely require 4.7k resistors between the USB data lines and gro
 # External RGB status LED
 Optional. One WS2812B (a 5 V addressable LED, e.g. cut from a strip) shows the adapter's status in
 the output mode colour (the [mode table](../README.md#output-modes) lists each one: Nintendo
-reds, Xbox greens, PlayStation blues and purples, yellow / orange for mouse + keyboard and
-Dreamcast, white for DInput): it blinks the mode number at boot, blinks while
+from magenta to orange, Xbox greens, PlayStation from cyan to lilac, white for D-Input/Debug; any
+mode's colour can be changed in the web app): it blinks the mode number at boot, blinks while
 searching for controllers (fast; slow for the reduced search) and stays on when it stops (a
 controller connected and no free slot). The onboard LEDs keep working as before.
 
@@ -50,6 +50,12 @@ the ESP32), plus the ESP32 companion in `Firmware/ESP32`. First bench test done;
 
 ![OGX-Mini](../images/DiagramPicoESP32.png)
 
+**Power the ESP32 from the Pico's VBUS** (VBUS to the ESP32's 5V / VIN), so both boards power up
+and down together. If the ESP32 browns out on VBUS when its radio starts ("E BOD: Brownout" in the
+log), use a shorter cable, fewer devices on the hub or a USB port that gives more current. An ESP32
+powered from its own USB port keeps its TX0 and the I2C pull-ups at 3.3 V while the Pico is
+unplugged; if the Pico does not come back on USB, unplug both and plug the Pico in first.
+
 Everything goes through the Pico's USB port: the console / PC link, flashing both boards and
 reading both boards' logs ([Tools/hybrid](../Tools/hybrid/README.md)). The ESP32's own USB port is
 never needed: its ROM bootloader is reached through the Pico, even on a blank ESP32.
@@ -83,7 +89,7 @@ While the boards are separate (design work), each can have its own USB cable ins
 connect VBUS.
 
 **Flashing and logs through the Pico** ([Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md)),
-with the adapter in Web App mode: `bootsel --uf2 FILE` updates the Pico (a blank Pico starts in its
+with the adapter in D-Input/Debug mode: `bootsel --uf2 FILE` updates the Pico (a blank Pico starts in its
 USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP16 / GP17 / GP20 /
 GP8, `monitor` shows the log both boards kept from the last session, then the ESP32's live
 output.

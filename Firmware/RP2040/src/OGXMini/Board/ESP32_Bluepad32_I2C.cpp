@@ -25,6 +25,7 @@
 #include "Board/ModeIndicator.h"
 #include "Board/StatusLed.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
+#include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
 #include "I2C/Esp32Bridge.h"
@@ -248,10 +249,14 @@ static PacketOutExt ext_reply(uint8_t index) {
     if (MotionOutputActive::is_enabled()) {
         reply.flags |= PacketOutExt::MOTION_OUTPUT;
     }
+    if (WebAppDevice::connected()) {
+        reply.flags |= PacketOutExt::WEB_APP_OPEN;  // the ESP32 sends unmapped buttons meanwhile
+    }
     reply.settings = dongle_settings::get();
     reply.driver = _current_driver;
     reply.active_profile = index < MAX_GAMEPADS ? _active_profile[index] : 1;
     reply.profiles_crc = _profiles_crc;
+    mode_indicator::shown_color(_current_driver, reply.mode_rgb[0], reply.mode_rgb[1], reply.mode_rgb[2]);
     return reply;
 }
 
@@ -269,6 +274,10 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static PacketIn packet_in;
     static PacketOut packet_out;
     static bool ext_requested = false;  // answer the next read with a PacketOutExt
+    /* Mode changes from the ESP32 count only once it has had two of our PacketOutExt: until it
+     * reads one, a freshly started ESP32 sends the mode in its own flash (for an RP2040 that keeps
+     * no settings), which would undo the mode this RP2040 restarted in. */
+    static uint8_t ext_replies = 0;
     static PacketProfile profile_request;  // answer the next read with this chunk
     static bool profile_requested = false;
     static uint8_t incoming[sizeof(UserProfile)];  // a profile saved over BLE, chunk by chunk
@@ -414,8 +423,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     break;
                 }
                 case PacketID::SET_DRIVER:
-                    if (packet_in.device_driver != DeviceDriverType::NONE &&
-                        packet_in.device_driver != current_device_type) {
+                    if (ext_replies >= 2 &&
+                        packet_in.device_driver != DeviceDriverType::NONE &&
+                        normalized(packet_in.device_driver) != current_device_type) {
                         OGXM_LOG("I2C: Driver change detected.\n");
                         //Any writes to flash should be done on Core0
                         TaskQueue::Core0::queue_delayed_task(
@@ -465,6 +475,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             }
             if (ext_requested) {
                 ext_requested = false;
+                if (ext_replies < 2) {
+                    ++ext_replies;
+                }
                 const PacketOutExt reply = ext_reply(packet_in.index);
                 i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
                 break;
@@ -525,10 +538,9 @@ static void usb_host_tick() {
 }
 #endif
 
-#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
-/* Custom: external RGB status LED (hardware/README.md) in the output mode colour: the shared
- * status LED (Board/StatusLed.h) with the search state the ESP32 reports; a wired controller on
- * the USB host port counts as no search. */
+/* Custom: the status LED (the Pico's own on GP25, an external RGB LED on GP6 in the output mode
+ * colour, hardware/README.md): the shared status LED (Board/StatusLed.h) with the search state the
+ * ESP32 reports; a wired controller on the USB host port counts as no search. */
 static void status_led_tick() {
     static status_led::Blinker s_led;
     static uint32_t s_next_ms = 0;
@@ -544,6 +556,26 @@ static void status_led_tick() {
     const status_led::Search search = !searching ? status_led::Search::NONE
                                     : reduced ? status_led::Search::REDUCED
                                     : status_led::Search::FULL;
+    /* A colour saved or previewed in the web app, or other status LED options: show them now. */
+    static uint32_t s_generation = UINT32_MAX;
+    static uint8_t s_pico = 0xFF;
+    static uint8_t s_external = 0xFF;
+    static uint8_t s_brightness = 0;
+    const dongle_settings::Settings& options = dongle_settings::get();
+    if (s_generation != mode_indicator::color_generation()) {
+        s_generation = mode_indicator::color_generation();
+        uint8_t r, g, b;
+        mode_indicator::shown_color(_current_driver, r, g, b);
+        board_api::set_led_color(r, g, b);
+        s_led.invalidate();
+    }
+    if (options.status_led_pico != s_pico || options.status_led_pico_ext != s_external ||
+        options.status_led_brightness != s_brightness) {
+        s_pico = options.status_led_pico;
+        s_external = options.status_led_pico_ext;
+        s_brightness = options.status_led_brightness;
+        s_led.invalidate();
+    }
     bool on = false;
     uint32_t next_ms = 0;
     if (s_led.step(search, on, next_ms)) {
@@ -551,9 +583,12 @@ static void status_led_tick() {
     }
     s_next_ms = now + next_ms;
 }
-#endif
 
 static void core1_task() {
+    /* Custom fix: let Core0 park this core while it writes flash (UserSettings/NVSTool.h). Without
+     * it, a settings save applied live (no restart) wrote flash while this core ran from it, which
+     * could hang it; the main loop then stopped and the hang watchdog restarted the adapter. */
+    multicore_lockout_victim_init();
     init_i2c_slave();
     while (true) {
         tight_loop_contents();
@@ -602,12 +637,11 @@ void esp32_bp32_i2c::initialize() {
     }
     _current_driver = user_settings.get_current_driver();
 
-#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
-    /* Custom: the RGB status LED lights in the output mode colour. */
+    /* Custom: the RGB status LED lights in the output mode colour (brightness applied when it is
+     * written, from the dongle options). */
     uint8_t led_r, led_g, led_b;
-    mode_indicator::led_color(_current_driver, RGB_BRIGHTNESS, led_r, led_g, led_b);
+    mode_indicator::shown_color(_current_driver, led_r, led_g, led_b);
     board_api::set_led_color(led_r, led_g, led_b);
-#endif
 
     /* UART bridge: GP21 to GND at boot (jumper), a retail update, or asked over USB in Web App
      * mode (Board/BootMode.h: ESP32 update or log monitor), so the adapter's USB port does it all. */
@@ -653,9 +687,7 @@ void esp32_bp32_i2c::run() {
      * recovery)" as the last reset. The settings writes in the loop take well under this. The
      * reboots that arm the watchdog themselves (mode change, flash writes) never come back here. */
     watchdog_enable(kHangWatchdogMs, true);
-#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
     mode_indicator::begin(_current_driver);
-#endif
 
     while (true) {
         watchdog_update();
@@ -676,9 +708,7 @@ void esp32_bp32_i2c::run() {
 #if defined(CONFIG_EN_USB_HOST)
         usb_host_tick();
 #endif
-#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
         status_led_tick();
-#endif
         sleep_ms(1);
     }
 }

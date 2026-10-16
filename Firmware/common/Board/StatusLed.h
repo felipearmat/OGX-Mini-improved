@@ -28,6 +28,10 @@ namespace status_led {
          * costs a bus transfer (the Pico W's LED is on the CYW43) only write on a change. */
         bool step(Search search, bool& on, uint32_t& next_ms);
 
+        // The next step writes the LED even if its state did not change (its colour, brightness
+        // or which LEDs are on changed).
+        void invalidate() { shown_ = -1; }
+
     private:
         bool phase_{false};
         int shown_{-1};  // last state returned, -1 = unknown

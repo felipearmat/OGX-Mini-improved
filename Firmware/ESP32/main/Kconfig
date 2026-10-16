@@ -50,12 +50,6 @@ menu "OGXMini Options"
         range 0 33
         depends on ENABLE_EXT_RGB
 
-    config EXT_RGB_BRIGHTNESS
-        int "External WS2812 status LED brightness (1 to 255)"
-        default 48
-        range 1 255
-        depends on ENABLE_EXT_RGB
-
     config ENABLE_LED_2
         bool "Enable LED 2"
         default n

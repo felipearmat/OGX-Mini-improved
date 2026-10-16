@@ -6,11 +6,13 @@
 #include "sdkconfig.h"
 #include "Board/board_api.h"
 #include "Board/ExtRgbLed.h"
+#include "Board/ModeIndicator.h"
+#include "UserSettings/DongleSettings.h"
 
 namespace board_api {
 
 SemaphoreHandle_t leds_mutex_ = nullptr;
-uint8_t status_rgb_[3]{};  // the external RGB status LED's colour when on
+uint8_t status_rgb_[3]{};  // the external RGB status LED's colour when on, before its brightness
 // SemaphoreHandle_t reset_mutex_ = nullptr;
 
 void init_board()
@@ -65,13 +67,18 @@ void set_led(uint8_t index, bool state)
 //Set first LED (and the external RGB status LED, in its colour)
 void set_led(bool state)
 {
+    /* Each LED can be turned off in the web app (dongle options from the RP2040, applied live). */
+    const dongle_settings::Settings& options = dongle_settings::get();
+    uint8_t r = status_rgb_[0], g = status_rgb_[1], b = status_rgb_[2];
+    mode_indicator::scale_color(options.status_led_brightness, r, g, b);
+    const bool rgb_on = state && options.status_led_esp32_ext;
     if (xSemaphoreTake(leds_mutex_, portMAX_DELAY))
     {
         if constexpr (NUM_LEDS > 0)
         {
-            gpio_set_level(LED_PINS[0], state ? 1 : 0);
+            gpio_set_level(LED_PINS[0], (state && options.status_led_esp32) ? 1 : 0);
         }
-        ext_rgb_led::set(state ? status_rgb_[0] : 0, state ? status_rgb_[1] : 0, state ? status_rgb_[2] : 0);
+        ext_rgb_led::set(rgb_on ? r : 0, rgb_on ? g : 0, rgb_on ? b : 0);
         xSemaphoreGive(leds_mutex_);
     }
 }

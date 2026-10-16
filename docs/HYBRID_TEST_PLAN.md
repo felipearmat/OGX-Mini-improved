@@ -6,7 +6,7 @@ is at version 2 (`Firmware/common/I2C/Esp32Bridge.h`). Everything below builds a
 for its logic; none of it has been on hardware yet.
 
 Mark each case **pass**, **fail** (with what happened) or **skip** (no controller / host for it).
-Save a diagnostics report (web app, Web App mode) after any failure.
+Save a diagnostics report (web app, D-Input/Debug mode) after any failure.
 
 ## Setup
 
@@ -57,7 +57,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 2.3 | DualSense mute button | not Misc |
 | 2.4 | Wii U Pro: ZL / ZR | full trigger (digital fallback) |
 | 2.5 | Wiimote alone, then with Nunchuk | held upright (TV style) layout; Nunchuk stick = left stick; Z = LB, not a trigger |
-| 2.6 | Web app (USB, Web App mode): remap A ↔ B, add a stick deadzone and curve, save; back to a game mode | remap, deadzone and curve applied (from the RP2040's profile) |
+| 2.6 | Web app (USB, D-Input/Debug mode): remap A ↔ B, add a stick deadzone and curve, save; back to a game mode | remap, deadzone and curve applied (from the RP2040's profile) |
 | 2.7 | Web app over Bluetooth (ESP32): change a mapping, save | the Pico restarts; the change shows in the USB web app too and applies |
 | 2.8 | XInput mode, no stick settings in the profile | stock Xbox 360 stick feel (same as the Pico W) |
 
@@ -82,7 +82,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 4.4 | Joy-Con pair: motion; change the pair IMU side and orientation in the web app | follows the chosen half / orientation |
 | 4.5 | Lone Joy-Con, solo orientation horizontal | rotated for sideways use |
 | 4.6 | Wiimote in PS3 / PS4 mode | accelerometer reported (Wiimote asked for accel reports) |
-| 4.7 | Diagnostics report (Web App mode) with a DS4 | battery level shown |
+| 4.7 | Diagnostics report (D-Input/Debug mode) with a DS4 | battery level shown |
 
 ## 5. Lightbar
 
@@ -98,7 +98,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 |---|---|---|
 | 6.1 | Each mode combo in the [mode table](../README.md#output-modes) for the hybrid's modes | mode changes (Pico restarts in it); ESP32 LED shows the new blink code |
 | 6.2 | Mode combo with an extra button held (e.g. Start + LB + Up + A) | the longest matching combo wins (STEAM here) |
-| 6.3 | Web app: turn one mode's combo off, try it | nothing happens; Web App mode combo always works |
+| 6.3 | Web app: turn one mode's combo off, try it | nothing happens; D-Input/Debug mode combo always works |
 | 6.4 | Lone Joy-Con: Start (+) with the stick held at the edge | acts as the D-pad for the combo |
 | 6.5 | Start + Select 3 s (L3 + R3 on an OUYA pad) | disconnects (a Joy-Con is asked to sleep), ESP32 restarts, PC sees a neutral pad |
 | 6.6 | Start + Select pressed within 3.5 s of connecting | ignored |
@@ -123,11 +123,11 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 8.3 | Same, with the host rumbling it on the table | its own shaking does not keep it on |
 | 8.4 | Joy-Con pair idle | both halves turn off (asked to sleep) |
 
-## 9. Diagnostics (Web App mode report)
+## 9. Diagnostics (D-Input/Debug mode report)
 
 | # | Steps | Expected |
 |---|---|---|
-| 9.1 | Play a while with a DS4, switch to Web App mode, save the report | the controller (name, IDs, Classic), its input rate and gaps, battery, events (ready, search changes) |
+| 9.1 | Play a while with a DS4, switch to D-Input/Debug mode, save the report | the controller (name, IDs, Classic), its input rate and gaps, battery, events (ready, search changes) |
 | 9.2 | Disconnect / idle turn-off / Start + L3 during the session | each shows as an event |
 
 ## 10. BLE keepalives (if the controllers are available)
@@ -141,11 +141,11 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 
 | # | Steps | Expected |
 |---|---|---|
-| 11.1 | Web App mode; `ogxm_hybrid.py ports` | one port, product "OGX-Mini" |
+| 11.1 | D-Input/Debug mode; `ogxm_hybrid.py ports` | one port, product "OGX-Mini" |
 | 11.2 | `ogxm_hybrid.py flash-esp32 <ESP32 build>` | bridge port "OGX-Mini ESP32 bridge" appears, esptool writes and verifies, the adapter restarts in its mode and the pad reconnects |
 | 11.3 | `flash-esp32 --baud 115200` | same, slower (the default is 460800) |
 | 11.4 | `ogxm_hybrid.py bootsel --uf2 <hybrid UF2>` | the Pico restarts with it; mode and profiles kept |
-| 11.5 | Play 2 min with the ESP32 log build, combo to Web App mode, `ogxm_hybrid.py monitor --log run.txt` | "OGX-Mini ESP32 monitor" port: the kept `[esp]` lines from the session (and `[rp]` lines with a Debug Pico), then live ESP32 output; Ctrl+C returns to the mode |
+| 11.5 | Play 2 min with the ESP32 log build, combo to D-Input/Debug mode, `ogxm_hybrid.py monitor --log run.txt` | "OGX-Mini ESP32 monitor" port: the kept `[esp]` lines from the session (and `[rp]` lines with a Debug Pico), then live ESP32 output; Ctrl+C returns to the mode |
 | 11.6 | Power-cycle, then `monitor` | the kept log is empty (RAM only), live output works |
 | 11.7 | `ogxm_hybrid.py bootsel` on a Pico 2 W (`PI_PICO2W`) | works there too |
 

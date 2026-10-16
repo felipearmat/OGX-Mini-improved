@@ -17,7 +17,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] =
 {
     DeviceDriverType::DINPUT, 
     DeviceDriverType::SWITCH, 
-    DeviceDriverType::WEBAPP,
 };
 #else
 static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
@@ -98,7 +97,7 @@ DeviceDriverType UserSettings::get_current_driver()
 
     if (is_valid_driver(static_cast<DeviceDriverType>(stored_type)))
     {
-        current_driver_ = static_cast<DeviceDriverType>(stored_type);
+        current_driver_ = normalized(static_cast<DeviceDriverType>(stored_type));
         return current_driver_;
     }
 
@@ -112,6 +111,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver_type)
     {
         return;
     }
+    new_driver_type = normalized(new_driver_type);
 
     current_driver_ = new_driver_type;  // sent to the RP2040 on the next driver update tick
     uint8_t new_driver = static_cast<uint8_t>(new_driver_type);
@@ -134,7 +134,7 @@ void UserSettings::set_remote_driver(DeviceDriverType driver)
 {
     if (is_valid_driver(driver))
     {
-        current_driver_ = driver;
+        current_driver_ = normalized(driver);
     }
 }
 
@@ -224,6 +224,7 @@ DeviceDriverType UserSettings::DEFAULT_DRIVER()
 
 bool UserSettings::is_valid_driver(DeviceDriverType mode)
 {
+    mode = normalized(mode);  // the Web App mode is DInput / Debug
     for (const auto& driver : VALID_DRIVER_TYPES)
     {
         if (mode == driver)

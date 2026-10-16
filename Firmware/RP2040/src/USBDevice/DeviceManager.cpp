@@ -16,7 +16,7 @@
 #include "USBDevice/DeviceDriver/XboxOG/XboxOG_GP.h"
 #include "USBDevice/DeviceDriver/XboxOG/XboxOG_SB.h"
 #include "USBDevice/DeviceDriver/XboxOG/XboxOG_XR.h"
-#include "USBDevice/DeviceDriver/WebApp/WebApp.h"
+#include "USBDevice/DeviceDriver/DInput/DInputDebug.h"
 #include "USBDevice/DeviceDriver/PS1PS2/PS1PS2.h"
 #include "USBDevice/DeviceDriver/GameCube/GameCube.h"
 #include "USBDevice/DeviceDriver/Dreamcast/Dreamcast.h"
@@ -31,6 +31,7 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
                                         Gamepad(&gamepads)[MAX_GAMEPADS]) {
     //TODO: Put gamepad setup in the drivers themselves
     bool has_analog = false;
+    driver_type = normalized(driver_type);  // Custom: the Web App mode is DInput / Debug
     current_driver_type_ = driver_type;
     SteamActive::set(driver_type == DeviceDriverType::STEAM);
     MotionOutputActive::set(driver_type == DeviceDriverType::PS3 ||
@@ -40,9 +41,9 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
     
     switch (driver_type) {
         case DeviceDriverType::DINPUT:
-            printf("DINPUT Loaded\n"); 
+            printf("DINPUT / Debug Loaded\n"); 
             has_analog = true;
-            device_driver_ = std::make_unique<DInputDevice>();
+            device_driver_ = std::make_unique<DInputDebugDevice>();
             break;
         case DeviceDriverType::PS3:
             printf("PS3 Loaded\n"); 
@@ -111,10 +112,6 @@ void DeviceManager::initialize_driver(  DeviceDriverType driver_type,
         case DeviceDriverType::XBOXOG_XR:
             printf("XBOXOG XR Loaded\n"); 
             device_driver_ = std::make_unique<XboxOGXRDevice>();
-            break;
-        case DeviceDriverType::WEBAPP:
-            printf("WEBAPP Loaded\n"); 
-            device_driver_ = std::make_unique<WebAppDevice>();
             break;
 #if defined(CONFIG_EN_UART_BRIDGE)
         case DeviceDriverType::UART_BRIDGE:

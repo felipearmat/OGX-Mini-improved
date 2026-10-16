@@ -50,7 +50,7 @@ namespace CDCDesc
     static const uint8_t STRING_DESC_LANGUAGE[] = { 0x09, 0x04 };
     static const uint8_t STRING_MANUFACTURER[]  = "Wired Opposite";
     static const uint8_t STRING_PRODUCT[]       = "OGX-Mini";
-    static const uint8_t STRING_INTERFACE[]     = "OGX-Mini CDC";
+    static const uint8_t STRING_INTERFACE[]     = "OGX-Mini Debug";
 
     static const uint8_t *DESC_STRING[] =
     {

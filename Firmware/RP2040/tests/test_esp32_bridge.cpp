@@ -95,10 +95,11 @@ TEST(packet_in_ext_layout) {
 
 TEST(packet_out_ext_layout) {
     const PacketOutExt ext;
-    CHECK_EQ(sizeof(PacketOutExt), 29u);
-    CHECK_EQ(offsetof(PacketOutExt, driver), 25u);
-    CHECK_EQ(offsetof(PacketOutExt, active_profile), 26u);
-    CHECK_EQ(offsetof(PacketOutExt, profiles_crc), 27u);
+    CHECK_EQ(sizeof(PacketOutExt), 37u);
+    CHECK_EQ(offsetof(PacketOutExt, driver), 30u);
+    CHECK_EQ(offsetof(PacketOutExt, active_profile), 31u);
+    CHECK_EQ(offsetof(PacketOutExt, profiles_crc), 32u);
+    CHECK_EQ(offsetof(PacketOutExt, mode_rgb), 34u);
     CHECK_EQ(ext.packet_len, sizeof(PacketOutExt));
     CHECK_EQ(static_cast<int>(ext.packet_id), static_cast<int>(PacketID::GET_EXT));
     CHECK_EQ(offsetof(PacketOutExt, flags), 3u);

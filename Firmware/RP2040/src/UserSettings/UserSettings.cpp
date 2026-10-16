@@ -11,6 +11,7 @@
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
 #include "UserSettings/UserSettings.h"
+#include "Board/ModeIndicator.h"
 #include "UserSettings/ModeCombos.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 #include "Diagnostics/Diagnostics.h"
@@ -41,6 +42,8 @@ static void prepare_bt_for_mode_change_reboot()
 static const std::string DONGLE_SETTINGS_KEY = "dongle_cfg";
 /* Custom: flash key of the mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings). */
 static const std::string KBM_SETTINGS_KEY = "kbm_cfg";
+/* Custom: flash key of the web app's colour per output mode (Board/ModeIndicator.h ModeColors). */
+static const std::string LED_COLORS_KEY = "led_colors";
 
 /* Mode combos: Firmware/common/UserSettings/ModeCombos.h (shared with the ESP32 companion). */
 
@@ -51,6 +54,7 @@ static constexpr const auto& VALID_DRIVER_TYPES = mode_combos::HYBRID_MODES;
 #else
 static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
 #if defined(CONFIG_EN_4CH)
+    DeviceDriverType::DINPUT,  // Custom: DInput / Debug, where the web app connects
     DeviceDriverType::XBOXOG, 
     DeviceDriverType::XBOXOG_SB, 
     DeviceDriverType::XINPUT,
@@ -60,7 +64,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
     DeviceDriverType::PSCLASSIC, 
     DeviceDriverType::WIIU,
     DeviceDriverType::WII,
-    DeviceDriverType::WEBAPP,
     #if defined(XREMOTE_ROM_AVAILABLE)
     DeviceDriverType::XBOXOG_XR,
     #endif
@@ -70,7 +73,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
     DeviceDriverType::SWITCH, 
     DeviceDriverType::WIIU,
     DeviceDriverType::WII,
-    DeviceDriverType::WEBAPP,
 
 #else // MAX_GAMEPADS == 1
     DeviceDriverType::XBOXOG, 
@@ -79,7 +81,6 @@ static constexpr DeviceDriverType VALID_DRIVER_TYPES[] = {
     DeviceDriverType::SWITCH, 
     DeviceDriverType::WIIU,
     DeviceDriverType::WII,
-    DeviceDriverType::WEBAPP,
     DeviceDriverType::PS3,
     DeviceDriverType::PS4,
     DeviceDriverType::STEAM,
@@ -202,6 +203,7 @@ bool UserSettings::store_profile(uint8_t index, const UserProfile& profile)
 //Disconnects usb and resets pico, call from core0
 bool UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_type, uint8_t index, const UserProfile& profile)
 {
+    new_driver_type = normalized(new_driver_type);
     if (profile.id < 1 || profile.id > MAX_PROFILES)
     {
         return false;
@@ -241,6 +243,7 @@ bool UserSettings::store_profile_and_driver_type(DeviceDriverType new_driver_typ
 //Disconnects usb and resets pico if it's a new & valid mode, call from core0
 void UserSettings::store_driver_type(DeviceDriverType new_driver)
 {
+    new_driver = normalized(new_driver);
     if (!is_valid_driver(new_driver))
     {
         OGXM_LOG("Invalid driver type detected during store: " + OGXM_TO_STRING(new_driver) + "\n");
@@ -262,6 +265,7 @@ void UserSettings::store_driver_type(DeviceDriverType new_driver)
 // Store driver and reboot only; no disconnect_all(). Use from Core0.
 void UserSettings::store_driver_type_and_reboot(DeviceDriverType new_driver)
 {
+    new_driver = normalized(new_driver);
     if (!is_valid_driver(new_driver))
     {
         OGXM_LOG("Invalid driver type during store_and_reboot: " + OGXM_TO_STRING(new_driver) + "\n");
@@ -280,6 +284,7 @@ void UserSettings::store_driver_type_and_reboot(DeviceDriverType new_driver)
 // Updates in-memory current_driver_ so the rest of run() sees the new mode.
 bool UserSettings::store_driver_type_only(DeviceDriverType new_driver)
 {
+    new_driver = normalized(new_driver);
     if (!is_valid_driver(new_driver))
     {
         OGXM_LOG("Invalid driver type in store_driver_type_only: " + OGXM_TO_STRING(new_driver) + "\n");
@@ -333,6 +338,7 @@ UserProfile UserSettings::get_profile_by_id(const uint8_t profile_id)
 
 bool UserSettings::is_valid_driver(DeviceDriverType driver)
 {
+    driver = normalized(driver);  // Custom: the Web App mode is DInput / Debug
     for (const auto& valid_driver : VALID_DRIVER_TYPES)
     {
         if (driver == valid_driver)
@@ -360,7 +366,7 @@ DeviceDriverType UserSettings::get_current_driver()
     {
         OGXM_LOG("Driver type read from flash: " + OGXM_TO_STRING(static_cast<DeviceDriverType>(stored_value)) + "\n");
 
-        current_driver_ = static_cast<DeviceDriverType>(stored_value);
+        current_driver_ = normalized(static_cast<DeviceDriverType>(stored_value));
         return current_driver_;
     }
 
@@ -493,6 +499,7 @@ void UserSettings::initialize_flash()
         OGXM_LOG("Flash already initialized: %i\n", read_init_flag);
         load_dongle_settings();
         load_kbm_settings();
+        load_led_colors();
         return;
     }
 
@@ -537,6 +544,7 @@ void UserSettings::initialize_flash()
     OGXM_LOG("Flash initialized\n");
     load_dongle_settings();
     load_kbm_settings();
+    load_led_colors();
 }
 
 /* Custom: dongle options from flash; build-time defaults when missing or of another version. */
@@ -625,6 +633,24 @@ void UserSettings::load_kbm_settings()
     if (nvs_tool_.read(KBM_SETTINGS_KEY, stored, sizeof(stored)))
         kbm_settings::decode(stored, sizeof(stored), settings);
     kbm_settings::set(settings);
+}
+
+/* Custom: the web app's colour per output mode from flash; all defaults when missing. */
+void UserSettings::load_led_colors()
+{
+    mode_indicator::ModeColors colors{};
+    uint8_t stored[sizeof(mode_indicator::ModeColors)]{};
+    if (nvs_tool_.read(LED_COLORS_KEY, stored, sizeof(stored)))
+        mode_indicator::decode_colors(stored, sizeof(stored), colors);
+    mode_indicator::set_custom_colors(colors);
+}
+
+/* Custom: stored and applied right away (lightbar and status LED), no reboot. */
+void UserSettings::store_led_colors(const mode_indicator::ModeColors& colors)
+{
+    diag::event(board_api::ms_since_boot(), "mode colours saved");
+    nvs_tool_.write(LED_COLORS_KEY, &colors, sizeof(colors));
+    mode_indicator::set_custom_colors(colors);
 }
 
 /* Custom: stored and applied right away, no reboot (the mapping can be tuned while in use). */

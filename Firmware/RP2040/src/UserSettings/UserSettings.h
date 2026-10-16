@@ -10,6 +10,7 @@
 #include "UserSettings/NVSTool.h"
 #include "Gamepad/Gamepad.h"
 #include "UserSettings/DongleSettings.h"
+#include "Board/ModeIndicator.h"
 #include "UserSettings/ComboCheck.h"
 #include "USBDevice/DeviceDriver/KBM/KbmSettings.h"
 
@@ -65,6 +66,8 @@ public:
     bool store_dongle_settings(const dongle_settings::Settings& settings);
     /** Custom: mouse + keyboard mode mapping (web app). Stores and applies it; call from Core0. */
     void store_kbm_settings(const kbm_settings::Settings& settings);
+    /** Custom: the web app's colour per output mode. Stores and applies it; call from Core0. */
+    void store_led_colors(const mode_indicator::ModeColors& colors);
     /** Custom: previous session's diagnostics summary into the diagnostics module (at boot). */
     void load_diag_session();
     // Custom: the last controller disconnected — store the session summary, then reboot (Core0).
@@ -75,6 +78,7 @@ public:
 private:
     void load_dongle_settings();
     void load_kbm_settings();
+    void load_led_colors();
     void stop_search(Gamepad& gamepad);
 
     UserSettings() = default;

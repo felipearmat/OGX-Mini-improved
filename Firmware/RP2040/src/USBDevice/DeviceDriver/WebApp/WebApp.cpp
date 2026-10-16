@@ -12,6 +12,8 @@
 #include "Board/ogxm_log.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Descriptors/CDCDev.h"
+#include "Board/ModeIndicator.h"
+#include "UserSettings/BoardCapabilities.h"
 #include "Gamepad/I2CWirePad.h"
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 
@@ -269,6 +271,26 @@ bool WebAppDevice::write_kbm_settings()
     return write_packet(packet_in);
 }
 
+bool WebAppDevice::write_led_colors()
+{
+    static_assert(sizeof(mode_indicator::ModeColors) <= sizeof(Packet::data), "mode colours fit one packet");
+    Packet packet_in;
+    const mode_indicator::ModeColors& colors = mode_indicator::custom_colors();
+    packet_in.header.packet_id = PacketID::GET_LED_COLORS;
+    packet_in.header.max_gamepads = MAX_GAMEPADS;
+    packet_in.header.chunks_total = 1;
+    packet_in.header.chunk_idx = 0;
+    packet_in.header.chunk_len = sizeof(colors);
+    std::memcpy(packet_in.data.data(), &colors, sizeof(colors));
+    return write_packet(packet_in);
+}
+
+void WebAppDevice::end_preview()
+{
+    preview_until_ms_ = 0;
+    mode_indicator::set_override(false, 0, 0, 0);
+}
+
 /* Custom: diagnostics report as JSON text, split over packets (up to 255 chunks). */
 bool WebAppDevice::write_diagnostics()
 {
@@ -324,6 +346,13 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
         gamepad.set_pad_out(Gamepad::PadOut());
     }
 
+    /* Custom: a colour preview ends on its own, or with the web app's connection. */
+    if (preview_until_ms_ != 0 &&
+        (!tud_cdc_connected() || static_cast<int32_t>(board_api::ms_since_boot() - preview_until_ms_) >= 0))
+    {
+        end_preview();
+    }
+
     if (!tud_cdc_connected())
     {
         return;
@@ -375,7 +404,9 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     write_error();
                     return;
                 }
-                if (packet_out.header.device_driver != DeviceDriverType::WEBAPP &&
+                /* Custom: a mode other than the current one (DInput / Debug, where the web app runs)
+                 * is stored with the profile and the adapter restarts in it. */
+                if (normalized(packet_out.header.device_driver) != user_settings_.get_current_driver() &&
                     user_settings_.is_valid_driver(packet_out.header.device_driver))
                 {
                     success = user_settings_.store_profile_and_driver_type(packet_out.header.device_driver, packet_out.header.player_idx, profile_);
@@ -436,6 +467,56 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 break;
             }
 
+            case PacketID::GET_LED_COLORS:
+                if (!write_led_colors())
+                {
+                    write_error();
+                    return;
+                }
+                break;
+
+            case PacketID::SET_LED_COLORS:
+            {
+                mode_indicator::ModeColors colors{};
+                if (!mode_indicator::decode_colors(packet_out.data.data(), packet_out.header.chunk_len, colors))
+                {
+                    write_error();
+                    return;
+                }
+                user_settings_.store_led_colors(colors);
+                if (!write_led_colors())
+                {
+                    write_error();
+                    return;
+                }
+                break;
+            }
+
+            case PacketID::LED_PREVIEW:
+            {
+                if (packet_out.header.chunk_len < 4)
+                {
+                    write_error();
+                    return;
+                }
+                if (packet_out.data[0])
+                {
+                    mode_indicator::set_override(true, packet_out.data[1], packet_out.data[2], packet_out.data[3]);
+                    const uint32_t until = board_api::ms_since_boot() + kPreviewMs;
+                    preview_until_ms_ = until != 0 ? until : 1;
+                }
+                else
+                {
+                    end_preview();
+                }
+                Packet ack;
+                ack.header.packet_id = PacketID::LED_PREVIEW;
+                ack.header.chunks_total = 1;
+                ack.header.chunk_len = 0;
+                write_packet(ack);
+                break;
+            }
+
             case PacketID::GET_DIAGNOSTICS:
                 if (!write_diagnostics())
                 {
@@ -472,16 +553,7 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
 
             case PacketID::GET_CAPABILITIES:
             {
-#if defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
-                uint32_t caps = capabilities::kHybrid;
-#elif defined(CONFIG_EN_BLUETOOTH)
-                uint32_t caps = capabilities::kPicoW;
-#else
-                uint32_t caps = 0;
-#endif
-#if defined(CONFIG_EN_USB_HOST)
-                caps |= capabilities::WIRED_INPUT;
-#endif
+                const uint32_t caps = capabilities::board() | capabilities::MODE_COLORS;
                 Packet reply;
                 reply.header.packet_id = PacketID::GET_CAPABILITIES;
                 reply.header.chunks_total = 1;
@@ -515,8 +587,8 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
 #else
                 const bool esp32 = false;
 #endif
-                if (command < SYSTEM_BOOTSEL || command > SYSTEM_ESP32_MONITOR ||
-                    (!esp32 && command >= SYSTEM_ESP32_FLASH))
+                if (command < webapp_protocol::SYSTEM_BOOTSEL || command > webapp_protocol::SYSTEM_ESP32_MONITOR ||
+                    (!esp32 && command >= webapp_protocol::SYSTEM_ESP32_FLASH))
                 {
                     write_error();
                     return;
@@ -535,12 +607,12 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 }
                 OGXM_LOG("System command %u\n", command);
                 board_api::usb::disconnect_all();
-                if (command == SYSTEM_BOOTSEL)
+                if (command == webapp_protocol::SYSTEM_BOOTSEL)
                 {
                     reset_usb_boot(0, 0);
                 }
-                boot_mode::set(command == SYSTEM_ESP32_FLASH   ? boot_mode::Mode::ESP32_FLASH
-                             : command == SYSTEM_ESP32_MONITOR ? boot_mode::Mode::ESP32_MONITOR
+                boot_mode::set(command == webapp_protocol::SYSTEM_ESP32_FLASH   ? boot_mode::Mode::ESP32_FLASH
+                             : command == webapp_protocol::SYSTEM_ESP32_MONITOR ? boot_mode::Mode::ESP32_MONITOR
                                                                : boot_mode::Mode::NORMAL);
                 board_api::reboot();
                 return;
@@ -598,6 +670,7 @@ void WebAppDevice::line_state_cb(uint8_t itf, bool dtr, bool rts)
     (void)rts;
     if (dtr)
     {
+        diag::web_app_opened();  // this boot's session is a web app one (Diagnostics.h)
         tud_cdc_n_write_clear(itf);
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
             live_pending_[i] = true;  // send the current state right away

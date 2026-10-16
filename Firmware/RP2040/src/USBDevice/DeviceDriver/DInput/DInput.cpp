@@ -3,19 +3,7 @@
 
 #include "class/hid/hid_device.h"
 
-#include "Descriptors/PS3.h"
 #include "USBDevice/DeviceDriver/DInput/DInput.h"
-
-bool DInputDevice::control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request)
-{
-	if (request->bmRequestType == 0xA1 &&
-		request->bRequest == HID_REQ_CONTROL_GET_REPORT &&
-		request->wValue == 0x0300 ) 
-    {
-		return tud_control_xfer(rhport, request, const_cast<void*>(static_cast<const void*>(PS3::MAGIC_BYTES)), sizeof(PS3::MAGIC_BYTES));
-	} 
-    return hidd_control_xfer_cb(rhport, stage, request);
-}
 
 void DInputDevice::initialize() 
 {
@@ -40,7 +28,7 @@ void DInputDevice::initialize()
         .deinit = hidd_deinit,
 		.reset = hidd_reset,
 		.open = hidd_open,
-		.control_xfer_cb = DInputDevice::control_xfer_cb,
+		.control_xfer_cb = hidd_control_xfer_cb,
 		.xfer_cb = hidd_xfer_cb,
 		.sof = NULL
 	};
@@ -156,8 +144,7 @@ bool DInputDevice::vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_co
 
 const uint16_t* DInputDevice::get_descriptor_string_cb(uint8_t index, uint16_t langid)
 {
-    const char* value = reinterpret_cast<const char*>(DInput::STRING_DESCRIPTORS[index]);
-    return get_string_descriptor(value, index);
+    return nullptr;  // DInput / Debug (DInputDebug.cpp) gives the strings
 }
 
 const uint8_t* DInputDevice::get_descriptor_device_cb()

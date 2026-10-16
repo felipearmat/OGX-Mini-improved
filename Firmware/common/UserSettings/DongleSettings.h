@@ -25,8 +25,21 @@
  *    OGXM_HIGH_TX_POWER                    OFF  higher Bluetooth transmit power, where the radio
  *                                          allows it (the RP2040 + ESP32 hybrid: +9 dBm)
  *
+ *    OGXM_STATUS_LED_PICO                  ON   the Pico board's own status LED (a board's RGB LED
+ *                                          counts as its own)
+ *    OGXM_STATUS_LED_PICO_EXT              ON   an external RGB status LED on the Pico (GP6)
+ *    OGXM_STATUS_LED_ESP32                 ON   the hybrid ESP32's status LED
+ *    OGXM_STATUS_LED_ESP32_EXT             ON   an external RGB status LED on the ESP32 (GPIO 4)
+ *    OGXM_EXT_RGB_BRIGHTNESS               48   the RGB LEDs' brightness (1-255)
+ *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
- *  18 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  23 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 6 = version 5 plus, all applied without a restart:
+ *    byte 18        the Pico's status LED on (0 / 1)
+ *    byte 19        the external RGB LED on the Pico on (0 / 1)
+ *    byte 20        the hybrid ESP32's status LED on (0 / 1)
+ *    byte 21        the external RGB LED on the hybrid ESP32 on (0 / 1)
+ *    byte 22        the RGB LEDs' brightness (1-255; 0 reads as the default)
  *  Version 5 = version 4 plus:
  *    byte 17        higher Bluetooth transmit power (0 / 1), applied without a restart
  *  Version 4 = version 3 plus:
@@ -41,18 +54,19 @@
  *    bytes 12-15    output modes whose button combo is off, a little-endian bit mask indexed by
  *                   DeviceDriverType (bit n = mode n); zero turns all combos on. The Web App mode
  *                   combo (value 100, outside the mask) is always on.
- *  Versions 4, 3, 2 and 1 are still accepted; the options they lack take their build defaults.
+ *  Versions 5, 4, 3, 2 and 1 are still accepted; the options they lack take their build defaults.
  *  For versions 2 and 1 (the first 8 bytes) the search times take their defaults, or 0 / 0
  *  when their single controller byte (7) was on.
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 5;
+    constexpr uint8_t kVersion = 6;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
     constexpr size_t kV3Length = 16;
     constexpr size_t kV4Length = 17;
+    constexpr size_t kV5Length = 18;
 
 #pragma pack(push, 1)
     struct Settings {
@@ -73,14 +87,20 @@ namespace dongle_settings {
         uint8_t idle_off_minutes;
         // Version 5
         uint8_t high_tx_power;
+        // Version 6
+        uint8_t status_led_pico;
+        uint8_t status_led_pico_ext;
+        uint8_t status_led_esp32;
+        uint8_t status_led_esp32_ext;
+        uint8_t status_led_brightness;
     };
 #pragma pack(pop)
-    static_assert(sizeof(Settings) == 18, "dongle_settings::Settings is a wire format");
+    static_assert(sizeof(Settings) == 23, "dongle_settings::Settings is a wire format");
 
     // Build-time defaults.
     Settings defaults();
 
-    // Parse stored / received bytes, version 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
+    // Parse stored / received bytes, version 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
@@ -92,8 +112,8 @@ namespace dongle_settings {
     uint16_t reduced_search_s(const Settings& settings);
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
-    // Same settings apart from the ones applied live (combo mask, search times, idle time): a
-    // change of those alone needs no restart.
+    // Same settings apart from the ones applied live (combo mask, search times, idle time,
+    // transmit power, status LEDs): a change of those alone needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

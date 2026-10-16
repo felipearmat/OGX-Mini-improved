@@ -341,6 +341,10 @@ namespace I2C {
 } // namespace I2C
 
 void core1_task() {
+    /* Custom fix: let Core0 park this core while it writes flash (UserSettings/NVSTool.h). Without
+     * it, a settings save applied live (no restart) wrote flash while this core ran from it, which
+     * could hang it; the main loop then stopped and the hang watchdog restarted the adapter. */
+    multicore_lockout_victim_init();
     HostManager& host_manager = HostManager::get_instance();
     host_manager.initialize(_gamepads);
 

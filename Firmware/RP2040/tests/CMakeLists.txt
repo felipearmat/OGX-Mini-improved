@@ -36,6 +36,12 @@ endfunction()
 ogxm_add_test(test_mode_indicator test_mode_indicator.cpp ${FW_COMMON}/Board/ModeIndicator.cpp
               ${FW_COMMON}/Board/StatusLed.cpp)
 
+# Custom: what the web app must agree on (Firmware/common/contract/webapp_contract.json).
+ogxm_add_test(test_webapp_contract test_webapp_contract.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp
+              ${FW_COMMON}/Board/ModeIndicator.cpp)
+target_compile_definitions(test_webapp_contract PRIVATE
+    OGXM_CONTRACT_PATH="${FW_COMMON}/contract/webapp_contract.json")
+
 ogxm_add_test(test_nvstool test_nvstool.cpp)
 target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
 

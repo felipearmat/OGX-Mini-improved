@@ -447,10 +447,11 @@ void pico_w::initialize() {
     OGXM_LOG("PicoW init: flash inited\n");
 #endif
 
-#if defined(CONFIG_EN_RGB) && defined(RGB_BRIGHTNESS)
-    /* Custom: the RGB status LED lights in the output mode colour. */
+#if defined(CONFIG_EN_RGB)
+    /* Custom: the RGB status LED lights in the output mode colour (its brightness is applied when
+     * it is written, from the dongle options). */
     uint8_t led_r, led_g, led_b;
-    mode_indicator::led_color(user_settings.get_current_driver(), RGB_BRIGHTNESS, led_r, led_g, led_b);
+    mode_indicator::shown_color(user_settings.get_current_driver(), led_r, led_g, led_b);
     board_api::set_led_color(led_r, led_g, led_b);
 #endif
 

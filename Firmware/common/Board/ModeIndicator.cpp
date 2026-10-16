@@ -30,35 +30,36 @@ uint8_t blink_count(DeviceDriverType driver)
     }
 }
 
-/* Seven base colours, each in a full and a light tone (mixed with white, never dimmed: a dim LED
- * loses its hue), grouped by console family so the colour tells the family and the blink count
- * the mode: Nintendo reds, Xbox greens, PlayStation blues and purples, yellow and orange for the
- * mouse + keyboard and Dreamcast, white for DInput / the web app. */
+/* Twelve colours and white, picked for an RGB LED: hues 30 degrees apart, some of them mixed with
+ * white (never dimmed: a dim LED loses its hue), chosen so the closest pair stays clearly apart on
+ * the LED (CIEDE2000 >= 19.5 with the LED's linear brightness). Grouped by console family, so the
+ * colour tells the family and the blink count the mode: Nintendo from magenta to orange, Xbox
+ * greens, PlayStation from cyan to lilac. */
 void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
 {
     switch (driver)
     {
         // Nintendo
-        case DeviceDriverType::SWITCH:    r = 0xFF; g = 0x00; b = 0x00; break; // red
-        case DeviceDriverType::WIIU:      r = 0xFF; g = 0x40; b = 0x80; break; // pink (GameCube adapter)
-        case DeviceDriverType::WII:       r = 0xFF; g = 0x60; b = 0x00; break; // red-orange
         case DeviceDriverType::GAMECUBE:
-        case DeviceDriverType::N64:       r = 0xFF; g = 0xA0; b = 0x80; break; // salmon
+        case DeviceDriverType::N64:       r = 0xFF; g = 0x00; b = 0xFF; break; // magenta
+        case DeviceDriverType::WIIU:      r = 0xFF; g = 0x80; b = 0x80; break; // light red (GameCube adapter)
+        case DeviceDriverType::SWITCH:    r = 0xFF; g = 0x00; b = 0x00; break; // red
+        case DeviceDriverType::WII:       r = 0xFF; g = 0x80; b = 0x00; break; // orange
         // Xbox
         case DeviceDriverType::XINPUT:    r = 0x00; g = 0xFF; b = 0x00; break; // green
         case DeviceDriverType::XBOXOG:
         case DeviceDriverType::XBOXOG_SB:
-        case DeviceDriverType::XBOXOG_XR: r = 0xA0; g = 0xFF; b = 0xA0; break; // light green
+        case DeviceDriverType::XBOXOG_XR: r = 0xC0; g = 0xFF; b = 0x80; break; // light lime
         // PlayStation (STEAM is a DualSense)
+        case DeviceDriverType::PS3:       r = 0x00; g = 0xFF; b = 0xFF; break; // cyan
         case DeviceDriverType::PS1PS2:
-        case DeviceDriverType::PSCLASSIC: r = 0xD0; g = 0xA0; b = 0xFF; break; // lilac
-        case DeviceDriverType::PS3:       r = 0x00; g = 0xFF; b = 0xFF; break; // light blue
+        case DeviceDriverType::PSCLASSIC: r = 0x40; g = 0xA0; b = 0xFF; break; // light azure
         case DeviceDriverType::PS4:       r = 0x00; g = 0x00; b = 0xFF; break; // blue
-        case DeviceDriverType::STEAM:     r = 0xA0; g = 0x00; b = 0xFF; break; // purple
+        case DeviceDriverType::STEAM:     r = 0xC0; g = 0x80; b = 0xFF; break; // lilac
         // Others
-        case DeviceDriverType::KBM:       r = 0xFF; g = 0xE0; b = 0x00; break; // yellow
-        case DeviceDriverType::DREAMCAST: r = 0xFF; g = 0xA0; b = 0x00; break; // orange
-        default:                          r = 0xFF; g = 0xFF; b = 0xFF; break; // white (DInput, web app)
+        case DeviceDriverType::KBM:       r = 0xFF; g = 0xFF; b = 0x00; break; // yellow
+        case DeviceDriverType::DREAMCAST: r = 0x40; g = 0x40; b = 0xFF; break; // light blue-violet
+        default:                          r = 0xFF; g = 0xFF; b = 0xFF; break; // white (DInput / Debug)
     }
 }
 
@@ -72,12 +73,101 @@ static uint8_t scale(uint8_t value, uint8_t brightness)
     return scaled == 0 ? 1 : static_cast<uint8_t>(scaled);
 }
 
-void led_color(DeviceDriverType driver, uint8_t brightness, uint8_t& r, uint8_t& g, uint8_t& b)
+/* Written by the web app (USB loop), read by the Bluetooth core: a colour read while it changes
+ * shows for one LED step at most, and the generation makes the boards apply the final one. */
+static ModeColors s_custom{};
+static volatile bool s_override_active = false;
+static volatile uint8_t s_override[3] = {0, 0, 0};
+static volatile uint32_t s_generation = 0;
+
+static int color_slot(DeviceDriverType driver)
 {
+    const int v = static_cast<int>(driver);
+    if (driver == DeviceDriverType::WEBAPP)
+    {
+        return static_cast<int>(DeviceDriverType::DINPUT);
+    }
+    return v < static_cast<int>(ModeColors::kColorSlots) ? v : -1;
+}
+
+void shown_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
+{
+    if (s_override_active)
+    {
+        r = s_override[0];
+        g = s_override[1];
+        b = s_override[2];
+        return;
+    }
+    const int slot = color_slot(driver);
+    if (slot >= 0)
+    {
+        const uint8_t* c = s_custom.rgb[slot];
+        if (c[0] | c[1] | c[2])
+        {
+            r = c[0];
+            g = c[1];
+            b = c[2];
+            return;
+        }
+    }
     lightbar_color(driver, r, g, b);
+}
+
+void scale_color(uint8_t brightness, uint8_t& r, uint8_t& g, uint8_t& b)
+{
     r = scale(r, brightness);
     g = scale(g, brightness);
     b = scale(b, brightness);
+}
+
+void led_color(DeviceDriverType driver, uint8_t brightness, uint8_t& r, uint8_t& g, uint8_t& b)
+{
+    shown_color(driver, r, g, b);
+    scale_color(brightness, r, g, b);
+}
+
+bool decode_colors(const uint8_t* data, size_t len, ModeColors& out)
+{
+    if (data == nullptr || len < sizeof(ModeColors) || data[0] != ModeColors::kVersion)
+    {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(ModeColors); ++i)
+    {
+        reinterpret_cast<uint8_t*>(&out)[i] = data[i];
+    }
+    return true;
+}
+
+const ModeColors& custom_colors()
+{
+    return s_custom;
+}
+
+void set_custom_colors(const ModeColors& colors)
+{
+    s_custom = colors;
+    s_custom.version = ModeColors::kVersion;
+    s_generation = s_generation + 1;
+}
+
+void set_override(bool active, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (active == s_override_active && (!active || (r == s_override[0] && g == s_override[1] && b == s_override[2])))
+    {
+        return;
+    }
+    s_override[0] = r;
+    s_override[1] = g;
+    s_override[2] = b;
+    s_override_active = active;
+    s_generation = s_generation + 1;
+}
+
+uint32_t color_generation()
+{
+    return s_generation;
 }
 
 void begin(DeviceDriverType driver)

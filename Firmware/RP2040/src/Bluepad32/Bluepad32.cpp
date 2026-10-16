@@ -399,11 +399,36 @@ static void send_feedback_cb(btstack_timer_source *ts)
 	}
 }
 
+static void apply_mode_lightbar(int idx);
+
 static void check_led_cb(btstack_timer_source *ts)
 {
     /* Custom: the mode's blink code, then the search for new controllers (Board/StatusLed.h);
      * a wired USB host controller active on the Pico W mux counts as no search. */
     static status_led::Blinker s_led;
+
+    /* Custom: a colour saved or previewed in the web app, or other status LED options: show them
+     * now, on the RGB LED and on a connected DS4 / DualSense lightbar. */
+    static uint32_t s_generation = UINT32_MAX;
+    static dongle_settings::Settings s_options{};
+    const dongle_settings::Settings& options = dongle_settings::get();
+    if (s_generation != mode_indicator::color_generation())
+    {
+        s_generation = mode_indicator::color_generation();
+        uint8_t r, g, b;
+        mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
+        board_api::set_led_color(r, g, b);
+        for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
+            apply_mode_lightbar(i);
+        s_led.invalidate();
+    }
+    if (options.status_led_pico != s_options.status_led_pico ||
+        options.status_led_pico_ext != s_options.status_led_pico_ext ||
+        options.status_led_brightness != s_options.status_led_brightness)
+    {
+        s_options = options;
+        s_led.invalidate();
+    }
 
 #if defined(CONFIG_TARGET_PICO_W) && defined(CONFIG_EN_USB_HOST)
     const bool wired_host_pad = board_api::usb::host_any_pad_mounted();
@@ -853,17 +878,24 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 static constexpr uint32_t MODE_LIGHTBAR_DELAY_MS = bt_pad::kModeLightbarDelayMs;
 static btstack_timer_source_t s_mode_lightbar_timer[CONFIG_BLUEPAD32_MAX_DEVICES];
 
-static void mode_lightbar_cb(btstack_timer_source_t* ts)
+static void apply_mode_lightbar(int idx)
 {
-    const int idx = static_cast<int>(reinterpret_cast<intptr_t>(ts->context));
     uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(idx);
     if (d == nullptr || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
         return;
+    if (d->controller_type != CONTROLLER_TYPE_PS4Controller &&
+        d->controller_type != CONTROLLER_TYPE_PS5Controller)
+        return;
     Lightbar mode;
-    mode_indicator::lightbar_color(UserSettings::get_instance().get_current_driver(), mode.r, mode.g, mode.b);
+    mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), mode.r, mode.g, mode.b);
     mode.valid = true;
     s_lightbar_applied[idx] = Lightbar{};  // the mode colour always goes out once
     bt_pad::set_lightbar(d, mode, s_lightbar_applied[idx]);
+}
+
+static void mode_lightbar_cb(btstack_timer_source_t* ts)
+{
+    apply_mode_lightbar(static_cast<int>(reinterpret_cast<intptr_t>(ts->context)));
 }
 
 static void schedule_mode_lightbar(uni_hid_device_t* device, int idx)

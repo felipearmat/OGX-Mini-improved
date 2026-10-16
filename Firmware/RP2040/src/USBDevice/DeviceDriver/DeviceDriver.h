@@ -37,6 +37,9 @@ public:
     virtual void line_coding_cb(uint8_t itf, cdc_line_coding_t const* p_line_coding) {};
     
     const usbd_class_driver_t* get_class_driver() { return &class_driver_; };
+    /* The class drivers TinyUSB uses for this mode's interfaces: one by default; a composite mode
+     * returns several, contiguous. */
+    virtual const usbd_class_driver_t* get_class_drivers(uint8_t& count) { count = 1; return &class_driver_; }
 
 protected:
     usbd_class_driver_t class_driver_;

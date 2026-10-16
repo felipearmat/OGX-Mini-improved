@@ -19,13 +19,18 @@ namespace capabilities {
     constexpr uint32_t IDLE_OFF                  = 1u << 7;  // idle turn-off time
     constexpr uint32_t WIRED_INPUT               = 1u << 8;  // USB host port for wired controllers
     constexpr uint32_t BLE_WEBAPP                = 1u << 9;  // the web app over Bluetooth
+    constexpr uint32_t STATUS_LED_PICO           = 1u << 10; // the Pico board's own status LED
+    constexpr uint32_t STATUS_LED_ESP32          = 1u << 11; // the hybrid ESP32's status LED
+    constexpr uint32_t STATUS_LED_PICO_EXT       = 1u << 12; // an external RGB LED on the Pico (GP6)
+    constexpr uint32_t MODE_COLORS               = 1u << 13; // colour per mode (USB GET / SET_LED_COLORS)
+    constexpr uint32_t STATUS_LED_ESP32_EXT      = 1u << 14; // an external RGB LED on the hybrid ESP32 (GPIO 4)
 
     constexpr uint32_t kBluetooth = BLUETOOTH | JOYCON | MAC_PER_CONTROLLER | DISCONNECT_ON_MODE_CHANGE |
                                     SEARCH_TIMES | IDLE_OFF | BLE_WEBAPP;
     /* Pico W / Pico 2 W: the CYW43's transmit power is not settable here. */
     constexpr uint32_t kPicoW = kBluetooth;
-    /* RP2040 + ESP32 hybrid. */
-    constexpr uint32_t kHybrid = kBluetooth | HYBRID | HIGH_TX_POWER;
+    /* RP2040 + ESP32 hybrid: the ESP32's LED and its external RGB LED pin (GPIO 4). */
+    constexpr uint32_t kHybrid = kBluetooth | HYBRID | HIGH_TX_POWER | STATUS_LED_ESP32 | STATUS_LED_ESP32_EXT;
 
 } // namespace capabilities
 

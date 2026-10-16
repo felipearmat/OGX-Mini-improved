@@ -26,12 +26,16 @@ namespace mode_combos {
 
     using B = GamepadBits;
 
+    /* Start + LB + RB: DInput / Debug, the way to the web app. Always on, even when DInput's
+     * combo is turned off in the web app (the other one, Start + RB + Left, then is off). */
+    constexpr uint32_t DEBUG_COMBO = combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB);
+
     /* Wii, GameCube and N64 are fixed builds only (OGXM_FIXED_DRIVER), without a combo. */
     constexpr std::array<ModeCombo, 15> MODE_COMBOS = {{
         { combo(B::BUTTON_START,                                 B::DPAD_RIGHT), DeviceDriverType::XBOXOG    },
         { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_SB },
         { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_XR },
-        { combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB),                  DeviceDriverType::WEBAPP    },
+        { combo(B::BUTTON_START | B::BUTTON_LB | B::BUTTON_RB),                  DeviceDriverType::DINPUT    },
         { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_UP),    DeviceDriverType::KBM       },
         { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_LEFT),  DeviceDriverType::DINPUT    },
         { combo(B::BUTTON_START,                                 B::DPAD_DOWN),  DeviceDriverType::SWITCH    },
@@ -61,7 +65,6 @@ namespace mode_combos {
         DeviceDriverType::XINPUT,
         DeviceDriverType::WIIU,
         DeviceDriverType::KBM,
-        DeviceDriverType::WEBAPP,
     };
 
 } // namespace mode_combos

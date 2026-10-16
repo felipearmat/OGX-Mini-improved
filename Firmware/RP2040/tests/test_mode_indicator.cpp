@@ -55,7 +55,7 @@ TEST(each_repetition_ends_with_led_off_pause) {
 }
 
 TEST(lightbar_colours_are_distinct) {
-    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants, DInput = web app).
+    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants).
     const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
                                       DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
                                       DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
@@ -82,7 +82,7 @@ TEST(led_colour_scales_and_keeps_lit_channels_visible) {
     CHECK_EQ(r, 0);
     CHECK_EQ(g, 51);
     CHECK_EQ(b, 0);
-    // The light green's 0xA0 channels would round to 0 at the lowest brightness.
+    // The light lime's 0xC0 / 0x80 channels would round to 0 at the lowest brightness.
     mode_indicator::led_color(DeviceDriverType::XBOXOG, 1, r, g, b);
     CHECK_EQ(r, 1);
     CHECK_EQ(g, 1);
@@ -92,7 +92,7 @@ TEST(led_colour_scales_and_keeps_lit_channels_visible) {
 }
 
 TEST(led_colours_stay_distinct_at_default_brightness) {
-    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants, DInput = web app).
+    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants).
     const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
                                       DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
                                       DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
@@ -149,6 +149,52 @@ TEST(status_led_is_solid_without_search_and_written_once) {
     bool changed = false;
     for (int i = 0; i < 2; ++i) changed |= led.step(Search::FULL, on, ms);
     CHECK(changed);
+}
+
+TEST(custom_colours_override_and_generation) {
+    uint8_t r, g, b;
+    mode_indicator::ModeColors colors{};
+    mode_indicator::set_custom_colors(colors);
+    const uint32_t gen0 = mode_indicator::color_generation();
+    // all zero: the defaults
+    mode_indicator::shown_color(DeviceDriverType::SWITCH, r, g, b);
+    CHECK_EQ(r, 0xFF); CHECK_EQ(g, 0); CHECK_EQ(b, 0);
+    // a colour for one mode; the web app mode uses DInput's slot
+    colors.rgb[static_cast<int>(DeviceDriverType::SWITCH)][1] = 0x80;
+    colors.rgb[static_cast<int>(DeviceDriverType::DINPUT)][2] = 0x40;
+    mode_indicator::set_custom_colors(colors);
+    CHECK(mode_indicator::color_generation() != gen0);
+    mode_indicator::shown_color(DeviceDriverType::SWITCH, r, g, b);
+    CHECK_EQ(r, 0); CHECK_EQ(g, 0x80); CHECK_EQ(b, 0);
+    mode_indicator::shown_color(DeviceDriverType::WEBAPP, r, g, b);
+    CHECK_EQ(b, 0x40);
+    mode_indicator::shown_color(DeviceDriverType::XINPUT, r, g, b);  // untouched: default green
+    CHECK_EQ(g, 0xFF);
+    // the preview replaces every mode's colour until turned off
+    const uint32_t gen1 = mode_indicator::color_generation();
+    mode_indicator::set_override(true, 1, 2, 3);
+    CHECK(mode_indicator::color_generation() != gen1);
+    mode_indicator::shown_color(DeviceDriverType::PS4, r, g, b);
+    CHECK_EQ(r, 1); CHECK_EQ(g, 2); CHECK_EQ(b, 3);
+    const uint32_t gen2 = mode_indicator::color_generation();
+    mode_indicator::set_override(true, 1, 2, 3);  // same colour: no new generation
+    CHECK_EQ(mode_indicator::color_generation(), gen2);
+    mode_indicator::set_override(false, 0, 0, 0);
+    mode_indicator::shown_color(DeviceDriverType::SWITCH, r, g, b);
+    CHECK_EQ(g, 0x80);
+    mode_indicator::set_custom_colors(mode_indicator::ModeColors{});
+}
+
+TEST(mode_colours_record_is_checked) {
+    mode_indicator::ModeColors out{};
+    uint8_t bytes[sizeof(mode_indicator::ModeColors)]{};
+    bytes[0] = mode_indicator::ModeColors::kVersion;
+    bytes[1] = 9;
+    CHECK(mode_indicator::decode_colors(bytes, sizeof(bytes), out));
+    CHECK_EQ(out.rgb[0][0], 9);
+    CHECK(!mode_indicator::decode_colors(bytes, sizeof(bytes) - 1, out));
+    bytes[0] = 2;
+    CHECK(!mode_indicator::decode_colors(bytes, sizeof(bytes), out));
 }
 
 TEST_MAIN()

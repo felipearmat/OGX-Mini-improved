@@ -21,8 +21,9 @@ const usbd_class_driver_t *usbd_app_driver_get_cb(uint8_t *driver_count)
 		*driver_count = 0;
 		return nullptr;
 	}
-	*driver_count = 1;
-	return DeviceManager::get_instance().get_driver()->get_class_driver();
+	/* Custom: a composite mode (DInput / Debug: HID gamepads + the web app's serial port) has
+	 * one class driver per kind of interface. */
+	return DeviceManager::get_instance().get_driver()->get_class_drivers(*driver_count);
 }
 
 uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen) 

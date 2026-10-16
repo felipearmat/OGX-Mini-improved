@@ -2,7 +2,7 @@
 """Maintain an OGX-Mini adapter through its own USB port.
 
 On the RP2040 + ESP32 hybrid everything goes through the RP2040 / RP2350's USB port: the ESP32 is
-flashed and its log read through it. The adapter must be in Web App mode (hold Start + LB + RB
+flashed and its log read through it. The adapter must be in D-Input/Debug mode (hold Start + LB + RB
 about 3 s), which shows up as a USB serial port.
 
   ogxm_hybrid.py ports                       list OGX-Mini serial ports
@@ -67,13 +67,13 @@ def find_port(product, timeout=0.0):
 def webapp_port():
     port = find_port(WEBAPP_PRODUCT)
     if port is None:
-        sys.exit("No adapter in Web App mode found. Hold Start + LB + RB about 3 s on a controller "
-                 "(or pick Web App mode in the web app), then try again.")
+        sys.exit("No adapter in D-Input/Debug mode found. Hold Start + LB + RB about 3 s on a controller "
+                 "(or pick D-Input/Debug in the web app), then try again.")
     return port
 
 
 def system_command(name):
-    """Send a SYSTEM command in Web App mode and wait for its answer."""
+    """Send a SYSTEM command in D-Input/Debug mode and wait for its answer."""
     command = COMMANDS[name]
     port = webapp_port()
     packet = bytearray(PACKET_LEN)
@@ -102,7 +102,7 @@ def system_command(name):
 def cmd_ports(_args):
     ports = ogxm_ports()
     if not ports:
-        print("No OGX-Mini serial port (is the adapter in Web App mode?)")
+        print("No OGX-Mini serial port (is the adapter in D-Input/Debug mode?)")
     for p in ports:
         print(f"{p.device}\t{p.product}\t{p.serial_number}")
 

@@ -8,6 +8,8 @@
 #include "USBDevice/DeviceDriver/DeviceDriver.h"
 #include "Descriptors/DInput.h"
 
+/* The DInput gamepad (one HID interface per MAX_GAMEPADS). The output mode itself is DInput /
+ * Debug (DInputDebug.h), which adds the web app's serial port. */
 class DInputDevice : public DeviceDriver 
 {
 public:
@@ -24,8 +26,6 @@ public:
 
 private:
     std::array<DInput::DeviceInReport, MAX_GAMEPADS> in_reports_;
-
-    static bool control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request);
 };
 
 #endif // _DINPUT_DEVICE_H_

@@ -79,6 +79,7 @@ void BTManager::run_task()
     btstack_run_loop_add_timer(&led_timer_);
 
     btstack_timer_source_t driver_update_timer;
+    boot_ms_ = btstack_run_loop_get_time_ms();
     driver_update_timer.process = driver_update_timer_cb;
     driver_update_timer.context = nullptr;
     btstack_run_loop_set_timer(&driver_update_timer, UserSettings::GP_CHECK_DELAY_MS);
@@ -122,11 +123,17 @@ uint8_t BTManager::slave_addr(uint8_t output)
     return I2CDriver::MULTI_SLAVE ? output + Esp32Bridge::SLAVE_ADDR : Esp32Bridge::SLAVE_ADDR;
 }
 
-/* Profiles depend on the output mode too (Web App: default mapping; XInput: stock stick feel),
- * as on the Pico W path: applied at boot, on every mode change and when the web app saves one. */
+/* Profiles depend on the output mode too (XInput: stock stick feel; DInput / Debug with the web app
+ * open: the default mapping, so the web app shows the controller's own buttons), as on the Pico W
+ * path: applied at boot, on every mode change, when the web app saves one and when it opens or
+ * closes. */
 void BTManager::apply_profiles()
 {
-    const DeviceDriverType driver = UserSettings::get_instance().get_current_driver();
+    DeviceDriverType driver = UserSettings::get_instance().get_current_driver();
+    if (web_app_open_ && driver == DeviceDriverType::DINPUT)
+    {
+        driver = DeviceDriverType::WEBAPP;  // the default mapping (Gamepad/GamepadMapper.h)
+    }
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
     {
         UserProfile profile = UserSettings::get_instance().get_profile_by_index(i);
@@ -188,9 +195,40 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     const bool reduced = searching && scan_control::reduced();
     diag::searching(searching, reduced);
 
+    /* A colour saved or previewed in the web app, or other status LED options: show them now, on
+     * the RGB LED and on a connected DS4 / DualSense lightbar. */
+    static uint32_t s_generation = UINT32_MAX;
+    static dongle_settings::Settings s_options{};
+    static bool s_refresh = false;
+    const dongle_settings::Settings& options = dongle_settings::get();
+    if (s_generation != mode_indicator::color_generation())
+    {
+        s_generation = mode_indicator::color_generation();
+        uint8_t r, g, b;
+        mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
+        board_api::set_led_color(r, g, b);
+        for (int i = 0; i < static_cast<int>(get_instance().slots_.size()); ++i)
+        {
+            apply_mode_lightbar(i);
+        }
+        s_refresh = true;
+    }
+    if (options.status_led_esp32 != s_options.status_led_esp32 ||
+        options.status_led_esp32_ext != s_options.status_led_esp32_ext ||
+        options.status_led_brightness != s_options.status_led_brightness)
+    {
+        s_options = options;
+        s_refresh = true;
+    }
+
     if constexpr (board_api::NUM_LEDS <= 1)
     {
         static status_led::Blinker s_led;
+        if (s_refresh)
+        {
+            s_led.invalidate();
+            s_refresh = false;
+        }
         const status_led::Search search = !searching ? status_led::Search::NONE
                                         : reduced ? status_led::Search::REDUCED
                                         : status_led::Search::FULL;
@@ -213,15 +251,13 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     btstack_run_loop_add_timer(ts);
 }
 
-/* The output mode's blink code, and its colour on the external RGB status LED. */
+/* The output mode's blink code; its colour follows on the next LED step (color_generation). */
 void BTManager::begin_mode_indicator(DeviceDriverType driver)
 {
     mode_indicator::begin(driver);
-#if defined(CONFIG_ENABLE_EXT_RGB)
     uint8_t r, g, b;
-    mode_indicator::led_color(driver, CONFIG_EXT_RGB_BRIGHTNESS, r, g, b);
+    mode_indicator::shown_color(driver, r, g, b);
     board_api::set_led_color(r, g, b);
-#endif
 }
 
 void BTManager::send_driver_type(DeviceDriverType driver_type)
@@ -317,8 +353,13 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
 
     if (!settings.remote())
     {
-        //Notify pico of current driver type regardless of change (an RP2040 that keeps no settings)
-        bt_manager.send_driver_type(settings.get_current_driver());
+        /* An RP2040 that keeps no settings (it never answers GET_EXT): it takes the mode from us.
+         * Only after 3 s without an answer: a freshly started ESP32 would otherwise push the mode
+         * in its own flash onto an RP2040 that just restarted in another one. */
+        if (btstack_run_loop_get_time_ms() - bt_manager.boot_ms_ >= kNoSettingsRp2040Ms)
+        {
+            bt_manager.send_driver_type(settings.get_current_driver());
+        }
     }
     else if (bt_manager.pending_driver_ != DeviceDriverType::NONE)
     {
@@ -391,6 +432,16 @@ void BTManager::stop_search_feedback()
 void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
 {
     motion_output_ = (ext.flags & I2CDriver::PacketOutExt::MOTION_OUTPUT) != 0;
+    const bool web_app_open = (ext.flags & I2CDriver::PacketOutExt::WEB_APP_OPEN) != 0;
+    if (web_app_open != web_app_open_)
+    {
+        web_app_open_ = web_app_open;
+        apply_profiles();
+    }
+    /* The mode colour the RP2040 resolved (the web app's colour or its preview); 0, 0, 0 from an
+     * RP2040 that predates it = the default. */
+    const bool mode_rgb = (ext.mode_rgb[0] | ext.mode_rgb[1] | ext.mode_rgb[2]) != 0;
+    mode_indicator::set_override(mode_rgb, ext.mode_rgb[0], ext.mode_rgb[1], ext.mode_rgb[2]);
     if (ext.index < outputs_.size())
     {
         Lightbar& host = outputs_[ext.index].host_lightbar;
@@ -690,15 +741,24 @@ void BTManager::schedule_mode_lightbar(uni_hid_device_t* device, int slot)
 
 void BTManager::mode_lightbar_cb(btstack_timer_source *ts)
 {
+    apply_mode_lightbar(static_cast<int>(reinterpret_cast<intptr_t>(ts->context)));
+}
+
+void BTManager::apply_mode_lightbar(int slot)
+{
     BTManager& bt_manager = get_instance();
-    const int slot = static_cast<int>(reinterpret_cast<intptr_t>(ts->context));
     uni_hid_device_t* d = get_connected_bp32_device(static_cast<uint8_t>(slot));
     if (!d || !bt_manager.slots_[slot].connected)
     {
         return;
     }
+    if (d->controller_type != CONTROLLER_TYPE_PS4Controller &&
+        d->controller_type != CONTROLLER_TYPE_PS5Controller)
+    {
+        return;
+    }
     Lightbar mode;
-    mode_indicator::lightbar_color(UserSettings::get_instance().get_current_driver(), mode.r, mode.g, mode.b);
+    mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), mode.r, mode.g, mode.b);
     mode.valid = true;
     bt_manager.slots_[slot].lightbar = Lightbar{};  // the mode colour always goes out once
     bt_pad::set_lightbar(d, mode, bt_manager.slots_[slot].lightbar);

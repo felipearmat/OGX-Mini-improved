@@ -15,6 +15,8 @@
 #include "Board/Config.h"
 #include "UserSettings/NVSTool.h"
 #include "Board/board_api.h"
+#include "Board/ModeIndicator.h"
+#include "UserSettings/DongleSettings.h"
 #include "Board/ogxm_log.h"
 #include "Board/board_api_private/board_api_private.h"
 #include "TaskQueue/TaskQueue.h"
@@ -115,17 +117,26 @@ void usb::disconnect_all() {
 void set_led(bool state) {
     mutex_enter_blocking(&gpio_mutex_);
 
+    /* Custom: each LED can be turned off in the web app (dongle options, applied live). */
+    const dongle_settings::Settings& options = dongle_settings::get();
+    const bool board_on = state && options.status_led_pico;
     if (board_api_led::set_led) {
-        board_api_led::set_led(state);
+        board_api_led::set_led(board_on);
     }
     if (board_api_bt::set_led) {
-        board_api_bt::set_led(state);
+        board_api_bt::set_led(board_on);
     }
     if (board_api_rgb::set_led) {
         if (rgb_color_set_) {
-            board_api_rgb::set_led(state ? rgb_color_[0] : 0x00,
-                                   state ? rgb_color_[1] : 0x00,
-                                   state ? rgb_color_[2] : 0x00);
+            /* Custom: the mode colour at the brightness set in the web app. */
+            uint8_t r = rgb_color_[0], g = rgb_color_[1], b = rgb_color_[2];
+            mode_indicator::scale_color(options.status_led_brightness, r, g, b);
+#if defined(OGXM_EXT_RGB_PIN)
+            const bool rgb_on = state && options.status_led_pico_ext;  // an external LED on GP6
+#else
+            const bool rgb_on = board_on;                             // the board's own RGB LED
+#endif
+            board_api_rgb::set_led(rgb_on ? r : 0x00, rgb_on ? g : 0x00, rgb_on ? b : 0x00);
         } else {
             board_api_rgb::set_led(state ? 0x00 : 0xFF, state ? 0xFF : 0x00, 0x00);
         }

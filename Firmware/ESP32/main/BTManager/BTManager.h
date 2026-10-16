@@ -99,6 +99,9 @@ private:
     std::mutex ext_mutex_;
     FBContext ext_context_;
     bool motion_output_{false};
+    bool web_app_open_{false};
+    uint32_t boot_ms_{0};  // btstack time when the driver update timer started
+    static constexpr uint32_t kNoSettingsRp2040Ms = 3000;  // the RP2040's web app is open (DInput / Debug): default mapping
     int high_tx_power_{-1};  // applied transmit power option (-1: not yet)
     void apply_tx_power(bool high);
     void send_companion_summary();
@@ -146,6 +149,7 @@ private:
     static uni_hid_device_t* get_connected_bp32_device(uint8_t slot);
     static void check_led_cb(btstack_timer_source *ts);
     static void begin_mode_indicator(DeviceDriverType driver);
+    static void apply_mode_lightbar(int slot);
     static void mode_lightbar_cb(btstack_timer_source *ts);
     static void output_feedback_cb(void* context);
     static void ext_feedback_cb(void* context);

@@ -212,6 +212,7 @@ UsbDevice s_usb[kUsbDevices];
 bool s_searching = false;
 bool s_searching_known = false;
 bool s_search_reduced = false;
+bool s_web_app_opened = false;  // the web app opened the serial port this boot
 bool s_inquiry_seen = false;
 uint32_t s_last_inquiry_ms = 0;
 uint32_t s_inquiries = 0;
@@ -758,6 +759,11 @@ void searching(bool accepting_new_controllers, bool reduced)
     s_searching_known = true;
 }
 
+void web_app_opened()
+{
+    s_web_app_opened = true;
+}
+
 bool accepting_new_controllers(bool unknown, bool& reduced)
 {
     Lock l;
@@ -877,7 +883,7 @@ bool session_relevant(const Session& ss)
 
 bool web_app_session()
 {
-    return s_info.output_mode && std::strcmp(s_info.output_mode, "WEBAPP") == 0;
+    return s_web_app_opened;
 }
 
 Session build_session(uint32_t now_ms);
@@ -1210,6 +1216,7 @@ void reset_for_tests()
     for (auto& p : s_pending) p = Link{};
     for (auto& u : s_usb) u = UsbDevice{};
     s_searching = s_searching_known = s_search_reduced = false;
+    s_web_app_opened = false;
     s_inquiry_seen = false;
     s_last_inquiry_ms = 0;
     s_inquiries = 0;

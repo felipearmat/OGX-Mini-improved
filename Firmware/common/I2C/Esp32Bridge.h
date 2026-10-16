@@ -119,6 +119,7 @@ namespace Esp32Bridge
     {
         static constexpr uint8_t LIGHTBAR_VALID = 0x01;  // the host asked for this colour
         static constexpr uint8_t MOTION_OUTPUT  = 0x02;  // the output mode uses motion
+        static constexpr uint8_t WEB_APP_OPEN   = 0x04;  // the web app has the RP2040's serial port open
 
         uint8_t  packet_len{sizeof(PacketOutExt)};
         PacketID packet_id{PacketID::GET_EXT};
@@ -131,9 +132,13 @@ namespace Esp32Bridge
         DeviceDriverType driver{DeviceDriverType::NONE};  // the RP2040's output mode
         uint8_t  active_profile{0};   // active profile ID of this output (1..8)
         uint16_t profiles_crc{0};     // profiles_crc() of the RP2040's profiles; 0 = not sent
+        /* The mode colour to show now (lightbar, status LED), as the RP2040 resolved it: the web
+         * app's colour for the mode or its preview; 0, 0, 0 = the ESP32's own default. */
+        uint8_t  mode_rgb[3]{};
     };
-    static_assert(sizeof(PacketOutExt) == 29, "Esp32Bridge::PacketOutExt layout changed");
+    static_assert(sizeof(PacketOutExt) == 37, "Esp32Bridge::PacketOutExt layout changed");
     static_assert(offsetof(PacketOutExt, settings) == 7, "Esp32Bridge::PacketOutExt layout changed");
+    static_assert(offsetof(PacketOutExt, mode_rgb) == 34, "Esp32Bridge::PacketOutExt layout changed");
     struct PacketDiag
     {
         enum Kind : uint8_t

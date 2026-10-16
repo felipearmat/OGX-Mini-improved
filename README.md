@@ -141,22 +141,21 @@ LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 |---|---|---|---|---|---|---|
 | XInput | Start + Up | Xbox 360 controller | 1 | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
 | Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
-| DInput | Start + RB + Left | generic gamepad | 3 | white | yes | PC and other hosts that take a generic gamepad |
+| DInput / Debug | Start + LB + RB or Start + RB + Left | generic gamepad + the web app's serial port | 3 | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
 | PS4 | Start + LB + Left | DualShock 4 | 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
-| STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
-| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light green | yes | Original Xbox console |
-| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light green | — | Original Xbox console |
-| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light green | — | Original Xbox console (only in builds with the remote ROM) |
-| PS3 | Start + Left | DualShock 3 | 7 | light blue | yes | PS3 console (motion for Sixaxis games), PC |
+| STEAM | Start + LB + Up | DualSense + mouse | 5 | lilac | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
+| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light lime | yes | Original Xbox console |
+| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light lime | — | Original Xbox console |
+| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light lime | — | Original Xbox console (only in builds with the remote ROM) |
+| PS3 | Start + Left | DualShock 3 | 7 | cyan | yes | PS3 console (motion for Sixaxis games), PC |
 | Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | yellow | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
-| PS Classic | Start + A | PlayStation Classic controller | 7 | lilac | yes | PlayStation Classic console |
-| Wii U (GameCube adapter) | Start + LB + Down | Wii U GameCube adapter | 7 | pink | yes | Wii U, in Super Smash Bros. only; the one mode tested with several controllers |
-| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | red-orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
-| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | lilac | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
-| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | salmon | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
-| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | orange | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
-| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | salmon | — | N64 through the controller cable; Pico W / Pico 2 W |
-| Web App | Start + LB + RB | web app device | 7 | white | yes | Settings and diagnostics in the browser, over USB |
+| PS Classic | Start + A | PlayStation Classic controller | 7 | light azure | yes | PlayStation Classic console |
+| GameCube adapter (Wii U / Switch) | Start + LB + Down | Wii U GameCube adapter | 7 | light red | yes | Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers |
+| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
+| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | light azure | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
+| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | magenta | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
+| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | light blue-violet | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
+| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | magenta | — | N64 through the controller cable; Pico W / Pico 2 W |
 <!-- END GENERATED: mode-table -->
 
 - **Other combos:** **Start + Select** for 3 s disconnects the controller (Options + Share on a
@@ -241,7 +240,7 @@ browser (Chrome, Edge, Brave) and talks to the adapter over USB or Bluetooth —
 install. It edits button mappings, stick deadzones and curves, trigger thresholds and profiles,
 the Mouse + Keyboard layout, the adapter options below, and shows live input and diagnostics.
 
-- **Over USB:** switch the adapter to **Web App** mode (Start + LB + RB), plug it into the PC, press
+- **Over USB:** switch the adapter to **D-Input/Debug** mode (Start + LB + RB), plug it into the PC, press
   *Connect via USB*.
 - **Over Bluetooth:** press *Connect via Bluetooth*; no mode change needed (see the Bluetooth
   Classic note under [Controllers](#bluetooth-pico-w--pico-2-w--rp2354)).
@@ -307,7 +306,7 @@ powered while off). Wake-up and BIOS navigation verified on an ASUS ROG Ally X.
 To report lag, stutter or disconnects without a serial adapter:
 
 1. Play in your usual mode for a few minutes with the problem happening.
-2. Without unplugging the adapter, switch it to **Web App** mode with the combo, open the
+2. Without unplugging the adapter, switch it to **D-Input/Debug** mode with the combo, open the
    [web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) and connect over USB.
 3. Keep the controller connected and move the sticks for 10 seconds, then press
    **Generate log report** in the *Diagnostics* panel and send the downloaded `.json` file.
@@ -316,11 +315,11 @@ The report has, per controller: what it is (IDs, Bluetooth chip vendor and versi
 strings), how it is connected (Bluetooth Classic or LE and its connection interval, signal, radio
 channels in use, wired or a known 2.4 GHz receiver, USB speed) and how its input arrives (reports
 per second, late reports, largest gap, reports lost by the controller's own counter on DS4 /
-DualSense). It also has a summary of the session before the switch to Web App mode and the last
+DualSense). It also has a summary of the session before the switch to D-Input/Debug mode and the last
 events (connects, disconnects with their reason, mode changes). It holds no full Bluetooth address
 (only the manufacturer part) and no personal data.
 
-The events and the session summary survive the switch to Web App mode (the memory survives that
+The events and the session summary survive the switch to D-Input/Debug mode (the memory survives that
 restart, not unplugging the adapter). Turning the controller off (or Start + Select) before
 unplugging stores the session summary in flash, so it is still in a later report, together with
 where the firmware stopped if it ever crashed (the adapter restarts by itself after a crash instead

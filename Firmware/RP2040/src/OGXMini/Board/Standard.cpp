@@ -59,6 +59,10 @@ void stop_pio_usb_host() {
 } // namespace board_api_usbh
 
 void core1_task() {
+    /* Custom fix: let Core0 park this core while it writes flash (UserSettings/NVSTool.h). Without
+     * it, a settings save applied live (no restart) wrote flash while this core ran from it, which
+     * could hang it; the main loop then stopped and the hang watchdog restarted the adapter. */
+    multicore_lockout_victim_init();
     HostManager& host_manager = HostManager::get_instance();
     host_manager.initialize(_gamepads);
 
@@ -210,7 +214,9 @@ void standard::run() {
         multicore_reset_core1();
         multicore_launch_core1(core1_task);
 
-        if (current_driver != DeviceDriverType::WEBAPP) {
+        /* Custom: DInput / Debug starts USB right away, so the web app connects without a
+         * controller (as the Web App mode did). */
+        if (current_driver != DeviceDriverType::DINPUT) {
             while (!tud_inited()) {
                 TaskQueue::Core0::process_tasks();
                 sleep_ms(100);

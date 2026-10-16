@@ -99,34 +99,28 @@ namespace DInput
     #pragma pack(pop)
     static_assert(sizeof(DeviceInReport) == 27, "DInput::DeviceInReport must match the 27-byte report descriptor");
 
-    static const uint8_t STRING_DESC_LANGUAGE[] = { 0x09, 0x04 };
-    static const uint8_t STRING_MANUFACTURER[]  = "SHANWAN";
-    static const uint8_t STRING_PRODUCT[]       = "2In1 USB Joystick";
-    static const uint8_t STRING_VERSION[]       = "1.0";
-
-    static const uint8_t *STRING_DESCRIPTORS[] __attribute__((unused)) =
-    {
-        STRING_DESC_LANGUAGE,
-        STRING_MANUFACTURER,
-        STRING_PRODUCT,
-        STRING_VERSION
-    };
+    /* Custom: DInput / Debug mode — the gamepad and the web app's serial port in one device
+     * (strings: USBDevice/DeviceDriver/WebApp, CDCDesc: "OGX-Mini", the board's serial number, the
+     * port named "OGX-Mini Debug"). Own ID: 0xCAFE (the web app's former mode) with a PID of its
+     * own, so hosts do not reuse what they cached for another interface layout. */
+    static constexpr uint16_t VID = 0xCAFE;
+    static constexpr uint16_t PID = 0x4010;
 
     static const uint8_t DEVICE_DESCRIPTORS[] =
     {
         0x12,        // bLength
         0x01,        // bDescriptorType (Device)
-        0x10, 0x01,  // bcdUSB 1.10
-        0x00,        // bDeviceClass (Use class information in the Interface Descriptors)
-        0x00,        // bDeviceSubClass 
-        0x00,        // bDeviceProtocol 
+        0x00, 0x02,  // bcdUSB 2.00
+        0xEF,        // bDeviceClass (Miscellaneous: interface association, for the serial port)
+        0x02,        // bDeviceSubClass (Common)
+        0x01,        // bDeviceProtocol (IAD)
         0x40,        // bMaxPacketSize0 64
-        0x63, 0x25,  // idVendor 0x2563
-        0x75, 0x05,  // idProduct 0x0575
-        0x00, 0x02,  // bcdDevice 4.00
+        static_cast<uint8_t>(VID & 0xFF), static_cast<uint8_t>(VID >> 8),
+        static_cast<uint8_t>(PID & 0xFF), static_cast<uint8_t>(PID >> 8),
+        0x00, 0x01,  // bcdDevice 1.00
         0x01,        // iManufacturer (String Index)
         0x02,        // iProduct (String Index)
-        0x00,        // iSerialNumber (String Index)
+        0x03,        // iSerialNumber (String Index)
         0x01,        // bNumConfigurations 1
     };
 
@@ -254,10 +248,17 @@ namespace DInput
 #if MAX_GAMEPADS > 3 
         NUM_HID4,
 #endif 
+        NUM_CDC,       // Custom: the web app's serial port (communication + data interfaces)
+        NUM_CDC_DATA,
         NUM_TOTAL 
     };
 
-    #define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + (TUD_HID_DESC_LEN * MAX_GAMEPADS))
+    /* Custom: the serial port's endpoints come after the gamepads' (0x81..0x84). */
+    static constexpr uint8_t EP_CDC_NOTIF = 0x80 | (MAX_GAMEPADS + 1);
+    static constexpr uint8_t EP_CDC_OUT   = MAX_GAMEPADS + 2;
+    static constexpr uint8_t EP_CDC_IN    = 0x80 | (MAX_GAMEPADS + 2);
+
+    static constexpr uint16_t CONFIG_TOTAL_LENGTH = TUD_CONFIG_DESC_LEN + (TUD_HID_DESC_LEN * MAX_GAMEPADS) + TUD_CDC_DESC_LEN;
 
     // #define EPNUM_HID1 0x81
     // #define EPNUM_HID2 0x82
@@ -270,7 +271,7 @@ namespace DInput
         TUD_CONFIG_DESCRIPTOR(  1,
                                 Itf::NUM_TOTAL,
                                 0,
-                                CONFIG_TOTAL_LEN,
+                                CONFIG_TOTAL_LENGTH,
                                 TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP,
                                 500),
 
@@ -307,8 +308,11 @@ namespace DInput
                             sizeof(REPORT_DESCRIPTORS),
                             (0x80 | (Itf::NUM_HID4 + 1)),
                             CFG_TUD_HID_EP_BUFSIZE,
-                            1)
+                            1),
 #endif
+        // Custom: the web app's serial port, after the gamepads (some simple hosts read only the
+        // first interface). String 4 = "OGX-Mini Debug".
+        TUD_CDC_DESCRIPTOR(Itf::NUM_CDC, 4, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64)
     };
 
 }; // namespace DInput

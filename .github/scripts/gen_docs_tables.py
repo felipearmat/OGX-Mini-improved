@@ -28,7 +28,7 @@ END = "<!-- END GENERATED: mode-table -->"
 MODE_INFO = {
     "XINPUT": ("XInput", "Xbox 360 controller", "PC, Steam, Xbox 360 console (authenticates like an original pad)"),
     "SWITCH": ("Switch Pro", "Switch Pro Controller", "Switch / Switch 2 / Lite, PC; motion and HD rumble"),
-    "DINPUT": ("DInput", "generic gamepad", "PC and other hosts that take a generic gamepad"),
+    "DINPUT": ("DInput / Debug", "generic gamepad + the web app's serial port", "PC and other hosts that take a generic gamepad; the web app connects over USB in this mode"),
     "PS4": ("PS4", "DualShock 4", "PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter"),
     "STEAM": ("STEAM", "DualSense + mouse", "Steam / SteamOS / Bazzite; touchpad as mouse"),
     "XBOXOG": ("Original Xbox", "Xbox controller (Duke)", "Original Xbox console"),
@@ -37,15 +37,14 @@ MODE_INFO = {
     "PS3": ("PS3", "DualShock 3", "PS3 console (motion for Sixaxis games), PC"),
     "KBM": ("Mouse + Keyboard", "keyboard + mouse + media keys", "PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard"),
     "PSCLASSIC": ("PS Classic", "PlayStation Classic controller", "PlayStation Classic console"),
-    "WIIU": ("Wii U (GameCube adapter)", "Wii U GameCube adapter", "Wii U, in Super Smash Bros. only; the one mode tested with several controllers"),
+    "WIIU": ("GameCube adapter (Wii U / Switch)", "Wii U GameCube adapter", "Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers"),
     "WII": ("Wii", "Wiimote over Bluetooth", "Wii / Wii U; Pico W / Pico 2 W with a wired USB controller"),
     "PS1PS2": ("PS1 / PS2", "PlayStation controller (wired)", "PS1 / PS2 through the controller cable; Pico W / Pico 2 W"),
     "GAMECUBE": ("GameCube", "GameCube controller (wired)", "GameCube / Wii GameCube ports; Pico W / Pico 2 W"),
     "DREAMCAST": ("Dreamcast", "Dreamcast controller (wired)", "Dreamcast through the controller cable; Pico W / Pico 2 W"),
     "N64": ("N64", "N64 controller (wired)", "N64 through the controller cable; Pico W / Pico 2 W"),
-    "WEBAPP": ("Web App", "web app device", "Settings and diagnostics in the browser, over USB"),
 }
-NOT_A_MODE = {"NONE", "UART_BRIDGE"}  # internal states, not user modes
+NOT_A_MODE = {"NONE", "UART_BRIDGE", "WEBAPP"}  # internal states (WEBAPP: the former Web App mode, now DINPUT)
 
 BUTTON_NAMES = {
     "BUTTON_START": "Start", "BUTTON_BACK": "Select", "BUTTON_LB": "LB", "BUTTON_RB": "RB",
@@ -76,7 +75,8 @@ def parse_combos(repo: pathlib.Path):
         parts = [p.strip() for p in args.split(",")]
         buttons = [BUTTON_NAMES.get(b.strip().replace("B::", ""), b.strip()) for b in parts[0].split("|")]
         dpad = DPAD_NAMES.get(parts[1].replace("B::", ""), parts[1]) if len(parts) > 1 else None
-        mapping[mode] = " + ".join(buttons + ([dpad] if dpad else []))
+        text_combo = " + ".join(buttons + ([dpad] if dpad else []))
+        mapping[mode] = f"{mapping[mode]} or {text_combo}" if mode in mapping else text_combo
     if not mapping:
         fail("MODE_COMBOS not found in ModeCombos.h")
     body = re.search(r"HYBRID_MODES\[\]\s*=\s*\{(.*?)\};", text, re.S)

@@ -6,6 +6,7 @@
 #include "USBDevice/DeviceDriver/DeviceDriver.h"
 #include "UserSettings/UserSettings.h"
 #include "UserSettings/UserProfile.h"
+#include "UserSettings/WebAppProtocol.h"
 
 class WebAppDevice : public DeviceDriver 
 {
@@ -23,60 +24,20 @@ public:
 
     void line_state_cb(uint8_t itf, bool dtr, bool rts) override;
 
+    /* Custom: the web app has the serial port open (DInput / Debug mode). */
+    static bool connected() { return tud_cdc_connected(); }
+
 private:
-    enum class PacketID : uint8_t
-    {
-        NONE = 0,
-        GET_PROFILE_BY_ID = 0x50,
-        GET_PROFILE_BY_IDX = 0x55,
-        SET_PROFILE_START = 0x60,
-        SET_PROFILE = 0x61,
-        /* Custom (OGX-Mini-improved): dongle options (UserSettings/DongleSettings, 17 bytes; 16 = versions 2-3, 8 = version 1). */
-        GET_DONGLE_SETTINGS = 0x70,
-        SET_DONGLE_SETTINGS = 0x71,
-        /* Custom: mouse + keyboard mode mapping (USBDevice/DeviceDriver/KBM/KbmSettings, 48 bytes). SET answers with
-         * GET_KBM_SETTINGS once stored. */
-        GET_KBM_SETTINGS = 0x72,
-        SET_KBM_SETTINGS = 0x73,
-        /* Custom: diagnostics report (Diagnostics/Diagnostics), JSON text over as many chunks as needed. */
-        GET_DIAGNOSTICS = 0x74,
-        /* Custom: adapter maintenance, so the adapter's own USB port does everything. data[0]:
-         * SYSTEM_BOOTSEL (RP2040 / RP2350 USB bootloader, for a UF2 or picotool), SYSTEM_REBOOT,
-         * and on the RP2040 + ESP32 hybrid SYSTEM_ESP32_FLASH (restart as a USB serial to the
-         * ESP32's ROM bootloader, for esptool) and SYSTEM_ESP32_MONITOR (restart as a USB serial
-         * with the kept log and the ESP32's live output). Answered with SYSTEM before acting, or
-         * RESP_ERROR when the board can't. */
-        SYSTEM = 0x75,
-        /* Custom: what this hardware supports (UserSettings/Capabilities.h), 4 bytes little-endian. */
-        GET_CAPABILITIES = 0x76,
-        /* Custom: versions, NUL-separated text: this firmware's OGX-Mini-improved version, the
-         * board (OGXM_BOARD, as in the release file names), then the hybrid's ESP32 version ("" if
-         * none or not heard yet). The web app compares them with the latest release. */
-        GET_VERSION = 0x77,
-        SET_GP_IN = 0x80,
-        /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
-         * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
-        SET_GP_OUT = 0x81,
-        /* Custom: DS4 / DualSense touchpad, sent after SET_GP_IN while the pad reports it. Data:
-         * the two touch points as the pads send them (4 bytes each), then the touchpad click. */
-        GP_TOUCH = 0x82,
-        RESP_ERROR = 0xFF
-    };
+    using PacketID = webapp_protocol::PacketID;  // the wire format: UserSettings/WebAppProtocol.h
     
     #pragma pack(push, 1)
-    enum SystemCommand : uint8_t
-    {
-        SYSTEM_BOOTSEL = 1,
-        SYSTEM_REBOOT = 2,
-        SYSTEM_ESP32_FLASH = 3,
-        SYSTEM_ESP32_MONITOR = 4,
-    };
+    using SystemCommand = webapp_protocol::SystemCommand;
 
     struct PacketHeader
     {
         uint8_t packet_len{64};
         PacketID packet_id{PacketID::NONE};
-        DeviceDriverType device_driver{DeviceDriverType::WEBAPP};
+        DeviceDriverType device_driver{DeviceDriverType::DINPUT};  // Custom: the mode the web app runs in (D-Input/Debug)
         uint8_t max_gamepads{MAX_GAMEPADS};
         uint8_t player_idx{0};
         uint8_t profile_id{0};
@@ -97,6 +58,9 @@ private:
     UserSettings& user_settings_{UserSettings::get_instance()};
     /* Custom: rumble test end time (ms since boot), 0 = none running. */
     uint32_t rumble_test_until_ms_{0};
+    /* Custom: end of the colour preview (ms since boot), 0 = none. */
+    static constexpr uint32_t kPreviewMs = 15000;
+    uint32_t preview_until_ms_{0};
 
     /* Custom: live input to the web app is capped (kLiveIntervalMs) and the touchpad sent only
      * when it changes: a 250 Hz controller plus its touchpad made ~32 KB/s, more than the page
@@ -121,6 +85,8 @@ private:
     void write_error();
     bool write_dongle_settings();
     bool write_kbm_settings();
+    bool write_led_colors();
+    void end_preview();
     bool write_diagnostics();
     bool write_chunked(PacketID id, const char* data, size_t len);  // up to 255 chunks
     bool write_touch(uint8_t index, const Gamepad::PadIn& pad_in);

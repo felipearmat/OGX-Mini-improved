@@ -60,6 +60,16 @@ jobs:
       - name: Check shared sources
         run: python3 .github/scripts/check_shared_sources.py
 
+  # Rules learnt from bugs that only showed on hardware (.github/scripts/check_firmware_rules.py).
+  rules:
+    name: Firmware rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check firmware rules
+        run: python3 .github/scripts/check_firmware_rules.py
+
   # The README's mode table is generated from the firmware source, and every relative link in the
   # Markdown files must point to a tracked file and an existing heading (docs/TESTING.md).
   docs:
@@ -128,6 +138,7 @@ jobs:
             board: PI_PICO2W
             build_type: Release
             flags: ""
+            max_warnings: 25
           - name: PI_PICO2W-DebugLite
             board: PI_PICO2W
             build_type: Debug
@@ -138,6 +149,7 @@ jobs:
             board: ESP32_BLUEPAD32_I2C_PICO2
             build_type: Release
             flags: ""
+            max_warnings: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -189,9 +201,21 @@ jobs:
             cmake -S Firmware/RP2040 -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DOGXM_BOARD=${{ matrix.board }} -DMAX_GAMEPADS=1 \
               ${{ matrix.flags }} &&
-            cmake --build build"
+            cmake --build build 2>&1 | tee build.log; test \${PIPESTATUS[0]} -eq 0"
           mkdir -p out
           for f in build/*.uf2; do cp "$f" "out/$(basename "${f%.uf2}")-${{ matrix.name }}-${GITHUB_SHA::7}.uf2"; done
+
+      # Known warnings today (deprecated Bluepad32 search calls, the Wiimote library): a new one
+      # fails the build, so it is seen when it comes in.
+      - name: No new compiler warnings
+        if: matrix.max_warnings != ''
+        run: |
+          count=$(grep -c "warning:" build.log || true)
+          echo "$count compiler warnings (limit ${{ matrix.max_warnings }})"
+          if [ "$count" -gt "${{ matrix.max_warnings }}" ]; then
+            grep "warning:" build.log | sort -u
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

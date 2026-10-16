@@ -53,7 +53,6 @@
     #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
     #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
     #define RGB_PXL_PIO         pio2
-    #define RGB_BRIGHTNESS      OGXM_EXT_RGB_BRIGHTNESS
     #endif
 
 #elif defined(CONFIG_OGXM_BOARD_RP2040_ZERO)
@@ -101,6 +100,9 @@
     #define MODE_SEL_PIN        21
     #define ESP_PROG_PIN        20 // ESP32 IO0
     #define ESP_RST_PIN         8  // ESP32 EN
+    /* Custom: the Pico / Pico 2's own LED as the status LED. On a Pico W / Pico 2 W GP25 goes to
+     * the radio chip, which the hybrid leaves off: the LED stays dark there. */
+    #define LED_INDICATOR_PIN   25
     /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP0,
      * D- GP1, 5 V from VBUS), as on the Pico W. */
     #define PIO_USB_DP_PIN      0
@@ -113,7 +115,6 @@
     #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
     #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
     #define RGB_PXL_PIO         pio2
-    #define RGB_BRIGHTNESS      OGXM_EXT_RGB_BRIGHTNESS
     #endif
 
     #if MAX_GAMEPADS > 1

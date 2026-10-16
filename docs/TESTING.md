@@ -3,10 +3,15 @@
 Host-side unit tests for the firmware logic this fork fixed or added. They build with the
 computer's own compiler (no Pico SDK, no board needed) and run in under a second. Run them before
 every commit and PR: each one pins a bug that was found on hardware, so a failing test means that
-bug is back. Hardware checks for the RP2040 + ESP32 hybrid: [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md).
+bug is back. Hardware checks for the RP2040 + ESP32 hybrid: [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
+automated tests on a real adapter (settings saved live, restarts, the ESP32 link):
+[Tools/bench](../Tools/bench/README.md).
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
-`host-tests`), together with the Pico 2 W firmware builds, the ESP32 companion firmware build, the
+`host-tests`), together with the Pico 2 W firmware builds (each with a limit of compiler warnings:
+a new warning fails the build), the firmware rules (`python3 .github/scripts/check_firmware_rules.py`:
+checks in the source for bugs that only showed on hardware, such as a Core1 entry that does not
+register for the flash lockout), the ESP32 companion firmware build, the
 shared-sources check (`python3 .github/scripts/check_shared_sources.py`, see
 [Firmware/common/README.md](../Firmware/common/README.md)) and the documentation checks below. A PR
 is only ready to merge when every job passes. Steps that hang or depend on the network (submodules, apt, Pico SDK, configure + build)
@@ -55,7 +60,8 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_gamepad_out` | Short host rumble pulses between two feedback samples are not lost; host lightbar. |
 | `test_nvstool` | Settings in flash, on a simulated XIP flash (interrupts off while writing, entries past the first sector). |
 | `test_wire_pad` | 23-byte pad layout the web app expects. |
-| `test_dongle_settings` | Adapter Options defaults and wire / flash format. |
+| `test_dongle_settings` | Adapter Options defaults and wire / flash format; the status LED options (version 6) applied without a restart. |
+| `test_webapp_contract` | What the web app must agree on, written from the firmware's code into `Firmware/common/contract/webapp_contract.json`: packet IDs, output mode values, capability bits, the settings record (length, offsets, defaults, how every older version decodes) and the colour per mode. Fails when the committed file is out of date (`./build-tests/test_webapp_contract --write` rewrites it, then copy it to the web app's `tests/contract/`). The web app's own tests (`npm test` in OGX-Mini-improved-WebApp) check its constants against the same file, and its CI fails when its copy differs from the firmware's. |
 | `test_joycon_settings` | Joy-Con motion defaults and sideways rotation. |
 | `test_reported_mac` | MAC address reported by the emulated DS4 / DualSense. |
 | `test_kbm` | Mouse + Keyboard mode: settings wire format and the pad-to-report mapping. |

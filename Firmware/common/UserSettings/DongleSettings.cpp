@@ -36,6 +36,22 @@
 #ifndef OGXM_HIGH_TX_POWER
 #define OGXM_HIGH_TX_POWER 0
 #endif
+#ifndef OGXM_STATUS_LED_PICO
+#define OGXM_STATUS_LED_PICO 1
+#endif
+#ifndef OGXM_STATUS_LED_PICO_EXT
+#define OGXM_STATUS_LED_PICO_EXT 1
+#endif
+#ifndef OGXM_STATUS_LED_ESP32
+#define OGXM_STATUS_LED_ESP32 1
+#endif
+#ifndef OGXM_STATUS_LED_ESP32_EXT
+#define OGXM_STATUS_LED_ESP32_EXT 1
+#endif
+#ifndef OGXM_EXT_RGB_BRIGHTNESS
+#define OGXM_EXT_RGB_BRIGHTNESS 48
+#endif
+static_assert(OGXM_EXT_RGB_BRIGHTNESS >= 1 && OGXM_EXT_RGB_BRIGHTNESS <= 255, "OGXM_EXT_RGB_BRIGHTNESS: 1-255");
 #ifndef OGXM_IDLE_OFF_MINUTES
 #define OGXM_IDLE_OFF_MINUTES 15
 #endif
@@ -76,6 +92,11 @@ Settings defaults()
     s.combo_disabled_modes = static_cast<uint32_t>(OGXM_COMBO_DISABLED_MODES);
     s.idle_off_minutes = static_cast<uint8_t>(OGXM_IDLE_OFF_MINUTES);
     s.high_tx_power = flag(OGXM_HIGH_TX_POWER);
+    s.status_led_pico = flag(OGXM_STATUS_LED_PICO);
+    s.status_led_pico_ext = flag(OGXM_STATUS_LED_PICO_EXT);
+    s.status_led_esp32 = flag(OGXM_STATUS_LED_ESP32);
+    s.status_led_esp32_ext = flag(OGXM_STATUS_LED_ESP32_EXT);
+    s.status_led_brightness = static_cast<uint8_t>(OGXM_EXT_RGB_BRIGHTNESS);
     return s;
 }
 
@@ -83,7 +104,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
 {
     if (data == nullptr || len < 1)
         return false;
-    const bool v5 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v6 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v5 = (data[0] == 5 && len >= kV5Length) || v6;
     const bool v4 = (data[0] == 4 && len >= kV4Length) || v5;
     const bool v3 = (data[0] == 3 && len >= kV3Length) || v4;
     const bool v2 = data[0] == 2 && len >= kV3Length;
@@ -113,6 +135,14 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
         s.idle_off_minutes = data[16];
     if (v5)
         s.high_tx_power = flag(data[17]);
+    if (v6) {
+        s.status_led_pico = flag(data[18]);
+        s.status_led_pico_ext = flag(data[19]);
+        s.status_led_esp32 = flag(data[20]);
+        s.status_led_esp32_ext = flag(data[21]);
+        if (data[22] != 0)
+            s.status_led_brightness = data[22];
+    }
     out = s;
     return true;
 }
@@ -149,6 +179,11 @@ bool same_except_live(const Settings& a, const Settings& b)
     for (int i = 0; i < 3; ++i) x.search_times[i] = y.search_times[i] = 0;
     x.idle_off_minutes = y.idle_off_minutes = 0;
     x.high_tx_power = y.high_tx_power = 0;
+    x.status_led_pico = y.status_led_pico = 0;
+    x.status_led_pico_ext = y.status_led_pico_ext = 0;
+    x.status_led_esp32 = y.status_led_esp32 = 0;
+    x.status_led_esp32_ext = y.status_led_esp32_ext = 0;
+    x.status_led_brightness = y.status_led_brightness = 0;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);
     const uint8_t* q = reinterpret_cast<const uint8_t*>(&y);
     for (size_t i = 0; i < sizeof(Settings); ++i)

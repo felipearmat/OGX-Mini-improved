@@ -3,6 +3,36 @@
 Known issues and loose ends of features that already exist, to fix later. New features and
 the plan for them: [ROADMAP.md](ROADMAP.md).
 
+## USB
+
+- **The adapter sometimes does not come back on USB after a restart** (into the ESP32 bridge or log
+  monitor, after flashing the ESP32, rarely after a mode change; seen with the ESP32 on the Pico's
+  VBUS and on its own USB port). Replugging the dongle is not always enough; reconnecting the USB
+  hub or another port brings it back. Suspects, not confirmed: the USB hub (macOS once kept a stale
+  device on one of its ports after a UF2 copy), back-powering through the ESP32's pins when the
+  ESP32 has its own supply, the Pico's restart path. The bench test
+  `test_log_monitor_returns_to_dinput` (Tools/bench) caught it once; repeat it straight on the
+  computer's port, without the hub, to tell the hub apart.
+
+## Output modes
+
+- **PS3 mode straight into a PS3 console, without an auth adapter.** Only tested through a Brook
+  Wingman XE 2. The DInput mode used to answer the PS3's feature report 0x0300 (the "magic bytes" a
+  third-party PS3 pad sends) under a ShanWan "PC / PS3" identity, which a PS3 accepts as a generic
+  pad; D-Input/Debug dropped it (own VID / PID, generic HID for SDL / Steam). If PS3 mode fails on
+  the console, bring that identity back as a PS3-mode variant.
+- **Dreamcast signal level.** Sources disagree on whether the Maple Bus data lines are 3.3 V or
+  5 V (the Pico's are not 5 V tolerant; a Pico 2's are, while powered). Measure on a console (or a
+  second Pico as the host, Tools/bench) before trusting the direct wiring; DreamPicoPort wires the
+  pins straight to a Pico.
+- **GameCube + N64 in one mode, detecting the console** (both are joybus on GP19): rewrite on
+  joybus-pio (MIT; HayBox does the detection: answer 0x00 as a GameCube pad, 0x40 / 0x41 / 0x42 =
+  GameCube, 0x01 / 0x02 / 0x03 = N64). The current N64 driver reads about half of each command in
+  software and probably fails on a real N64; GameCube ignores 0xFF and 0x42. Bench: a second
+  RP2040 running libjoybus's host examples.
+- **Web app over USB on Android.** Chrome on Android has no Web Serial; the web-serial-polyfill
+  (Web Serial over WebUSB) would reach the D-Input/Debug serial port from the same web app code.
+
 ## Motion
 
 - **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
