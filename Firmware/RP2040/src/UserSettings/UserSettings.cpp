@@ -476,7 +476,7 @@ void UserSettings::write_datetime()
 
 bool UserSettings::verify_datetime()
 {
-    char read_dt_tag[DATETIME_TAG.size() + 1] = {0};
+    char read_dt_tag[sizeof(BUILD_DATETIME)] = {0};  // the tag DATETIME_TAG holds, plus its NUL
 
     if (!nvs_tool_.read(DATETIME_KEY(), read_dt_tag, sizeof(read_dt_tag)) ||
         (std::strcmp(read_dt_tag, DATETIME_TAG.c_str()) != 0))

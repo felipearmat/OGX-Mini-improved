@@ -50,6 +50,52 @@ jobs:
           cmake --build build-tests
           ctest --test-dir build-tests --output-on-failure
 
+  # The web app (OGX-Mini-improved-WebApp, master) in Chromium against this firmware's virtual
+  # adapter (Firmware/RP2040/tests/virtual_adapter): a protocol or settings change the web app does
+  # not follow fails here. The web app's own CI runs the same suite against this repository's master.
+  webapp-e2e:
+    name: Web app end-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout required submodules
+        run: |
+          .github/scripts/retry.sh 5 10m -- git submodule update --init --depth 1 \
+            Firmware/external/libfixmath Firmware/external/tinyusb
+
+      - uses: actions/checkout@v4
+        with:
+          repository: felipearmat/OGX-Mini-improved-WebApp
+          ref: master
+          path: webapp
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Playwright
+        working-directory: webapp
+        run: |
+          ../.github/scripts/retry.sh 5 10m -- npm ci
+          ../.github/scripts/retry.sh 5 10m -- npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        working-directory: webapp
+        env:
+          OGXM_FIRMWARE_DIR: ${{ github.workspace }}
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: webapp-e2e-report
+          path: |
+            webapp/playwright-report
+            webapp/test-results
+          retention-days: 7
+
   # Code used by more than one firmware lives once in Firmware/common (Firmware/common/README.md).
   shared-sources:
     name: Shared sources

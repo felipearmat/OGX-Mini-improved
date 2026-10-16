@@ -5,10 +5,11 @@ computer's own compiler (no Pico SDK, no board needed) and run in under a second
 every commit and PR: each one pins a bug that was found on hardware, so a failing test means that
 bug is back. Hardware checks for the RP2040 + ESP32 hybrid: [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
 automated tests on a real adapter (settings saved live, restarts, the ESP32 link):
-[Tools/bench](../Tools/bench/README.md).
+[Tools/bench](../Tools/bench/README.md); the web app against the firmware's own code, no board
+needed: [Virtual adapter](#virtual-adapter-web-app-end-to-end-tests) below.
 
 CI runs the same tests on every push and pull request (`.github/workflows/improved-ci.yml`, job
-`host-tests`), together with the Pico 2 W firmware builds (Release builds have no compiler warnings; one
+`host-tests`), the web app's end-to-end tests against this firmware (job `webapp-e2e`), together with the Pico 2 W firmware builds (Release builds have no compiler warnings; one
 fails the build), the firmware rules (`python3 .github/scripts/check_firmware_rules.py`:
 checks in the source for bugs that only showed on hardware, such as a Core1 entry that does not
 register for the flash lockout), the ESP32 companion firmware build, the
@@ -76,6 +77,32 @@ Checked at build time instead: the Bluetooth per-pad arrays stay sized for every
 Not covered (need the real board): the mode-switch freeze (Core1 parking, watchdog), the
 disconnect-combo deadlock in the Bluetooth core, and the GATT header regeneration. Changes there
 need a hardware check, described in the PR.
+
+## Virtual adapter (web app end-to-end tests)
+
+`Firmware/RP2040/tests/virtual_adapter` builds the firmware's web app side for the computer: the
+real `WebAppDevice` (USB protocol), `UserSettings` and `NVSTool` on a simulated flash, the
+diagnostics report and the mode colours, as on a Pico 2 W with the external status LED on GP6. Its
+USB serial port is stdin / stdout and its flash a file, so settings outlive a restart:
+
+```sh
+cmake -S Firmware/RP2040/tests/virtual_adapter -B build-va && cmake --build build-va
+./build-va/virtual_adapter flash.bin
+```
+
+It needs only the `libfixmath` and `tinyusb` submodules (the host tests build it too). What the
+board would do it does as a process: a restart (a mode change, an option that needs one) exits
+with code 3, the USB bootloader with 4, and a new flash file starts in D-Input/Debug; in any other
+mode there is no serial port. An optional control channel on fd 3 opens and closes the port (the
+page's DTR), holds a mode combo (`M<mode>`) and reports the output mode at boot and the external
+status LED's colour (`virtual_board.h`).
+
+The web app (OGX-Mini-improved-WebApp, `e2e/`) runs its Playwright suite in Chromium against it,
+with `navigator.serial` replaced by a port wired to the process: connecting, profiles saved across
+a restart, a mode change away from D-Input/Debug and its combo back, live options (status LEDs,
+brightness, mode combos) without a restart, an option that needs one, the mode colour preview and
+save, the mouse + keyboard mapping, and the diagnostics panel and report. Both repositories' CI run
+it: this one against the web app's master, the web app's against this repository's master.
 
 ## Adding a test
 

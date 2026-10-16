@@ -123,6 +123,9 @@ target_compile_definitions(test_device_reports PRIVATE TUP_DCD_ENDPOINT_MAX=8)
 target_compile_options(test_device_reports PRIVATE -Wno-unused-parameter -Wno-volatile)
 target_link_libraries(test_device_reports PRIVATE fixmath)
 
+# Custom: the web app's side of the firmware built for the PC (virtual_adapter/CMakeLists.txt).
+add_subdirectory(virtual_adapter)
+
 # Bluepad32 Switch parser with the OGX-Mini-improved patch series (applied here if needed). Built 32-bit so struct layouts match the RP2350 (the parser's instance
 # must fit in 256 bytes of parser_data).
 set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)

@@ -360,7 +360,6 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
 
     tud_cdc_write_flush();
     bool success = false;   
-    static Packet packet_out;
 
     if (tud_cdc_available())
     {
