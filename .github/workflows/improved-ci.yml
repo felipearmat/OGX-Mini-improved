@@ -55,7 +55,7 @@ jobs:
         env:
           OGXM_VIRTUAL_ADAPTER: build-tests/virtual_adapter/virtual_adapter
         run: |
-          .github/scripts/retry.sh 5 5m -- python3 -m pip install --user -r Tools/bench/requirements.txt
+          .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get -o DPkg::Lock::Timeout=120 install -y python3-serial python3-pytest'
           python3 -m pytest Tools/bench/test_logger.py -v
 
   # The web app (OGX-Mini-improved-WebApp, master) in Chromium against this firmware's virtual
