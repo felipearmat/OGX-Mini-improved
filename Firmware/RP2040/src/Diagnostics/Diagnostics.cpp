@@ -854,6 +854,23 @@ void usb_report_sent()
     ++s_usb_sent_count;
 }
 
+namespace {
+LatencySource s_latency_source = nullptr;
+
+/* The latency source's numbers, before the lock; recorded like pipeline_latency(). */
+void read_latency_source()
+{
+    if (!s_latency_source) return;
+    const Latency lat = s_latency_source();
+    if (lat.samples) pipeline_latency(lat.samples, lat.avg_us, lat.max_us);
+}
+} // namespace
+
+void set_latency_source(LatencySource source)
+{
+    s_latency_source = source;
+}
+
 void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us)
 {
     Lock l;
@@ -903,6 +920,7 @@ bool session_relevant(const Session& ss);
 
 void session_freeze(uint32_t now_ms)
 {
+    read_latency_source();  // before the lock: it takes the gamepad's mutex
     Lock l;
     if (s_frozen_valid) return;
     s_frozen = build_session(now_ms);
@@ -921,6 +939,7 @@ void session_freeze(uint32_t now_ms)
 size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
 {
     if (!out || out_len < sizeof(Session)) return 0;
+    read_latency_source();
     Lock l;
     const Session ss = s_frozen_valid ? s_frozen : build_session(now_ms);
     if (!session_relevant(ss)) return 0;

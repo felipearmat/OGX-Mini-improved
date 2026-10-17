@@ -277,6 +277,22 @@ TEST(session_summary_stored_in_flash_is_reported) {
     CHECK(!has(report(6), "stored_session"));
 }
 
+TEST(latency_is_read_from_its_source_whatever_ends_the_session) {
+    // Every board registers its gamepad; the latency is read whenever the session is frozen or
+    // captured, not only on the mode combo's path (pipeline_latency).
+    setup();
+    diag::set_latency_source([] { return diag::Latency{700, 950, 3100}; });
+    diag::slot_connected(0, 0, "Xbox", 0x045e, 0x0b13, 3, true, 0x40, kAddr);
+    for (uint32_t t = 10; t <= 10000; t += 10) diag::slot_report(0, t);
+    uint8_t blob[diag::kSessionBytes];
+    const size_t n = diag::session_capture(blob, sizeof(blob), 10000);
+    diag::set_latency_source(nullptr);
+    CHECK(n > 0);
+    setup();
+    diag::set_stored_session(blob, n);
+    CHECK(has(report(5), "\"input_to_output_latency\":{\"samples\":700,\"avg_us\":950,\"max_us\":3100}"));
+}
+
 TEST(events_keep_the_latest_in_order_and_are_escaped) {
     setup();
     for (int i = 0; i < 70; ++i)

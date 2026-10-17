@@ -25,6 +25,7 @@
 #include "Board/board_api.h"
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 200;
 
@@ -150,6 +151,7 @@ void standard::host_mounted(bool host_mounted) {
 }
 
 void standard::initialize() {
+    diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     board_api::init_board();
 
     UserSettings& user_settings = UserSettings::get_instance();

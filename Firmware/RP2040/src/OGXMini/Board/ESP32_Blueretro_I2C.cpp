@@ -15,6 +15,7 @@
 #include "Board/esp32_api.h"
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 
 #pragma pack(push, 1)
 struct PacketIn {
@@ -157,6 +158,7 @@ bool update_needed(UserSettings& user_settings) {
 }
 
 void esp32_br_i2c::initialize() {
+    diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     board_api::init_board();
     esp32_api::init();
 

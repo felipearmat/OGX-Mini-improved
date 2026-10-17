@@ -148,6 +148,12 @@ namespace diag {
     void usb_report_sent();
     // Input-to-use latency of the output driver, for the session summary.
     void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us);
+    /* Where to read that latency (Gamepad::latency_stats(); RP2040 DiagnosticsBoard.h
+     * set_latency_gamepad): read whenever the session is frozen or captured, whatever ends it, and
+     * outside the diagnostics lock (it takes the gamepad's mutex). */
+    struct Latency { uint32_t samples, avg_us, max_us; };
+    using LatencySource = Latency (*)();
+    void set_latency_source(LatencySource source);
 
     // Once a second or more often: rates and windows roll over.
     void tick(uint32_t now_ms);

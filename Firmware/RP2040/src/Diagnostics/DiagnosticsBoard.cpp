@@ -17,6 +17,22 @@
 
 namespace diag {
 
+namespace {
+Gamepad* s_latency_gamepad = nullptr;
+
+Latency gamepad_latency()
+{
+    const Gamepad::LatencyStats st = s_latency_gamepad->latency_stats();
+    return Latency{st.samples, st.avg_us, st.max_us};
+}
+} // namespace
+
+void set_latency_gamepad(Gamepad* gamepad)
+{
+    s_latency_gamepad = gamepad;
+    set_latency_source(gamepad ? gamepad_latency : nullptr);
+}
+
 const char* driver_name(DeviceDriverType type)
 {
     switch (type) {

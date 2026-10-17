@@ -20,6 +20,7 @@
 #include "Board/esp32_api.h"
 #include "Board/BootMode.h"
 #include "Board/BootStage.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 #include "Board/BtAdapterAddress.h"
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
@@ -620,6 +621,7 @@ bool update_needed(UserSettings& user_settings) {
 }
 
 void esp32_bp32_i2c::initialize() {
+    diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     boot_stage::set(boot_stage::Stage::BOARD_INIT);
     board_api::init_board();
     boot_stage::set(boot_stage::Stage::ESP32_PINS);

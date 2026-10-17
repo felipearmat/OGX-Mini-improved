@@ -22,6 +22,7 @@
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/I2CWirePad.h"
 #include "TaskQueue/TaskQueue.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 250;
 
@@ -422,6 +423,7 @@ void four_ch_i2c::host_mounted_w_type(bool mounted, HostDriverType host_type) {
 }
 
 void four_ch_i2c::initialize() {
+    diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
 

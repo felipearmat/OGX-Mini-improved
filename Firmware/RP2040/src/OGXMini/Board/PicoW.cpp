@@ -24,6 +24,7 @@
 #include "Board/board_api.h"
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
+#include "Diagnostics/DiagnosticsBoard.h"
 #include "Bluepad32/Bluepad32.h"
 #include "Bluepad32/BLEServer.h"
 #include "BLEServer/BleStore.h"
@@ -435,6 +436,7 @@ void set_gp_check_timer(uint32_t task_id) {
 }
 
 void pico_w::initialize() {
+    diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     OGXM_LOG("PicoW init: start\n");
     board_api::init_board();
     OGXM_LOG("PicoW init: board inited\n");
