@@ -89,6 +89,7 @@ private:
     void end_preview();
     bool write_diagnostics();
     bool write_log(uint32_t since);
+    bool write_flash_log(uint32_t from_seq);
     bool write_chunked(PacketID id, const char* data, size_t len);  // up to 255 chunks
     bool write_touch(uint8_t index, const Gamepad::PadIn& pad_in);
 };

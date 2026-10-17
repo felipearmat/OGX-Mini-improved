@@ -23,6 +23,7 @@
 #include "Gamepad/I2CWirePad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Board/FlashLog.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 250;
 
@@ -426,6 +427,7 @@ void four_ch_i2c::initialize() {
     diag::set_latency_gamepad(&_gamepads[0]);  // Custom: input-to-use latency in the diagnostics
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+    flash_log::init(board_api::ms_since_boot());  // Custom: the kept log in flash (Board/FlashLog.h)
 
     board_api::init_board();
 
@@ -456,6 +458,7 @@ void four_ch_i2c::run() {
     if (I2C::role() == I2C::Role::MASTER) {
         while (true) {
             TaskQueue::Core0::process_tasks();
+            flash_log::tick(board_api::ms_since_boot(), true);
             tud_task();
             I2C::Master::process();
             device_driver->process(0, _gamepads[0]);
@@ -466,6 +469,7 @@ void four_ch_i2c::run() {
     } else {
         while (true) {
             TaskQueue::Core0::process_tasks();
+            flash_log::tick(board_api::ms_since_boot(), true);
             tud_task();
             device_driver->process(0, _gamepads[0]);
 #if MAIN_LOOP_DELAY_US > 0

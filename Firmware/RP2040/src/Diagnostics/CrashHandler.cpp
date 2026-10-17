@@ -27,6 +27,16 @@ namespace {
     }
 }
 
+/* The build that crashed (FWDefines.cmake OGXM_BUILD_ID), to match the record with its .elf. */
+void copy_build_id(diag::CrashInfo& c)
+{
+#if defined(OGXM_BUILD_ID)
+    const char* id = OGXM_BUILD_ID;
+    for (size_t i = 0; i + 1 < sizeof(c.build) && id[i]; ++i)
+        c.build[i] = id[i];
+#endif
+}
+
 } // namespace
 
 extern "C" [[noreturn]] void ogxm_fault_record(const uint32_t* frame)
@@ -46,6 +56,7 @@ extern "C" [[noreturn]] void ogxm_fault_record(const uint32_t* frame)
     c.bfar = scb[0x38 / 4];
 #endif
     c.uptime_ms = to_ms_since_boot(get_absolute_time());
+    copy_build_id(c);
     diag::crash_record(c);
     reboot_now();
 }
@@ -83,6 +94,7 @@ extern "C" [[noreturn]] void ogxm_panic(const char* fmt, ...)
         std::vsnprintf(c.message, sizeof(c.message), fmt, ap);
         va_end(ap);
     }
+    copy_build_id(c);
     diag::crash_record(c);
 #if defined(CONFIG_OGXM_DEBUG)
     printf("\nPANIC: %s\n", c.message);

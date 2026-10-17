@@ -128,7 +128,7 @@ namespace Esp32Bridge
         uint8_t  lightbar_r{0};
         uint8_t  lightbar_g{0};
         uint8_t  lightbar_b{0};
-        dongle_settings::Settings settings{};  // version 0 = not sent
+        uint8_t  settings[dongle_settings::kV6Length]{};  // the version 6 record (encode_v6); version 0 = not sent
         DeviceDriverType driver{DeviceDriverType::NONE};  // the RP2040's output mode
         uint8_t  active_profile{0};   // active profile ID of this output (1..8)
         uint16_t profiles_crc{0};     // profiles_crc() of the RP2040's profiles; 0 = not sent

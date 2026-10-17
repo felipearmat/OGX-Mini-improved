@@ -25,6 +25,7 @@
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Board/FlashLog.h"
 #include "Bluepad32/Bluepad32.h"
 #include "Bluepad32/BLEServer.h"
 #include "BLEServer/BleStore.h"
@@ -443,6 +444,7 @@ void pico_w::initialize() {
 
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+    flash_log::init(board_api::ms_since_boot());  // Custom: the kept log in flash (Board/FlashLog.h)
 #if defined(CONFIG_OGXM_DEBUG)
     OGXM_LOG("PicoW init: flash inited, driver=" + OGXM_TO_STRING(user_settings.get_current_driver()) + "\n");
 #else
@@ -579,6 +581,7 @@ void pico_w::run() {
                 ;
         }
         TaskQueue::Core0::process_tasks();
+        flash_log::tick(board_api::ms_since_boot(), !wii_mode && !ps2_poll_mode);  // not with the Wiimote or the PS2 poll
         if (!wii_mode) {
             tud_task();
             /* Custom: the host read the dongle's MAC before the pad connected; reconnect USB so it

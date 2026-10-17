@@ -71,6 +71,7 @@ namespace diag {
         uint32_t cfsr, hfsr, mmfar, bfar;
         uint32_t uptime_ms;
         char message[48];      // panic message
+        char build[12];        // OGXM_BUILD_ID of the firmware that crashed (empty: an older one)
     };
     // From the fault / panic handler, before the reboot: no lock, no allocation.
     void crash_record(const CrashInfo& crash);
@@ -154,6 +155,12 @@ namespace diag {
     struct Latency { uint32_t samples, avg_us, max_us; };
     using LatencySource = Latency (*)();
     void set_latency_source(LatencySource source);
+
+    /* Nothing being played right now: no controller reporting (none connected, or none heard
+     * for kQuietMs), or the host's USB suspended. The kept log is written to flash freely then
+     * (Board/FlashLog.h); while playing, sparingly. */
+    constexpr uint32_t kQuietMs = 10000;
+    bool quiet(uint32_t now_ms);
 
     // Once a second or more often: rates and windows roll over.
     void tick(uint32_t now_ms);

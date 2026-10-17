@@ -22,7 +22,7 @@ TEST(defaults_follow_the_build) {
 }
 
 TEST(decode_normalises_flags) {
-    const uint8_t bytes[23] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
+    const uint8_t bytes[24] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -49,9 +49,9 @@ TEST(decode_accepts_version_1_with_defaults_for_newer_options) {
 
 TEST(decode_rejects_other_versions_and_short_buffers) {
     Settings s = dongle_settings::defaults();
-    const uint8_t other[23] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
+    const uint8_t other[24] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
     CHECK(!dongle_settings::decode(other, sizeof(other), s));
-    const uint8_t shorty[22] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v6 needs 23
+    const uint8_t shorty[23] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v7 needs 24
     CHECK(!dongle_settings::decode(shorty, sizeof(shorty), s));
     const uint8_t short_v3[8] = {3, 1, 1, 1, 1, 1, 1, 1};  // v3 needs 16
     CHECK(!dongle_settings::decode(short_v3, sizeof(short_v3), s));
@@ -71,7 +71,7 @@ TEST(set_replaces_current) {
 }
 
 TEST(mode_combo_mask_in_bytes_12_to_15) {
-    uint8_t bytes[23] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
+    uint8_t bytes[24] = {dongle_settings::kVersion, 1, 1, 0, 1, 0, 0, 0, 1};
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.combo_disabled_modes, 0u);  // older records: every combo on
@@ -97,7 +97,7 @@ TEST(a_change_of_the_combo_mask_search_times_or_idle_time_alone_needs_no_restart
 }
 
 TEST(search_times_are_two_12_bit_fields_in_bytes_9_to_11) {
-    uint8_t bytes[23] = {dongle_settings::kVersion};
+    uint8_t bytes[24] = {dongle_settings::kVersion};
     // full 600 s (0x258), reduced 0xFFF (no limit): 58 | 2 + F<<4 | FF
     bytes[9] = 0x58;
     bytes[10] = 0xF2;
@@ -133,7 +133,7 @@ TEST(older_records_get_default_search_times_or_none_for_single_controller) {
 }
 
 TEST(idle_off_minutes_in_byte_16) {
-    uint8_t bytes[23] = {dongle_settings::kVersion};
+    uint8_t bytes[24] = {dongle_settings::kVersion};
     bytes[16] = 30;
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
@@ -176,7 +176,7 @@ TEST(version_5_high_tx_power) {
 }
 
 TEST(version_6_status_leds_applied_live) {
-    uint8_t bytes[23] = {dongle_settings::kVersion};
+    uint8_t bytes[24] = {dongle_settings::kVersion};
     bytes[18] = 0;   // Pico LED off
     bytes[19] = 1;   // Pico external LED on
     bytes[20] = 7;   // ESP32 LED on (normalised)
@@ -208,6 +208,43 @@ TEST(version_6_status_leds_applied_live) {
     b.status_led_esp32_ext = 0;
     b.status_led_brightness = 10;
     CHECK(dongle_settings::same_except_live(a, b));
+}
+
+TEST(v7_keeps_the_log_in_flash_option_and_reads_v6_records) {
+    uint8_t bytes[24] = {dongle_settings::kVersion};
+    bytes[23] = 1;
+    dongle_settings::Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.keep_log_in_flash, 1);
+    // A version 6 record (23 bytes): the option takes its build default.
+    uint8_t v6[23] = {6};
+    v6[22] = 100;
+    CHECK(dongle_settings::decode(v6, sizeof(v6), s));
+    CHECK_EQ(s.version, dongle_settings::kVersion);
+    CHECK_EQ(s.status_led_brightness, 100);
+    CHECK_EQ(s.keep_log_in_flash, dongle_settings::defaults().keep_log_in_flash);
+}
+
+TEST(the_log_in_flash_option_is_applied_live) {
+    dongle_settings::Settings a = dongle_settings::defaults();
+    dongle_settings::Settings b = a;
+    b.keep_log_in_flash = !a.keep_log_in_flash;
+    CHECK(dongle_settings::same_except_live(a, b));
+}
+
+TEST(the_i2c_link_carries_the_v6_record) {
+    // The hybrid's ESP32 reads the version 6 record, so its packet keeps its size and an ESP32
+    // with older firmware still takes the settings.
+    dongle_settings::Settings s = dongle_settings::defaults();
+    s.status_led_brightness = 77;
+    s.keep_log_in_flash = 1;
+    uint8_t v6[dongle_settings::kV6Length];
+    dongle_settings::encode_v6(s, v6);
+    CHECK_EQ(v6[0], 6);
+    CHECK_EQ(v6[22], 77);
+    dongle_settings::Settings back{};
+    CHECK(dongle_settings::decode(v6, sizeof(v6), back));
+    CHECK_EQ(back.status_led_brightness, 77);
 }
 
 TEST_MAIN()

@@ -57,6 +57,13 @@ namespace webapp_protocol {
          * byte sent (later than asked when bytes were dropped), the position after the newest
          * byte (both uint32), then up to kLogBytes of text. */
         GET_LOG = 0x7B,
+        /* Custom: the kept log saved in flash (RP2040 Board/FlashLog.h), a page at a time. Data:
+         * the sequence number to read from (uint32, little-endian; 0 or 1 = the oldest). Answer:
+         * seq (uint32, 0 = none from there), boot (uint16), ring generation and ring position of
+         * the text (uint32 each; the logger tells what it already read with GET_LOG by them),
+         * uptime in seconds when written (uint32), the running ring generation (uint32), then the
+         * page's text. */
+        GET_FLASH_LOG = 0x7C,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -68,6 +75,7 @@ namespace webapp_protocol {
     };
 
     constexpr size_t kLogBytes = 2048;  // GET_LOG text per answer
+    constexpr size_t kFlashLogHeader = 22;  // GET_FLASH_LOG answer before the text
 
     enum SystemCommand : uint8_t
     {

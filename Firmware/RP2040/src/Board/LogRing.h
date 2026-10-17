@@ -26,6 +26,9 @@ size_t log_ring_read(size_t offset, uint8_t* out, size_t len);
  * newest. Returns the count. */
 size_t log_ring_read_since(uint32_t since, uint32_t* start, uint32_t* total, uint8_t* out, size_t len);
 
+/* Host tests: empty, as after a power-on. */
+void log_ring_reset_for_test(void);
+
 #ifdef __cplusplus
 }
 #endif

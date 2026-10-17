@@ -20,6 +20,7 @@
 #include "UserSettings/UserSettings.h"
 #include "Diagnostics/DiagnosticsBoard.h"
 #include "Board/ModeIndicator.h"
+#include "Board/FlashLog.h"
 #include "UserSettings/DongleSettings.h"
 
 namespace {
@@ -57,6 +58,7 @@ int main(int argc, char** argv)
     user_settings.initialize_flash();
     if (virtual_board::fresh_flash())
         user_settings.store_driver_type_only(DeviceDriverType::DINPUT_DEBUG);  // as if the combo had been held
+    flash_log::init(virtual_board::ms());
     diag::board_boot();
 
     const DeviceDriverType mode = user_settings.get_current_driver();
@@ -86,6 +88,7 @@ int main(int argc, char** argv)
             device.line_state_cb(0, dtr, false);  // the page opened or closed the port
         }
         device.process(0, gamepad);
+        flash_log::tick(virtual_board::ms(), true);
         report_led(mode);
         virtual_board::pump();
     }

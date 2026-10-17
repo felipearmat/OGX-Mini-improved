@@ -21,6 +21,7 @@
 #include "Board/BootMode.h"
 #include "Board/BootStage.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Board/FlashLog.h"
 #include "Board/BtAdapterAddress.h"
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
@@ -255,7 +256,7 @@ static PacketOutExt ext_reply(uint8_t index) {
     if (WebAppDevice::connected()) {
         reply.flags |= PacketOutExt::WEB_APP_OPEN;  // the ESP32 sends unmapped buttons meanwhile
     }
-    reply.settings = dongle_settings::get();
+    dongle_settings::encode_v6(dongle_settings::get(), reply.settings);
     reply.driver = _current_driver;
     reply.active_profile = index < MAX_GAMEPADS ? _active_profile[index] : 1;
     reply.profiles_crc = _profiles_crc;
@@ -630,6 +631,7 @@ void esp32_bp32_i2c::initialize() {
     boot_stage::set(boot_stage::Stage::FLASH);
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+    flash_log::init(board_api::ms_since_boot());  // Custom: the kept log in flash (Board/FlashLog.h)
 
     for (uint8_t i = 0; i < UserSettings::MAX_PROFILES; ++i) {
         _profiles[i] = user_settings.get_profile_by_id(i + 1);
@@ -706,18 +708,30 @@ void esp32_bp32_i2c::run() {
     while (true) {
         watchdog_update();
         TaskQueue::Core0::process_tasks();
+        flash_log::tick(board_api::ms_since_boot(), true);
 
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
             device_driver->process(i, _gamepads[i]);
             tud_task();
         }
-        char esp_out[32];
-        size_t esp_len = 0;
-        while (esp_len < sizeof(esp_out) && uart_is_readable(uart0)) {
-            esp_out[esp_len++] = static_cast<char>(uart_getc(uart0));
+        /* The ESP32's output into the kept log a whole line at a time, so the RP2040's own lines
+         * never land in the middle of one; a line left unfinished goes in after 100 ms. */
+        static char esp_line[192];
+        static size_t esp_len = 0;
+        static uint32_t esp_last_ms = 0;
+        const uint32_t now_ms = board_api::ms_since_boot();
+        while (uart_is_readable(uart0)) {
+            const char c = static_cast<char>(uart_getc(uart0));
+            esp_line[esp_len++] = c;
+            esp_last_ms = now_ms;
+            if (c == '\n' || esp_len == sizeof(esp_line)) {
+                log_ring_append("esp", esp_line, esp_len);
+                esp_len = 0;
+            }
         }
-        if (esp_len) {
-            log_ring_append("esp", esp_out, esp_len);
+        if (esp_len && now_ms - esp_last_ms >= 100) {
+            log_ring_append("esp", esp_line, esp_len);
+            esp_len = 0;
         }
 #if defined(CONFIG_EN_USB_HOST)
         usb_host_tick();

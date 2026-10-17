@@ -879,6 +879,17 @@ void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us)
     s_lat_max = max_us;
 }
 
+bool quiet(uint32_t now_ms)
+{
+    Lock l;
+    if (s_usb_suspended) return true;
+    for (const auto& s : s_slots)
+        if (s.active && now_ms - s.timing.last_report_ms < kQuietMs) return false;
+    for (const auto& u : s_usb)
+        if (u.active && now_ms - u.timing.last_report_ms < kQuietMs) return false;
+    return true;
+}
+
 void tick(uint32_t now_ms)
 {
     Lock l;
@@ -1091,6 +1102,9 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.key_str("chip", s_info.chip);
     w.raw(",\"clock_mhz\":%lu", static_cast<unsigned long>(s_info.clock_mhz));
     w.key_str("build", s_info.build_type);
+#if defined(OGXM_BUILD_ID)
+    w.key_str("build_id", OGXM_BUILD_ID);  // the commit built (FWDefines.cmake), to match its .elf
+#endif
     w.key_str("output_mode", s_info.output_mode);
     w.raw(",\"max_gamepads\":%u,\"uptime_ms\":%lu", s_info.max_gamepads, static_cast<unsigned long>(now_ms));
     w.key_str("last_reset", s_info.reset_reason);
@@ -1205,6 +1219,9 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
             std::memcpy(msg, k.message, sizeof(k.message));
             w.key_str("message", msg);
         }
+        char build[sizeof(k.build) + 1]{};
+        std::memcpy(build, k.build, sizeof(k.build));
+        w.key_str("build", build[0] ? build : "unknown");
         w.raw("}");
     }
 

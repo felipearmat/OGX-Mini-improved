@@ -106,7 +106,7 @@ TEST(packet_out_ext_layout) {
     CHECK_EQ(offsetof(PacketOutExt, flags), 3u);
     CHECK_EQ(offsetof(PacketOutExt, lightbar_r), 4u);
     CHECK_EQ(offsetof(PacketOutExt, settings), 7u);
-    CHECK_EQ(ext.settings.version, 0);  // not sent: the ESP32 keeps its defaults
+    CHECK_EQ(ext.settings[0], 0);  // not sent: the ESP32 keeps its defaults
     CHECK_EQ(PacketOutExt::LIGHTBAR_VALID, 0x01);
     CHECK_EQ(PacketOutExt::MOTION_OUTPUT, 0x02);
 }

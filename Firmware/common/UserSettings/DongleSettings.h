@@ -31,9 +31,14 @@
  *    OGXM_STATUS_LED_ESP32                 ON   the hybrid ESP32's status LED
  *    OGXM_STATUS_LED_ESP32_EXT             ON   an external RGB status LED on the ESP32 (GPIO 4)
  *    OGXM_EXT_RGB_BRIGHTNESS               48   the RGB LEDs' brightness (1-255)
+ *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (ON with OGXM_DEV_DEFAULTS)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
- *  23 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  24 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 7 = version 6 plus, applied without a restart:
+ *    byte 23        keep the log in flash too (Board/FlashLog.h), so it outlives unplugging
+ *  The hybrid's I2C link carries the version 6 record (encode_v6): the ESP32 has no use for byte
+ *  23, and its packet keeps its size.
  *  Version 6 = version 5 plus, all applied without a restart:
  *    byte 18        the Pico's status LED on (0 / 1)
  *    byte 19        the external RGB LED on the Pico on (0 / 1)
@@ -60,13 +65,14 @@
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 6;
+    constexpr uint8_t kVersion = 7;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
     constexpr size_t kV3Length = 16;
     constexpr size_t kV4Length = 17;
     constexpr size_t kV5Length = 18;
+    constexpr size_t kV6Length = 23;
 
 #pragma pack(push, 1)
     struct Settings {
@@ -93,14 +99,19 @@ namespace dongle_settings {
         uint8_t status_led_esp32;
         uint8_t status_led_esp32_ext;
         uint8_t status_led_brightness;
+        // Version 7
+        uint8_t keep_log_in_flash;
     };
 #pragma pack(pop)
-    static_assert(sizeof(Settings) == 23, "dongle_settings::Settings is a wire format");
+    static_assert(sizeof(Settings) == 24, "dongle_settings::Settings is a wire format");
 
     // Build-time defaults.
     Settings defaults();
 
-    // Parse stored / received bytes, version 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
+    // The version 6 record (kV6Length bytes, version byte 6): what the hybrid's I2C link carries.
+    void encode_v6(const Settings& settings, uint8_t* out);
+
+    // Parse stored / received bytes, version 7, 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
@@ -114,7 +125,7 @@ namespace dongle_settings {
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
     // Same settings apart from the ones applied live (combo mask, search times, idle time,
-    // transmit power, status LEDs): a change of those alone needs no restart.
+    // transmit power, status LEDs, the log in flash): a change of those alone needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

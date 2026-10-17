@@ -12,6 +12,7 @@
 #include "Board/ogxm_log.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Board/LogRing.h"
+#include "Board/FlashLog.h"
 #include "Descriptors/CDCDev.h"
 #include "Board/ModeIndicator.h"
 #include "UserSettings/BoardCapabilities.h"
@@ -301,7 +302,23 @@ bool WebAppDevice::write_diagnostics()
 #else
     static char report[12 * 1024];
 #endif
-    const size_t len = diag::report_json(report, sizeof(report), board_api::ms_since_boot());
+    size_t len = diag::report_json(report, sizeof(report), board_api::ms_since_boot());
+    /* Custom: the kept log in flash (Board/FlashLog.h), before the report's closing brace. */
+    if (len > 0 && report[len - 1] == '}')
+    {
+        const flash_log::Stats st = flash_log::stats();
+        const int n = std::snprintf(report + len - 1, sizeof(report) - len + 1,
+            ",\"flash_log\":{\"enabled\":%s,\"available\":%s,\"pages\":%lu,\"capacity\":%lu,"
+            "\"oldest_seq\":%lu,\"newest_seq\":%lu,\"ready\":%lu,\"dropped_bytes\":%lu,\"boot\":%u}}",
+            st.enabled ? "true" : "false", st.available ? "true" : "false",
+            static_cast<unsigned long>(st.pages), static_cast<unsigned long>(st.capacity),
+            static_cast<unsigned long>(st.oldest_seq), static_cast<unsigned long>(st.newest_seq),
+            static_cast<unsigned long>(st.ready), static_cast<unsigned long>(st.dropped), st.boot);
+        if (n > 0 && static_cast<size_t>(n) < sizeof(report) - len + 1)
+            len += static_cast<size_t>(n) - 1;
+        else
+            report[len - 1] = '}';  // no room: the report as it was
+    }
     return write_chunked(PacketID::GET_DIAGNOSTICS, report, len);
 }
 
@@ -314,6 +331,29 @@ bool WebAppDevice::write_log(uint32_t since)
     std::memcpy(answer, &start, 4);
     std::memcpy(answer + 4, &total, 4);
     return write_chunked(PacketID::GET_LOG, reinterpret_cast<const char*>(answer), 8 + n);
+}
+
+/* Custom: a page of the kept log in flash (WebAppProtocol.h GET_FLASH_LOG). */
+bool WebAppDevice::write_flash_log(uint32_t from_seq)
+{
+    static uint8_t answer[webapp_protocol::kFlashLogHeader + flash_log::kPageText];
+    flash_log::Page page;
+    const bool found = flash_log::read(from_seq, page);
+    const uint32_t seq = found ? page.seq : 0;
+    const uint32_t gen = flash_log::stats().ring_gen;
+    std::memset(answer, 0, webapp_protocol::kFlashLogHeader);
+    std::memcpy(answer, &seq, 4);
+    size_t len = webapp_protocol::kFlashLogHeader;
+    if (found) {
+        std::memcpy(answer + 4, &page.boot, 2);
+        std::memcpy(answer + 6, &page.ring_gen, 4);
+        std::memcpy(answer + 10, &page.ring_pos, 4);
+        std::memcpy(answer + 14, &page.uptime_s, 4);
+        std::memcpy(answer + webapp_protocol::kFlashLogHeader, page.text, page.len);
+        len += page.len;
+    }
+    std::memcpy(answer + 18, &gen, 4);
+    return write_chunked(PacketID::GET_FLASH_LOG, reinterpret_cast<const char*>(answer), len);
 }
 
 bool WebAppDevice::write_chunked(PacketID id, const char* data, size_t len)
@@ -535,6 +575,19 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     return;
                 }
                 break;
+
+            case PacketID::GET_FLASH_LOG:
+            {
+                uint32_t from = 0;
+                if (packet_out.header.chunk_len >= 4)
+                    std::memcpy(&from, packet_out.data.data(), 4);
+                if (!write_flash_log(from))
+                {
+                    write_error();
+                    return;
+                }
+                break;
+            }
 
             case PacketID::GET_LOG:
             {

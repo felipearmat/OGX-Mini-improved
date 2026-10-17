@@ -76,7 +76,7 @@ std::string contract_json() {
         N(PacketID, SET_PROFILE), N(PacketID, GET_DONGLE_SETTINGS), N(PacketID, SET_DONGLE_SETTINGS),
         N(PacketID, GET_KBM_SETTINGS), N(PacketID, SET_KBM_SETTINGS), N(PacketID, GET_DIAGNOSTICS),
         N(PacketID, SYSTEM), N(PacketID, GET_CAPABILITIES), N(PacketID, GET_VERSION),
-        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW), N(PacketID, GET_LOG),
+        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW), N(PacketID, GET_LOG), N(PacketID, GET_FLASH_LOG),
         N(PacketID, SET_GP_IN), N(PacketID, SET_GP_OUT), N(PacketID, GP_TOUCH), N(PacketID, RESP_ERROR),
     };
     const std::vector<Named> system = {
@@ -101,7 +101,7 @@ std::string contract_json() {
         N(c, BLUETOOTH), N(c, HYBRID), N(c, HIGH_TX_POWER), N(c, JOYCON), N(c, MAC_PER_CONTROLLER),
         N(c, DISCONNECT_ON_MODE_CHANGE), N(c, SEARCH_TIMES), N(c, IDLE_OFF), N(c, WIRED_INPUT),
         N(c, BLE_WEBAPP), N(c, STATUS_LED_PICO), N(c, STATUS_LED_ESP32), N(c, STATUS_LED_PICO_EXT),
-        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, kPicoW), N(c, kHybrid),
+        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, FLASH_LOG), N(c, kPicoW), N(c, kHybrid),
     };
     o << "  \"capabilities\": " << object_json(caps, "  ") << ",\n";
 
@@ -112,7 +112,7 @@ std::string contract_json() {
         F(joycon_solo_horizontal), F(mac_per_controller), F(ps4_legacy_motion_scale), F(unused_single_controller),
         F(joycon_pair_rumble_per_side), F(search_times), F(combo_disabled_modes), F(idle_off_minutes),
         F(high_tx_power), F(status_led_pico), F(status_led_pico_ext), F(status_led_esp32),
-        F(status_led_esp32_ext), F(status_led_brightness),
+        F(status_led_esp32_ext), F(status_led_brightness), F(keep_log_in_flash),
     };
 #undef F
     const Settings defaults = dongle_settings::defaults();
@@ -121,7 +121,8 @@ std::string contract_json() {
       << "    \"length\": " << sizeof(Settings) << ",\n"
       << "    \"lengths\": { \"1\": " << dongle_settings::kV1Length << ", \"2\": " << dongle_settings::kV3Length
       << ", \"3\": " << dongle_settings::kV3Length << ", \"4\": " << dongle_settings::kV4Length
-      << ", \"5\": " << dongle_settings::kV5Length << ", \"6\": " << sizeof(Settings) << " },\n"
+      << ", \"5\": " << dongle_settings::kV5Length << ", \"6\": " << dongle_settings::kV6Length
+      << ", \"7\": " << sizeof(Settings) << " },\n"
       << "    \"offsets\": " << object_json(offsets, "    ") << ",\n"
       << "    \"defaults\": " << bytes_json(reinterpret_cast<const uint8_t*>(&defaults), sizeof(defaults)) << ",\n";
 
@@ -134,6 +135,7 @@ std::string contract_json() {
         {5, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 1},    // v5: high transmit power
         {6, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 0, 1, 1, 0, 120},  // v6
         {6, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 1, 1, 1, 1, 0},    // v6, brightness 0
+        {7, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 1, 1, 1, 1, 48, 1}, // v7: log in flash
     };
     o << "    \"decode\": [\n";
     for (size_t i = 0; i < inputs.size(); ++i) {

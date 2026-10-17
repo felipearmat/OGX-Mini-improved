@@ -30,6 +30,7 @@ namespace capabilities {
 #if defined(CONFIG_EN_USB_HOST)
         caps |= WIRED_INPUT;
 #endif
+        caps |= FLASH_LOG;  // every RP2040 / RP2350 board (Board/FlashLog.h)
         return caps;
     }
 

@@ -26,6 +26,7 @@
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Board/FlashLog.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 200;
 
@@ -156,6 +157,7 @@ void standard::initialize() {
 
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+    flash_log::init(board_api::ms_since_boot());  // Custom: the kept log in flash (Board/FlashLog.h)
 
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
         _gamepads[i].set_profile(user_settings.get_profile_by_index(i), user_settings.get_current_driver());
@@ -245,6 +247,7 @@ void standard::run() {
 
     while (true) {
         TaskQueue::Core0::process_tasks();
+        flash_log::tick(board_api::ms_since_boot(), !gpio_device_mode);  // not in the GPIO console modes
         if (gpio_device_mode) {
             pio_usb_host_loop_tick();
             tud_task();

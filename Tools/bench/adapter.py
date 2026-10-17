@@ -109,6 +109,17 @@ class Adapter:
             return None
         return int.from_bytes(data[0:4], "little"), int.from_bytes(data[4:8], "little"), data[8:]
 
+    def flash_log_page(self, from_seq):
+        """GET_FLASH_LOG: the oldest page of the log kept in flash with seq >= from_seq. Returns
+        a dict (seq 0 = none from there; ring_gen_now = the running ring generation), or None on
+        a firmware without it."""
+        data = self.request("GET_FLASH_LOG", int(from_seq).to_bytes(4, "little"), wait=3.0)
+        if not data or len(data) < 22:
+            return None
+        u32 = lambda o: int.from_bytes(data[o:o + 4], "little")
+        return {"seq": u32(0), "boot": int.from_bytes(data[4:6], "little"), "ring_gen": u32(6),
+                "ring_pos": u32(10), "uptime_s": u32(14), "ring_gen_now": u32(18), "text": data[22:]}
+
     def capabilities(self):
         data = self.request("GET_CAPABILITIES")
         return int.from_bytes(data, "little") if data else None

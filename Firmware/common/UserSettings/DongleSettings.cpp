@@ -53,6 +53,9 @@
 #define OGXM_EXT_RGB_BRIGHTNESS 48
 #endif
 static_assert(OGXM_EXT_RGB_BRIGHTNESS >= 1 && OGXM_EXT_RGB_BRIGHTNESS <= 255, "OGXM_EXT_RGB_BRIGHTNESS: 1-255");
+#ifndef OGXM_FLASH_LOG
+#define OGXM_FLASH_LOG 0
+#endif
 #ifndef OGXM_IDLE_OFF_MINUTES
 #define OGXM_IDLE_OFF_MINUTES 15
 #endif
@@ -98,6 +101,7 @@ Settings defaults()
     s.status_led_esp32 = flag(OGXM_STATUS_LED_ESP32);
     s.status_led_esp32_ext = flag(OGXM_STATUS_LED_ESP32_EXT);
     s.status_led_brightness = static_cast<uint8_t>(OGXM_EXT_RGB_BRIGHTNESS);
+    s.keep_log_in_flash = flag(OGXM_FLASH_LOG);
     return s;
 }
 
@@ -105,7 +109,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
 {
     if (data == nullptr || len < 1)
         return false;
-    const bool v6 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v7 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v6 = (data[0] == 6 && len >= kV6Length) || v7;
     const bool v5 = (data[0] == 5 && len >= kV5Length) || v6;
     const bool v4 = (data[0] == 4 && len >= kV4Length) || v5;
     const bool v3 = (data[0] == 3 && len >= kV3Length) || v4;
@@ -144,6 +149,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
         if (data[22] != 0)
             s.status_led_brightness = data[22];
     }
+    if (v7)
+        s.keep_log_in_flash = flag(data[23]);
     out = s;
     return true;
 }
@@ -188,11 +195,20 @@ bool same_except_live(const Settings& a, const Settings& b)
     x.status_led_esp32 = y.status_led_esp32 = 0;
     x.status_led_esp32_ext = y.status_led_esp32_ext = 0;
     x.status_led_brightness = y.status_led_brightness = 0;
+    x.keep_log_in_flash = y.keep_log_in_flash = 0;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);
     const uint8_t* q = reinterpret_cast<const uint8_t*>(&y);
     for (size_t i = 0; i < sizeof(Settings); ++i)
         if (p[i] != q[i]) return false;
     return true;
+}
+
+void encode_v6(const Settings& settings, uint8_t* out)
+{
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(&settings);
+    for (size_t i = 0; i < kV6Length; ++i)
+        out[i] = p[i];
+    out[0] = 6;
 }
 
 const Settings& get()

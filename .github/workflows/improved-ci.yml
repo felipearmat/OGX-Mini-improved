@@ -204,6 +204,21 @@ jobs:
             build_type: Release
             flags: ""
             max_warnings: 0
+          # Our own builds (FWDefines.cmake OGXM_DEV_DEFAULTS: the log kept in flash and pads
+          # disconnected before a mode change on by default, version "-dev"), with the .elf to
+          # match a crash record's build ID.
+          - name: PI_PICO2W-dev
+            board: PI_PICO2W
+            build_type: Release
+            flags: "-DOGXM_DEV_DEFAULTS=ON"
+            max_warnings: 0
+            elf: true
+          - name: ESP32_BLUEPAD32_I2C_PICO2-dev
+            board: ESP32_BLUEPAD32_I2C_PICO2
+            build_type: Release
+            flags: "-DOGXM_DEV_DEFAULTS=ON"
+            max_warnings: 0
+            elf: true
     steps:
       - uses: actions/checkout@v4
 
@@ -258,6 +273,9 @@ jobs:
             cmake --build build 2>&1 | tee build.log; test \${PIPESTATUS[0]} -eq 0"
           mkdir -p out
           for f in build/*.uf2; do cp "$f" "out/$(basename "${f%.uf2}")-${{ matrix.name }}-${GITHUB_SHA::7}.uf2"; done
+          if [ "${{ matrix.elf }}" = "true" ]; then
+            for f in build/*.elf; do cp "$f" "out/$(basename "${f%.elf}")-${{ matrix.name }}-${GITHUB_SHA::7}.elf"; done
+          fi
 
       # Release builds have no compiler warnings (ours, the libraries' and the toolchain's): a new
       # one fails the build, so it is fixed when it comes in.
@@ -274,4 +292,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: uf2-${{ matrix.name }}
-          path: out/*.uf2
+          path: |
+            out/*.uf2
+            out/*.elf

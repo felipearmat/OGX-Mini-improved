@@ -492,7 +492,7 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
     }
 
     dongle_settings::Settings settings;
-    if (dongle_settings::decode(reinterpret_cast<const uint8_t*>(&ext.settings), sizeof(ext.settings), settings))
+    if (dongle_settings::decode(ext.settings, sizeof(ext.settings), settings))
     {
         apply_tx_power(settings.high_tx_power != 0);
         const bool imu_side_changed = settings.joycon_pair_imu_right != dongle_settings::get().joycon_pair_imu_right;

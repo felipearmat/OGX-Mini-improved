@@ -7,7 +7,9 @@ What it records, in one text file per day (<dir>/YYYY-MM-DD.log):
 - [usb]  the adapter appearing and leaving USB (mode, port, how long it was gone) and, when it
          does not come back, what the computer's USB tree shows. Watched all the time.
 - [rp] / [esp]  the adapter's kept log (Board/LogRing.h: its diagnostics events, the hybrid's
-         ESP32 output), read with GET_LOG every --poll seconds.
+         ESP32 output), read with GET_LOG every --poll seconds; and what the adapter kept in
+         flash (Board/FlashLog.h, the "keep the log in flash" option) that was not read from its
+         RAM: what happened while it was away from the computer, after a "[flash]" line.
 - [diag] a summary of the diagnostics report every --report seconds; the whole report is saved
          (<dir>/reports/) when it shows something new: another boot, a crash, other controllers.
 
@@ -148,6 +150,48 @@ class Logger:
         except (serial.SerialException, OSError):
             return None  # taken in the meantime (the flock)
 
+    def read_flash(self, adapter):
+        """Pages of the log kept in flash not read yet; text already read from the RAM ring (the
+        same ring generation, up to the position read) is left out."""
+        first = self.state.get("flash_next", 1)
+        page = adapter.flash_log_page(first)
+        if page is None:
+            return None
+        gen_now = page["ring_gen_now"]
+        if self.state.get("ring_gen") != gen_now:
+            if self.state.get("ring_gen") is not None:
+                self.state["log_since"] = 0  # a new ring (power-on): read it from its start
+            self.state["ring_gen"] = gen_now
+        read_upto = self.state.setdefault("read_upto", {})
+        shown_header = False
+        count = 0
+        while page and page["seq"] and count < 512:
+            count += 1
+            text = page["text"]
+            gen = str(page["ring_gen"])
+            start, end = page["ring_pos"], page["ring_pos"] + len(text)
+            seen = read_upto.get(gen)
+            if seen is not None:
+                if seen >= end:
+                    text = b""
+                elif seen > start:
+                    text = text[seen - start:]
+            read_upto[gen] = max(read_upto.get(gen, 0), end)
+            if page["ring_gen"] == gen_now:  # still in RAM too: the RAM read goes on after it
+                self.state["log_since"] = max(self.state.get("log_since", 0), end)
+            if text:
+                if not shown_header:
+                    self.write("flash", f"kept in flash, not read before (boot {page['boot']}, from page {page['seq']}):")
+                    shown_header = True
+                    self.partial = b""
+                self.emit(text)
+            self.state["flash_next"] = page["seq"] + 1
+            page = adapter.flash_log_page(page["seq"] + 1)
+        if shown_header and self.partial:
+            self.emit(b"\n")
+        self._save_state()
+        return gen_now
+
     def read_log(self, adapter):
         since = self.state.get("log_since", 0)
         reads = 0
@@ -173,6 +217,8 @@ class Logger:
             if since == total or not data:
                 break
         self.state["log_since"] = since
+        if self.state.get("ring_gen") is not None:
+            self.state.setdefault("read_upto", {})[str(self.state["ring_gen"])] = since
         self._save_state()
 
     def emit(self, data):
@@ -230,6 +276,7 @@ class Logger:
             return
         try:
             if want_log:
+                self.read_flash(adapter)  # first: it tells the ring generation
                 self.read_log(adapter)
                 self.next_log = now + self.args.poll
             if want_report:

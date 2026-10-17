@@ -14,6 +14,7 @@ import pytest
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
+sys.path.insert(0, str(HERE))
 LOGGER = HERE / "logger.py"
 
 
@@ -36,6 +37,7 @@ class VirtualPort:
     """The virtual adapter with its serial port on a pty; `device` is the port a host opens."""
 
     def __init__(self, binary, flash):
+        self.flash = flash
         self.master, self.slave = os.openpty()
         tty.setraw(self.slave)  # no echo: bytes go through unchanged, as on a USB serial port
         self.device = os.ttyname(self.slave)
@@ -53,8 +55,11 @@ class VirtualPort:
         time.sleep(0.05)
 
     def close(self):
+        if self.proc is None:
+            return
         self.proc.kill()
         self.proc.wait()
+        self.proc = None
         for fd in (self.master, self.slave):
             os.close(fd)
         self.control.close()
@@ -117,3 +122,31 @@ def test_old_files_are_cleaned_up(port, tmp_path):
     run_logger(port, logs, "--keep-days", "14")
     assert not old.exists()
     assert "cleanup: 1 old file(s) removed" in "".join(p.read_text() for p in logs.glob("*.log"))
+
+
+def test_flash_log_fills_in_what_happened_away_from_the_computer(port, tmp_path, virtual_adapter_binary):
+    """With "keep the log in flash" on, what the adapter logged before being unplugged reaches the
+    files after it is back, once, and what was read from its RAM is not repeated."""
+    import adapter as A
+    logs = tmp_path / "logs"
+    a = A.Adapter(port.device)
+    record = bytearray(a.dongle_settings())
+    record[A.CONTRACT["dongle_settings"]["offsets"]["keep_log_in_flash"]] = 1
+    a.set_dongle_settings(record)
+    a.close()
+    port.send("Lread live first")
+    run_logger(port, logs)
+    port.send("Llogged away from the computer")
+    time.sleep(7)  # quiet: written to flash once the log stops growing for 5 s
+    # Unplugged and back: a new process on the same flash file (RAM gone).
+    flash = port.flash
+    port.close()
+    again = VirtualPort(virtual_adapter_binary, flash)
+    try:
+        time.sleep(0.3)
+        text = run_logger(again, logs)
+    finally:
+        again.close()
+    assert text.count("read live first") == 1
+    assert text.count("logged away from the computer") == 1
+    assert "[flash] kept in flash, not read before" in text

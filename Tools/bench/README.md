@@ -34,6 +34,10 @@ s), `[diag]` a line when the diagnostics report shows another boot, a crash or o
 controllers, with the whole report saved in `reports/`. Files older than 14 days, then the oldest
 beyond 200 MB, are deleted (`--keep-days`, `--max-mb`).
 
+With the adapter's "Keep the log in flash" option on (on by default in our own builds,
+`OGXM_DEV_DEFAULTS`), what it logged away from the computer (playing on a console) is read from
+its flash once it is back, after a `[flash]` line; what was already read from its RAM is left out.
+
 It reads the port only in D-Input/Debug, only while no other program has it open (the web app
 keeps it for its whole session) and only for a moment, under an flock that the bench tests and
 `Tools/hybrid` take too. In another output mode there is no serial port: the `[usb]` lines go on,

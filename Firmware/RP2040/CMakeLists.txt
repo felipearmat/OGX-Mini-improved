@@ -86,6 +86,7 @@ set(SOURCES_BOARD
     ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp
     ${SRC}/Board/LogRing.cpp
+    ${SRC}/Board/FlashLog.cpp
     ${COMMON}/Diagnostics/DiagNames.cpp
     ${SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${SRC}/Diagnostics/CrashHandler.cpp
@@ -362,7 +363,8 @@ add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 # can be changed at runtime from the web app (Adapter Options); these only set the defaults.
 # Disconnect every Bluetooth pad before a mode-change reboot: pads turn off (LED off, a visible
 # sign the mode changed) and reconnect on a button press; Joy-Cons no longer hang with the LED on.
-option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads before a mode-change reboot" ON)
+# Off in published builds (the upstream behaviour), on in our own (OGXM_DEV_DEFAULTS).
+option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads before a mode-change reboot" ${OGXM_DEV_DEFAULTS})
 
 # Joy-Con motion defaults (dongle options).
 set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
@@ -426,6 +428,12 @@ endif()
 set(OGXM_FULL_SEARCH_S "60" CACHE STRING "Default: full search for new controllers while a slot is open, in seconds (0-600)")
 set(OGXM_REDUCED_SEARCH_S "NO_LIMIT" CACHE STRING "Default: reduced search after the full one, in seconds (0-600) or NO_LIMIT")
 set(OGXM_COMBO_DISABLED_MODES "0" CACHE STRING "Default: output modes whose button combo is off, bit mask by DeviceDriverType (e.g. 0x8000 = PS4)")
+# Keep the log in flash too (Board/FlashLog.h), so it outlives unplugging the adapter: off in
+# published builds, on in our own (OGXM_DEV_DEFAULTS).
+option(OGXM_FLASH_LOG "Default: keep the log in flash too" ${OGXM_DEV_DEFAULTS})
+if(OGXM_FLASH_LOG)
+    add_compile_definitions(OGXM_FLASH_LOG=1)
+endif()
 option(OGXM_HIGH_TX_POWER "Default: higher Bluetooth transmit power where the radio allows it (hybrid: +9 dBm)" OFF)
 if(OGXM_HIGH_TX_POWER)
     add_compile_definitions(OGXM_HIGH_TX_POWER=1)
@@ -595,7 +603,7 @@ endif()
 string(TIMESTAMP CURRENT_DATETIME "%Y-%m-%d %H:%M:%S")
 add_compile_definitions(BUILD_DATETIME="${CURRENT_DATETIME}")
 add_compile_definitions(FIRMWARE_NAME="${FW_NAME}")
-add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}" OGXM_VERSION="${OGXM_VERSION}")
+add_compile_definitions(FIRMWARE_VERSION="${FW_VERSION}" OGXM_VERSION="${OGXM_VERSION}" OGXM_BUILD_ID="${OGXM_BUILD_ID}")
 add_compile_definitions(OGXM_BOARD_NAME="${OGXM_BOARD}")
 # Custom: panic() records the message for the diagnostics and reboots (Diagnostics/CrashHandler.cpp).
 add_compile_definitions(PICO_PANIC_FUNCTION=ogxm_panic)

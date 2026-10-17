@@ -27,6 +27,7 @@ add_executable(virtual_adapter
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
     ${FW_SRC}/Diagnostics/Diagnostics.cpp
     ${FW_SRC}/Board/LogRing.cpp
+    ${FW_SRC}/Board/FlashLog.cpp
     ${FW_SRC}/Diagnostics/DiagnosticsBoard.cpp
     ${FW_COMMON}/Diagnostics/DiagNames.cpp
     ${FW_COMMON}/UserSettings/UserProfile.cpp
@@ -38,9 +39,9 @@ target_include_directories(virtual_adapter PRIVATE ${VA}/mocks ${MOCKS} ${FW_SRC
     ${EXTERNAL_DIR}/tinyusb/src)
 # A Pico 2 W with the external status LED on GP6 and the wired USB port.
 target_compile_definitions(virtual_adapter PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1 CONFIG_EN_BLUETOOTH=1
-    CONFIG_EN_RGB=1 OGXM_EXT_RGB_PIN=6 OGXM_EXT_RGB_COUNT=1 CONFIG_EN_USB_HOST=1 MAX_GAMEPADS=1 NVS_SECTORS=4
+    CONFIG_EN_RGB=1 OGXM_EXT_RGB_PIN=6 OGXM_EXT_RGB_COUNT=1 CONFIG_EN_USB_HOST=1 MAX_GAMEPADS=1 NVS_SECTORS=4 OGXM_FLASH_LOG_SECTORS=4
     CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED
-    TUP_DCD_ENDPOINT_MAX=8 OGXM_VERSION="virtual" BUILD_DATETIME="virtual"
+    TUP_DCD_ENDPOINT_MAX=8 OGXM_VERSION="virtual" OGXM_BUILD_ID="virtual" BUILD_DATETIME="virtual"
     OGXM_BOARD_NAME="PI_PICO2W_VIRTUAL" PICO_RP2350=1)
 target_compile_options(virtual_adapter PRIVATE -Wno-unused-parameter $<$<CXX_COMPILER_ID:GNU>:-Wno-volatile> $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-deprecated-volatile>)
 target_link_libraries(virtual_adapter PRIVATE fixmath)

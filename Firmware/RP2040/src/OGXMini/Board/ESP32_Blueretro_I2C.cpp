@@ -16,6 +16,7 @@
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Board/FlashLog.h"
 
 #pragma pack(push, 1)
 struct PacketIn {
@@ -164,6 +165,7 @@ void esp32_br_i2c::initialize() {
 
     UserSettings& user_settings = UserSettings::get_instance();
     user_settings.initialize_flash();
+    flash_log::init(board_api::ms_since_boot());  // Custom: the kept log in flash (Board/FlashLog.h)
 
     //MODE_SEL_PIN is used to determine if UART bridge should be run
     _uart_bridge_mode = 
@@ -196,6 +198,7 @@ void esp32_br_i2c::run() {
 
     while (true) {
         TaskQueue::Core0::process_tasks();
+        flash_log::tick(board_api::ms_since_boot(), true);
         device_driver->process(0, _gamepads[0]);
         tud_task();
         sleep_ms(1);
