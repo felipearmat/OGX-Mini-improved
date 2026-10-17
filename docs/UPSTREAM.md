@@ -23,6 +23,9 @@ the latency read on every session end from #140 ported first).
    so a settings write could hang Core1 executing from flash), with
    `.github/scripts/check_firmware_rules.py`. Every board with flash writes while Core1 runs.
    High priority, standalone.
+0c. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
+   key bank on the Pico W / Pico 2 W; the fix keeps the entries in the 2 before it. Small, with its
+   unit test. Upstream has the same NVSTool.
 0a. **The same report resent with no controller** — a94c0e4
    (`Gamepad.h`): the "new input" flag cleared once the neutral state is delivered. Every board,
    every output driver that checks `new_pad_in()`. Small, with its unit test.

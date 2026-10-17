@@ -13,12 +13,27 @@
 
 /* Define NVS_SECTORS (number of sectors to allocate to storage) either here or with CMake */
 
+/* Custom fix: the last two of those sectors are BTstack's bank (its link keys: pico_btstack's
+ * default PICO_FLASH_BANK_STORAGE_OFFSET = the last FLASH_SECTOR_SIZE * 2 of flash) on the Pico W
+ * boards. NVSTool keeps its entries in the sectors before it, so formatting the settings (first
+ * boot) no longer writes over the pairings and a growing list of settings never reaches them. The
+ * same on every board, so the settings sit at the same place on all of them. */
+#ifndef NVS_BT_BANK_SECTORS
+#define NVS_BT_BANK_SECTORS 2
+#endif
+#if defined(PICO_FLASH_BANK_TOTAL_SIZE)
+static_assert(PICO_FLASH_BANK_TOTAL_SIZE == NVS_BT_BANK_SECTORS * FLASH_SECTOR_SIZE,
+              "NVSTool: BTstack's bank is not the last NVS_BT_BANK_SECTORS sectors");
+#endif
+static_assert(NVS_SECTORS > NVS_BT_BANK_SECTORS, "NVSTool: no sector left for the settings");
+
 class NVSTool
 {
 public:
     static constexpr size_t   KEY_LEN_MAX = 16; //Including null terminator
     static constexpr size_t   VALUE_LEN_MAX = FLASH_PAGE_SIZE - KEY_LEN_MAX;
-    static constexpr uint32_t MAX_ENTRIES = ((NVS_SECTORS * FLASH_SECTOR_SIZE) / FLASH_PAGE_SIZE) - 1;
+    static constexpr uint32_t USED_SECTORS = NVS_SECTORS - NVS_BT_BANK_SECTORS;
+    static constexpr uint32_t MAX_ENTRIES = ((USED_SECTORS * FLASH_SECTOR_SIZE) / FLASH_PAGE_SIZE) - 1;
 
     static NVSTool& get_instance()
     {
@@ -97,7 +112,7 @@ public:
 
         const bool ok = run_flash_op([]() {
             Entry entry;
-            for (uint32_t i = 0; i < NVS_SECTORS; ++i)
+            for (uint32_t i = 0; i < USED_SECTORS; ++i)
             {
                 flash_range_erase(NVS_START_OFFSET + i * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE);
             }

@@ -1,7 +1,7 @@
 // NVSTool (settings in flash) against a simulated XIP flash.
 // Regressions covered: flash erase/program with interrupts enabled (hard fault on a real
 // RP2350 when an IRQ ran from flash), and entries past the first NVS sector being written
-// at the wrong offset.
+// at the wrong offset, and the settings overlapping BTstack's link keys on the Pico W boards.
 #include <string>
 
 #include "UserSettings/NVSTool.h"
@@ -43,8 +43,8 @@ TEST(round_trip_and_overwrite) {
 TEST(entries_across_sectors_keep_their_values) {
     NVSTool& nvs = NVSTool::get_instance();
     nvs.erase_all();
-    // 16 entries of 256 bytes fill one 4 KB sector; go well past it.
-    const int count = 40;
+    // 16 entries of 256 bytes fill one 4 KB sector; go past it, up to the last entry.
+    const int count = static_cast<int>(NVSTool::MAX_ENTRIES) - 1;
     for (int i = 0; i < count; ++i) {
         const uint32_t v = 0xA5000000u | static_cast<uint32_t>(i);
         CHECK(nvs.write(key_for(i), &v, sizeof(v)));
@@ -55,6 +55,27 @@ TEST(entries_across_sectors_keep_their_values) {
         CHECK_EQ(v, 0xA5000000u | static_cast<uint32_t>(i));
     }
     CHECK_EQ(mock_flash::stats().ops_with_irqs_enabled, 0);
+}
+
+TEST(btstacks_bank_is_never_touched) {
+    // The last NVS_BT_BANK_SECTORS sectors hold BTstack's link keys on the Pico W boards:
+    // formatting and filling the settings leave them as they were.
+    const uint32_t bank = PICO_FLASH_SIZE_BYTES - NVS_BT_BANK_SECTORS * FLASH_SECTOR_SIZE;
+    for (uint32_t i = 0; i < NVS_BT_BANK_SECTORS * FLASH_SECTOR_SIZE; ++i)
+        mock_flash::memory()[bank + i] = static_cast<uint8_t>(i * 7 + 3);
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    for (uint32_t i = 0; i < NVSTool::MAX_ENTRIES + 5; ++i) {  // past the last entry: refused
+        const uint32_t v = i;
+        nvs.write(key_for(static_cast<int>(i)), &v, sizeof(v));
+    }
+    bool intact = true;
+    for (uint32_t i = 0; i < NVS_BT_BANK_SECTORS * FLASH_SECTOR_SIZE; ++i)
+        intact = intact && mock_flash::memory()[bank + i] == static_cast<uint8_t>(i * 7 + 3);
+    CHECK(intact);
+    const uint32_t v = 1;
+    CHECK(!nvs.write("one_too_many", &v, sizeof(v)));
+    nvs.erase_all();  // room again for the next tests
 }
 
 TEST(writes_go_through_flash_safe_execute) {
