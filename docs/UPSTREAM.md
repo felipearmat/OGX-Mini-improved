@@ -15,7 +15,8 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
 one. Nothing open upstream (2026-10-16). Merged: #129 (Switch Pro motion), #132 (rumble output
 queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
-#139 / #140 (diagnostics, 2026-10-14).
+#139 / #140 (diagnostics, 2026-10-14). The fork is synced with upstream `develop` after them (c9a621a, 2026-10-16;
+the latency read on every session end from #140 ported first).
 
 0. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
