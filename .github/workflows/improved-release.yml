@@ -222,7 +222,7 @@ jobs:
             echo "**Install:** hold BOOTSEL while plugging the board in, then copy the UF2 for your board to the drive that appears."
             echo "Bluetooth features (Joy-Cons, DS4 / DualSense, Mouse + Keyboard over Bluetooth pads...) need a Pico W, a Pico 2 W or the RP2040 + ESP32 hybrid."
             echo "The ESP32 boards' UF2 files are the RP2040 side; the hybrid's ESP32 (ESP32_BLUEPAD32_I2C*) takes the \`ESP32_COMPANION\` zip:"
-            echo "\`python3 Tools/hybrid/ogxm_hybrid.py flash-esp32 <unzipped folder>\` with the adapter in Web App mode (through its own USB port)."
+            echo "\`python3 Tools/hybrid/ogxm_hybrid.py flash-esp32 <unzipped folder>\` with the adapter in D-Input/Debug mode (Start + RB + D-pad Left; through its own USB port)."
             echo
             echo "| Board | File |"
             echo "|---|---|"
