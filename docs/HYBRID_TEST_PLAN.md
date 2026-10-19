@@ -14,7 +14,7 @@ Save a diagnostics report (web app, D-Input/Debug mode) after any failure.
   `ESP32_BLUEPAD32_I2C`) + an original ESP32 (WROOM / WROVER) running the companion firmware.
   Wiring: [hardware/README.md](../hardware/README.md#pi-pico--esp32) (GP18 → 21, GP19 → 22, GND,
   GP8 → EN, 2.2 kΩ pull-ups to 3V3; GP21 not connected). One USB cable to the Pico.
-- **Wiring:** the final pinout, including GP16 → RX0, GP17 ← TX0 and GP20 → IO0, so flashing and
+- **Wiring:** the final pinout, including GP16 or GP28 → RX0, GP17 ← TX0 and GP20 → IO0, so flashing and
   logs go through the Pico; the USB host port (GP0 / GP1) for groups 12 and 13.
 - **Firmware:** both sides from the same commit. The very first time, the ESP32 is flashed through
   its own USB port (or through a Pico that already runs this firmware: group 11), then the Pico.

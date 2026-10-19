@@ -687,6 +687,9 @@ void esp32_bp32_i2c::run() {
     boot_stage::set(boot_stage::Stage::ESP32_UART);
     uart_init(uart0, 115200);
     gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
+#if defined(UART0_TX_ALT_PIN)
+    gpio_set_function(UART0_TX_ALT_PIN, GPIO_FUNC_UART);  // same TX signal, second pad (Config.h)
+#endif
     gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
 
     boot_stage::set(boot_stage::Stage::ESP32_RESET);

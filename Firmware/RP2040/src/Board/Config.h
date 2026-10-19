@@ -96,6 +96,9 @@
     #define I2C_SDA_PIN         18
     #define I2C_SCL_PIN         19
     #define UART0_TX_PIN        16
+    /* Custom: UART0 TX is also driven on GP28 (pin 34), together with GP16: wire either one to the
+     * ESP32's RX0. GP16 is pin 21, a corner pad, the easiest to damage when soldering. */
+    #define UART0_TX_ALT_PIN    28
     #define UART0_RX_PIN        17
     #define MODE_SEL_PIN        21
     #define ESP_PROG_PIN        20 // ESP32 IO0

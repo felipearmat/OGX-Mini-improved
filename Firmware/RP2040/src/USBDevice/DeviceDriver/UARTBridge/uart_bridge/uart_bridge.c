@@ -117,6 +117,10 @@ void core1_entry(void) {
 	for (uint8_t itf = 0; itf < CFG_TUD_CDC; itf++) {
 		const uart_id_t *ui = &UART_ID[itf];
 		gpio_set_function(ui->tx_pin, GPIO_FUNC_UART);
+#if defined(UART0_TX_ALT_PIN)
+		/* Custom: UART0 TX on its second pad too (Config.h), so flashing works on either wire. */
+		if (ui->inst == uart0) gpio_set_function(UART0_TX_ALT_PIN, GPIO_FUNC_UART);
+#endif
 		gpio_set_function(ui->rx_pin, GPIO_FUNC_UART);
 		uart_init(ui->inst, DEF_BIT_RATE);
 		uart_set_fifo_enabled(ui->inst, true);
