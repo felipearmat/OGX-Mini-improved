@@ -91,14 +91,15 @@
 
 #elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
     /* CMake boards ESP32_BLUEPAD32_I2C (RP2040) and ESP32_BLUEPAD32_I2C_PICO2 (Pico 2 / Pico 2 W,
-     * RP2350): same pins, both chips have I2C1 on GP18 / GP19 and UART0 on GP16 / GP17. */
+     * RP2350): same pins, both chips have I2C1 on GP18 / GP19 and UART0 on GP28 (TX, also GP16) / GP17. */
     #define OGXM_BOARD          ESP32_BLUEPAD32_I2C
     #define I2C_SDA_PIN         18
     #define I2C_SCL_PIN         19
-    #define UART0_TX_PIN        16
-    /* Custom: UART0 TX is also driven on GP28 (pin 34), together with GP16: wire either one to the
-     * ESP32's RX0. GP16 is pin 21, a corner pad, the easiest to damage when soldering. */
-    #define UART0_TX_ALT_PIN    28
+    /* Custom: UART0 TX to the ESP32's RX0 on GP28 (pin 34), and the same signal on GP16 (pin 21) for
+     * hybrids wired before: wire either one. Pin 21 is a corner pad, often the one damaged by a poor
+     * soldering iron. */
+    #define UART0_TX_PIN        28
+    #define UART0_TX_ALT_PIN    16
     #define UART0_RX_PIN        17
     #define MODE_SEL_PIN        21
     #define ESP_PROG_PIN        20 // ESP32 IO0

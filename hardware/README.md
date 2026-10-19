@@ -66,7 +66,7 @@ never needed: its ROM bootloader is reached through the Pico, even on a blank ES
 | GP19 (pin 25) | GPIO22 | I2C SCL |
 | GP8 (pin 11) | EN | restarts the ESP32 |
 | GP20 (pin 26) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing |
-| GP16 (pin 21) **or** GP28 (pin 34), UART0 TX | GPIO3 (RX0) | flashing data to the ESP32. Both pins carry the same signal; wire one. GP28 spares pin 21, a corner pad that is easy to damage when soldering (the diagram shows GP16) |
+| GP28 (pin 34, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32. GP16 (pin 21) carries the same signal, for hybrids wired before (the diagram still shows GP16); pin 21 is a corner pad, often the one damaged by a poor soldering iron |
 | GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log |
 | VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) |
 | GND | GND | required |
@@ -90,7 +90,7 @@ connect VBUS.
 
 **Flashing and logs through the Pico** ([Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md)),
 with the adapter in D-Input/Debug mode: `bootsel --uf2 FILE` updates the Pico (a blank Pico starts in its
-USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP16 or GP28 / GP17 / GP20 /
+USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP28 (or GP16) / GP17 / GP20 /
 GP8, `monitor` shows the log both boards kept from the last session, then the ESP32's live
 output.
 
