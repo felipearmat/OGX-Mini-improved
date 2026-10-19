@@ -1,3 +1,8 @@
+**Soldering:** take care with the boards' corner pads (on a Pico: pins 1, 20, 21 and 40). They are
+the ones usually tacked first and pulled by the wires, and a poor or too hot iron often lifts or
+melts them. The wiring this fork adds keeps off them where it can (the hybrid's UART TX is GP28,
+pin 34).
+
 # Pi Pico
 ![OGX-Mini](../images/DiagramPico.png)
 
