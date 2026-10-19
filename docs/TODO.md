@@ -43,6 +43,20 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   GameCube, 0x01 / 0x02 / 0x03 = N64). The current N64 driver reads about half of each command in
   software and probably fails on a real N64; GameCube ignores 0xFF and 0x42. Bench: a second
   RP2040 running libjoybus's host examples.
+- **PS1 / PS2 mode: Core1 outside the flash lockout (Standard board).** `psx_device_main()`
+  (`PS1PS2/controller_simulator.c`), which runs on Core1, never calls
+  `multicore_lockout_victim_init()`, so settings written while it runs (Start + Select held 2.5 s
+  to change the input source, `store_input_source()`, no restart) fall back to "interrupts off on
+  Core0" with Core1 executing from flash. Registering it is not enough: Core0's SEL interrupt
+  resets and relaunches Core1 on every console transaction (`restart_pio_sm()`), which can run
+  during the lockout handshake (both use the SIO FIFO) and brings Core1 back after a mode change
+  has halted it (`usb::disconnect_all()`, then the writes run as if Core1 were stopped). Proposed:
+  register in `psx_device_main()`; a "hold Core1" state in the PSX simulator (SEL restarts the PIO
+  only); weak `flash_op_begin()` / `flash_op_end()` hooks called by NVSTool, used by the Standard
+  board to hold it during writes and from the mode change on; `check_firmware_rules.py` extended to
+  every function given to `multicore_launch_core1()`. Found reading the code (2026-10-19), not seen
+  on hardware; changes the protocol's timing, so test on a PS1 / PS2 before relying on it. The Pico
+  W boards run PS1 / PS2 from Core0 (poll mode) and are not affected. Not for upstream yet.
 - **Web app over USB on Android.** Chrome on Android has no Web Serial; the web-serial-polyfill
   (Web Serial over WebUSB) would reach the D-Input/Debug serial port from the same web app code.
 

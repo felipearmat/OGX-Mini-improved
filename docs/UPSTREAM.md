@@ -13,7 +13,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Next fix PRs (send before any feature PR)
 
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
-one. Nothing of ours open upstream (2026-10-17; #103, Docker build support, is someone else's). Merged: #129 (Switch Pro motion), #132 (rumble output
+one. Open upstream: #143 (Core1 flash lockout, 2026-10-19; #103, Docker build support, is someone else's). Merged: #129 (Switch Pro motion), #132 (rumble output
 queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
 #139 / #140 (diagnostics, 2026-10-14). The fork is synced with upstream `develop` after them (c9a621a, 2026-10-16;
 the latency read on every session end from #140 ported first).
@@ -22,7 +22,10 @@ the latency read on every session end from #140 ported first).
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
    so a settings write could hang Core1 executing from flash), with
    `.github/scripts/check_firmware_rules.py`. Every board with flash writes while Core1 runs.
-   High priority, standalone.
+   High priority, standalone. **Open: #143** (2026-10-19, branch
+   `upstream-pr/42-core1-flash-lockout`, 2f95adf; adds a "Firmware rules" job to `build.yml`).
+   The PS1 / PS2 Core1 entry (`psx_device_main()`) is left out on purpose: its fix needs a console
+   test first ([docs/TODO.md](TODO.md), Output modes); not for upstream yet.
 2. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
    key bank on the Pico W / Pico 2 W; the fix keeps the entries in the 2 before it. Small, with its
    unit test. Upstream has the same NVSTool.
@@ -167,7 +170,7 @@ later fixes reach every board in one PR.
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
 - ricardoquesada/bluepad32 (`develop`), Switch parser patches ported onto the current parser: enable vibration #226 (merged), rumble intensity #227 (merged; its per-side mapping left a single Joy-Con silent for one magnitude, follow-up #232 with the SDL mapping; maintainer will test it), #232 merged 2026-10-03; #228 (idle rumble refresh) closed 2026-10-05: the maintainer replaced the 32-slot output queue with a byte-stream ring buffer (b6531db), which fixes the lost stop (verified on hardware); #229 to #231 rebased onto that `develop` (tests moved to the new `uni_circular_buffer_get()` signature), request sleep #229, per-step setup timeout and stale replies #230 (on top of #226), one pad in setup at a time #231 (on top of #230; reimplemented without global state, not run on hardware). Not sent: DS4 touchpad getter (upstream has no touchpad API at all; better as an issue proposing one), pair IMU side (upstream has no merged Joy-Con pairs; could be a review comment on its open PR #219, which copies motion from the left half). Candidates later: 8BitDo PIDs `2dc8:6003` / `6103`, accepting short DS4 / DS5 reports (behaviour change, needs discussion).
-- GP2040-CE: its PS3 driver copied output report 0x01 the way OGX-Mini did before 727ceb0 (motor bytes one off, right motor on with any report from Linux): OpenStickCommunity/GP2040-CE#1740.
+- GP2040-CE: its PS3 driver copied output report 0x01 the way OGX-Mini did before 727ceb0 (motor bytes one off, right motor on with any report from Linux): OpenStickCommunity/GP2040-CE#1740, merged 2026-10-11.
 
 ## Fork only (not for upstream)
 
