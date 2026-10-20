@@ -22,7 +22,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   from the ESP32's first lines ("rst:… Initializing" read as "rstizing", a MAC address cut short).
   The RP2040 reads its UART in the main loop only; its 32-byte RX FIFO lasts about 2.8 ms at
   115200, likely less than the loop takes while booting. Suspected, not measured: read it from the
-  UART interrupt or DMA.
+  UART interrupt or DMA. 2026-10-20 (Pico 2 W hybrid, `improved-v1.3.0-7-g2811166-dev`): the same
+  ESP32 boot arrives whole through the UART bridge (where Core1 only moves bytes) and cut in the
+  kept log of the normal modes ("rst…lizing", "running at 3"): the wiring is fine, which points at
+  the main-loop reading.
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.
