@@ -204,6 +204,12 @@ jobs:
             build_type: Release
             flags: ""
             max_warnings: 0
+          # The same hybrid with its wires moved (OGXM_HYBRID_*_PIN): the pin options keep building.
+          - name: ESP32_BLUEPAD32_I2C_PICO2-moved-pins
+            board: ESP32_BLUEPAD32_I2C_PICO2
+            build_type: Release
+            flags: "-DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27 -DOGXM_HYBRID_ESP32_IO0_PIN=22"
+            max_warnings: 0
           # Our own builds (FWDefines.cmake OGXM_DEV_DEFAULTS: the log kept in flash and pads
           # disconnected before a mode change on by default, version "-dev"), with the .elf to
           # match a crash record's build ID.

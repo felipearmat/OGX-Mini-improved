@@ -157,6 +157,91 @@ set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in s
 set(FLASH_SIZE_MB 2)
 set(PICO_BOARD none)
 
+# Custom: the RP2040 + ESP32 hybrid's wires, movable at build time (hardware/README.md#pi-pico--esp32).
+# Defaults: upstream's pinout, the USB host port on GP0 / GP1, and UART TX on GP28 with GP16 still
+# carrying it. Stops on a pin that cannot do the job or is taken twice.
+macro(ogxm_hybrid_pin_options)
+    set(OGXM_HYBRID_I2C_SDA_PIN 18 CACHE STRING "Hybrid: I2C SDA (ESP32 GPIO21)")
+    set(OGXM_HYBRID_I2C_SCL_PIN 19 CACHE STRING "Hybrid: I2C SCL (ESP32 GPIO22), same I2C as SDA")
+    set(OGXM_HYBRID_UART_TX_PIN 28 CACHE STRING "Hybrid: UART0 TX (ESP32 RX0): 0, 12, 16 or 28")
+    set(OGXM_HYBRID_UART_TX_ALT_PIN 16 CACHE STRING "Hybrid: second UART0 TX pin with the same signal, -1 = none")
+    set(OGXM_HYBRID_UART_RX_PIN 17 CACHE STRING "Hybrid: UART0 RX (ESP32 TX0): 1, 13, 17 or 29")
+    set(OGXM_HYBRID_ESP32_EN_PIN 8 CACHE STRING "Hybrid: ESP32 EN (restart)")
+    set(OGXM_HYBRID_ESP32_IO0_PIN 20 CACHE STRING "Hybrid: ESP32 IO0 (bootloader)")
+    set(OGXM_HYBRID_BRIDGE_JUMPER_PIN 21 CACHE STRING "Hybrid: jumper to GND at boot for the UART bridge")
+    set(OGXM_HYBRID_USB_DP_PIN 0 CACHE STRING "Hybrid: USB host port D+ (D- is the next GPIO)")
+endmacro()
+
+function(ogxm_hybrid_pin_check)
+    set(roles I2C_SDA I2C_SCL UART_TX UART_RX ESP32_EN ESP32_IO0 BRIDGE_JUMPER USB_DP)
+    if(NOT OGXM_HYBRID_UART_TX_ALT_PIN EQUAL -1)
+        list(APPEND roles UART_TX_ALT)
+    endif()
+    set(pins "")
+    foreach(role IN LISTS roles)
+        set(pin "${OGXM_HYBRID_${role}_PIN}")
+        if(NOT pin MATCHES "^[0-9]+$" OR pin GREATER 29)
+            message(FATAL_ERROR "OGXM_HYBRID_${role}_PIN=${pin}: expected a GPIO number")
+        endif()
+        list(APPEND pins "${pin}:${role}")
+    endforeach()
+    math(EXPR usb_dm "${OGXM_HYBRID_USB_DP_PIN} + 1")
+    list(APPEND pins "${usb_dm}:USB_DM")
+    if(DEFINED OGXM_EXT_RGB_PIN AND NOT OGXM_EXT_RGB_PIN EQUAL -1)
+        list(APPEND pins "${OGXM_EXT_RGB_PIN}:EXT_RGB")
+    endif()
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        list(APPEND pins "4:DEBUG_UART_TX" "5:DEBUG_UART_RX")
+    endif()
+    # GP23 / 24 / 25 / 29: the Pico W radio, or a Pico's power and LED pins
+    set(seen 23 24 25 29)
+    set(seen_role_23 board)
+    set(seen_role_24 board)
+    set(seen_role_25 board)
+    set(seen_role_29 board)
+    foreach(entry IN LISTS pins)
+        string(REPLACE ":" ";" parts "${entry}")
+        list(GET parts 0 pin)
+        list(GET parts 1 role)
+        if(pin IN_LIST seen)
+            message(FATAL_ERROR "Hybrid pins: GP${pin} given to ${role} is already used by ${seen_role_${pin}}")
+        endif()
+        list(APPEND seen ${pin})
+        set(seen_role_${pin} ${role})
+    endforeach()
+    # I2C: SDA on an even GPIO, SCL on an odd one, same controller (GPIO bit 1).
+    math(EXPR sda_odd "${OGXM_HYBRID_I2C_SDA_PIN} % 2")
+    math(EXPR scl_odd "${OGXM_HYBRID_I2C_SCL_PIN} % 2")
+    math(EXPR sda_i2c "(${OGXM_HYBRID_I2C_SDA_PIN} >> 1) & 1")
+    math(EXPR scl_i2c "(${OGXM_HYBRID_I2C_SCL_PIN} >> 1) & 1")
+    if(NOT sda_odd EQUAL 0 OR NOT scl_odd EQUAL 1 OR NOT sda_i2c EQUAL scl_i2c)
+        message(FATAL_ERROR "Hybrid pins: GP${OGXM_HYBRID_I2C_SDA_PIN} / GP${OGXM_HYBRID_I2C_SCL_PIN} are not SDA / SCL of one I2C (e.g. 18 / 19, 26 / 27, 6 / 7)")
+    endif()
+    # UART0 only (the firmware talks to the ESP32 on uart0)
+    set(uart0_tx 0 12 16 28)
+    set(uart0_rx 1 13 17 29)
+    foreach(role UART_TX UART_TX_ALT)
+        if(role IN_LIST roles AND NOT OGXM_HYBRID_${role}_PIN IN_LIST uart0_tx)
+            message(FATAL_ERROR "OGXM_HYBRID_${role}_PIN=${OGXM_HYBRID_${role}_PIN}: UART0 TX is GP0, 12, 16 or 28")
+        endif()
+    endforeach()
+    if(NOT OGXM_HYBRID_UART_RX_PIN IN_LIST uart0_rx)
+        message(FATAL_ERROR "OGXM_HYBRID_UART_RX_PIN=${OGXM_HYBRID_UART_RX_PIN}: UART0 RX is GP1, 13, 17 or 29")
+    endif()
+    add_compile_definitions(
+        OGXM_HYBRID_I2C_SDA_PIN=${OGXM_HYBRID_I2C_SDA_PIN}
+        OGXM_HYBRID_I2C_SCL_PIN=${OGXM_HYBRID_I2C_SCL_PIN}
+        OGXM_HYBRID_UART_TX_PIN=${OGXM_HYBRID_UART_TX_PIN}
+        OGXM_HYBRID_UART_TX_ALT_PIN=${OGXM_HYBRID_UART_TX_ALT_PIN}
+        OGXM_HYBRID_UART_RX_PIN=${OGXM_HYBRID_UART_RX_PIN}
+        OGXM_HYBRID_ESP32_EN_PIN=${OGXM_HYBRID_ESP32_EN_PIN}
+        OGXM_HYBRID_ESP32_IO0_PIN=${OGXM_HYBRID_ESP32_IO0_PIN}
+        OGXM_HYBRID_BRIDGE_JUMPER_PIN=${OGXM_HYBRID_BRIDGE_JUMPER_PIN}
+        OGXM_HYBRID_USB_DP_PIN=${OGXM_HYBRID_USB_DP_PIN}
+    )
+    message(STATUS "Hybrid pins: I2C ${OGXM_HYBRID_I2C_SDA_PIN}/${OGXM_HYBRID_I2C_SCL_PIN}, UART TX ${OGXM_HYBRID_UART_TX_PIN} (also ${OGXM_HYBRID_UART_TX_ALT_PIN}) RX ${OGXM_HYBRID_UART_RX_PIN}, EN ${OGXM_HYBRID_ESP32_EN_PIN}, IO0 ${OGXM_HYBRID_ESP32_IO0_PIN}, bridge jumper ${OGXM_HYBRID_BRIDGE_JUMPER_PIN}, USB host ${OGXM_HYBRID_USB_DP_PIN}/${usb_dm}")
+endfunction()
+
 # Custom: external WS2812 status LED on a Pico 2 / Pico 2 W board (see hardware/README.md).
 macro(ogxm_ext_rgb_options)
     set(OGXM_EXT_RGB_PIN 6 CACHE STRING "Pico 2 W: GPIO of an external WS2812 status LED, -1 = none")
@@ -230,6 +315,7 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
     set(EN_ESP32 TRUE)
     set(EN_UART_BRIDGE TRUE)
     set(EN_USB_HOST TRUE)  # Custom: USB host port on GP0 / GP1 (wired controllers, DS3 pairing)
+    ogxm_hybrid_pin_options()
     # Custom: the same hybrid on a Pico 2 / Pico 2 W (RP2350, Pico pinout, 4 MB flash). The
     # Pico 2 W radio is not used: Bluetooth comes from the ESP32, and the pins wired to the
     # CYW43 (GP23 / 24 / 25 / 29) are not touched.
@@ -239,6 +325,7 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
         set(FLASH_SIZE_MB 4)
         ogxm_ext_rgb_options()  # Custom: external WS2812 status LED (PIO block 2 is free here)
     endif()
+    ogxm_hybrid_pin_check()
 
     if(OGXM_RETAIL STREQUAL "TRUE")
         message(STATUS "Retail mode enabled.")

@@ -65,17 +65,31 @@ Everything goes through the Pico's USB port: the console / PC link, flashing bot
 reading both boards' logs ([Tools/hybrid](../Tools/hybrid/README.md)). The ESP32's own USB port is
 never needed: its ROM bootloader is reached through the Pico, even on a blank ESP32.
 
-| Pico / Pico 2 / Pico 2 W | ESP32 | |
-|---|---|---|
-| GP18 (pin 24) | GPIO21 | I2C SDA: controllers, settings, diagnostics |
-| GP19 (pin 25) | GPIO22 | I2C SCL |
-| GP8 (pin 11) | EN | restarts the ESP32 |
-| GP20 (pin 26) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing |
-| GP28 (pin 34, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32. GP16 (pin 21) carries the same signal, for hybrids wired before (the diagram still shows GP16); pin 21 is a corner pad, often the one damaged by a poor soldering iron |
-| GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log |
-| VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) |
-| GND | GND | required |
-| — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works); the internal ones are too weak for the 1 MHz link |
+| Pico / Pico 2 / Pico 2 W | ESP32 | | CMake option |
+|---|---|---|---|
+| GP18 (pin 24) | GPIO21 | I2C SDA: controllers, settings, diagnostics | `OGXM_HYBRID_I2C_SDA_PIN` |
+| GP19 (pin 25) | GPIO22 | I2C SCL | `OGXM_HYBRID_I2C_SCL_PIN` |
+| GP8 (pin 11) | EN | restarts the ESP32 | `OGXM_HYBRID_ESP32_EN_PIN` |
+| GP20 (pin 26) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing | `OGXM_HYBRID_ESP32_IO0_PIN` |
+| GP28 (pin 34, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32. GP16 (pin 21) carries the same signal, for hybrids wired before (the diagram still shows GP16); pin 21 is a corner pad, often the one damaged by a poor soldering iron | `OGXM_HYBRID_UART_TX_PIN`, `OGXM_HYBRID_UART_TX_ALT_PIN` (`-1` = none) |
+| GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log | `OGXM_HYBRID_UART_RX_PIN` |
+| VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) | |
+| GND | GND | required | |
+| — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works); the internal ones are too weak for the 1 MHz link | |
+
+**Other pins:** every Pico-side wire above, the USB host port's D+ (`OGXM_HYBRID_USB_DP_PIN`, D- is
+the next GPIO) and the UART-bridge jumper (`OGXM_HYBRID_BRIDGE_JUMPER_PIN`) can be moved when you
+build the firmware yourself, e.g. for a damaged pad or a board layout with fewer crossing wires:
+
+```bash
+cmake ... -DOGXM_BOARD=ESP32_BLUEPAD32_I2C_PICO2 -DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27
+```
+
+The configure step stops on a pin that cannot do the job or is taken twice: SDA / SCL must be an
+SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / RX must be UART0
+(TX GP0, 12, 16 or 28; RX GP1, 13, 17 or 29), and GP23, 24, 25 and 29 (the Pico W radio, a Pico's
+power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. The release
+UF2s use the defaults above. The ESP32 side does not move.
 
 Optional, on the Pico:
 

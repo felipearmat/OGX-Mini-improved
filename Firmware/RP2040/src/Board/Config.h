@@ -91,25 +91,30 @@
 
 #elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
     /* CMake boards ESP32_BLUEPAD32_I2C (RP2040) and ESP32_BLUEPAD32_I2C_PICO2 (Pico 2 / Pico 2 W,
-     * RP2350): same pins, both chips have I2C1 on GP18 / GP19 and UART0 on GP28 (TX, also GP16) / GP17. */
+     * RP2350), same pins on both. Custom: the wires to the ESP32 come from CMake (OGXM_HYBRID_*_PIN,
+     * checked there; hardware/README.md). Defaults: upstream's pinout (I2C GP18 / GP19, RX GP17,
+     * IO0 GP20, EN GP8, bridge jumper GP21), UART TX on GP28 (pin 34) with GP16 (pin 21, a corner
+     * pad, often the one damaged by a poor soldering iron) still carrying it. */
+    #if !defined(OGXM_HYBRID_I2C_SDA_PIN)
+        #error "Hybrid pins come from Firmware/RP2040/CMakeLists.txt (ogxm_hybrid_pin_check)"
+    #endif
     #define OGXM_BOARD          ESP32_BLUEPAD32_I2C
-    #define I2C_SDA_PIN         18
-    #define I2C_SCL_PIN         19
-    /* Custom: UART0 TX to the ESP32's RX0 on GP28 (pin 34), and the same signal on GP16 (pin 21) for
-     * hybrids wired before: wire either one. Pin 21 is a corner pad, often the one damaged by a poor
-     * soldering iron. */
-    #define UART0_TX_PIN        28
-    #define UART0_TX_ALT_PIN    16
-    #define UART0_RX_PIN        17
-    #define MODE_SEL_PIN        21
-    #define ESP_PROG_PIN        20 // ESP32 IO0
-    #define ESP_RST_PIN         8  // ESP32 EN
+    #define I2C_SDA_PIN         OGXM_HYBRID_I2C_SDA_PIN
+    #define I2C_SCL_PIN         OGXM_HYBRID_I2C_SCL_PIN
+    #define UART0_TX_PIN        OGXM_HYBRID_UART_TX_PIN
+    #if OGXM_HYBRID_UART_TX_ALT_PIN >= 0
+    #define UART0_TX_ALT_PIN    OGXM_HYBRID_UART_TX_ALT_PIN
+    #endif
+    #define UART0_RX_PIN        OGXM_HYBRID_UART_RX_PIN
+    #define MODE_SEL_PIN        OGXM_HYBRID_BRIDGE_JUMPER_PIN
+    #define ESP_PROG_PIN        OGXM_HYBRID_ESP32_IO0_PIN // ESP32 IO0
+    #define ESP_RST_PIN         OGXM_HYBRID_ESP32_EN_PIN  // ESP32 EN
     /* Custom: the Pico / Pico 2's own LED as the status LED. On a Pico W / Pico 2 W GP25 goes to
      * the radio chip, which the hybrid leaves off: the LED stays dark there. */
     #define LED_INDICATOR_PIN   25
     /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP0,
-     * D- GP1, 5 V from VBUS), as on the Pico W. */
-    #define PIO_USB_DP_PIN      0
+     * D- GP1 by default, 5 V from VBUS), as on the Pico W. */
+    #define PIO_USB_DP_PIN      OGXM_HYBRID_USB_DP_PIN
     #ifndef PIO_USB_SWAP_DP_DM
     #define PIO_USB_SWAP_DP_DM  0
     #endif
@@ -180,12 +185,9 @@
 
 #if defined(I2C_SDA_PIN)
     #define I2C_BAUDRATE 400 * 1000
-    #define I2C_PORT    ((I2C_SDA_PIN == 2 ) || \
-                         (I2C_SDA_PIN == 6 ) || \
-                         (I2C_SDA_PIN == 10) || \
-                         (I2C_SDA_PIN == 14) || \
-                         (I2C_SDA_PIN == 18) || \
-                         (I2C_SDA_PIN == 26)) ? i2c1 : i2c0
+    /* Custom: the I2C controller of an SDA pin is its GPIO number's bit 1 (GP2, 6, 10... are I2C1);
+     * the list it replaces missed GP22. */
+    #define I2C_PORT    ((((I2C_SDA_PIN) >> 1) & 1) ? i2c1 : i2c0)
 #endif // defined(I2C_SDA_PIN)
 
 #if defined(PIO_USB_DP_PIN)
