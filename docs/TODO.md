@@ -40,7 +40,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 - **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
   RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
   `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the
-  logger. Proposed: catch the error there and try again on the next pass.
+  logger. Proposed: catch the error there and try again on the next pass. Not reproduced since
+  then (the user suspects the hub it was on that time): 12 cycles in a row (9 `reboot`, 3 `bootsel --uf2`, each
+  back in D-Input/Debug) with the logger running, plus about 260 USB events that day, without an
+  error. Low priority; apply the fix if it comes back.
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.
