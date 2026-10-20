@@ -34,8 +34,9 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   30 s with the pair connected. The ESP32's I2C at 400 kHz (test build, same wires): 1.0 per 30 s
   instead of 10.7, 2 at boot instead of about 11, and the right Joy-Con's late reports 1-3 % instead
   of up to 16 %: the 1 MHz edges are too slow on these longer jumpers with 2.2 kΩ pull-ups (signal,
-  not damaged pins). Next: 1 kΩ pull-ups (or a second 2.2 kΩ in parallel) and shorter SDA / SCL
-  wires at 1 MHz; if that is not enough, consider a configurable ESP32 I2C rate.
+  not damaged pins). Expected to go away on the perfboard build (short SDA / SCL traces, layout in
+  hardware/README): count `i2c_read_errors` there at 1 MHz before changing anything. Only if they
+  stay: 1 kΩ pull-ups (or a second 2.2 kΩ in parallel), then a configurable ESP32 I2C rate.
 - **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
   RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
   `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the
