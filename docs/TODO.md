@@ -26,6 +26,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   ESP32 boot arrives whole through the UART bridge (where Core1 only moves bytes) and cut in the
   kept log of the normal modes ("rst…lizing", "running at 3"): the wiring is fine, which points at
   the main-loop reading.
+- **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
+  RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
+  `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the
+  logger. Proposed: catch the error there and try again on the next pass.
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.
