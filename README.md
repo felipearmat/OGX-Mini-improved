@@ -160,7 +160,9 @@ LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 
 - **Other combos:** **Start + Select** for 3 s disconnects the controller (Options + Share on a
   DS4, + and − on Joy-Cons; L3 + R3 on an OUYA controller); Joy-Cons are asked to sleep and the
-  adapter restarts in the same mode. **Start + L3** for 3 s stops the search for new controllers
+  adapter restarts in the same mode. Turn Joy-Cons off this way to have a button press bring them
+  back: one turned off with a tap on its sync button does not call any host back (the same on a
+  PC or a Mac), so it needs a sync press to pair again. **Start + L3** for 3 s stops the search for new controllers
   (one rumble, no restart); it starts again when a controller goes away.
 - **A single Joy-Con** held sideways (no D-pad): the stick pushed to the edge counts as the D-pad
   in combos; Start = Capture (left Joy-Con) or + (right), LB / RB = SL / SR.

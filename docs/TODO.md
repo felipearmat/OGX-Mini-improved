@@ -97,6 +97,16 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   (ESP32 restart at 477 s, both back at 926 s). Nothing was logged in between: no connection
   attempt, pairing failure or rejected key. The log now has those events (connection requests,
   failed connections, key requests, scan state; see CHANGELOG): repeat with it.
+  **2026-10-20, with the log:** two different ways of turning them off. Start + Select (the
+  adapter's sleep request, link closed with reason 0x13): a button press brings the pad back (a
+  "link request" from it). A tap on the sync button (reason 0x08): a button press lights its LEDs
+  but no connection request ever reaches the ESP32, also after the adapter freed the link (750 ms
+  supervision timeout) and restarted. The pad's pairing info (SPI 0x2000) already held the ESP32
+  as its host with a link key, the second entry was empty, and writing it again through the
+  rail's pairing subcommand (0x01) changed nothing (tried, reverted). The same pads behave the same
+  with Windows and macOS: a Joy-Con trait, not an adapter bug. Documented in the README (combos).
+  The comebacks above after a sync tap were the ESP32 connecting to the pads (a "key request"
+  without a "link request"), not the pads calling: still open is why that took 7.5 min once.
 - **Joy-Cons once did not reconnect by pressing a button after the dongle rebooted**
   (2026-09-30, DebugLite log `joycon-hang.log`, 19:42-19:45): the right Joy-Con had just done a
   fresh pairing (its link key had been dropped), both were turned off two minutes later, the
