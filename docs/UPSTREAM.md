@@ -13,7 +13,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Next fix PRs (send before any feature PR)
 
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
-one. Open upstream: #143 (Core1 flash lockout, 2026-10-19), #144 (docs: web app guide and the diagnostics report in support issues, 2026-10-20, branch `upstream-pr/41-docs-webapp-guide`; #103, Docker build support, is someone else's). Merged: #129 (Switch Pro motion), #132 (rumble output
+one. Open upstream: #143 (Core1 flash lockout, 2026-10-19), #144 (docs: web app guide and the diagnostics report in support issues, 2026-10-20, branch `upstream-pr/41-docs-webapp-guide`). #103 (Docker build support) is someone else's. Merged: #129 (Switch Pro motion), #132 (rumble output
 queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
 #139 / #140 (diagnostics, 2026-10-14). The fork is synced with upstream `develop` after them (c9a621a, 2026-10-16;
 the latency read on every session end from #140 ported first).
