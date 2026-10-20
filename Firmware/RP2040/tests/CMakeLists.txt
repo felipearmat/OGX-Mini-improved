@@ -67,6 +67,9 @@ ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagno
 # Custom: the kept log and its GET_LOG reads (Board/LogRing.h).
 ogxm_add_test(test_log_ring test_log_ring.cpp ${FW_SRC}/Board/LogRing.cpp)
 
+# Custom: the hybrid's ESP32 output received by DMA (Board/RxRing.h).
+ogxm_add_test(test_rx_ring test_rx_ring.cpp)
+
 # Custom: the kept log in flash (Board/FlashLog.h), on the RAM flash of mocks/.
 ogxm_add_test(test_flash_log test_flash_log.cpp ${FW_SRC}/Board/FlashLog.cpp ${FW_SRC}/Board/LogRing.cpp
               ${FW_SRC}/Diagnostics/Diagnostics.cpp ${FW_COMMON}/Diagnostics/DiagNames.cpp

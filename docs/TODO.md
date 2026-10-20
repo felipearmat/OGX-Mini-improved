@@ -18,14 +18,6 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
-- **Hybrid: part of the ESP32's serial output lost at boot** — the kept log shows pieces missing
-  from the ESP32's first lines ("rst:… Initializing" read as "rstizing", a MAC address cut short).
-  The RP2040 reads its UART in the main loop only; its 32-byte RX FIFO lasts about 2.8 ms at
-  115200, likely less than the loop takes while booting. Suspected, not measured: read it from the
-  UART interrupt or DMA. 2026-10-20 (Pico 2 W hybrid, `improved-v1.3.0-7-g2811166-dev`): the same
-  ESP32 boot arrives whole through the UART bridge (where Core1 only moves bytes) and cut in the
-  kept log of the normal modes ("rst…lizing", "running at 3"): the wiring is fine, which points at
-  the main-loop reading.
 - **Hybrid: I2C read errors on the ESP32 grow with traffic** — 2026-10-20, Pico 2 W hybrid with I2C
   moved to GP26 / GP27 (jumper wires): `companion.i2c_read_errors` 11 at boot, then about 1 every
   5 s with no controller and 77 a few minutes after a Joy-Con pair connected; write errors 1-2,

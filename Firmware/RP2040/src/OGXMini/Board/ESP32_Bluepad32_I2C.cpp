@@ -3,9 +3,11 @@
 #if (OGXM_BOARD == ESP32_BLUEPAD32_I2C)
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <pico/multicore.h>
 #include <pico/i2c_slave.h>
+#include <hardware/dma.h>
 #include <hardware/gpio.h>
 #include <hardware/i2c.h>
 #include <hardware/uart.h>
@@ -25,6 +27,7 @@
 #include "Board/BtAdapterAddress.h"
 #include "Board/ReportedMac.h"
 #include "Board/LogRing.h"
+#include "Board/RxRing.h"
 #include "Board/ModeIndicator.h"
 #include "Board/StatusLed.h"
 #include "USBDevice/DeviceDriver/UARTBridge/UARTBridge.h"
@@ -80,6 +83,52 @@ static size_t blob_bytes(uint8_t kind, const uint8_t*& data) {
  * the copy taken at boot stays current. */
 /* Main-loop watchdog (run()): longest the loop may go without a pass before the adapter reboots. */
 static constexpr uint32_t kHangWatchdogMs = 5000;
+
+/* The ESP32's serial output, received by DMA (Board/RxRing.h): read only from the main loop, the
+ * 32-byte UART FIFO overflowed whenever one pass took over about 2.8 ms (a flash log write, USB),
+ * and the ESP32's boot lines came with bytes missing. 4 KB holds about 355 ms of output. */
+static RxRing<12> s_esp_rx;
+static int s_esp_rx_dma = -1;
+static uint32_t s_esp_rx_base = 0;
+static constexpr uint32_t kEspRxDmaCount = 0x0FFFFFFF;  // the RP2350's mode bits (31:28) stay 0
+
+/* The highest free channel: PIO USB claims its fixed one (0 by default) only when the host port
+ * starts, and panics if it is taken; the lowest free channel used to be that one. */
+static void esp_rx_start() {
+#if defined(CONFIG_EN_USB_HOST)
+    constexpr int kLowest = PIO_USB_DMA_TX_DEFAULT + 1;
+#else
+    constexpr int kLowest = 0;
+#endif
+    for (int ch = NUM_DMA_CHANNELS - 1; ch >= kLowest && s_esp_rx_dma < 0; --ch) {
+        if (!dma_channel_is_claimed(static_cast<uint>(ch))) {
+            dma_channel_claim(static_cast<uint>(ch));
+            s_esp_rx_dma = ch;
+        }
+    }
+    if (s_esp_rx_dma < 0)
+        return;  // no channel: the ESP32's output is not kept
+    dma_channel_config c = dma_channel_get_default_config(s_esp_rx_dma);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+    channel_config_set_read_increment(&c, false);
+    channel_config_set_write_increment(&c, true);
+    channel_config_set_ring(&c, true, decltype(s_esp_rx)::kSizeBits);
+    channel_config_set_dreq(&c, uart_get_dreq_num(uart0, false));
+    dma_channel_configure(s_esp_rx_dma, &c, s_esp_rx.buffer(), &uart_get_hw(uart0)->dr, kEspRxDmaCount, true);
+}
+
+// Bytes the DMA has received so far; restarts the channel when its count runs out (hours of output).
+static uint32_t esp_rx_produced() {
+    if (s_esp_rx_dma < 0)
+        return 0;
+    uint32_t left = dma_channel_hw_addr(s_esp_rx_dma)->transfer_count & kEspRxDmaCount;
+    if (!dma_channel_is_busy(s_esp_rx_dma)) {
+        s_esp_rx_base += kEspRxDmaCount - left;
+        dma_channel_set_trans_count(s_esp_rx_dma, kEspRxDmaCount, true);  // the write address goes on
+        left = kEspRxDmaCount;
+    }
+    return s_esp_rx_base + (kEspRxDmaCount - left);
+}
 
 static UserProfile _profiles[UserSettings::MAX_PROFILES];
 static uint16_t _profiles_crc = 0;
@@ -691,6 +740,7 @@ void esp32_bp32_i2c::run() {
     gpio_set_function(UART0_TX_ALT_PIN, GPIO_FUNC_UART);  // same TX signal, second pad (Config.h)
 #endif
     gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
+    esp_rx_start();
 
     boot_stage::set(boot_stage::Stage::ESP32_RESET);
     esp32_api::reset();
@@ -723,14 +773,19 @@ void esp32_bp32_i2c::run() {
         static size_t esp_len = 0;
         static uint32_t esp_last_ms = 0;
         const uint32_t now_ms = board_api::ms_since_boot();
-        while (uart_is_readable(uart0)) {
-            const char c = static_cast<char>(uart_getc(uart0));
+        const uint32_t lost = s_esp_rx.drain(esp_rx_produced(), [&](uint8_t b) {
+            const char c = static_cast<char>(b);
             esp_line[esp_len++] = c;
             esp_last_ms = now_ms;
             if (c == '\n' || esp_len == sizeof(esp_line)) {
                 log_ring_append("esp", esp_line, esp_len);
                 esp_len = 0;
             }
+        });
+        if (lost) {
+            char note[40];
+            const int n = std::snprintf(note, sizeof(note), "\n(%lu bytes lost)\n", static_cast<unsigned long>(lost));
+            log_ring_append("esp", note, static_cast<size_t>(n));
         }
         if (esp_len && now_ms - esp_last_ms >= 100) {
             log_ring_append("esp", esp_line, esp_len);
