@@ -84,6 +84,14 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Rumble
 
+- **Hybrid: Joy-Cons not reconnecting for minutes after being turned off a few times** — 2026-10-20,
+  Pico 2 W hybrid, Joy-Con pair already paired with the ESP32, turned off directly (link closed,
+  reason 0x08) several times in a row: each time the last one left, the ESP32 restarted as
+  designed (the white LED blink) and they came back by pressing a button, except twice: once only
+  the left one came back (the right one only on the next try), and once neither did for 7.5 min
+  (ESP32 restart at 477 s, both back at 926 s). Nothing was logged in between: no connection
+  attempt, pairing failure or rejected key. Next: log each incoming connection request and the
+  page-scan state after the ESP32 starts, then repeat.
 - **Joy-Cons once did not reconnect by pressing a button after the dongle rebooted**
   (2026-09-30, DebugLite log `joycon-hang.log`, 19:42-19:45): the right Joy-Con had just done a
   fresh pairing (its link key had been dropped), both were turned off two minutes later, the
