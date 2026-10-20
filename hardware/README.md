@@ -88,7 +88,7 @@ cmake ... -DOGXM_BOARD=ESP32_BLUEPAD32_I2C_PICO2 -DOGXM_HYBRID_I2C_SDA_PIN=26 -D
 The configure step stops on a pin that cannot do the job or is taken twice: SDA / SCL must be an
 SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / RX must be UART0
 (TX GP0, 12, 16 or 28; RX GP1, 13, 17 or 29), and GP23, 24, 25 and 29 (the Pico W radio, a Pico's
-power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. The release
+power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. Tested on hardware with I2C on GP26 / GP27 and IO0 on GP22. The release
 UF2s use the defaults above. The ESP32 side does not move.
 
 **Perfboard layout with few crossing wires** (38-pin ESP32 DevKit, the boards on the two faces
