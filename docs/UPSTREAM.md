@@ -26,44 +26,47 @@ the latency read on every session end from #140 ported first).
    `upstream-pr/42-core1-flash-lockout`, 2f95adf; adds a "Firmware rules" job to `build.yml`).
    The PS1 / PS2 Core1 entry (`psx_device_main()`) is left out on purpose: its fix needs a console
    test first ([docs/TODO.md](TODO.md), Output modes); not for upstream yet.
-2. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
+2. **DInput L2 / R2 buttons from the triggers** — DInput (upstream's mode of the same name) never
+   sets the descriptor's L2 / R2 bits, so ZL / ZR do nothing on a PC; PS3 mode sets them. Two lines
+   in `DInput.cpp` with the unit test `dinput_triggers_press_the_l2_r2_buttons`. Small, standalone.
+3. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
    key bank on the Pico W / Pico 2 W; the fix keeps the entries in the 2 before it. Small, with its
    unit test. Upstream has the same NVSTool.
-3. **The same report resent with no controller** — a94c0e4
+4. **The same report resent with no controller** — a94c0e4
    (`Gamepad.h`): the "new input" flag cleared once the neutral state is delivered. Every board,
    every output driver that checks `new_pad_in()`. Small, with its unit test.
-4. **USB host port second start** — 5bee335: Pico-PIO-USB's DMA channel, state machines and
+5. **USB host port second start** — 5bee335: Pico-PIO-USB's DMA channel, state machines and
    programs released before the host port starts again (panic "DMA channel 2 is already claimed"
    on the second wired plug, Pico W / Pico 2 W). Standalone.
-5. **3dda3e9** — DInput 27-byte input report (macOS showed no input). Standalone.
-6. **f1f49e9** — PC wake: one wake request per suspend, XInput / STEAM able to wake.
-7. **8c59260** — BTstack logs in Debug builds only (inverted condition). With the warning part of
+6. **3dda3e9** — DInput 27-byte input report (macOS showed no input). Standalone.
+7. **f1f49e9** — PC wake: one wake request per suspend, XInput / STEAM able to wake.
+8. **8c59260** — BTstack logs in Debug builds only (inverted condition). With the warning part of
    e752d7b (Release builds without warnings: Bluepad32's deprecated scan calls, the Wiimote
    library's volatile `memcpy`, `_getentropy`) and the two small ones of 2a0aa04
    (variable-length array in `verify_datetime`, unused packet buffer in `WebAppDevice::process`).
-8. **Diagnostics follow-ups on #139 / #140** — 4707bfb (Joy-Cons shown with about 20% lost:
+9. **Diagnostics follow-ups on #139 / #140** — 4707bfb (Joy-Cons shown with about 20% lost:
    fractional counter step) and 44abe63 (shorter event texts, kept whole in the stored session).
-9. **Trigger settings lost on a second profile apply** — the `TriggerSettings` part of 5945d2d.
+10. **Trigger settings lost on a second profile apply** — the `TriggerSettings` part of 5945d2d.
    Every board. Minimal upstream version: `TriggerSettings::raw_has_customization()` and the six
    lines of `Gamepad::set_profile_settings()` that use it; with its unit test.
-10. **ESP32 companion build** — 87431fb + 09f005a + the CMake line of ff5b909: builds with ESP-IDF
+11. **ESP32 companion build** — 87431fb + 09f005a + the CMake line of ff5b909: builds with ESP-IDF
    5.5, the current BTstack port, on Linux (include case) and with any build directory.
-11. **One copy of the shared code** — 9f6deb1 (`Firmware/common`, CI sync check) with the shared
+12. **One copy of the shared code** — 9f6deb1 (`Firmware/common`, CI sync check) with the shared
    combo table of 1a31468. Sent as a fix: the ESP32 copies had drifted from the RP2040 ones (no
    newer modes, Web App combo ignored, analog buttons off by default), and every later fix lands
    on both boards only through it.
-12. **Shared Bluepad32 core** — 5945d2d (without the trigger part sent in 9): the hybrid's ESP32
+13. **Shared Bluepad32 core** — 5945d2d (without the trigger part sent in 9): the hybrid's ESP32
    behaved differently from the Pico W path in many ways (see its row); one copy fixes them all.
    With the fix part of 7f8b279 (rumble timing, `RumbleTiming.h`).
-13. **Hybrid: the Pico W's Bluetooth features and one settings store** — 12c42cc, 1051821,
+14. **Hybrid: the Pico W's Bluetooth features and one settings store** — 12c42cc, 1051821,
    2e1dc89, b7ea46e (on top of 12): the rest of the Pico W path shared with the ESP32, I2C link
    version 2, settings kept by the RP2040. Sent as fixes for the same reason as 11 and 12. After the
    hardware test ([docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md)).
-14. **Hybrid: maintenance through the adapter's USB port, link diagnostics, one BLE web app, USB
+15. **Hybrid: maintenance through the adapter's USB port, link diagnostics, one BLE web app, USB
    host port with DualShock 3 pairing, DualSense passthrough** — the commits after b7ea46e (see
    CHANGELOG). The `SYSTEM` web app command and `Tools/hybrid` are useful upstream on every board
    (USB bootloader without the button). After the hardware test.
-15. **Hybrid fixes found on hardware (2026-10-13 to 10-16)**, on top of 13 and 14: UART bridge line
+16. **Hybrid fixes found on hardware (2026-10-13 to 10-16)**, on top of 13 and 14: UART bridge line
    coding never dropped (fix part of 2bbea65: ESP32 flashing failed about 4 in 10), DS4 report
    interval 0 ms on the ESP32 (4942a75, 55% lost), Bluetooth name "Nintendo" (616c652, Joy-Con
    pair dropping a half), QoS 5 ms poll per Classic link (54e1eaf), a pad connecting calls off the

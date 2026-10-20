@@ -175,6 +175,36 @@ TEST(dinput_pressure_follows_the_digital_buttons) {
         CHECK_EQ(axis, DInput::MOTION_NEUTRAL);
 }
 
+// Regression: ZL / ZR only reached the pressure bytes, never the descriptor's L2 / R2 buttons, so
+// a PC host saw nothing when they were pressed (seen with a Joy-Con pair on Linux).
+TEST(dinput_triggers_press_the_l2_r2_buttons) {
+    Gamepad gp;
+    DInputDevice dev;
+    dev.initialize();
+    DInput::DeviceInReport report{};
+
+    Gamepad::PadIn in{};
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    std::memcpy(&report, g_last_report.data(), sizeof(report));
+    CHECK_EQ(report.pad.buttons[0] & (DInput::Buttons0::L2 | DInput::Buttons0::R2), 0);
+
+    in.trigger_l = 0xFF;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    std::memcpy(&report, g_last_report.data(), sizeof(report));
+    CHECK_EQ(report.pad.buttons[0] & (DInput::Buttons0::L2 | DInput::Buttons0::R2), DInput::Buttons0::L2);
+    CHECK_EQ(report.pad.l2_axis, 0xFF);
+
+    in.trigger_l = 0;
+    in.trigger_r = 0x80;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    std::memcpy(&report, g_last_report.data(), sizeof(report));
+    CHECK_EQ(report.pad.buttons[0] & (DInput::Buttons0::L2 | DInput::Buttons0::R2), DInput::Buttons0::R2);
+    CHECK_EQ(report.pad.r2_axis, 0x80);
+}
+
 /* ---- Every HID mode: the input report sent matches its report descriptor ------------------- */
 // Regression: DInput sent 19 bytes while its descriptor declares 27; macOS drops input reports
 // shorter than declared, so the mode showed no input at all there (Linux pads short reports).
