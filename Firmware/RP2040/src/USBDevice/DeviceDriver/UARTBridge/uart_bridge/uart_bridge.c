@@ -79,7 +79,7 @@ void uart_bridge_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 
     // Corrected direct-connect auto-reset logic:
 	gpio_put(ESP_RST_PIN,  !( dtr && (!rts) ));
-	ESP_PROG_PUT(!( rts && (!dtr) ));
+	gpio_put(ESP_PROG_PIN, !( rts && (!dtr) ));
 #endif
 }
 
@@ -160,7 +160,7 @@ int uart_bridge_run(bool monitor) {
 
 #if defined(ESP_RST_PIN) && defined(ESP_PROG_PIN)
 	gpio_init(ESP_RST_PIN); gpio_set_dir(ESP_RST_PIN, GPIO_OUT); gpio_put(ESP_RST_PIN, 1);
-	ESP_PROG_INIT(); ESP_PROG_PUT(1);
+	gpio_init(ESP_PROG_PIN); gpio_set_dir(ESP_PROG_PIN, GPIO_OUT); gpio_put(ESP_PROG_PIN, 1);
 #endif
 
 	for (uint8_t i = 0; i < CFG_TUD_CDC; i++) {

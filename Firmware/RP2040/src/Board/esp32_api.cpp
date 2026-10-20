@@ -22,19 +22,20 @@ void esp32_api::reset()
 
 void esp32_api::enter_programming_mode() 
 {
-    ESP_PROG_PUT(0);
+    gpio_put(ESP_PROG_PIN, 0);
 	sleep_ms(100);
 
     reset();
 
 	sleep_ms(500);
-	ESP_PROG_PUT(1);
+	gpio_put(ESP_PROG_PIN, 1);
 }
 
 void esp32_api::init()
 {
-    ESP_PROG_INIT();
-    ESP_PROG_PUT(1);
+    gpio_init(ESP_PROG_PIN);
+    gpio_set_dir(ESP_PROG_PIN, GPIO_OUT);
+    gpio_put(ESP_PROG_PIN, 1);
 
     gpio_init(ESP_RST_PIN);
     gpio_set_dir(ESP_RST_PIN, GPIO_OUT);

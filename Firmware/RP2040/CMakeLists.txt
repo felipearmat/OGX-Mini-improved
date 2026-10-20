@@ -230,19 +230,6 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
     set(EN_ESP32 TRUE)
     set(EN_UART_BRIDGE TRUE)
     set(EN_USB_HOST TRUE)  # Custom: USB host port on GP0 / GP1 (wired controllers, DS3 pairing)
-    # Custom: the ESP32's IO0 is on GP22; this second pin gets the same signal, for hybrids wired
-    # before (GP20). -1 leaves it alone, for a board where GP20 is not free (hardware/README.md).
-    set(OGXM_ESP32_IO0_ALT_PIN 20 CACHE STRING "Hybrid: second GPIO driven with the ESP32's IO0, -1 = none")
-    # GP0 / 1 USB host, 8 EN, 16 / 28 UART TX, 17 RX, 18 / 19 I2C, 21 bridge jumper, 22 IO0, 23-25 / 29 CYW43
-    set(OGXM_HYBRID_USED_PINS 0 1 8 16 17 18 19 21 22 23 24 25 28 29)
-    set(OGXM_DEBUG_UART_PINS 4 5)
-    if(OGXM_ESP32_IO0_ALT_PIN IN_LIST OGXM_HYBRID_USED_PINS)
-        message(FATAL_ERROR "OGXM_ESP32_IO0_ALT_PIN=${OGXM_ESP32_IO0_ALT_PIN} is already used by the hybrid")
-    endif()
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND OGXM_ESP32_IO0_ALT_PIN IN_LIST OGXM_DEBUG_UART_PINS)
-        message(FATAL_ERROR "OGXM_ESP32_IO0_ALT_PIN=${OGXM_ESP32_IO0_ALT_PIN} is the debug UART in Debug builds")
-    endif()
-    add_compile_definitions(OGXM_ESP32_IO0_ALT_PIN=${OGXM_ESP32_IO0_ALT_PIN})
     # Custom: the same hybrid on a Pico 2 / Pico 2 W (RP2350, Pico pinout, 4 MB flash). The
     # Pico 2 W radio is not used: Bluetooth comes from the ESP32, and the pins wired to the
     # CYW43 (GP23 / 24 / 25 / 29) are not touched.
@@ -251,9 +238,6 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
         set(PICO_PLATFORM rp2350)
         set(FLASH_SIZE_MB 4)
         ogxm_ext_rgb_options()  # Custom: external WS2812 status LED (PIO block 2 is free here)
-        if(NOT OGXM_ESP32_IO0_ALT_PIN EQUAL -1 AND OGXM_ESP32_IO0_ALT_PIN EQUAL OGXM_EXT_RGB_PIN)
-            message(FATAL_ERROR "OGXM_ESP32_IO0_ALT_PIN and OGXM_EXT_RGB_PIN are both GP${OGXM_EXT_RGB_PIN} (OGXM_EXT_RGB_PIN=-1 turns the LED off)")
-        endif()
     endif()
 
     if(OGXM_RETAIL STREQUAL "TRUE")
