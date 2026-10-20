@@ -26,6 +26,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   ESP32 boot arrives whole through the UART bridge (where Core1 only moves bytes) and cut in the
   kept log of the normal modes ("rst…lizing", "running at 3"): the wiring is fine, which points at
   the main-loop reading.
+- **Hybrid: I2C read errors on the ESP32 grow with traffic** — 2026-10-20, Pico 2 W hybrid with I2C
+  moved to GP26 / GP27 (jumper wires): `companion.i2c_read_errors` 11 at boot, then about 1 every
+  5 s with no controller and 77 a few minutes after a Joy-Con pair connected; write errors 1-2,
+  no queue drops, no lost reports. No earlier figure to compare (the bench test only checks write
+  errors). Find out whether the default wiring shows the same before calling it a problem.
 - **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
   RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
   `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the
@@ -36,6 +41,12 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Output modes
 
+- **D-Input/Debug: ZL / ZR (L2 / R2) never reach the host** — seen on hardware 2026-10-20 (Pico 2 W
+  hybrid, Joy-Con pair, Linux evdev): L and R arrive as buttons 5 / 6, ZL and ZR as nothing.
+  `DInput.cpp` sets the L1 / R1 bits and copies the triggers into `l2_axis` / `r2_axis` (pressure
+  bytes, not an axis the host shows) but never sets the descriptor's L2 / R2 bits; PS3 mode does
+  (`if (gp_in.trigger_l) … L2`). Same in upstream's DInput. Proposed: set `Buttons0::L2` / `R2` from
+  the triggers as PS3 does, with a unit test; then an upstream fix PR.
 - **PS3 mode straight into a PS3 console, without an auth adapter.** Only tested through a Brook
   Wingman XE 2. The DInput mode used to answer the PS3's feature report 0x0300 (the "magic bytes" a
   third-party PS3 pad sends) under a ShanWan "PC / PS3" identity, which a PS3 accepts as a generic
