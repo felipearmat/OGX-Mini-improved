@@ -3,7 +3,7 @@
 What to check on hardware for the hybrid (`ESP32_BLUEPAD32_I2C` / `ESP32_BLUEPAD32_I2C_PICO2`)
 now that the ESP32 runs the Pico W's Bluetooth code (`Firmware/common/Bluepad32`) and the I2C link
 is at version 2 (`Firmware/common/I2C/Esp32Bridge.h`). Everything below builds and has unit tests
-for its logic; none of it has been on hardware yet.
+for its logic; what has been on hardware so far is under [Results](#results).
 
 Mark each case **pass**, **fail** (with what happened) or **skip** (no controller / host for it).
 Save a diagnostics report (web app, D-Input/Debug mode) after any failure.
@@ -204,6 +204,23 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 17.8 | Turn off controllers before mode change on, change mode by combo | the DS4 turns off, then the mode changes |
 | 17.9 | Play 1 min, change mode, report | `previous_session.input_to_output_latency` has samples |
 | 17.10 | Repeat the 56% loss test (DS4, 1-2 m) | compare with the first test: lost %, late %, largest gap |
+
+## Results
+
+**2026-10-20** — Pi Pico 2 W `ESP32_BLUEPAD32_I2C_PICO2` (Debug, I2C on GP26 / GP27, IO0 on GP22)
++ ESP32 38-pin DevKit (WROOM), jumper wires, 2.2 kΩ pull-ups; Joy-Con pair; Linux host (Bazzite).
+
+| # | Result | Notes |
+|---|---|---|
+| 6.5 | pass | Joy-Cons asked to sleep (link closed, reason 0x13), ESP32 restarts; a button press brings them back (they call the adapter) |
+| 7.1 | pass | the pair merges into one pad, search off with the slot in use |
+| 9.1 | pass (Joy-Cons) | controllers, input timing, events, `companion` with the ESP32's I2C errors |
+| 11.2 | pass | many times; the ESP32 enters its bootloader through GP22, no BOOT button |
+| 11.4 | pass | |
+| 14.1 | pass (Joy-Cons) | remote chip (`Broadcom v7 s2105`), poll interval granted (`poll 5000 us`) |
+| D-Input ZL / ZR | pass | after the fix: buttons 7 / 8 on evdev (CHANGELOG) |
+| I2C link | pass, with errors | about 10 read errors per 30 s at 1 MHz on these jumpers, 1 per 30 s at 400 kHz: signal, see [TODO](TODO.md) |
+| Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
 ## Report
 
