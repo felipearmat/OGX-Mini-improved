@@ -31,8 +31,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   5 s with no controller and 77 a few minutes after a Joy-Con pair connected; write errors 1-2,
   no queue drops, no lost reports. No earlier figure to compare (the bench test only checks write
   errors). Not the log kept in flash: with that option off the count kept rising, about 10 every
-  30 s with the pair connected. Next: the ESP32's I2C at 400 kHz instead of 1 MHz (signal), then
-  other ESP32 GPIOs (its GPIO21 / 22 fought GP20 while GP19 / GP20 were bridged).
+  30 s with the pair connected. The ESP32's I2C at 400 kHz (test build, same wires): 1.0 per 30 s
+  instead of 10.7, 2 at boot instead of about 11, and the right Joy-Con's late reports 1-3 % instead
+  of up to 16 %: the 1 MHz edges are too slow on these longer jumpers with 2.2 kΩ pull-ups (signal,
+  not damaged pins). Next: 1 kΩ pull-ups (or a second 2.2 kΩ in parallel) and shorter SDA / SCL
+  wires at 1 MHz; if that is not enough, consider a configurable ESP32 I2C rate.
 - **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
   RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
   `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the

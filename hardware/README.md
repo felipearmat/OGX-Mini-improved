@@ -75,7 +75,7 @@ never needed: its ROM bootloader is reached through the Pico, even on a blank ES
 | GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log | `OGXM_HYBRID_UART_RX_PIN` |
 | VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) | |
 | GND | GND | required | |
-| — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works); the internal ones are too weak for the 1 MHz link | |
+| — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works with short wires); the internal ones are too weak for the 1 MHz link. With longer jumpers use 1 kΩ (or a second 2.2 kΩ in parallel): slow edges show up as `i2c_read_errors` in the diagnostics report | |
 
 **Other pins:** every Pico-side wire above, the USB host port's D+ (`OGXM_HYBRID_USB_DP_PIN`, D- is
 the next GPIO) and the UART-bridge jumper (`OGXM_HYBRID_BRIDGE_JUMPER_PIN`) can be moved when you
