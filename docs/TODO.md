@@ -30,7 +30,9 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   moved to GP26 / GP27 (jumper wires): `companion.i2c_read_errors` 11 at boot, then about 1 every
   5 s with no controller and 77 a few minutes after a Joy-Con pair connected; write errors 1-2,
   no queue drops, no lost reports. No earlier figure to compare (the bench test only checks write
-  errors). Find out whether the default wiring shows the same before calling it a problem.
+  errors). Not the log kept in flash: with that option off the count kept rising, about 10 every
+  30 s with the pair connected. Next: the ESP32's I2C at 400 kHz instead of 1 MHz (signal), then
+  other ESP32 GPIOs (its GPIO21 / 22 fought GP20 while GP19 / GP20 were bridged).
 - **Bench logger stops when a USB device vanishes while it lists the ports** — 2026-10-20, while the
   RP2350 went to BOOTSEL: pyserial's `list_ports.comports()` read an empty `idVendor` and raised
   `TypeError` inside `Logger.watch_usb()` / `ports()` (`Tools/bench/logger.py`), which ended the
@@ -90,8 +92,8 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   designed (the white LED blink) and they came back by pressing a button, except twice: once only
   the left one came back (the right one only on the next try), and once neither did for 7.5 min
   (ESP32 restart at 477 s, both back at 926 s). Nothing was logged in between: no connection
-  attempt, pairing failure or rejected key. Next: log each incoming connection request and the
-  page-scan state after the ESP32 starts, then repeat.
+  attempt, pairing failure or rejected key. The log now has those events (connection requests,
+  failed connections, key requests, scan state; see CHANGELOG): repeat with it.
 - **Joy-Cons once did not reconnect by pressing a button after the dongle rebooted**
   (2026-09-30, DebugLite log `joycon-hang.log`, 19:42-19:45): the right Joy-Con had just done a
   fresh pairing (its link key had been dropped), both were turned off two minutes later, the
