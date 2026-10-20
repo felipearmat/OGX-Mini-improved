@@ -91,6 +91,25 @@ SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / R
 power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. The release
 UF2s use the defaults above. The ESP32 side does not move.
 
+**Perfboard layout with few crossing wires** (38-pin ESP32 DevKit, the boards on the two faces
+of a double-sided perfboard, USB ports at opposite ends): the ESP32's signal column (from the
+antenna end: 22, TX0, RX0, 21, GND, ..., 0) then faces the Pico's GP0-GP15 column in the order
+below, and EN / 5V / GND, on the ESP32's other column, go on the other face. Build with
+`-DOGXM_HYBRID_ESP32_IO0_PIN=9 -DOGXM_HYBRID_I2C_SDA_PIN=10 -DOGXM_HYBRID_I2C_SCL_PIN=11
+-DOGXM_HYBRID_UART_TX_PIN=12 -DOGXM_HYBRID_UART_RX_PIN=13`:
+
+| Pico | ESP32 |
+|---|---|
+| GP9 (pin 12) | GPIO0 (IO0) |
+| GND (pin 13) | GND |
+| GP10 (pin 14) | GPIO21 (SDA) |
+| GP11 (pin 15) | GPIO22 (SCL): crosses the two UART wires; GP15 (pin 20, `-DOGXM_HYBRID_I2C_SCL_PIN=15`) avoids that, but it is a corner pad |
+| GP12 (pin 16) | RX0 |
+| GP13 (pin 17) | TX0 |
+| GP8 (pin 11) | EN (other face) |
+
+Not built on hardware yet.
+
 Optional, on the Pico:
 
 | Pico | | |
