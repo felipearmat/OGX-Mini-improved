@@ -42,7 +42,7 @@ Both firmwares drive their pin whether or not an LED is there, so one LED on eit
   more LEDs can be chained, DOUT to the next DIN, for later use: the status is on the first one),
   `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`). GP6 is free in every mode (debug UART is
   GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
-  use GP8, GP16 to GP21 and GP28). The LED uses PIO block 2, which the RP2040 does not have.
+  use GP8, GP16 to GP22 and GP28). The LED uses PIO block 2, which the RP2040 does not have.
 - ESP32 options (`idf.py menuconfig`, *OGXMini Options*): `ENABLE_EXT_RGB` (on), `EXT_RGB_PIN`
   (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral.
 
@@ -70,7 +70,7 @@ never needed: its ROM bootloader is reached through the Pico, even on a blank ES
 | GP18 (pin 24) | GPIO21 | I2C SDA: controllers, settings, diagnostics |
 | GP19 (pin 25) | GPIO22 | I2C SCL |
 | GP8 (pin 11) | EN | restarts the ESP32 |
-| GP20 (pin 26) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing |
+| GP22 (pin 29) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing. GP20 (pin 26) carries the same signal, for hybrids wired before (the diagram still shows GP20); `-DOGXM_ESP32_IO0_ALT_PIN=<n>` moves that second pin to another free GPIO (e.g. 4, Release builds only) or `-1` turns it off, for a board where GP20 is damaged or bridged to GP19 |
 | GP28 (pin 34, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32. GP16 (pin 21) carries the same signal, for hybrids wired before (the diagram still shows GP16); pin 21 is a corner pad, often the one damaged by a poor soldering iron |
 | GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log |
 | VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) |
@@ -95,7 +95,7 @@ connect VBUS.
 
 **Flashing and logs through the Pico** ([Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md)),
 with the adapter in D-Input/Debug mode: `bootsel --uf2 FILE` updates the Pico (a blank Pico starts in its
-USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP28 (or GP16) / GP17 / GP20 /
+USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP28 (or GP16) / GP17 / GP22 (or GP20) /
 GP8, `monitor` shows the log both boards kept from the last session, then the ESP32's live
 output.
 

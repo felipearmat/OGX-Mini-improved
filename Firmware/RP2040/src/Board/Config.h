@@ -102,7 +102,12 @@
     #define UART0_TX_ALT_PIN    16
     #define UART0_RX_PIN        17
     #define MODE_SEL_PIN        21
-    #define ESP_PROG_PIN        20 // ESP32 IO0
+    /* Custom: ESP32 IO0 on GP22 (pin 29). OGXM_ESP32_IO0_ALT_PIN (CMake, default GP20, pin 26,
+     * where it was before) gets the same signal: wire either one. */
+    #define ESP_PROG_PIN        22 // ESP32 IO0
+    #if defined(OGXM_ESP32_IO0_ALT_PIN) && OGXM_ESP32_IO0_ALT_PIN >= 0
+    #define ESP_PROG_ALT_PIN    OGXM_ESP32_IO0_ALT_PIN
+    #endif
     #define ESP_RST_PIN         8  // ESP32 EN
     /* Custom: the Pico / Pico 2's own LED as the status LED. On a Pico W / Pico 2 W GP25 goes to
      * the radio chip, which the hybrid leaves off: the LED stays dark there. */
@@ -187,6 +192,18 @@
                          (I2C_SDA_PIN == 18) || \
                          (I2C_SDA_PIN == 26)) ? i2c1 : i2c0
 #endif // defined(I2C_SDA_PIN)
+
+#if defined(ESP_PROG_PIN)
+    /* Custom: the ESP32's IO0 line, on its second pin too when the board has one. */
+    #if defined(ESP_PROG_ALT_PIN)
+        #define ESP_PROG_INIT() do { gpio_init(ESP_PROG_PIN); gpio_set_dir(ESP_PROG_PIN, GPIO_OUT); \
+                                     gpio_init(ESP_PROG_ALT_PIN); gpio_set_dir(ESP_PROG_ALT_PIN, GPIO_OUT); } while (0)
+        #define ESP_PROG_PUT(v) do { gpio_put(ESP_PROG_PIN, (v)); gpio_put(ESP_PROG_ALT_PIN, (v)); } while (0)
+    #else
+        #define ESP_PROG_INIT() do { gpio_init(ESP_PROG_PIN); gpio_set_dir(ESP_PROG_PIN, GPIO_OUT); } while (0)
+        #define ESP_PROG_PUT(v) gpio_put(ESP_PROG_PIN, (v))
+    #endif
+#endif // defined(ESP_PROG_PIN)
 
 #if defined(PIO_USB_DP_PIN)
     #define PIO_USB_CONFIG { \
