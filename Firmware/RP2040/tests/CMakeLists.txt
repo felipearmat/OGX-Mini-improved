@@ -95,6 +95,10 @@ ogxm_add_test(test_switch_pro_layout test_switch_pro_layout.cpp)
 ogxm_add_test(test_hd_rumble test_hd_rumble.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp)
 
 ogxm_add_test(test_sony_imu test_sony_imu.cpp)
+# Custom: every motion source at the same units in the Sony outputs (Gamepad/MotionImu.h).
+ogxm_add_test(test_motion_units test_motion_units.cpp ${FW_COMMON}/Bluepad32/JoyConSettings.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
+target_compile_definitions(test_motion_units PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_motion_units PRIVATE fixmath)
 
 ogxm_add_test(test_sony_reports test_sony_reports.cpp)
 

@@ -39,7 +39,7 @@ void add_synth_fields(std::array<uint8_t, SteamPassthrough::USB_REPORT_SIZE>& re
 			in.gyro[i] = gp_in.gyro[i];
 			in.accel[i] = gp_in.accel[i];
 		}
-		MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, in.accel, in.gyro);
+		MotionImu::remap_to_ds4_report_frame(gp_in.motion_source, in.accel, in.gyro);
 	}
 	in.time_us = time_us_64();
 	in.touch_raw = gp_in.touch_raw;

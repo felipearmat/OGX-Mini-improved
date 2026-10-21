@@ -17,6 +17,23 @@ One / Series wireless dongle, more retro consoles) stay in
 | 7 | [Smaller items](#7-smaller-items) | Planned |
 | 8 | [ESP32 multi-slave and the 4-channel board](#8-esp32-multi-slave-and-the-4-channel-board) | Last: after features, compatibility and maintainability |
 
+## 0. D-Input/Debug as a full debug mode
+
+Asked for on 2026-10-21: the D-Input/Debug mode should capture everything the adapter can learn
+about any supported controller, so a problem can be read without switching modes or tools.
+
+- Input: every button, axis and trigger raw and mapped; motion (the report's `motion` block since
+  2026-10-21: the pad's units, g and deg/s, the gyro's recent peak); touchpad; battery; each
+  pad's extras (Capture / Home / Mute, back buttons).
+- What the host asks for: rumble per motor; Joy-Con / Pro HD Rumble (frequency and amplitude, one
+  or both actuators); lightbar and player LEDs; DualSense adaptive triggers.
+- Link: what the report already has (RSSI, channels, chip, report rate, losses), plus the time of
+  each Joy-Con setup step and the pad's firmware.
+- Web app: a live motion view, a box that turns with the controller (orientation from the gyro,
+  levelled by gravity) with recentre and axis display, as Yuzu-based emulators show; motion
+  streamed over USB in Debug mode, in the units and frame of the chosen output.
+- One report for the web app and the bench tools, with no mode change.
+
 ## 1. Turbo / auto-fire
 
 Hold-to-repeat per button, set in the web app: on / off per button, a few speeds (for example 5,

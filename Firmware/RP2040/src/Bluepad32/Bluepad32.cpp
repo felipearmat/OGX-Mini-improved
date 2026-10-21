@@ -1131,6 +1131,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
                                    joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConRight,
                                    joycon && bt_pad::pair_partner_idx(device) >= 0, s_wii_gyro[idx],
                                    to_ms_since_boot(get_absolute_time()));
+        MotionImu::report_motion(gp_in, to_ms_since_boot(get_absolute_time()));
     }
 
     /* Custom: battery for every output mode (PS4 mode passes it and the touchpad to the host). */

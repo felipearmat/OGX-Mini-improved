@@ -51,7 +51,7 @@ void apply_pad_imu_to_ps4_report(std::array<uint8_t, 64>& rep, const Gamepad::Pa
 
 	int32_t accel[3] = {gp_in.accel[0], gp_in.accel[1], gp_in.accel[2]};
 	int32_t gyro[3] = {gp_in.gyro[0], gp_in.gyro[1], gp_in.gyro[2]};
-	MotionImu::remap_to_ds4_playing_frame(gp_in.motion_source, accel, gyro);
+	MotionImu::remap_to_ds4_report_frame(gp_in.motion_source, accel, gyro);
 
 	sony_reports::put_motion(rep.data(), sony_reports::ds4::kGyro, sony_reports::ds4::kAccel, gyro, accel,
 	                         motion_scale());

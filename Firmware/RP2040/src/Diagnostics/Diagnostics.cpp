@@ -595,6 +595,18 @@ struct Companion {
     uint32_t seen_ms;
 };
 static Companion s_companion{};
+struct Motion {
+    bool seen;
+    uint8_t source;
+    int32_t pad_accel[3], pad_gyro[3], accel[3], gyro[3];
+    int32_t peak[3], peak_prev[3];  // largest |gyro| (DS4 units) this window and the last one
+    uint32_t window_ms;
+    uint32_t samples;
+};
+static Motion s_motion{};
+static volatile uint32_t s_i2c_replies = 0;      // written by the I2C interrupt (Core1) only
+static volatile uint32_t s_i2c_replies_cut = 0;
+static volatile uint32_t s_i2c_rejected = 0;
 
 void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10)
 {
@@ -606,6 +618,44 @@ void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16
     s.companion_rate = reports_per_s;
     s.companion_lost_valid = lost_valid;
     s.companion_lost_x10 = lost_x10;
+}
+
+void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], const int32_t pad_gyro[3],
+                   const int32_t ds4_accel[3], const int32_t ds4_gyro[3])
+{
+    Lock l;
+    Motion& m = s_motion;
+    if (!m.seen || now_ms - m.window_ms >= 1000) {
+        for (int i = 0; i < 3; ++i) {
+            m.peak_prev[i] = m.seen ? m.peak[i] : 0;
+            m.peak[i] = 0;
+        }
+        m.window_ms = now_ms;
+    }
+    m.seen = true;
+    m.source = source;
+    for (int i = 0; i < 3; ++i) {
+        m.pad_accel[i] = pad_accel[i];
+        m.pad_gyro[i] = pad_gyro[i];
+        m.accel[i] = ds4_accel[i];
+        m.gyro[i] = ds4_gyro[i];
+        const int32_t a = ds4_gyro[i] >= 0 ? ds4_gyro[i] : -ds4_gyro[i];
+        if (a > m.peak[i])
+            m.peak[i] = a;
+    }
+    ++m.samples;
+}
+
+void i2c_packet_rejected()
+{
+    s_i2c_rejected = s_i2c_rejected + 1;
+}
+
+void i2c_reply(bool cut)
+{
+    s_i2c_replies = s_i2c_replies + 1;
+    if (cut)
+        s_i2c_replies_cut = s_i2c_replies_cut + 1;
 }
 
 void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
@@ -1122,6 +1172,27 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"usb_output\":{\"configured\":%s,\"suspended\":%s,\"reports_sent\":%lu,\"reports_sent_per_s\":%lu}",
           s_usb_configured ? "true" : "false", s_usb_suspended ? "true" : "false",
           static_cast<unsigned long>(s_usb_sent), static_cast<unsigned long>(s_usb_sent_rate));
+    if (s_motion.seen) {
+        /* Motion as the outputs get it: the pad's units, then g and deg/s (x10) in the DS4 frame. */
+        const Motion& m = s_motion;
+        auto x10_dps = [](int32_t v) { return static_cast<long>((static_cast<int64_t>(v) * 10) / 1024); };
+        auto mg = [](int32_t v) { return static_cast<long>((static_cast<int64_t>(v) * 1000) / 8192); };
+        int32_t peak[3];
+        for (int i = 0; i < 3; ++i) peak[i] = std::max(m.peak[i], m.peak_prev[i]);
+        w.raw(",\"motion\":{\"source\":%u,\"samples\":%lu,\"pad_accel\":[%ld,%ld,%ld],\"pad_gyro\":[%ld,%ld,%ld]",
+              m.source, static_cast<unsigned long>(m.samples), static_cast<long>(m.pad_accel[0]),
+              static_cast<long>(m.pad_accel[1]), static_cast<long>(m.pad_accel[2]), static_cast<long>(m.pad_gyro[0]),
+              static_cast<long>(m.pad_gyro[1]), static_cast<long>(m.pad_gyro[2]));
+        w.raw(",\"accel_mg\":[%ld,%ld,%ld],\"gyro_dps_x10\":[%ld,%ld,%ld],\"gyro_peak_dps_x10\":[%ld,%ld,%ld]}",
+              mg(m.accel[0]), mg(m.accel[1]), mg(m.accel[2]), x10_dps(m.gyro[0]), x10_dps(m.gyro[1]),
+              x10_dps(m.gyro[2]), x10_dps(peak[0]), x10_dps(peak[1]), x10_dps(peak[2]));
+    }
+    if (s_i2c_replies) {
+        /* The hybrid RP2040's side of the I2C link: replies the ESP32 stopped reading part way. */
+        w.raw(",\"i2c_slave\":{\"replies\":%lu,\"replies_cut\":%lu,\"packets_rejected\":%lu}",
+              static_cast<unsigned long>(s_i2c_replies), static_cast<unsigned long>(s_i2c_replies_cut),
+              static_cast<unsigned long>(s_i2c_rejected));
+    }
     if (s_companion.present) {
         /* The hybrid's ESP32: what it reports about itself and the I2C link. */
         w.raw(",\"companion\":{\"chip\":\"ESP32\"");
@@ -1258,6 +1329,10 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
 void reset_for_tests()
 {
     Lock l;
+    s_i2c_replies = 0;
+    s_i2c_replies_cut = 0;
+    s_i2c_rejected = 0;
+    s_motion = Motion{};
     s_info = BoardInfo{};
     std::memset(&s_p, 0, sizeof(s_p));
     s_last_crash = CrashInfo{};

@@ -8,6 +8,7 @@
 #include "UserSettings/DongleSettings.h"
 #include "UserSettings/UserProfile.h"
 #include "Gamepad/Ps5Core.h"
+#include "Gamepad/MotionSource.h"
 
 /* I2C link between the RP2040 (USB side, I2C slave) and the ESP32 companion running
  * Bluepad32 (I2C master): board ESP32_BLUEPAD32_I2C. Both firmwares build from this one
@@ -98,13 +99,14 @@ namespace Esp32Bridge
         static constexpr uint8_t JOYCON_LEFT    = 0x04;  // motion from a left Joy-Con
         static constexpr uint8_t JOYCON_RIGHT   = 0x08;  // motion from a right Joy-Con
         static constexpr uint8_t JOYCON_PAIRED  = 0x10;  // ... merged with its other half
+        static constexpr uint8_t GYRO_SCALED    = 0x20;  // gyro divided by gyro_wire_div() (below)
 
         uint8_t  packet_len{sizeof(PacketInExt)};
         PacketID packet_id{PacketID::SET_PAD_EXT};
         uint8_t  index{0};
         uint8_t  motion_source{0};  // Gamepad::PadIn::MOTION_SRC_* (0 = none)
         int16_t  accel[3]{};        // Bluepad32 units, saturated to 16 bits
-        int16_t  gyro[3]{};
+        int16_t  gyro[3]{};         // with GYRO_SCALED: Bluepad32 units / gyro_wire_div(), saturated
         uint8_t  touch_raw[8]{};    // DS4 / DualSense touch points, as Bluepad32 reports them
         uint8_t  flags{0};
         uint8_t  battery{0};        // Bluepad32 scale (0 = unknown, 1..255)
@@ -253,6 +255,39 @@ namespace Esp32Bridge
     inline int16_t saturate_i16(int32_t v)
     {
         return v > 32767 ? int16_t{32767} : (v < -32768 ? int16_t{-32768} : static_cast<int16_t>(v));
+    }
+
+    /* Custom fix: Bluepad32's gyro does not fit 16 bits (Switch pads: raw counts * 1000, about
+     * 14 285 per deg/s; DS4 / DualSense: 1024 per deg/s), so sent as it was it saturated at about
+     * 2.3 deg/s (Joy-Con) and 32 deg/s (DS4): turning the pad barely moved anything. The ESP32
+     * divides by this (raw counts: +-2290 deg/s; 16 per deg/s: +-2048 deg/s) and sets GYRO_SCALED;
+     * the RP2040 multiplies back. An older ESP32 (no flag) is read as before. */
+    inline int32_t gyro_wire_div(uint8_t source)
+    {
+        switch (source) {
+            case motion_source::SWITCH_PRO:
+            case motion_source::SWITCH_USB:
+                return 1000;
+            case motion_source::DS4:
+            case motion_source::DS5:
+            case motion_source::DS4_USB:
+            case motion_source::DS5_USB:
+                return 64;
+            default:
+                return 1;
+        }
+    }
+
+    inline int16_t gyro_to_wire(int32_t gyro, uint8_t source)
+    {
+        const int32_t div = gyro_wire_div(source);
+        const int32_t q = gyro >= 0 ? (gyro + div / 2) / div : (gyro - div / 2) / div;
+        return saturate_i16(q);
+    }
+
+    inline int32_t gyro_from_wire(int16_t wire, uint8_t source, bool scaled)
+    {
+        return scaled ? static_cast<int32_t>(wire) * gyro_wire_div(source) : wire;
     }
 
 } // namespace Esp32Bridge

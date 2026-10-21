@@ -271,12 +271,16 @@ static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
          * touchpad and battery. */
         const PacketInExt& ext = _pad_ext[packet.index];
         const int32_t accel[3] = {ext.accel[0], ext.accel[1], ext.accel[2]};
-        const int32_t gyro[3] = {ext.gyro[0], ext.gyro[1], ext.gyro[2]};
+        const bool scaled = (ext.flags & PacketInExt::GYRO_SCALED) != 0;
+        const int32_t gyro[3] = {Esp32Bridge::gyro_from_wire(ext.gyro[0], ext.motion_source, scaled),
+                                 Esp32Bridge::gyro_from_wire(ext.gyro[1], ext.motion_source, scaled),
+                                 Esp32Bridge::gyro_from_wire(ext.gyro[2], ext.motion_source, scaled)};
         MotionImu::apply_bt_motion(pad_in, ext.motion_source, accel, gyro,
                                    (ext.flags & PacketInExt::JOYCON_LEFT) != 0,
                                    (ext.flags & PacketInExt::JOYCON_RIGHT) != 0,
                                    (ext.flags & PacketInExt::JOYCON_PAIRED) != 0,
                                    _wii_gyro[packet.index], to_ms_since_boot(get_absolute_time()));
+        MotionImu::report_motion(pad_in, to_ms_since_boot(get_absolute_time()));
         std::memcpy(pad_in.touch_raw, ext.touch_raw, sizeof(pad_in.touch_raw));
         pad_in.touchpad_valid = (ext.flags & PacketInExt::TOUCHPAD_VALID) ? 1 : 0;
         pad_in.touchpad_click = (ext.flags & PacketInExt::TOUCHPAD_CLICK) ? 1 : 0;
@@ -340,6 +344,17 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static_assert(sizeof(PacketInExt) <= sizeof(PacketIn), "the receive buffer holds every ESP32 packet");
     static DeviceDriverType current_device_type = 
         UserSettings::get_instance().get_current_driver();
+    /* Custom fix: the reply being read. Replies (up to 37 bytes) are longer than the I2C TX FIFO
+     * (16): written whole with i2c_write_raw_blocking they kept this interrupt waiting until the
+     * ESP32 read the rest. When the ESP32 gave up on a read (its 2 ms limit, e.g. while this core
+     * was parked for a flash write), the handler kept waiting, handed the rest of the old reply
+     * to the next read, and left the ESP32's writes unserved meanwhile: errors that fed each other
+     * until the link went silent. Now each read request tops the FIFO up from this buffer
+     * without waiting; the end of the transfer drops what was not read. */
+    static uint8_t reply_buf[std::max({sizeof(PacketOut), sizeof(PacketOutExt), sizeof(PacketProfile), sizeof(PacketBlob)})];
+    static uint8_t reply_len = 0;
+    static uint8_t reply_pos = 0;
+    static bool reply_active = false;
 
     switch (event) {
         case I2C_SLAVE_RECEIVE:
@@ -349,7 +364,20 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             }
             break;
         case I2C_SLAVE_FINISH:
+            if (reply_active) {
+                diag::i2c_reply(reply_pos < reply_len);  // a cut reply's rest is dropped here
+                reply_active = false;
+            }
             if (count == 0) {
+                break;
+            }
+            /* Custom fix: every ESP32 packet is 32 bytes and says so in its first byte. A write the
+             * bus corrupted (no checksum on the link; the ESP32's writes are acknowledged byte by
+             * byte whatever arrives) was acted on all the same: a stray byte read as SET_DRIVER
+             * switched the adapter to another mode now and then. */
+            if (count != sizeof(PacketIn) || packet_in.packet_len != sizeof(PacketIn)) {
+                diag::i2c_packet_rejected();
+                count = 0;
                 break;
             }
             switch (packet_in.packet_id) {
@@ -473,8 +501,16 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     );
                     break;
                 }
-                case PacketID::SET_DRIVER:
-                    if (mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type)) {
+                case PacketID::SET_DRIVER: {
+                    /* The same request twice within 2 s (the ESP32 repeats a combo's request every
+                     * tick, I2C/ModeSync.h): one corrupted packet no longer changes the mode. */
+                    static DeviceDriverType last_request = DeviceDriverType::NONE;
+                    static uint32_t last_request_ms = 0;
+                    const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+                    const bool confirmed = packet_in.device_driver == last_request && now_ms - last_request_ms < 2000;
+                    last_request = packet_in.device_driver;
+                    last_request_ms = now_ms;
+                    if (confirmed && mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type)) {
                         OGXM_LOG("I2C: Driver change detected.\n");
                         //Any writes to flash should be done on Core0
                         TaskQueue::Core0::queue_delayed_task(
@@ -489,61 +525,75 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         );
                     }
                     break;
+                }
                 default:
                     break;
             }
             count = 0;
             break;
-        case I2C_SLAVE_REQUEST:
-            if (blob_requested) {
-                blob_requested = false;
-                PacketBlob reply = blob_request;
-                const uint8_t* data = nullptr;
-                const size_t total = blob_bytes(reply.kind, data);
-                const size_t offset = reply.chunk * PacketBlob::kData;
-                reply.total_len = static_cast<uint8_t>(total);
-                if (data && offset < total) {
-                    std::memcpy(reply.data, data + offset, std::min(PacketBlob::kData, total - offset));
-                }
-                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
-                break;
-            }
-            if (profile_requested) {
-                profile_requested = false;
-                PacketProfile reply = profile_request;
-                if (reply.profile_id >= 1 && reply.profile_id <= UserSettings::MAX_PROFILES &&
-                    reply.chunk < PacketProfile::kChunks) {
-                    const size_t offset = reply.chunk * PacketProfile::kData;
-                    const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
-                    std::memcpy(reply.data, reinterpret_cast<const uint8_t*>(&_profiles[reply.profile_id - 1]) + offset, len);
+        case I2C_SLAVE_REQUEST: {
+            if (!reply_active) {  // the first byte of a read: build its reply
+                reply_active = true;
+                reply_pos = 0;
+                if (blob_requested) {
+                    blob_requested = false;
+                    PacketBlob reply = blob_request;
+                    const uint8_t* data = nullptr;
+                    const size_t total = blob_bytes(reply.kind, data);
+                    const size_t offset = reply.chunk * PacketBlob::kData;
+                    reply.total_len = static_cast<uint8_t>(total);
+                    if (data && offset < total) {
+                        std::memcpy(reply.data, data + offset, std::min(PacketBlob::kData, total - offset));
+                    }
+                    reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
+                    std::memcpy(reply_buf, &reply, reply_len);
+                } else if (profile_requested) {
+                    profile_requested = false;
+                    PacketProfile reply = profile_request;
+                    if (reply.profile_id >= 1 && reply.profile_id <= UserSettings::MAX_PROFILES &&
+                        reply.chunk < PacketProfile::kChunks) {
+                        const size_t offset = reply.chunk * PacketProfile::kData;
+                        const size_t len = std::min(PacketProfile::kData, sizeof(UserProfile) - offset);
+                        std::memcpy(reply.data, reinterpret_cast<const uint8_t*>(&_profiles[reply.profile_id - 1]) + offset, len);
+                    } else {
+                        reply.profile_id = 0;  // nothing there
+                    }
+                    reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
+                    std::memcpy(reply_buf, &reply, reply_len);
+                } else if (ext_requested) {
+                    ext_requested = false;
+                    if (ext_replies < mode_sync::kRepliesBeforeRequests) {
+                        ++ext_replies;
+                    }
+                    const PacketOutExt reply = ext_reply(packet_in.index);
+                    reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
+                    std::memcpy(reply_buf, &reply, reply_len);
                 } else {
-                    reply.profile_id = 0;  // nothing there
+                    if (packet_in.index < MAX_GAMEPADS) {
+                        packet_out.index = packet_in.index;
+                        /* Custom fix: the strongest rumble since the ESP32's last read, as the Pico W
+                         * Bluetooth path does; the current value lost host pulses shorter than the
+                         * ESP32's read period. */
+                        const Gamepad::PadOut pad_out = _gamepads[packet_in.index].take_pad_out_peak();
+                        packet_out.rumble_l = pad_out.rumble_l;
+                        packet_out.rumble_r = pad_out.rumble_r;
+                    }
+                    reply_len = std::min<uint8_t>(packet_out.packet_len, sizeof(packet_out));
+                    std::memcpy(reply_buf, &packet_out, reply_len);
                 }
-                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
-                break;
             }
-            if (ext_requested) {
-                ext_requested = false;
-                if (ext_replies < mode_sync::kRepliesBeforeRequests) {
-                    ++ext_replies;
-                }
-                const PacketOutExt reply = ext_reply(packet_in.index);
-                i2c_write_raw_blocking(i2c, reinterpret_cast<const uint8_t*>(&reply), reply.packet_len);
-                break;
+            /* As many bytes as the FIFO takes now (a read request comes with it empty); the next
+             * request gets more. A read past the reply's end gets a zero, so the bus never waits. */
+            size_t room = i2c_get_write_available(i2c);
+            if (reply_pos >= reply_len) {
+                i2c_get_hw(i2c)->data_cmd = 0;
             }
-            if (packet_in.index < MAX_GAMEPADS) {
-                packet_out.index = packet_in.index;
-                /* Custom fix: the strongest rumble since the ESP32's last read, as the Pico W
-                 * Bluetooth path does; the current value lost host pulses shorter than the
-                 * ESP32's read period. */
-                const Gamepad::PadOut pad_out = _gamepads[packet_in.index].take_pad_out_peak();
-                packet_out.rumble_l = pad_out.rumble_l;
-                packet_out.rumble_r = pad_out.rumble_r;
+            while (room > 0 && reply_pos < reply_len) {
+                i2c_get_hw(i2c)->data_cmd = reply_buf[reply_pos++];
+                --room;
             }
-            i2c_write_raw_blocking( i2c, 
-                                    reinterpret_cast<const uint8_t*>(&packet_out), 
-                                    packet_out.packet_len);
             break;
+        }
         default:
             break;
     }

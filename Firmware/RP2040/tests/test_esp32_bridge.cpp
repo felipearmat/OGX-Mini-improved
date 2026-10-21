@@ -331,4 +331,22 @@ TEST(mode_requests_wait_for_the_rp2040s_answers) {
     CHECK(mode_sync::esp32_sends_own_mode(false, mode_sync::kNoSettingsRp2040Ms));
 }
 
+TEST(gyro_crosses_the_link_without_saturating) {
+    // A Joy-Con turning at 300 deg/s (Bluepad32: raw counts * 1000, raw = deg/s * 13371 / 936) and a
+    // DS4 at 500 deg/s (1024 per deg/s) used to saturate at 32767 (about 2.3 and 32 deg/s).
+    const int32_t joycon = static_cast<int32_t>(300.0 * 13371.0 / 936.0 * 1000.0);
+    const int16_t jw = Esp32Bridge::gyro_to_wire(joycon, motion_source::SWITCH_PRO);
+    CHECK(jw > 4200 && jw < 4400);
+    const int32_t jback = Esp32Bridge::gyro_from_wire(jw, motion_source::SWITCH_PRO, true);
+    CHECK(jback > joycon - 1000 && jback < joycon + 1000);  // within one raw count
+    const int32_t ds4 = 500 * 1024;
+    const int16_t dw = Esp32Bridge::gyro_to_wire(-ds4, motion_source::DS4);
+    CHECK_EQ(dw, -8000);
+    CHECK_EQ(Esp32Bridge::gyro_from_wire(dw, motion_source::DS4, true), -ds4);
+    // An older ESP32 (no GYRO_SCALED): read as it sent it.
+    CHECK_EQ(Esp32Bridge::gyro_from_wire(1234, motion_source::SWITCH_PRO, false), 1234);
+    // Sources whose gyro already fits: unchanged.
+    CHECK_EQ(Esp32Bridge::gyro_to_wire(77, motion_source::WII_BT), 77);
+}
+
 TEST_MAIN()

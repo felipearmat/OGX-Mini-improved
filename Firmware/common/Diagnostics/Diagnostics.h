@@ -133,6 +133,17 @@ namespace diag {
     // its boot.
     void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
                         uint32_t i2c_write_errors, uint32_t i2c_read_errors, uint32_t queue_drops);
+    // A Bluetooth pad's motion as it reaches the output (RP2040): source (Gamepad/MotionSource.h),
+    // the pad's units (Bluepad32's, after the Joy-Con orientation) and the same in DS4 units
+    // (8192 per g, 1024 per deg/s, the DS4 report frame) as the PS4 / STEAM outputs get it. The report shows the
+    // latest values and the gyro's peak over about a second, in every mode (D-Input/Debug too).
+    void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], const int32_t pad_gyro[3],
+                       const int32_t ds4_accel[3], const int32_t ds4_gyro[3]);
+    // The hybrid RP2040's I2C slave: a reply the ESP32 read (cut: it stopped before the reply's
+    // end). Safe from the I2C interrupt (counters only).
+    void i2c_reply(bool cut);
+    // ... and a packet from the ESP32 dropped because its length was wrong (corrupted on the bus).
+    void i2c_packet_rejected();
     // The ESP32's OGX-Mini-improved version (OGXM_VERSION), and a copy of it ("" while unknown).
     void companion_version(const char* version);
     size_t companion_version_copy(char* out, size_t out_len);

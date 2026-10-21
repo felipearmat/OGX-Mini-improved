@@ -26,6 +26,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   in 18 min; the DMA build with the main-loop steps: none in 15 min. After the 18:56 one every I2C
   read by the ESP32 failed for 10 min (no settings or profiles reached it) until a reboot. Next:
   the step the report names after the next one (`BootStage.h` main-loop steps).
+- **Hybrid: I2C link checksum** — the RP2040 now drops packets whose length is wrong and needs a
+  mode request twice (2026-10-21), but a write with flipped bits inside a valid length still
+  arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
+  the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
+  older ones).
 - **Hybrid: I2C read errors about 12 times higher with controllers since the evening of 2026-10-20**
   — about 4 per second with a Joy-Con pair (120 per 30 s), against 10.7 per 30 s that morning on
   the same jumpers; the same with and without the DMA receive (A/B), about 0.25 per second with no
@@ -80,13 +85,20 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Motion
 
-- **Gyro too sensitive in STEAM mode (Joy-Cons and DS4).** Reported 2026-09-30 on hardware:
-  camera / aim moves much faster than the real rotation, and Steam's "gyro stabilization"
-  option has to be turned on to make it usable (same for a DS4). Check that the synthesized
-  DualSense motion units (`USBDevice/DeviceDriver/Sony/SonyImu.h`) and the calibration report 0x05 agree, for Joy-Con
-  (Switch units, `USBDevice/DeviceDriver/Switch/SwitchImu`) and DS4 sources; compare with a real DualSense's degrees per
-  count in Steam's calibration view; check whether the noise floor (not only the scale) is what
-  the stabilization option hides.
+- **Gyro in STEAM / PS4 mode from a DS4: still too sensitive?** The Joy-Con / Pro part is fixed
+  (CHANGELOG, 2026-10-21: units, the hybrid's I2C saturation, the DS4 report frame; a 360 degree
+  turn integrates to about 351 degrees from the DualSense report). DS4 motion already arrives in
+  DS4 units, so the 2026-09-30 report for a DS4 points at noise rather than scale: retest with a
+  DS4 in Steam's calibration view, with and without "gyro stabilization".
+- **Linux evdev motion (hid-playstation) did not follow a turn** — 2026-10-21, STEAM mode, Joy-Con
+  pair: integrating the "Motion Sensors" evdev device gave only the bias drift while the same
+  reports' raw gyro (hidraw) integrated to the turn. Either the integration script or how
+  hid-playstation reads the synthesized report (calibration, sensor timestamp); matters for Linux
+  games reading motion without Steam. Check with `evtest` on the motion device.
+- **PS3 mode: Joy-Con / Pro motion still in the Sixaxis-style frame** (gravity on Z), as PS3.cpp
+  expects; a DS4 source arrives in the DS4 report frame (gravity on Y) and goes through the same
+  conversion, so one of the two is wrong for a DS3 host. Check on a PS3 (or the DS3 test in
+  Linux hid-sony) which frame the Sixaxis report wants.
 
 ## Rumble
 

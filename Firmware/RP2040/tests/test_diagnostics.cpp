@@ -226,6 +226,32 @@ TEST(classic_switch_battery_and_disconnect) {
     CHECK(has(r, "\"controllers\":[]"));
 }
 
+TEST(the_report_shows_motion_and_the_gyros_recent_peak) {
+    setup();
+    CHECK(!has(report(1000), "\"motion\""));  // no pad with motion yet
+    const int32_t pad_a[3] = {0, 0, 4096}, pad_g[3] = {0, 0, 1285000};
+    const int32_t a[3] = {0, 0, -8192}, g[3] = {0, 0, -92160};   // 90 deg/s
+    const int32_t still[3] = {0, 0, 0};
+    diag::motion_sample(1000, 3, pad_a, pad_g, a, g);
+    diag::motion_sample(1500, 3, pad_a, still, a, still);
+    const std::string r = report(1600);
+    CHECK(has(r, "\"motion\":{\"source\":3,\"samples\":2,\"pad_accel\":[0,0,4096],\"pad_gyro\":[0,0,0]"));
+    CHECK(has(r, "\"accel_mg\":[0,0,-1000],\"gyro_dps_x10\":[0,0,0],\"gyro_peak_dps_x10\":[0,0,900]}"));
+    // The peak lasts about a second, then goes.
+    diag::motion_sample(2600, 3, pad_a, still, a, still);
+    diag::motion_sample(3700, 3, pad_a, still, a, still);
+    CHECK(has(report(3800), "\"gyro_peak_dps_x10\":[0,0,0]"));
+}
+
+TEST(the_report_counts_i2c_replies_the_esp32_cut_short) {
+    setup();
+    CHECK(!has(report(1000), "\"i2c_slave\""));  // not the hybrid / nothing read yet
+    diag::i2c_reply(false);
+    diag::i2c_reply(true);
+    diag::i2c_packet_rejected();
+    CHECK(has(report(2000), "\"i2c_slave\":{\"replies\":2,\"replies_cut\":1,\"packets_rejected\":1}"));
+}
+
 TEST(the_report_says_whether_link_details_are_on) {
     setup();
     dongle_settings::Settings s = dongle_settings::defaults();

@@ -218,11 +218,12 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     for (int i = 0; i < 3; ++i)
     {
         ext.accel[i] = Esp32Bridge::saturate_i16(uni_gp->accel[i]);
-        ext.gyro[i] = Esp32Bridge::saturate_i16(uni_gp->gyro[i]);
+        ext.gyro[i] = Esp32Bridge::gyro_to_wire(uni_gp->gyro[i], ext.motion_source);
     }
     std::memcpy(ext.touch_raw, mapped.touch_raw, sizeof(ext.touch_raw));
     ext.flags = (mapped.touchpad_valid ? I2CDriver::PacketInExt::TOUCHPAD_VALID : 0) |
-                (mapped.touchpad_click ? I2CDriver::PacketInExt::TOUCHPAD_CLICK : 0);
+                (mapped.touchpad_click ? I2CDriver::PacketInExt::TOUCHPAD_CLICK : 0) |
+                I2CDriver::PacketInExt::GYRO_SCALED;
     if (bt_pad::is_switch_joycon(bp_device))
     {
         ext.flags |= bp_device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft

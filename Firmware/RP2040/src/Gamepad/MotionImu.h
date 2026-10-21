@@ -6,6 +6,7 @@
 
 #include "Gamepad/Gamepad.h"
 #include "Bluepad32/JoyConSettings.h"
+#include "Diagnostics/Diagnostics.h"
 
 namespace MotionImu
 {
@@ -192,6 +193,22 @@ inline void apply_wii_pseudo_gyro(int32_t accel[3], int32_t gyro[3], WiiPseudoGy
  * Switch Pro raw: X → triggers, Y → left, Z → out of face buttons.
  * Wiimote pointed at TV: gravity mostly on -Y; map to DS4 +Z neutral.
  */
+/* Switch sources (Bluepad32's Switch parser, the wired Pro): accel in raw counts, 4096 per g, and
+ * gyro in raw counts * 1000, raw = deg/s * 13371 / 936 (the factory scale, SwitchImu.h). DS4
+ * units: 8192 per g, 1024 per deg/s. */
+constexpr int32_t kSwitchAccelCountsPerG = 4096;
+constexpr int64_t kSwitchToDs4GyroNum = 1024LL * 936;
+constexpr int64_t kSwitchToDs4GyroDen = static_cast<int64_t>(kSwitchGyroPrecScale) * kSwitchDefaultGyroScale;
+
+inline int32_t div_round_i64(int64_t num, int64_t den)
+{
+    return static_cast<int32_t>(num >= 0 ? (num + den / 2) / den : (num - den / 2) / den);
+}
+
+/* Into the DS4 playing frame and DS4 units, for the PS3 / PS4 / STEAM outputs (they scale from
+ * DS4 units). Custom fix: Switch sources were only rotated, so their gyro reached those outputs
+ * about 14 times too strong (aim far faster than the turn) and gravity at half. Wii keeps its
+ * pseudo-gyro as it was. */
 inline void remap_to_ds4_playing_frame(uint8_t motion_source, int32_t accel[3], int32_t gyro[3])
 {
     const int32_t ix = accel[0];
@@ -219,9 +236,34 @@ inline void remap_to_ds4_playing_frame(uint8_t motion_source, int32_t accel[3], 
             gyro[0] = -gy;
             gyro[1] = -gx;
             gyro[2] = -gz;
+            for (int i = 0; i < 3; ++i) {
+                accel[i] = div_round_i64(static_cast<int64_t>(accel[i]) * kDs4UnitsPerG, kSwitchAccelCountsPerG);
+                gyro[i] = div_round_i64(static_cast<int64_t>(gyro[i]) * kSwitchToDs4GyroNum, kSwitchToDs4GyroDen);
+            }
             break;
         default:
             break;
+    }
+}
+
+/* Into the frame of the DS4 / DualSense report (PS4 and STEAM outputs), in DS4 units: X right, Y out
+ * of the face, Z towards the player, so a pad lying face up reads +1 g on Y and turning it on the
+ * table is gyro Y, as a real DS4 / DualSense reports (and Bluepad32 gives DS4 / DualSense motion;
+ * the same frame Switch/SwitchImu.cpp measured on hardware). Custom fix: Switch sources went into
+ * the Sixaxis-style frame above (+1 g on Z), so Steam took a Joy-Con lying flat for one held upright
+ * and a turn for a roll. Pro axes: X front, Y left, Z out of the face, so DS4 = (-y, z, -x). Wii as
+ * in remap_to_ds4_playing_frame. */
+inline void remap_to_ds4_report_frame(uint8_t motion_source, int32_t accel[3], int32_t gyro[3])
+{
+    if (motion_source != Gamepad::PadIn::MOTION_SRC_SWITCH_PRO && motion_source != Gamepad::PadIn::MOTION_SRC_SWITCH_USB) {
+        remap_to_ds4_playing_frame(motion_source, accel, gyro);
+        return;
+    }
+    const int32_t a[3] = {-accel[1], accel[2], -accel[0]};
+    const int32_t g[3] = {-gyro[1], gyro[2], -gyro[0]};
+    for (int i = 0; i < 3; ++i) {
+        accel[i] = div_round_i64(static_cast<int64_t>(a[i]) * kDs4UnitsPerG, kSwitchAccelCountsPerG);
+        gyro[i] = div_round_i64(static_cast<int64_t>(g[i]) * kSwitchToDs4GyroNum, kSwitchToDs4GyroDen);
     }
 }
 
@@ -386,6 +428,21 @@ inline void apply_bt_motion(Gamepad::PadIn& gp_in, uint8_t source, const int32_t
         gp_in.accel[i] = accel[i];
         gp_in.gyro[i] = gyro[i];
     }
+}
+
+/* The motion just put in PadIn, for the diagnostics report (also in modes without motion). */
+inline void report_motion(const Gamepad::PadIn& gp_in, uint32_t now_ms)
+{
+    if (!gp_in.has_motion()) {
+        return;
+    }
+    int32_t pad_accel[3], pad_gyro[3], accel[3], gyro[3];
+    for (int i = 0; i < 3; i++) {
+        pad_accel[i] = accel[i] = gp_in.accel[i];
+        pad_gyro[i] = gyro[i] = gp_in.gyro[i];
+    }
+    remap_to_ds4_report_frame(gp_in.motion_source, accel, gyro);
+    diag::motion_sample(now_ms, gp_in.motion_source, pad_accel, pad_gyro, accel, gyro);
 }
 
 } // namespace MotionImu
