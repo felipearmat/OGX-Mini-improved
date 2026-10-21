@@ -8,6 +8,7 @@
 #include "pico/critical_section.h"
 
 #include "Board/LogRing.h"
+#include "UserSettings/DongleSettings.h"
 
 namespace diag {
 
@@ -1114,6 +1115,9 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"le_scan_adv_reports_per_s\":%lu", static_cast<unsigned long>(s_adv_rate));
     if (s_searching_known)
         w.raw(",\"accepting_new_controllers\":%s", s_searching ? "true" : "false");
+    /* The "detailed link diagnostics" option: without it the controllers carry no RSSI, channels,
+     * failed contacts, transmit power or remote chip. */
+    w.raw(",\"link_details\":%s", dongle_settings::get().link_diagnostics ? "true" : "false");
     w.raw("}");
     w.raw(",\"usb_output\":{\"configured\":%s,\"suspended\":%s,\"reports_sent\":%lu,\"reports_sent_per_s\":%lu}",
           s_usb_configured ? "true" : "false", s_usb_suspended ? "true" : "false",

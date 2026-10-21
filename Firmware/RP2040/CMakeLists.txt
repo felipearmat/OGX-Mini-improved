@@ -521,6 +521,12 @@ option(OGXM_FLASH_LOG "Default: keep the log in flash too" ${OGXM_DEV_DEFAULTS})
 if(OGXM_FLASH_LOG)
     add_compile_definitions(OGXM_FLASH_LOG=1)
 endif()
+# Detailed link diagnostics (Bluepad32/LinkDiag link queries: RSSI, channels, failed contacts,
+# transmit power, the controller's chip): off in published builds, on in our own.
+option(OGXM_DIAGNOSTICS_LINK "Default: detailed Bluetooth link diagnostics" ${OGXM_DEV_DEFAULTS})
+if(OGXM_DIAGNOSTICS_LINK)
+    add_compile_definitions(OGXM_DIAGNOSTICS_LINK=1)
+endif()
 option(OGXM_HIGH_TX_POWER "Default: higher Bluetooth transmit power where the radio allows it (hybrid: +9 dBm)" OFF)
 if(OGXM_HIGH_TX_POWER)
     add_compile_definitions(OGXM_HIGH_TX_POWER=1)

@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Diagnostics/Diagnostics.h"
+#include "UserSettings/DongleSettings.h"
 #include "test.h"
 
 namespace {
@@ -225,11 +226,21 @@ TEST(classic_switch_battery_and_disconnect) {
     CHECK(has(r, "\"controllers\":[]"));
 }
 
+TEST(the_report_says_whether_link_details_are_on) {
+    setup();
+    dongle_settings::Settings s = dongle_settings::defaults();
+    s.link_diagnostics = 1;
+    dongle_settings::set(s);
+    CHECK(has(report(1000), "\"link_details\":true}"));
+    dongle_settings::set(dongle_settings::defaults());
+    CHECK(has(report(2000), "\"link_details\":false}"));
+}
+
 TEST(bredr_inquiry_running_only_while_inquiries_complete) {
     setup();
     diag::searching(true);
     std::string r = report(1000);
-    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true}"));
+    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true,\"link_details\":false}"));
     diag::inquiry_complete(2000);
     CHECK(has(report(9000), "\"bredr_inquiry_running\":true,\"bredr_inquiries\":1"));
     CHECK(has(report(30000), "\"bredr_inquiry_running\":false"));

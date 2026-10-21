@@ -62,7 +62,7 @@ ogxm_add_test(test_joycon_settings test_joycon_settings.cpp ${FW_COMMON}/Bluepad
 ogxm_add_test(test_dongle_settings test_dongle_settings.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
 ogxm_add_test(test_diagnostics test_diagnostics.cpp ${FW_SRC}/Diagnostics/Diagnostics.cpp ${FW_COMMON}/Diagnostics/DiagNames.cpp
-              ${FW_SRC}/Board/LogRing.cpp)
+              ${FW_SRC}/Board/LogRing.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp)
 
 # Custom: the kept log and its GET_LOG reads (Board/LogRing.h).
 ogxm_add_test(test_log_ring test_log_ring.cpp ${FW_SRC}/Board/LogRing.cpp)

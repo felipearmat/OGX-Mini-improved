@@ -32,9 +32,17 @@
  *    OGXM_STATUS_LED_ESP32_EXT             ON   an external RGB status LED on the ESP32 (GPIO 4)
  *    OGXM_EXT_RGB_BRIGHTNESS               48   the RGB LEDs' brightness (1-255)
  *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (ON with OGXM_DEV_DEFAULTS)
+ *    OGXM_DIAGNOSTICS_LINK                 OFF  detailed link diagnostics: the Bluetooth link queries
+ *                                          of Bluepad32/LinkDiag (ON with OGXM_DEV_DEFAULTS)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
  *  24 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 8 = version 7 plus, applied without a restart:
+ *    byte 7         detailed link diagnostics (0 / 1): the link queries of Bluepad32/LinkDiag (RSSI,
+ *                   channels in use, failed contacts, transmit power, the controller's Bluetooth
+ *                   chip). Byte 7 was unused since version 3 (zero in what this firmware wrote), so
+ *                   it is read from version 6 on: the hybrid's I2C link carries it in its version 6
+ *                   record, and a stored version 6 / 7 record reads as off.
  *  Version 7 = version 6 plus, applied without a restart:
  *    byte 23        keep the log in flash too (Board/FlashLog.h), so it outlives unplugging
  *  The hybrid's I2C link carries the version 6 record (encode_v6): the ESP32 has no use for byte
@@ -65,7 +73,7 @@
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 7;
+    constexpr uint8_t kVersion = 8;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
@@ -83,7 +91,7 @@ namespace dongle_settings {
         uint8_t joycon_solo_horizontal;
         uint8_t mac_per_controller;
         uint8_t ps4_legacy_motion_scale;
-        uint8_t unused_single_controller;  // versions 1-2 only (now the search times)
+        uint8_t link_diagnostics;  // version 8 (versions 1-2: the single controller option, now the search times)
         // Version 2
         uint8_t joycon_pair_rumble_per_side;
         // Version 3
@@ -111,7 +119,7 @@ namespace dongle_settings {
     // The version 6 record (kV6Length bytes, version byte 6): what the hybrid's I2C link carries.
     void encode_v6(const Settings& settings, uint8_t* out);
 
-    // Parse stored / received bytes, version 7, 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
+    // Parse stored / received bytes, version 8, 7, 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
@@ -125,7 +133,8 @@ namespace dongle_settings {
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
     // Same settings apart from the ones applied live (combo mask, search times, idle time,
-    // transmit power, status LEDs, the log in flash): a change of those alone needs no restart.
+    // transmit power, status LEDs, the log in flash, link diagnostics): a change of those alone
+    // needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

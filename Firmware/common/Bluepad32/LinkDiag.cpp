@@ -5,6 +5,7 @@
 #include "uni_diag_hooks.h"
 #include "parser/uni_hid_parser_switch.h"
 #include "Diagnostics/Diagnostics.h"
+#include "UserSettings/DongleSettings.h"
 
 namespace link_diag {
 
@@ -48,7 +49,9 @@ static uint8_t count_bits(const uint8_t* map, unsigned bits)
 
 /* One HCI query per pass, rotating (remote version and maximum transmit power once per pad;
  * then RSSI, channel map, failed contacts and current transmit power), so diagnostics never
- * crowd the command queue. */
+ * crowd the command queue. Those queries only with the "detailed link diagnostics" option
+ * (dongle_settings, applied live; what is pending waits for it); the QoS request, the scan state
+ * and the Switch firmware version do not depend on it. */
 void query(uint32_t now_ms, bool (*slot_connected)(int slot))
 {
     if (s_scan_read_pending)
@@ -59,7 +62,10 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         return;
     s_last_ms = now_ms;
     diag::searching(uni_bt_is_scanning());
+    const bool details = dongle_settings::get().link_diagnostics != 0;
     for (auto& vh : s_version_handles) {
+        if (!details)
+            break;
         if (vh == HCI_CON_HANDLE_INVALID)
             continue;
         if (!hci_can_send_command_packet_now())
@@ -88,6 +94,8 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
             hci_send_cmd(&hci_qos_setup, h, 0, 2, 12000, 0, s_poll_latency_us, 0xFFFFFFFF);
             return;
         }
+        if (!details)
+            continue;
         if (s_tx_max_pending[i]) {
             s_tx_max_pending[i] = false;
             s_tx_asked_max = true;

@@ -1,5 +1,5 @@
-// Dongle options (UserSettings/DongleSettings): build-time defaults and the 17-byte wire/flash format
-// (version 4; version 3 / 2 records, 16 bytes, and version 1 records, 8 bytes, are still accepted).
+// Dongle options (UserSettings/DongleSettings): build-time defaults and the 24-byte wire/flash format
+// (version 8; records of versions 1-7 are still accepted).
 #include "UserSettings/DongleSettings.h"
 #include "test.h"
 
@@ -19,6 +19,7 @@ TEST(defaults_follow_the_build) {
     CHECK_EQ(dongle_settings::reduced_search_s(d), dongle_settings::kSearchNoLimit);
     CHECK_EQ(d.combo_disabled_modes, 0u);
     CHECK_EQ(d.idle_off_minutes, 15);
+    CHECK_EQ(d.link_diagnostics, 0);  // OGXM_DIAGNOSTICS_LINK not defined
 }
 
 TEST(decode_normalises_flags) {
@@ -31,7 +32,7 @@ TEST(decode_normalises_flags) {
     CHECK_EQ(s.joycon_solo_horizontal, 0);
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(s.ps4_legacy_motion_scale, 1);
-    CHECK_EQ(s.unused_single_controller, 0);  // byte 7 is no option since version 3
+    CHECK_EQ(s.link_diagnostics, 1);  // byte 7: detailed link diagnostics since version 8
     CHECK_EQ(s.joycon_pair_rumble_per_side, 0);
 }
 
@@ -45,13 +46,14 @@ TEST(decode_accepts_version_1_with_defaults_for_newer_options) {
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(dongle_settings::full_search_s(s), 0);  // its single controller byte was on
     CHECK_EQ(s.joycon_pair_rumble_per_side, dongle_settings::defaults().joycon_pair_rumble_per_side);
+    CHECK_EQ(s.link_diagnostics, 0);  // byte 7 was its single controller option, not this one
 }
 
 TEST(decode_rejects_other_versions_and_short_buffers) {
     Settings s = dongle_settings::defaults();
     const uint8_t other[24] = {static_cast<uint8_t>(dongle_settings::kVersion + 1), 1, 1, 1, 1, 1, 1, 0};
     CHECK(!dongle_settings::decode(other, sizeof(other), s));
-    const uint8_t shorty[23] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v7 needs 24
+    const uint8_t shorty[23] = {dongle_settings::kVersion, 1, 1, 1, 1, 1, 1, 1};  // v8 needs 24
     CHECK(!dongle_settings::decode(shorty, sizeof(shorty), s));
     const uint8_t short_v3[8] = {3, 1, 1, 1, 1, 1, 1, 1};  // v3 needs 16
     CHECK(!dongle_settings::decode(short_v3, sizeof(short_v3), s));
@@ -126,7 +128,7 @@ TEST(older_records_get_default_search_times_or_none_for_single_controller) {
     CHECK(dongle_settings::decode(v2, sizeof(v2), s));
     CHECK_EQ(dongle_settings::full_search_s(s), 0);
     CHECK_EQ(dongle_settings::reduced_search_s(s), 0);
-    CHECK_EQ(s.unused_single_controller, 0);
+    CHECK_EQ(s.link_diagnostics, 0);  // the single controller byte does not turn this on
     const uint8_t v1[8] = {1, 0, 1, 0, 1, 0, 0, 1};
     CHECK(dongle_settings::decode(v1, sizeof(v1), s));
     CHECK_EQ(dongle_settings::reduced_search_s(s), 0);
@@ -245,6 +247,34 @@ TEST(the_i2c_link_carries_the_v6_record) {
     dongle_settings::Settings back{};
     CHECK(dongle_settings::decode(v6, sizeof(v6), back));
     CHECK_EQ(back.status_led_brightness, 77);
+}
+
+TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
+    uint8_t bytes[24] = {dongle_settings::kVersion};
+    bytes[7] = 1;
+    dongle_settings::Settings s{};
+    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+    CHECK_EQ(s.link_diagnostics, 1);
+    // A stored version 7 / 6 record: byte 7 was always zero there, so off.
+    uint8_t v7[24] = {7};
+    CHECK(dongle_settings::decode(v7, sizeof(v7), s));
+    CHECK_EQ(s.link_diagnostics, 0);
+    // Version 3-5 records: the build default.
+    uint8_t v5[18] = {5};
+    v5[7] = 1;
+    CHECK(dongle_settings::decode(v5, sizeof(v5), s));
+    CHECK_EQ(s.link_diagnostics, dongle_settings::defaults().link_diagnostics);
+    // The hybrid's ESP32 gets it in byte 7 of the version 6 record (an older ESP32 ignores it).
+    dongle_settings::Settings on = dongle_settings::defaults();
+    on.link_diagnostics = 1;
+    uint8_t v6[dongle_settings::kV6Length];
+    dongle_settings::encode_v6(on, v6);
+    CHECK_EQ(v6[7], 1);
+    dongle_settings::Settings back{};
+    CHECK(dongle_settings::decode(v6, sizeof(v6), back));
+    CHECK_EQ(back.link_diagnostics, 1);
+    // No restart for it.
+    CHECK(dongle_settings::same_except_live(dongle_settings::defaults(), on));
 }
 
 TEST_MAIN()

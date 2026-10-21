@@ -109,7 +109,7 @@ std::string contract_json() {
 #define F(field) Named{#field, static_cast<unsigned>(offsetof(Settings, field))}
     const std::vector<Named> offsets = {
         F(version), F(disconnect_pads_on_mode_change), F(joycon_pair_imu_right), F(joycon_pair_horizontal),
-        F(joycon_solo_horizontal), F(mac_per_controller), F(ps4_legacy_motion_scale), F(unused_single_controller),
+        F(joycon_solo_horizontal), F(mac_per_controller), F(ps4_legacy_motion_scale), F(link_diagnostics),
         F(joycon_pair_rumble_per_side), F(search_times), F(combo_disabled_modes), F(idle_off_minutes),
         F(high_tx_power), F(status_led_pico), F(status_led_pico_ext), F(status_led_esp32),
         F(status_led_esp32_ext), F(status_led_brightness), F(keep_log_in_flash),
@@ -122,7 +122,7 @@ std::string contract_json() {
       << "    \"lengths\": { \"1\": " << dongle_settings::kV1Length << ", \"2\": " << dongle_settings::kV3Length
       << ", \"3\": " << dongle_settings::kV3Length << ", \"4\": " << dongle_settings::kV4Length
       << ", \"5\": " << dongle_settings::kV5Length << ", \"6\": " << dongle_settings::kV6Length
-      << ", \"7\": " << sizeof(Settings) << " },\n"
+      << ", \"7\": " << sizeof(Settings) << ", \"8\": " << sizeof(Settings) << " },\n"
       << "    \"offsets\": " << object_json(offsets, "    ") << ",\n"
       << "    \"defaults\": " << bytes_json(reinterpret_cast<const uint8_t*>(&defaults), sizeof(defaults)) << ",\n";
 
@@ -136,6 +136,7 @@ std::string contract_json() {
         {6, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 0, 1, 1, 0, 120},  // v6
         {6, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 1, 1, 1, 1, 0},    // v6, brightness 0
         {7, 0, 1, 0, 1, 0, 0, 0, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 1, 1, 1, 1, 48, 1}, // v7: log in flash
+        {8, 0, 1, 0, 1, 0, 0, 1, 1, 60, 0xF0, 0xFF, 0, 0, 0, 0, 15, 0, 1, 1, 1, 1, 48, 0}, // v8: link diagnostics
     };
     o << "    \"decode\": [\n";
     for (size_t i = 0; i < inputs.size(); ++i) {
