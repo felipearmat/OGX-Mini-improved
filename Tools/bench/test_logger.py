@@ -150,3 +150,41 @@ def test_flash_log_fills_in_what_happened_away_from_the_computer(port, tmp_path,
     assert text.count("read live first") == 1
     assert text.count("logged away from the computer") == 1
     assert "[flash] kept in flash, not read before" in text
+
+
+class FakeAdapter:
+    """Kept log text at ring positions (GET_LOG) and flash pages, without a serial port."""
+
+    def __init__(self, ring, pages, gen=7):
+        self.ring = ring            # bytes of the RAM ring from position 0
+        self.pages = pages          # [(ring_pos, text)] of this ring generation, in order
+        self.gen = gen
+
+    def log_since(self, since):
+        data = self.ring[since:since + 256]
+        return since, len(self.ring), data
+
+    def flash_log_page(self, seq):
+        if seq < 1 or seq > len(self.pages):
+            return {"seq": 0, "ring_gen_now": self.gen}
+        pos, text = self.pages[seq - 1]
+        return {"seq": seq, "boot": 1, "ring_gen": self.gen, "ring_gen_now": self.gen, "ring_pos": pos, "text": text}
+
+
+def test_a_line_split_between_a_flash_page_and_the_ram_keeps_its_source(tmp_path):
+    """A page kept in flash that ends inside a line, its rest still in RAM: one line, its own
+    source (it used to end at the page and its rest come out as "[adapter]")."""
+    import importlib
+    logger = importlib.import_module("logger")
+    ring = b"[rp] 1.0 boot\n[esp] BP32: TX power: default (+3 dBm)\n[rp] 2.0 ready\n"
+    cut = ring.index(b"default")
+    args = type("Args", (), {"dir": str(tmp_path), "echo": False})()
+    log = logger.Logger(args)
+    adapter = FakeAdapter(ring, [(0, ring[:cut])])
+    log.state["ring_gen"] = None
+    log.read_flash(adapter)
+    log.read_log(adapter)
+    text = next(tmp_path.glob("*.log")).read_text()
+    assert "[esp] BP32: TX power: default (+3 dBm)" in text
+    assert "[adapter]" not in text
+    assert text.count("BP32: TX power") == 1

@@ -60,6 +60,7 @@ class Logger:
         self.next_report = 0.0
         self.next_cleanup = 0.0
         self.partial = b""         # an unfinished last line of the kept log
+        self.partial_at = None     # (ring generation, position) where it ends: its rest starts there
 
     # ---- files ----
 
@@ -180,15 +181,16 @@ class Logger:
             if page["ring_gen"] == gen_now:  # still in RAM too: the RAM read goes on after it
                 self.state["log_since"] = max(self.state.get("log_since", 0), end)
             if text:
+                pos = max(start, seen) if seen is not None else start
                 if not shown_header:
+                    self.continue_at(gen, pos)  # a line left open before: ended here unless this is its rest
                     self.write("flash", f"kept in flash, not read before (boot {page['boot']}, from page {page['seq']}):")
                     shown_header = True
-                    self.partial = b""
-                self.emit(text)
+                self.emit_at(gen, pos, text)
             self.state["flash_next"] = page["seq"] + 1
             page = adapter.flash_log_page(page["seq"] + 1)
-        if shown_header and self.partial:
-            self.emit(b"\n")
+        if shown_header and self.partial and (self.partial_at or ("",))[0] != str(gen_now):
+            self.emit(b"\n")  # an older boot's last line: its rest is not in RAM
         self._save_state()
         return gen_now
 
@@ -209,17 +211,29 @@ class Logger:
                 if (total - since) & 0xFFFFFFFF > 0x7FFFFFFF:  # since is ahead: a new ring
                     self.write("logger", "the adapter's kept log started over (power cycle)")
                     self.partial = b""
+                    self.partial_at = None
                 else:
                     self.write("logger", f"{(start - since) & 0xFFFFFFFF} bytes of the kept log were dropped "
                                          "before they could be read")
+            self.emit_at(str(self.state.get("ring_gen")), start, data)
             since = (start + len(data)) & 0xFFFFFFFF
-            self.emit(data)
             if since == total or not data:
                 break
         self.state["log_since"] = since
         if self.state.get("ring_gen") is not None:
             self.state.setdefault("read_upto", {})[str(self.state["ring_gen"])] = since
         self._save_state()
+
+    def continue_at(self, gen, pos):
+        """A line left unfinished goes in as it is unless the next text starts where it ended (in
+        the same ring generation): the RAM ring and the pages kept in flash are one stream."""
+        if self.partial and self.partial_at != (gen, pos):
+            self.emit(b"\n")
+
+    def emit_at(self, gen, pos, data):
+        self.continue_at(gen, pos)
+        self.emit(data)
+        self.partial_at = (gen, (pos + len(data)) & 0xFFFFFFFF) if self.partial else None
 
     def emit(self, data):
         data = self.partial + data
