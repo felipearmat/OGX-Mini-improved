@@ -254,7 +254,7 @@ Useful options:
 
 Artifacts appear under the build directory (e.g. `Firmware/RP2040/build/` or `scripts/build/` when using the script).
 
-**First configure** applies patches under `Firmware/external/patches/` to Bluepad32 / BTstack / Pico SDK (safe to re-run; “already applied” is normal).
+**Configure** applies the patches under `Firmware/external/patches/` to Bluepad32 / BTstack / Pico SDK, each tree from a clean checkout of its commit (`Firmware/cmake/patch_libs.cmake`). A stamp of the patches is kept in each tree's git directory: “patches up to date” is normal; after a patch changes, the tree is reset and patched again (an edit made by hand inside those trees is lost then; change them through patches only). `python3 Tools/check_patched_trees.py` checks that the trees hold exactly what their patches give.
 
 ---
 

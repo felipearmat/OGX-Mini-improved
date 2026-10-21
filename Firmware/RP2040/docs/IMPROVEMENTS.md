@@ -95,7 +95,7 @@ Improvements and fixes applied to the OGX-Mini RP2040 firmware in this project.
 | **PIDs** | Register Android-mode IDs `0x2dc8:0x6003` and `0x6103` as `8BitdoController` |
 | **Rumble** | Android/D-input 8BitDo path has no rumble parser yet; Switch mode uses Switch rumble |
 
-**Files:** `src/Bluepad32/Bluepad32.cpp`, `Firmware/external/patches/bluepad32_8bitdo_pids.diff`, `Firmware/cmake/patch_libs.cmake`.
+**Files:** `src/Bluepad32/Bluepad32.cpp`, `Firmware/external/patches/bluepad32_8bitdo_pids.diff` (removed 2026-10-21: the PIDs are in the Bluepad32 commit the fork uses), `Firmware/cmake/patch_libs.cmake`.
 
 ---
 

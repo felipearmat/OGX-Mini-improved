@@ -273,7 +273,7 @@ Changing mode typically: detect combo → store type → disconnect → reboot.
 | **libxsm3** | `Firmware/external/libxsm3` | Retail Xbox 360 controller auth in **XInput output** |
 | **libfixmath** | `Firmware/external/libfixmath` | Stick deadzone / response curves |
 
-CMake (`Firmware/cmake/patch_libs.cmake`) applies project patches to Bluepad32/BTstack/SDK at configure time.
+CMake (`Firmware/cmake/patch_libs.cmake`) applies project patches to Bluepad32/BTstack/SDK at configure time, each tree from a clean checkout with a stamp of its patches (`ogxm_patch_tree`); `Tools/check_patched_trees.py` compares the trees with their patches (CI and the local test run).
 
 ---
 

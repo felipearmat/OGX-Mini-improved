@@ -143,8 +143,8 @@ add_subdirectory(virtual_adapter)
 # must fit in 256 bytes of parser_data).
 set(BP32 ${EXTERNAL_DIR}/bluepad32/src/components/bluepad32)
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/patch_libs.cmake)
-ogxm_apply_switch_parser_patches(${EXTERNAL_DIR})  # same series as the firmware build
-ogxm_apply_output_queue_patch(${EXTERNAL_DIR})
+ogxm_patch_btstack(${EXTERNAL_DIR})    # the same patches (and stamps) as the firmware builds
+ogxm_patch_bluepad32(${EXTERNAL_DIR})
 ogxm_add_test(test_output_queue test_output_queue.cpp ${BP32}/uni_circular_buffer.c)
 target_include_directories(test_output_queue PRIVATE ${BP32}/include)
 include(CheckCSourceCompiles)
