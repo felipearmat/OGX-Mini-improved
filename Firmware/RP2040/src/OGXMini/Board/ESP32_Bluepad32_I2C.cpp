@@ -760,20 +760,24 @@ void esp32_bp32_i2c::run() {
 
     while (true) {
         watchdog_update();
+        boot_stage::set(boot_stage::Stage::LOOP_TASKS);
         TaskQueue::Core0::process_tasks();
+        boot_stage::set(boot_stage::Stage::LOOP_FLASH_LOG);
         flash_log::tick(board_api::ms_since_boot(), true);
 
+        boot_stage::set(boot_stage::Stage::LOOP_USB);
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
             device_driver->process(i, _gamepads[i]);
             tud_task();
         }
         /* The ESP32's output into the kept log a whole line at a time, so the RP2040's own lines
          * never land in the middle of one; a line left unfinished goes in after 100 ms. */
+        boot_stage::set(boot_stage::Stage::LOOP_ESP_RX);
         static char esp_line[192];
         static size_t esp_len = 0;
         static uint32_t esp_last_ms = 0;
         const uint32_t now_ms = board_api::ms_since_boot();
-        const uint32_t lost = s_esp_rx.drain(esp_rx_produced(), [&](uint8_t b) {
+        auto esp_byte = [&](uint8_t b) {
             const char c = static_cast<char>(b);
             esp_line[esp_len++] = c;
             esp_last_ms = now_ms;
@@ -781,7 +785,14 @@ void esp32_bp32_i2c::run() {
                 log_ring_append("esp", esp_line, esp_len);
                 esp_len = 0;
             }
-        });
+        };
+        uint32_t lost = 0;
+        if (s_esp_rx_dma >= 0) {
+            lost = s_esp_rx.drain(esp_rx_produced(), esp_byte);
+        } else {
+            while (uart_is_readable(uart0))  // no DMA channel: the FIFO, as before
+                esp_byte(static_cast<uint8_t>(uart_getc(uart0)));
+        }
         if (lost) {
             char note[40];
             const int n = std::snprintf(note, sizeof(note), "\n(%lu bytes lost)\n", static_cast<unsigned long>(lost));
@@ -792,8 +803,10 @@ void esp32_bp32_i2c::run() {
             esp_len = 0;
         }
 #if defined(CONFIG_EN_USB_HOST)
+        boot_stage::set(boot_stage::Stage::LOOP_USB_HOST);
         usb_host_tick();
 #endif
+        boot_stage::set(boot_stage::Stage::LOOP_LED);
         status_led_tick();
         sleep_ms(1);
     }

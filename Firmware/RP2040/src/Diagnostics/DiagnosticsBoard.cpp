@@ -69,7 +69,14 @@ void board_boot()
                                                : "power-on or reset";
     /* A hang before the main loop: the stage it stopped in. */
     static char boot_hang[64];
-    if (previous.hang && previous.stage != boot_stage::Stage::NONE && previous.stage != boot_stage::Stage::RUNNING)
+    if (previous.hang && boot_stage::in_main_loop(previous.stage))
+    {
+        /* A hang in the main loop: the step it was stuck in (the hybrid records them). */
+        std::snprintf(boot_hang, sizeof(boot_hang), "watchdog timeout (hang recovery, main loop: %s)",
+                      boot_stage::name(previous.stage));
+        reset = boot_hang;
+    }
+    else if (previous.hang && previous.stage != boot_stage::Stage::NONE && previous.stage != boot_stage::Stage::RUNNING)
     {
         std::snprintf(boot_hang, sizeof(boot_hang), "watchdog timeout during boot (%s)", boot_stage::name(previous.stage));
         reset = boot_hang;

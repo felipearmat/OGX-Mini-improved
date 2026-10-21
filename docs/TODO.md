@@ -18,6 +18,18 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
+- **Hybrid: main loop hangs (hang watchdog) now and then** — 2026-10-20, Pico 2 W hybrid:
+  "watchdog timeout (hang recovery)" twice at 10:49 (firmware 5b33088) and twice in about 50 min
+  with a Joy-Con pair and detailed link diagnostics on (firmware with the ESP32 output by DMA, 18:56
+  and 19:07; the first 1.4 s after "adapter options saved", the second 35 s after boot, both a few
+  seconds after the ESP32's first "chip" lines). The UART read the old way (A/B build, no DMA): none
+  in 18 min; the DMA build with the main-loop steps: none in 15 min. After the 18:56 one every I2C
+  read by the ESP32 failed for 10 min (no settings or profiles reached it) until a reboot. Next:
+  the step the report names after the next one (`BootStage.h` main-loop steps).
+- **Hybrid: I2C read errors about 12 times higher with controllers since the evening of 2026-10-20**
+  — about 4 per second with a Joy-Con pair (120 per 30 s), against 10.7 per 30 s that morning on
+  the same jumpers; the same with and without the DMA receive (A/B), about 0.25 per second with no
+  controller as before. Check the jumpers first (the board was handled for BOOTSEL around 18:08).
 - **Hybrid: I2C read errors on the ESP32 grow with traffic** — 2026-10-20, Pico 2 W hybrid with I2C
   moved to GP26 / GP27 (jumper wires): `companion.i2c_read_errors` 11 at boot, then about 1 every
   5 s with no controller and 77 a few minutes after a Joy-Con pair connected; write errors 1-2,

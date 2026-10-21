@@ -26,6 +26,14 @@ namespace boot_stage {
         USB_DEVICE,     // tud_init
         RUNNING,        // main loop
         UART_BRIDGE,    // ESP32 bridge / log monitor
+        /* Main loop steps (the hybrid sets them on every pass): after a hang recovery the report
+         * names the step the main loop was stuck in. */
+        LOOP_TASKS,     // TaskQueue::Core0::process_tasks
+        LOOP_FLASH_LOG, // flash_log::tick
+        LOOP_USB,       // device driver process + tud_task
+        LOOP_ESP_RX,    // the ESP32's serial output into the kept log
+        LOOP_USB_HOST,  // wired USB host port
+        LOOP_LED,       // status LED
     };
 
     constexpr uint32_t kMagic = 0xB0075A6Eu;
@@ -66,6 +74,8 @@ namespace boot_stage {
     /* The stage the previous boot reached (NONE after a power cycle) and why it reset. */
     inline const Previous& previous() { return previous_storage(); }
 
+    inline bool in_main_loop(Stage stage) { return stage >= Stage::LOOP_TASKS; }
+
     inline const char* name(Stage stage)
     {
         switch (stage)
@@ -83,6 +93,12 @@ namespace boot_stage {
             case Stage::USB_DEVICE:  return "USB device init";
             case Stage::RUNNING:     return "main loop";
             case Stage::UART_BRIDGE: return "ESP32 bridge";
+            case Stage::LOOP_TASKS:     return "tasks";
+            case Stage::LOOP_FLASH_LOG: return "flash log";
+            case Stage::LOOP_USB:       return "USB";
+            case Stage::LOOP_ESP_RX:    return "ESP32 output";
+            case Stage::LOOP_USB_HOST:  return "USB host port";
+            case Stage::LOOP_LED:       return "status LED";
             default:                 return "unknown";
         }
     }
