@@ -85,11 +85,6 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Motion
 
-- **Gyro in STEAM / PS4 mode from a DS4: still too sensitive?** The Joy-Con / Pro part is fixed
-  (CHANGELOG, 2026-10-21: units, the hybrid's I2C saturation, the DS4 report frame; a 360 degree
-  turn integrates to about 351 degrees from the DualSense report). DS4 motion already arrives in
-  DS4 units, so the 2026-09-30 report for a DS4 points at noise rather than scale: retest with a
-  DS4 in Steam's calibration view, with and without "gyro stabilization".
 - **Linux evdev motion (hid-playstation) did not follow a turn** — 2026-10-21, STEAM mode, Joy-Con
   pair: integrating the "Motion Sensors" evdev device gave only the bias drift while the same
   reports' raw gyro (hidraw) integrated to the turn. Either the integration script or how

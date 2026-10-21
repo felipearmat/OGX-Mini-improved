@@ -221,6 +221,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | D-Input ZL / ZR | pass | after the fix: buttons 7 / 8 on evdev (CHANGELOG) |
 | I2C link | pass, with errors | about 10 read errors per 30 s at 1 MHz on these jumpers, 1 per 30 s at 400 kHz: signal, see [TODO](TODO.md) |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
+| Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
