@@ -240,6 +240,8 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 17.5 (higher transmit power) | pass | applied live (no restart): "TX power: high (+9 dBm)" then back, report `high_tx_power` follows; links already open stayed at +3 dBm (power control raises it only when needed) |
 | 17.8 (pads off before a mode change) | pass | Joy-Cons disconnected before the combo's mode change (dev default on) |
 | 11.3 (`flash-esp32 --baud 115200`) | pass | 38 s for the app (137.9 kbit/s), hashes verified; the I2C link back right after |
+| 11.5 (`monitor`) | pass | the kept log (ESP32 boot and RP2040 lines in order), then live output; back to the mode at the end |
+| 17.9 (latency in the stored session) | pass | STEAM session of 447 s: 312953 samples, average 510 us, max 1.5 ms |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
