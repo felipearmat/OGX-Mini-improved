@@ -210,6 +210,11 @@ void slot_battery(size_t slot, uint8_t level_0_255)
     Writer(PacketDiag::BATTERY, slot).u8(level_0_255).send();
 }
 
+void slot_battery_state(size_t slot, uint8_t percent, BatteryState state)
+{
+    Writer(PacketDiag::BATTERY_STATE, slot).u8(percent).u8(static_cast<uint8_t>(state)).send();
+}
+
 void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor)
 {
     static uint16_t s_sent[kSlots]{};

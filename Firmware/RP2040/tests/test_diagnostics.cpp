@@ -243,6 +243,17 @@ TEST(the_report_shows_motion_and_the_gyros_recent_peak) {
     CHECK(has(report(3800), "\"gyro_peak_dps_x10\":[0,0,0]"));
 }
 
+TEST(the_pads_own_battery_report_takes_over_with_its_charging_state) {
+    setup();
+    diag::slot_connected(0, 100, "Wireless Controller", 0x054c, 0x09cc, 1, false, 0x40, kAddr);
+    diag::slot_battery(0, 26);
+    CHECK(has(report(200), "\"battery_pct\":10"));
+    diag::slot_battery_state(0, 35, diag::BatteryState::CHARGING);
+    const std::string r = report(300);
+    CHECK(has(r, "\"battery_pct\":35"));
+    CHECK(has(r, "\"battery_state\":\"charging\""));
+}
+
 TEST(the_report_counts_i2c_replies_the_esp32_cut_short) {
     setup();
     CHECK(!has(report(1000), "\"i2c_slave\""));  // not the hybrid / nothing read yet

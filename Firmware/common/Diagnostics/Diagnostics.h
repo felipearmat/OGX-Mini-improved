@@ -96,6 +96,11 @@ namespace diag {
     // kCounterLearnSteps steps (Switch pads, whose timer advances by more than 1 per report).
     void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit = 1);
     void slot_battery(size_t slot, uint8_t level_0_255);
+    /* The pad's own battery report (DS4 / DualSense status byte, read as Linux hid-playstation
+     * does): percent and whether it is charging. Bluepad32's level has no charging state and,
+     * for a DS4, a scale of its own. Takes over from slot_battery in the report once known. */
+    enum class BatteryState : uint8_t { UNKNOWN = 0, DISCHARGING, CHARGING, FULL, NOT_CHARGING };
+    void slot_battery_state(size_t slot, uint8_t percent, BatteryState state);
     void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor);
 
     // ---- Bluetooth link, by connection handle (may arrive before the slot is ready) ----

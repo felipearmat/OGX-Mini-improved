@@ -6,6 +6,7 @@
 #include "parser/uni_hid_parser_switch.h"
 #include "Diagnostics/Diagnostics.h"
 #include "UserSettings/DongleSettings.h"
+#include "Gamepad/SonyBattery.h"
 
 namespace link_diag {
 
@@ -21,6 +22,8 @@ static hci_con_handle_t s_version_handles[4] = {HCI_CON_HANDLE_INVALID, HCI_CON_
 static bool s_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_qos_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static uint32_t s_poll_latency_us = 0;  // set_poll_latency_us(); 0 = the controller's own polling
+/* Last battery reading sent per slot ((percent << 8 | state) + 1); 0 = none since the pad connected. */
+uint16_t s_battery_sent[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_tx_asked_max = false;  // which level the last Read Transmit Power Level asked for
 
 
@@ -361,6 +364,8 @@ void init()
 
 void on_slot_ready(int slot)
 {
+    if (slot >= 0 && slot < CONFIG_BLUEPAD32_MAX_DEVICES)
+        s_battery_sent[slot] = 0;  // the report's slot starts over: send the battery again
     if (slot < 0 || slot >= CONFIG_BLUEPAD32_MAX_DEVICES)
         return;
     s_tx_max_pending[slot] = true;
@@ -395,6 +400,27 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
     else if ((d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
               d->controller_type == CONTROLLER_TYPE_SwitchProController) && report[0] == 0x30 && len >= 2)
         diag::slot_counter(static_cast<size_t>(slot), report[1], 8, 0);
+    /* DS4 / DualSense battery and charging state from their own report (Gamepad/SonyBattery.h),
+     * sent when it changes. */
+    {
+        uint16_t (&s_sent)[CONFIG_BLUEPAD32_MAX_DEVICES] = link_diag::s_battery_sent;
+        bool have = false;
+        sony_battery::Reading b{};
+        if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len > sony_battery::kDs4StatusBt11) {
+            b = sony_battery::ds4(report[sony_battery::kDs4StatusBt11]);
+            have = true;
+        } else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len > sony_battery::kDs5StatusBt31) {
+            b = sony_battery::ds5(report[sony_battery::kDs5StatusBt31]);
+            have = true;
+        }
+        if (have && slot < CONFIG_BLUEPAD32_MAX_DEVICES) {
+            const uint16_t key = static_cast<uint16_t>((b.percent << 8 | static_cast<uint8_t>(b.state)) + 1);
+            if (s_sent[slot] != key) {
+                s_sent[slot] = key;
+                diag::slot_battery_state(static_cast<size_t>(slot), b.percent, b.state);
+            }
+        }
+    }
 }
 
 extern "C" void uni_diag_on_device_information(const uint8_t* packet, uint16_t size)

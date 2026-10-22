@@ -108,6 +108,8 @@ struct Slot {
     uint32_t connected_ms;
     Timing timing;
     uint16_t battery;  // 0xFFFF unknown, else 0-255
+    uint8_t battery_pct;   // from the pad's own report (slot_battery_state), when battery_state is set
+    uint8_t battery_state; // diag::BatteryState, 0 = not reported
     bool switch_fw_valid;
     uint8_t switch_fw_major, switch_fw_minor;
     // Controller's own counter.
@@ -493,6 +495,8 @@ void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid
     if (address) std::memcpy(s.oui, address, 3);  // the manufacturer part only (privacy)
     s.connected_ms = now_ms;
     s.battery = 0xFFFF;
+    s.battery_pct = 0;
+    s.battery_state = 0;
     s.link.used = true;
     s.link.handle = con_handle;
     for (auto& p : s_pending) {
@@ -705,6 +709,15 @@ void slot_battery(size_t slot, uint8_t level)
     if (slot >= kSlots) return;
     Lock l;
     if (s_slots[slot].active) s_slots[slot].battery = level;
+}
+
+void slot_battery_state(size_t slot, uint8_t percent, BatteryState state)
+{
+    if (slot >= kSlots) return;
+    Lock l;
+    if (!s_slots[slot].active) return;
+    s_slots[slot].battery_pct = percent > 100 ? 100 : percent;
+    s_slots[slot].battery_state = static_cast<uint8_t>(state);
 }
 
 void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor)
@@ -1217,7 +1230,13 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
         w.raw(",\"vid\":\"%04x\",\"pid\":\"%04x\",\"type\":%u,\"link\":\"%s\",\"bt_address_prefix\":\"%02X:%02X:%02X\",\"connected_s\":%lu",
               s.vid, s.pid, s.controller_type, s.le ? "LE" : "Classic", s.oui[0], s.oui[1], s.oui[2],
               static_cast<unsigned long>((now_ms - s.connected_ms) / 1000));
-        if (s.battery != 0xFFFF) w.raw(",\"battery_pct\":%u", static_cast<unsigned>(s.battery * 100 / 255));
+        if (s.battery_state != 0) {
+            static const char* const kStates[] = {"unknown", "discharging", "charging", "full", "not charging"};
+            w.raw(",\"battery_pct\":%u", s.battery_pct);
+            w.key_str("battery_state", kStates[s.battery_state < 5 ? s.battery_state : 0]);
+        } else if (s.battery != 0xFFFF) {
+            w.raw(",\"battery_pct\":%u", static_cast<unsigned>(s.battery * 100 / 255));
+        }
         if (s.switch_fw_valid) w.raw(",\"switch_firmware\":\"%u.%u\"", s.switch_fw_major, s.switch_fw_minor);
         write_timing(w, s.timing);
         if (s.counter_seen) {

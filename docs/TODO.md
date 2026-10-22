@@ -85,6 +85,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Motion
 
+- **DS4 motion calibration in Bluepad32 differs from Linux / DS4Windows** — compared 2026-10-22: (1) the accelerometer bias is computed but not subtracted (Linux: `raw - bias`); (2) the gyro pitch divisor uses `|minus + bias|` where Linux uses `minus - bias` (as for yaw / roll); (3) over Bluetooth it asks feature report 0x02 (the USB id) where Linux and DS4Windows ask 0x05, read in the Bluetooth field order. (1) and (2) are small (well under 1 %); check (3) against the calibration read over USB, it may be behind the DS4's 360 degree turn integrating to about 349. Fix by a Bluepad32 patch, also for upstream.
 - **Linux evdev motion (hid-playstation) did not follow a turn** — 2026-10-21, STEAM mode, Joy-Con
   pair: integrating the "Motion Sensors" evdev device gave only the bias drift while the same
   reports' raw gyro (hidraw) integrated to the turn. Either the integration script or how

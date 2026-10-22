@@ -227,6 +227,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 5.1-5.3 (DS4) | pass | mode colour on connect (STEAM lilac, Switch red), the host's colour after (blue from hid-playstation) |
 | 6.1 (STEAM, Switch, XInput, D-Input combos) | pass | |
 | 4.7 (DS4) | pass | battery 0 % when flat (the pad then turned off), 39 % charging |
+| 4.7 (DS4 charging state, 2026-10-22) | pass | from the pad's status byte: on the charger 100 % `full`, off the cable 95 % `discharging` (level 9) |
 | 7.5 / 17.1 / 17.2 (DS4) | pass | about 770 reports/s on the RP2040 (after the per-second counter fix), 884/s at the ESP32's radio, 0 % lost, largest gap 18 ms |
 | 9.2, 14.1 (DS4) | pass | link, key and ready events; MediaTek BT 4.1 chip, RSSI in the golden range, 76 / 79 channels, 0 failed contacts |
 | I2C with a DS4 | pass, with errors | 9-21 packets rejected per minute (corrupted, wrong length) at about 770 reports/s: CRC needed (TODO) |

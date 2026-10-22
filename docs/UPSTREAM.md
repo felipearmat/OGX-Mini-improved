@@ -171,6 +171,7 @@ later fixes reach every board in one PR.
 | 5d3190f | Switch mode: the emulated SPI flash answers any address (Linux hid-nintendo reads the right stick calibration at 0x6046 and got 0xFF: right stick in one quadrant) | todo | Upstream has the same address-by-address answers. Small, self-contained fix PR. |
 | 743322d (NVS part) | Settings: erased NVS entries count as free (a cut sector rewrite made saved settings read as defaults and new ones fail, "table full") | todo | Upstream's NVSTool has the same check. Small fix PR with its unit test. |
 | c9e3b33 | Firmware version from the git tag, `GET_VERSION` (firmware, board, ESP32) for the web app's update check | todo | |
+| 02d9b88 | Diagnostics: DS4 / DualSense battery and charging state from the pad's status byte (Linux hid-playstation scale), forwarded by the hybrid's ESP32 | todo | Depends on the diagnostics report and LinkDiag (D-Input/Debug). The Bluepad32 DS4 battery formula (level x 25 + 1, level 11 wraps) could go to Bluepad32 upstream as its own fix. |
 | 2a0aa04, cc0526d (contract) | Virtual adapter (the web app side of the firmware built for the PC) and the firmware / web app contract file | todo | With the host unit tests (f0ab2f2); upstream's web app could run the same Playwright suite. |
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 11 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
 

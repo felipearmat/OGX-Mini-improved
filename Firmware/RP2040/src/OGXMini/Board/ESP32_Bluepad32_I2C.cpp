@@ -230,6 +230,9 @@ static void record_diag(const PacketDiag& diag) {
         case PacketDiag::INQUIRY_COMPLETE:
             diag::inquiry_complete(now);
             break;
+        case PacketDiag::BATTERY_STATE:
+            diag::slot_battery_state(diag.slot, diag.data[0], static_cast<diag::BatteryState>(diag.data[1]));
+            break;
         case PacketDiag::LE_ADV_REPORTS:
             for (uint16_t i = d16(0); i > 0; --i)
                 diag::le_adv_report();

@@ -177,6 +177,7 @@ namespace Esp32Bridge
                              // queue drops (16 each, saturated), firmware (NUL-padded; empty
                              // since COMPANION_VERSION)
             COMPANION_VERSION, // the ESP32's OGX-Mini-improved version (NUL-padded)
+            BATTERY_STATE,   // slot; percent (8), state (8, diag::BatteryState) from the pad's report
         };
         enum DeviceInfoField : uint8_t { MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE };
         static constexpr size_t kData = 28;
