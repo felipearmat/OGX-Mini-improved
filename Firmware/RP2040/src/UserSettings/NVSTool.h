@@ -165,6 +165,7 @@ private:
     mutex_t nvs_mutex_;
     static inline std::atomic<bool> other_core_halted_{false};
 
+
     /* How long flash_safe_execute() waits for the other core to park. */
     static constexpr uint32_t SAFE_EXECUTE_TIMEOUT_MS = 500;
 
@@ -204,9 +205,13 @@ private:
         return reinterpret_cast<Entry*>(XIP_BASE + NVS_START_OFFSET + index * sizeof(Entry));
     }
 
+    /* Custom fix: an erased entry (key byte 0xFF) is free too. A sector rewrite cut between its
+     * erase and its program (a reset at that moment) left 16 entries erased; they counted as taken
+     * by a nameless key, so their settings read as defaults and every new write found the table
+     * "full": settings changed in the web app came back after the restart. */
     inline bool is_valid_entry(const Entry* entry) 
     {
-        return std::strcmp(entry->key, INVALID_KEY) != 0;
+        return static_cast<uint8_t>(entry->key[0]) != 0xFF && std::strcmp(entry->key, INVALID_KEY) != 0;
     }
 
     inline bool valid_args(const std::string& key, size_t len)

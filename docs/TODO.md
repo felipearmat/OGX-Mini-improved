@@ -18,6 +18,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
+- **Settings: a rewrite that a reset cannot cut** — NVSTool rewrites a whole 4 KB sector (erase,
+  then program) for one entry; a reset in between erases 16 settings (2026-10-22: the second sector
+  found all 0xFF). Erased entries are now free again, but what they held is lost. Write to a spare
+  sector and switch over (or keep two copies) so a cut leaves the old data.
 - **Hybrid: the ESP32 hears the RP2040's first answer only about 10 s after a restart** (the
   "TX power" / "Profiles from the RP2040" lines, 2026-10-21/22). It no longer changes the mode,
   but settings, profiles and "uses motion" arrive late. Find where the time goes (the ESP32's

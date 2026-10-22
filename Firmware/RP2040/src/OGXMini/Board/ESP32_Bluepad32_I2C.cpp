@@ -357,12 +357,21 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static bool reply_active = false;
 
     switch (event) {
-        case I2C_SLAVE_RECEIVE:
+        case I2C_SLAVE_RECEIVE: {
+            /* Custom fix: always take the byte. Past 32 bytes (a write the bus corrupted, no stop
+             * seen) it was left in the RX FIFO, so the "RX full" interrupt fired again at once,
+             * forever: Core1 never left this handler, the I2C link went silent and flash writes
+             * timed out waiting for Core1 to park (settings not saved). The oversized packet is
+             * then dropped by the length check at the end of the transfer. */
+            const uint8_t byte = i2c_read_byte_raw(i2c);
             if (count < sizeof(PacketIn)) {
-                reinterpret_cast<uint8_t*>(&packet_in)[count] = i2c_read_byte_raw(i2c);
+                reinterpret_cast<uint8_t*>(&packet_in)[count] = byte;
+            }
+            if (count < 0xFFFF) {
                 ++count;
             }
             break;
+        }
         case I2C_SLAVE_FINISH:
             if (reply_active) {
                 diag::i2c_reply(reply_pos < reply_len);  // a cut reply's rest is dropped here

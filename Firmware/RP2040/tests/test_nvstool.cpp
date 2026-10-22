@@ -2,6 +2,7 @@
 // Regressions covered: flash erase/program with interrupts enabled (hard fault on a real
 // RP2350 when an IRQ ran from flash), and entries past the first NVS sector being written
 // at the wrong offset, and the settings overlapping BTstack's link keys on the Pico W boards.
+#include <cstring>
 #include <string>
 
 #include "UserSettings/NVSTool.h"
@@ -132,6 +133,25 @@ TEST(halted_other_core_writes_directly) {
     uint8_t out = 0;
     CHECK(nvs.read("mode", &out, 1));
     CHECK_EQ(out, 3);
+}
+
+TEST(an_erased_sector_counts_as_free_entries) {
+    // 2026-10-22, hybrid: the second settings sector read all 0xFF (a rewrite cut between its erase
+    // and its program). Those entries counted as taken, so the adapter options were missing (read
+    // as defaults) and every new write failed: the table looked full.
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    const uint32_t nvs_start = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * NVS_SECTORS;
+    uint8_t v = 1;
+    for (int i = 0; i < 15; ++i)  // fill the first sector (entry 0 is the header)
+        CHECK(nvs.write(key_for(i), &v, 1));
+    std::memset(mock_flash::memory() + nvs_start + FLASH_SECTOR_SIZE, 0xFF, FLASH_SECTOR_SIZE);
+    uint8_t cfg[24] = {8, 0, 0};
+    CHECK(nvs.write("dongle_cfg", cfg, sizeof(cfg)));  // failed: "no space"
+    uint8_t out[24] = {};
+    CHECK(nvs.read("dongle_cfg", out, sizeof(out)));
+    CHECK_EQ(out[0], 8);
+    CHECK(nvs.read(key_for(14), &v, 1));                // the first sector's entries stay
 }
 
 TEST_MAIN()

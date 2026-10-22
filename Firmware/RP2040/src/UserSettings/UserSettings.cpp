@@ -667,12 +667,14 @@ bool UserSettings::store_dongle_settings(const dongle_settings::Settings& settin
     /* Custom: the mode combo list and the full search time alone apply right away, no restart. */
     if (dongle_settings::same_except_live(settings, dongle_settings::get()))
     {
-        nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
+        if (!nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings)))
+            diag::event(board_api::ms_since_boot(), "adapter options NOT saved (flash write failed)");
         dongle_settings::set(settings);
         return false;
     }
     board_api::usb::disconnect_all();
-    nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings));
+    if (!nvs_tool_.write(DONGLE_SETTINGS_KEY, &settings, sizeof(settings)))
+        diag::event(board_api::ms_since_boot(), "adapter options NOT saved (flash write failed)");
     board_api::reboot();
     return true;
 }
