@@ -232,6 +232,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | I2C with a DS4 | pass, with errors | 9-21 packets rejected per minute (corrupted, wrong length) at about 770 reports/s: CRC needed (TODO) |
 | 8.1-8.3 (DS4, idle time 1 min, 2026-10-22) | pass | off after a minute still; slow tilting kept it on (off 104 s after connecting, a minute after it was put down); a continuous rumble on the table did not (off about 60 s after the last press) |
 | 6.2, 6.3, 6.6, 6.7 (DS4, 2026-10-22) | pass | Start + LB + Up + A went to STEAM; with STEAM's combo turned off nothing happened; Start + Select ignored right after connecting, turned the pad off later; Start + L3: one short rumble, "search stopped (controller)" (logged twice: TODO) |
+| 4.4 (pair IMU side, 2026-10-22) | pass | right chosen: only the right half moves the output (743 deg/s, left half nothing); left chosen: the reverse (1106 deg/s / nothing). Orientation part not yet |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
