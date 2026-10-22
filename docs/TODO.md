@@ -26,7 +26,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   in 18 min; the DMA build with the main-loop steps: none in 15 min. After the 18:56 one every I2C
   read by the ESP32 failed for 10 min (no settings or profiles reached it) until a reboot. Next:
   the step the report names after the next one (`BootStage.h` main-loop steps).
-- **Hybrid: I2C link checksum** — the RP2040 now drops packets whose length is wrong and needs a
+- **Hybrid: I2C link checksum (next)** — measured 2026-10-21/22 with a DS4 (about 770 reports/s): 9-21 packets a minute rejected for a wrong length, so others with the right length but flipped bits get through. The RP2040 now drops packets whose length is wrong and needs a
   mode request twice (2026-10-21), but a write with flipped bits inside a valid length still
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for

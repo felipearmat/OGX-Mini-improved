@@ -16,6 +16,7 @@
 #include "Gamepad/Gamepad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Diagnostics/Diagnostics.h"
 #include "Board/FlashLog.h"
 
 #pragma pack(push, 1)
@@ -199,6 +200,7 @@ void esp32_br_i2c::run() {
     while (true) {
         TaskQueue::Core0::process_tasks();
         flash_log::tick(board_api::ms_since_boot(), true);
+        diag::tick(board_api::ms_since_boot());  // Custom fix: per-second rates roll over every second, not only on web app requests
         device_driver->process(0, _gamepads[0]);
         tud_task();
         sleep_ms(1);

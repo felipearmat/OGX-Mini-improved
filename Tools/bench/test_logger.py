@@ -188,3 +188,20 @@ def test_a_line_split_between_a_flash_page_and_the_ram_keeps_its_source(tmp_path
     assert "[esp] BP32: TX power: default (+3 dBm)" in text
     assert "[adapter]" not in text
     assert text.count("BP32: TX power") == 1
+
+
+def test_a_device_leaving_while_ports_are_listed_does_not_stop_the_logger(tmp_path, monkeypatch):
+    """pyserial raised TypeError (int() of a missing idProduct) when a device left mid-listing,
+    e.g. the adapter switching to BOOTSEL: the logger stopped."""
+    import importlib
+    logger = importlib.import_module("logger")
+    args = type("Args", (), {"dir": str(tmp_path), "echo": False, "port": None})()
+    log = logger.Logger(args)
+    log.present = ("OGX-Mini", "/dev/ttyACM0", "7-1.3:1.1")
+
+    def broken():
+        raise TypeError("int() can't convert non-string with explicit base")
+
+    monkeypatch.setattr(logger.list_ports, "comports", broken)
+    log.watch_usb()  # no exception
+    assert log.present == ("OGX-Mini", "/dev/ttyACM0", "7-1.3:1.1")  # nothing decided from a failed listing

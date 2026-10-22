@@ -814,6 +814,7 @@ void esp32_bp32_i2c::run() {
         TaskQueue::Core0::process_tasks();
         boot_stage::set(boot_stage::Stage::LOOP_FLASH_LOG);
         flash_log::tick(board_api::ms_since_boot(), true);
+        diag::tick(board_api::ms_since_boot());  // Custom fix: per-second rates roll over every second, not only on web app requests
 
         boot_stage::set(boot_stage::Stage::LOOP_USB);
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {

@@ -26,6 +26,7 @@
 #include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Diagnostics/Diagnostics.h"
 #include "Board/FlashLog.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 200;
@@ -248,6 +249,7 @@ void standard::run() {
     while (true) {
         TaskQueue::Core0::process_tasks();
         flash_log::tick(board_api::ms_since_boot(), !gpio_device_mode);  // not in the GPIO console modes
+        diag::tick(board_api::ms_since_boot());  // Custom fix: per-second rates roll over every second, not only on web app requests
         if (gpio_device_mode) {
             pio_usb_host_loop_tick();
             tud_task();

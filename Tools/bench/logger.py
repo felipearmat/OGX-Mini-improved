@@ -110,10 +110,18 @@ class Logger:
     def ports(self):
         if self.args.port:  # a fixed port (tests: the virtual adapter on a pty)
             return [(A.PRODUCT, self.args.port, "fixed")] if os.path.exists(self.args.port) else []
-        return [((p.product or ""), p.device, p.location or "?") for p in list_ports.comports() if p.vid == VID]
+        try:
+            found = list_ports.comports()
+        except (TypeError, ValueError, OSError):
+            # A device that left while pyserial read its sysfs entry (the adapter switching to
+            # BOOTSEL or another mode): its attributes read as missing. Look again next pass.
+            return None
+        return [((p.product or ""), p.device, p.location or "?") for p in found if p.vid == VID]
 
     def watch_usb(self):
         ports = self.ports()
+        if ports is None:
+            return
         now = time.monotonic()
         current = ports[0] if ports else None
         if current and (not self.present or current[0] != self.present[0] or current[1] != self.present[1]):

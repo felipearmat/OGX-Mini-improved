@@ -23,6 +23,7 @@
 #include "Gamepad/I2CWirePad.h"
 #include "TaskQueue/TaskQueue.h"
 #include "Diagnostics/DiagnosticsBoard.h"
+#include "Diagnostics/Diagnostics.h"
 #include "Board/FlashLog.h"
 
 constexpr uint32_t FEEDBACK_DELAY_MS = 250;
@@ -459,6 +460,7 @@ void four_ch_i2c::run() {
         while (true) {
             TaskQueue::Core0::process_tasks();
             flash_log::tick(board_api::ms_since_boot(), true);
+            diag::tick(board_api::ms_since_boot());  // Custom fix: per-second rates roll over every second, not only on web app requests
             tud_task();
             I2C::Master::process();
             device_driver->process(0, _gamepads[0]);
@@ -470,6 +472,7 @@ void four_ch_i2c::run() {
         while (true) {
             TaskQueue::Core0::process_tasks();
             flash_log::tick(board_api::ms_since_boot(), true);
+            diag::tick(board_api::ms_since_boot());  // Custom fix: per-second rates roll over every second, not only on web app requests
             tud_task();
             device_driver->process(0, _gamepads[0]);
 #if MAIN_LOOP_DELAY_US > 0

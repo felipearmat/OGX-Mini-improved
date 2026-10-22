@@ -27,7 +27,11 @@ COMPLETE_FLAG = b"PROGRAMMING_COMPLETE"
 def find_port(product=PRODUCT, timeout=0.0):
     deadline = time.monotonic() + timeout
     while True:
-        for p in list_ports.comports():
+        try:
+            found = list_ports.comports()
+        except (TypeError, ValueError, OSError):
+            found = []  # a device left mid-listing (logger.py ports): try again
+        for p in found:
             if p.vid == VID and (p.product or "") == product:
                 return p.device
         if time.monotonic() >= deadline:
