@@ -220,6 +220,12 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 14.1 | pass (Joy-Cons) | remote chip (`Broadcom v7 s2105`), poll interval granted (`poll 5000 us`) |
 | D-Input ZL / ZR | pass | after the fix: buttons 7 / 8 on evdev (CHANGELOG) |
 | I2C link | pass, with errors | about 10 read errors per 30 s at 1 MHz on these jumpers, 1 per 30 s at 400 kHz: signal, see [TODO](TODO.md) |
+| 1.3, 1.4 (DS4, 2026-10-21) | pass | DS4 off: the host keeps a neutral pad (no USB reconnect); back on with PS, no pairing |
+| 2.1 (DS4, Switch, XInput, D-Input) | pass | every button by position, D-pad, both sticks full range (Switch right stick after the SPI fix), triggers to 254 in XInput (Bluepad32 widens 8-bit triggers by 4: accepted) |
+| 3.1-3.4 (DS4, STEAM mode) | pass | strong = left grip, weak lighter; 6 s continuous; 5 of 5 150 ms pulses; host rumble waits about 6 s after the DS4 connects. Seen: rumble in regular pulses when it was already on as the DS4 reconnected (TODO) |
+| 4.2 / 16.2 (DS4 touchpad, STEAM) | pass | one and two fingers, 21 clicks |
+| 5.1-5.3 (DS4) | pass | mode colour on connect (STEAM lilac, Switch red), the host's colour after (blue from hid-playstation) |
+| 6.1 (STEAM, Switch, XInput, D-Input combos) | pass | |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |

@@ -97,6 +97,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Rumble
 
+- **Hybrid: DS4 rumble in regular pulses after a reconnection** — 2026-10-21, STEAM mode: host
+  rumble already on while the DS4 reconnected came as a long buzz with short, evenly spaced
+  pauses; the same rumble with the DS4 already connected was continuous. Suspect the lightbar
+  update sharing the DS4 output report each feedback tick (mode colour vs host colour after the
+  reconnection). Check with the full debug mode (what the host asks, what the ESP32 sends).
 - **Hybrid: Joy-Cons not reconnecting for minutes after being turned off a few times** — 2026-10-20,
   Pico 2 W hybrid, Joy-Con pair already paired with the ESP32, turned off directly (link closed,
   reason 0x08) several times in a row: each time the last one left, the ESP32 restarted as
