@@ -834,6 +834,13 @@ void esp32_bp32_i2c::run() {
             device_driver->process(i, _gamepads[i]);
             tud_task();
         }
+        /* Custom fix: the host read the dongle's MAC before the pad connected; reconnect USB so it
+         * reads the pad's ("MAC address per controller" dongle option), as on the Pico W. */
+        if (reported_mac::take_reconnect_request()) {
+            tud_disconnect();
+            sleep_ms(300);
+            tud_connect();
+        }
         /* The ESP32's output into the kept log a whole line at a time, so the RP2040's own lines
          * never land in the middle of one; a line left unfinished goes in after 100 ms. */
         boot_stage::set(boot_stage::Stage::LOOP_ESP_RX);
