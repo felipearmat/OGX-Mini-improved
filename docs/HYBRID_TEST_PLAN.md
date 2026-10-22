@@ -245,6 +245,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 17.9 (latency in the stored session) | pass | STEAM session of 447 s: 312953 samples, average 510 us, max 1.5 ms |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
+| Motion reference, DS4 on USB (2026-10-22) | pass | the same DS4 straight on the PC's USB (its own calibration 0x02, nothing of ours): a hand turn integrates to 348 degrees on Y, as through the adapter (349): the adapter's motion path keeps the pad's scale |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
