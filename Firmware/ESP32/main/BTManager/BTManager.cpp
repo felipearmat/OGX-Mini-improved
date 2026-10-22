@@ -261,7 +261,7 @@ void BTManager::begin_mode_indicator(DeviceDriverType driver)
     board_api::set_led_color(r, g, b);
 }
 
-void BTManager::send_driver_type(DeviceDriverType driver_type)
+void BTManager::send_driver_type(DeviceDriverType driver_type, bool from_combo)
 {
     for (uint8_t i = 0; i < (I2CDriver::MULTI_SLAVE ? MAX_GAMEPADS : 1); ++i)
     {
@@ -269,6 +269,7 @@ void BTManager::send_driver_type(DeviceDriverType driver_type)
         packet_in.packet_id = I2CDriver::PacketID::SET_DRIVER;
         packet_in.index = i;
         packet_in.device_driver = driver_type;
+        packet_in.request_flags = from_combo ? I2CDriver::PacketIn::FROM_COMBO : 0;
         i2c_driver_.write_packet(slave_addr(i), packet_in);
     }
 }
@@ -347,7 +348,7 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
             {
                 settings.store_driver_type(result.new_driver);
             }
-            bt_manager.send_driver_type(result.new_driver);  // now: the pads may be turned off next
+            bt_manager.send_driver_type(result.new_driver, true);  // now: the pads may be turned off next
             bt_manager.adopt_driver(result.new_driver, true);
         }
     }
@@ -359,12 +360,12 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
          * flash onto an RP2040 that just restarted in another one. */
         if (mode_sync::esp32_sends_own_mode(settings.remote(), btstack_run_loop_get_time_ms() - bt_manager.boot_ms_))
         {
-            bt_manager.send_driver_type(settings.get_current_driver());
+            bt_manager.send_driver_type(settings.get_current_driver(), false);
         }
     }
     else if (bt_manager.pending_driver_ != DeviceDriverType::NONE)
     {
-        bt_manager.send_driver_type(bt_manager.pending_driver_);
+        bt_manager.send_driver_type(bt_manager.pending_driver_, true);
         if (--bt_manager.pending_driver_ticks_ == 0)
         {
             bt_manager.pending_driver_ = DeviceDriverType::NONE;

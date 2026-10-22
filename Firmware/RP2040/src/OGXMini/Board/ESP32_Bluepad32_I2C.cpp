@@ -510,7 +510,8 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                     const bool confirmed = packet_in.device_driver == last_request && now_ms - last_request_ms < 2000;
                     last_request = packet_in.device_driver;
                     last_request_ms = now_ms;
-                    if (confirmed && mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type)) {
+                    if (confirmed && mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type,
+                                                              (packet_in.request_flags & PacketIn::FROM_COMBO) != 0)) {
                         OGXM_LOG("I2C: Driver change detected.\n");
                         //Any writes to flash should be done on Core0
                         TaskQueue::Core0::queue_delayed_task(

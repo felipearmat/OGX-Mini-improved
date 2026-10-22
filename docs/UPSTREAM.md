@@ -74,7 +74,8 @@ the latency read on every session end from #140 ported first).
    ESP32 (9e03880), per-half Joy-Con diagnostics (5698d1c), main-loop and boot watchdogs with the
    boot stage in the report (59e4786, 1997c79), mode change undone after the restart (ModeSync
    part of cc0526d), the ESP32's serial output by DMA into a RAM ring (aeb7c7a, boot lines cut;
-   needs the kept log of 15).
+   needs the kept log of 15); the I2C slave fixes of 2026-10-21/22 (non-blocking replies, length
+   check, mode requests only from combos).
 
 The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
 then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so

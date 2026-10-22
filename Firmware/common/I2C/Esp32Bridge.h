@@ -72,7 +72,12 @@ namespace Esp32Bridge
         uint8_t          counter_value{0};
         uint8_t          counter_bits{0};
         uint8_t          counter_unit{0};  // step per report; 0 = learn it
-        uint8_t          reserved[1]{0};
+        /* SET_DRIVER: where the request comes from. Custom fix: the ESP32 also sends the mode in
+         * its own flash when it hears no RP2040 answer in its first 3 s (for an RP2040 that keeps no
+         * settings), and on a lossy link that happened with this firmware too: the adapter went to
+         * an old mode by itself after a restart. The RP2040 takes only button combos. */
+        uint8_t          request_flags{0};
+        static constexpr uint8_t FROM_COMBO = 0x01;
     };
     static_assert(sizeof(PacketIn) == 32, "Esp32Bridge::PacketIn must stay 32 bytes");
     static_assert(offsetof(PacketIn, dpad) == 4, "Esp32Bridge::PacketIn layout changed");

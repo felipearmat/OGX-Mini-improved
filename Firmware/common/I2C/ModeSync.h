@@ -22,10 +22,14 @@ namespace mode_sync {
      * no settings and sends its own mode. */
     constexpr uint32_t kNoSettingsRp2040Ms = 3000;
 
-    // RP2040: whether a SET_DRIVER from the ESP32 changes the mode.
-    constexpr bool rp2040_accepts(uint8_t replies_sent, DeviceDriverType requested, DeviceDriverType current)
+    // RP2040 (one that keeps the settings): whether a SET_DRIVER from the ESP32 changes the mode.
+    // Only a button combo does (from_combo, PacketIn::FROM_COMBO): the ESP32's own stored mode is
+    // for RP2040s without settings, and taking it undid the mode this RP2040 restarted in whenever
+    // the ESP32 missed its first answers (lost I2C reads, a slow start).
+    constexpr bool rp2040_accepts(uint8_t replies_sent, DeviceDriverType requested, DeviceDriverType current,
+                                  bool from_combo)
     {
-        return replies_sent >= kRepliesBeforeRequests && requested != DeviceDriverType::NONE &&
+        return from_combo && replies_sent >= kRepliesBeforeRequests && requested != DeviceDriverType::NONE &&
                normalized(requested) != current;
     }
 

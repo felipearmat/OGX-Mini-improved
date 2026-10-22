@@ -129,7 +129,7 @@ private:
     mode_combos::ComboCheck combo_check_;
 
     static uint8_t slave_addr(uint8_t output);
-    void send_driver_type(DeviceDriverType driver_type);
+    void send_driver_type(DeviceDriverType driver_type, bool from_combo);
     void send_neutral(uint8_t output);
     void apply_profiles();
     void apply_scan(bool pad_leaving, bool force);

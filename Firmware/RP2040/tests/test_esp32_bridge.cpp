@@ -268,19 +268,20 @@ struct Rp2040 {
         if (replies < mode_sync::kRepliesBeforeRequests) ++replies;
         return true;
     }
-    void set_driver(D d) {
-        if (keeps_settings ? mode_sync::rp2040_accepts(replies, d, mode) : normalized(d) != mode)
+    void set_driver(D d, bool from_combo) {
+        if (keeps_settings ? mode_sync::rp2040_accepts(replies, d, mode, from_combo) : normalized(d) != mode)
             restart_into(d);
     }
 };
 
 /* The ESP32 side, freshly started with `flash` stored: one tick every 50 ms, each asking GET_EXT
- * (answered after `ext_delay_ms`) and, per the rule, sending its own mode. */
-void run_esp32(Rp2040& rp, D flash, uint32_t ms, uint32_t ext_delay_ms = 50) {
+ * (answered after `ext_delay_ms`) and, per the rule, sending its own mode. `lost_ms`: the RP2040
+ * answers, but the ESP32 does not get the answers until then (reads cut on a lossy link). */
+void run_esp32(Rp2040& rp, D flash, uint32_t ms, uint32_t ext_delay_ms = 50, uint32_t lost_ms = 0) {
     bool remote = false;
     for (uint32_t t = 0; t < ms; t += 50) {
-        if (t >= ext_delay_ms && rp.answer_get_ext()) remote = true;
-        if (mode_sync::esp32_sends_own_mode(remote, t)) rp.set_driver(flash);
+        if (t >= ext_delay_ms && rp.answer_get_ext() && t >= lost_ms) remote = true;
+        if (mode_sync::esp32_sends_own_mode(remote, t)) rp.set_driver(flash, false);
     }
 }
 
@@ -299,6 +300,15 @@ TEST(a_fresh_esp32_does_not_undo_the_mode_the_rp2040_restarted_in) {
     CHECK(slow.mode == D::DINPUT_DEBUG);
 }
 
+TEST(an_esp32_that_misses_the_first_answers_does_not_change_the_mode) {
+    // 2026-10-22: the ESP32 got the RP2040's first answer only after about 10 s (reads cut on the
+    // I2C link); at 3 s it sent the mode in its own flash (STEAM) and the adapter switched to it.
+    Rp2040 rp{D::DINPUT_DEBUG};
+    run_esp32(rp, D::STEAM, 15000, 50, 10000);
+    CHECK(rp.mode == D::DINPUT_DEBUG);
+    CHECK_EQ(rp.restarts, 0);
+}
+
 TEST(an_rp2040_that_keeps_no_settings_takes_the_esp32s_mode) {
     Rp2040 old{D::XBOXOG};
     old.keeps_settings = false;
@@ -311,21 +321,22 @@ TEST(an_rp2040_that_keeps_no_settings_takes_the_esp32s_mode) {
 TEST(a_combo_on_the_esp32_changes_the_mode_once_in_sync) {
     Rp2040 rp{D::PS4};
     run_esp32(rp, D::PS4, 1000);
-    rp.set_driver(D::DINPUT_DEBUG);  // Start + RB + Left
+    rp.set_driver(D::DINPUT_DEBUG, true);  // Start + RB + Left
     CHECK(rp.mode == D::DINPUT_DEBUG);
     CHECK_EQ(rp.restarts, 1);
     // An older ESP32 asking for the Web App mode means DInput: no restart loop.
     rp.answer_get_ext();
     rp.answer_get_ext();
-    rp.set_driver(D::WEBAPP);
+    rp.set_driver(D::WEBAPP, true);
     CHECK_EQ(rp.restarts, 1);
 }
 
 TEST(mode_requests_wait_for_the_rp2040s_answers) {
-    CHECK(!mode_sync::rp2040_accepts(0, D::SWITCH, D::DINPUT_DEBUG));
-    CHECK(!mode_sync::rp2040_accepts(1, D::SWITCH, D::DINPUT_DEBUG));
-    CHECK(mode_sync::rp2040_accepts(2, D::SWITCH, D::DINPUT_DEBUG));
-    CHECK(!mode_sync::rp2040_accepts(2, D::NONE, D::DINPUT_DEBUG));
+    CHECK(!mode_sync::rp2040_accepts(0, D::SWITCH, D::DINPUT_DEBUG, true));
+    CHECK(!mode_sync::rp2040_accepts(1, D::SWITCH, D::DINPUT_DEBUG, true));
+    CHECK(mode_sync::rp2040_accepts(2, D::SWITCH, D::DINPUT_DEBUG, true));
+    CHECK(!mode_sync::rp2040_accepts(2, D::NONE, D::DINPUT_DEBUG, true));
+    CHECK(!mode_sync::rp2040_accepts(2, D::SWITCH, D::DINPUT_DEBUG, false));  // not a combo
     CHECK(!mode_sync::esp32_sends_own_mode(false, 100));
     CHECK(!mode_sync::esp32_sends_own_mode(true, 60000));
     CHECK(mode_sync::esp32_sends_own_mode(false, mode_sync::kNoSettingsRp2040Ms));

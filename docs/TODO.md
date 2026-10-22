@@ -18,6 +18,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
+- **Hybrid: the ESP32 hears the RP2040's first answer only about 10 s after a restart** (the
+  "TX power" / "Profiles from the RP2040" lines, 2026-10-21/22). It no longer changes the mode,
+  but settings, profiles and "uses motion" arrive late. Find where the time goes (the ESP32's
+  first GET_EXT, the RP2040's slave start, reads cut short).
 - **Hybrid: I2C link checksum (next)** — measured 2026-10-21/22 with a DS4 (about 770 reports/s): 9-21 packets a minute rejected for a wrong length, so others with the right length but flipped bits get through. The RP2040 now drops packets whose length is wrong and needs a
   mode request twice (2026-10-21), but a write with flipped bits inside a valid length still
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
