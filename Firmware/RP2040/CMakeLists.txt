@@ -82,6 +82,7 @@ set(SOURCES_BOARD
     ${SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/Switch.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp
+    ${SRC}/USBDevice/DeviceDriver/Switch/SwitchSpi.cpp
     ${SRC}/USBDevice/DeviceDriver/Switch/HdRumble.cpp
     ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp

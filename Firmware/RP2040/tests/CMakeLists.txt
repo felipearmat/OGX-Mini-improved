@@ -114,6 +114,11 @@ ogxm_add_test(test_reported_mac test_reported_mac.cpp ${FW_SRC}/Board/ReportedMa
 ogxm_add_test(test_switch_imu test_switch_imu.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp)
 target_compile_definitions(test_switch_imu PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
 target_link_libraries(test_switch_imu PRIVATE fixmath)
+# Custom: the Switch output's emulated SPI flash (USBDevice/DeviceDriver/Switch/SwitchSpi.h).
+ogxm_add_test(test_switch_spi test_switch_spi.cpp ${FW_SRC}/USBDevice/DeviceDriver/Switch/SwitchSpi.cpp
+              ${FW_SRC}/USBDevice/DeviceDriver/Switch/SwitchImu.cpp)
+target_compile_definitions(test_switch_spi PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_switch_spi PRIVATE fixmath)
 
 # USB device drivers (DInput, PS3, PS4, STEAM) built from the firmware sources, with the TinyUSB
 # calls stubbed in the test: output reports in through set_report_cb, input reports captured.

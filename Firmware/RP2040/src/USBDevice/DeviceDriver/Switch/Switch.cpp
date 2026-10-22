@@ -4,6 +4,7 @@
 
 #include "Board/ogxm_log.h"
 #include "USBDevice/DeviceDriver/Switch/Switch.h"
+#include "USBDevice/DeviceDriver/Switch/SwitchSpi.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/Range.h"
 
@@ -210,44 +211,7 @@ void SwitchDevice::build_subcommand_reply(const SwitchPro::SwitchReport& sw)
 			uint8_t addr_hi = pending_output_[12];
 			uint8_t read_len = pending_output_[15];
 			r[2] = addr_lo; r[3] = addr_hi; r[6] = read_len;
-			if (addr_hi == 0x60 && addr_lo == 0x00)
-				std::memset(r + 7, 0xFF, 16);
-			else if (addr_hi == 0x60 && addr_lo == 0x50)
-			{
-				std::memset(r + 7, 0x32, 3);
-				std::memset(r + 10, 0xFF, 3);
-				std::memset(r + 13, 0xFF, 7);
-			}
-			else if (addr_hi == 0x60 && addr_lo == 0x80)
-			{
-				r[7] = 0x50; r[8] = 0xFD; r[9] = 0x00; r[10] = 0x00; r[11] = 0xC6; r[12] = 0x0F;
-				const uint8_t params[18] = { 0x0F, 0x30, 0x61, 0x96, 0x30, 0xF3, 0xD4, 0x14, 0x54, 0x41, 0x15, 0x54, 0xC7, 0x79, 0x9C, 0x33, 0x36, 0x63 };
-				std::memcpy(r + 13, params, 18);
-			}
-			else if (addr_hi == 0x60 && addr_lo == 0x98)
-			{
-				const uint8_t params[18] = { 0x0F, 0x30, 0x61, 0x96, 0x30, 0xF3, 0xD4, 0x14, 0x54, 0x41, 0x15, 0x54, 0xC7, 0x79, 0x9C, 0x33, 0x36, 0x63 };
-				std::memcpy(r + 7, params, 18);
-			}
-			else if (addr_hi == 0x80 && addr_lo == 0x10)
-				std::memset(r + 7, 0xFF, 3);
-			else if (addr_hi == 0x60 && addr_lo == 0x3D)
-			{
-				const uint8_t l_cal[9] = { 0xD4, 0x75, 0x61, 0xE5, 0x87, 0x7C, 0xEC, 0x55, 0x61 };
-				const uint8_t r_cal[9] = { 0x5D, 0xD8, 0x7F, 0x18, 0xE6, 0x61, 0x86, 0x65, 0x5D };
-				std::memcpy(r + 7, l_cal, 9);
-				std::memcpy(r + 16, r_cal, 9);
-				r[25] = 0xFF;
-				std::memset(r + 26, 0x32, 3);
-				std::memset(r + 29, 0xFF, 3);
-			}
-			else if (addr_hi == 0x60 && addr_lo == 0x20)
-			{
-				/* Custom: zero-offset factory IMU calibration matching switch_imu's scaling. */
-				std::memcpy(r + 7, switch_imu::kFactoryCalibration, 24);
-			}
-			else
-				std::memset(r + 7, 0xFF, read_len);
+			switch_spi::read(static_cast<uint32_t>(addr_hi) << 8 | addr_lo, read_len, r + 7);
 			break;
 		}
 		default:
