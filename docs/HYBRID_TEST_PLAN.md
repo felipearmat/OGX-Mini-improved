@@ -234,7 +234,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 6.2, 6.3, 6.6, 6.7 (DS4, 2026-10-22) | pass | Start + LB + Up + A went to STEAM; with STEAM's combo turned off nothing happened; Start + Select ignored right after connecting, turned the pad off later; Start + L3: one short rumble, "search stopped (controller)" (logged twice: TODO) |
 | 4.4 (pair IMU side, 2026-10-22) | pass | right chosen: only the right half moves the output (743 deg/s, left half nothing); left chosen: the reverse (1106 deg/s / nothing). Orientation part not yet |
 | 8.4 (Joy-Con pair idle, 2026-10-22) | pass | both halves off together, each asked to sleep (reason 0x13); took about 97 s with a 1 min idle time (motion noise on the table may restart the minute: watch) |
-| 7.2 (lone Joy-Con, 2026-10-22) | pass | search reduced to 10 % exactly 60 s after the Joy-Con was ready (LED: see notes) |
+| 7.2 (lone Joy-Con, 2026-10-22) | pass | search reduced to 10 % exactly 60 s after the Joy-Con was ready; LED from fast to slow blink |
 | 4.5 (lone Joy-Con held sideways) | pass | stick up / right from the player's view read as up (Y 33) / right (X 232) |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
