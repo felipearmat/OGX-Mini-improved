@@ -236,6 +236,10 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 8.4 (Joy-Con pair idle, 2026-10-22) | pass | both halves off together, each asked to sleep (reason 0x13); took about 97 s with a 1 min idle time (motion noise on the table may restart the minute: watch) |
 | 7.2 (lone Joy-Con, 2026-10-22) | pass | search reduced to 10 % exactly 60 s after the Joy-Con was ready; LED from fast to slow blink |
 | 4.5 (lone Joy-Con held sideways) | pass | stick up / right from the player's view read as up (Y 33) / right (X 232) |
+| 17.3, 17.4 (BLE advertising, 2026-10-22) | pass | lone Joy-Con (reduced search): "OGX-Mini" found by the PC's Bluetooth; pair merged (slot full): not found in 30 s |
+| 17.5 (higher transmit power) | pass | applied live (no restart): "TX power: high (+9 dBm)" then back, report `high_tx_power` follows; links already open stayed at +3 dBm (power control raises it only when needed) |
+| 17.8 (pads off before a mode change) | pass | Joy-Cons disconnected before the combo's mode change (dev default on) |
+| 11.3 (`flash-esp32 --baud 115200`) | pass | 38 s for the app (137.9 kbit/s), hashes verified; the I2C link back right after |
 | Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
 | Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
