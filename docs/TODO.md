@@ -87,6 +87,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   conversion, so one of the two is wrong for a DS3 host. Check on a PS3 (or the DS3 test in
   Linux hid-sony) which frame the Sixaxis report wants.
 
+- **"search stopped (controller)" logged twice** for one Start + L3 (hybrid, 2026-10-22). Cosmetic.
 ## Rumble
 
 - **Hybrid: DS4 rumble in regular pulses after a reconnection** — 2026-10-21, STEAM mode: host
