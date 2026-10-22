@@ -68,10 +68,15 @@ bool WebAppDevice::write_serial(const void* buffer, size_t len)
 {
     const uint8_t* buf_ptr = reinterpret_cast<const uint8_t*>(buffer);
     size_t total_written = 0;
+    /* Custom fix: a host that opens the port and stops reading (a frozen page, a tool holding the
+     * port) filled the transmit buffer, and this loop waited for it forever: the main loop hung
+     * until the hang watchdog restarted the adapter ("main loop: USB"). Give up after a while. */
+    constexpr uint32_t kWriteTimeoutMs = 100;
+    const uint32_t start_ms = board_api::ms_since_boot();
 
     while (total_written < len)
     {
-        if (!tud_cdc_connected())
+        if (!tud_cdc_connected() || board_api::ms_since_boot() - start_ms >= kWriteTimeoutMs)
         {
             return false;
         }
@@ -204,6 +209,10 @@ bool WebAppDevice::write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in)
     const uint8_t total_chunks = static_cast<uint8_t>((sizeof(wire) + packet_in.data.size() - 1) / packet_in.data.size());
     uint8_t current_chunk = 0;
 
+    /* Live input goes out whole or not at all: with no room (the host not reading) it waits for
+     * the next pass, which sends the newer state. */
+    if (tud_cdc_write_available() < total_chunks * sizeof(Packet))
+        return false;
     packet_in.header.packet_id = PacketID::SET_GP_IN;
     packet_in.header.max_gamepads = MAX_GAMEPADS;
     packet_in.header.player_idx = index;
@@ -232,6 +241,8 @@ bool WebAppDevice::write_gamepad(uint8_t index, const Gamepad::PadIn& pad_in)
 /* Custom: touchpad for the web app's tracking view (GP_TOUCH). */
 bool WebAppDevice::write_touch(uint8_t index, const Gamepad::PadIn& pad_in)
 {
+    if (tud_cdc_write_available() < sizeof(Packet))
+        return false;  // as write_gamepad: next pass
     Packet packet_in;
     packet_in.header.packet_id = PacketID::GP_TOUCH;
     packet_in.header.max_gamepads = MAX_GAMEPADS;
