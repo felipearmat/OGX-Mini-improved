@@ -7,7 +7,7 @@ on cheap hardware: a Raspberry Pi Pico 2 W, or an RP2040 board paired with an ES
 [Download](https://github.com/felipearmat/OGX-Mini-improved/releases) ·
 [Web app](https://felipearmat.github.io/OGX-Mini-improved-WebApp/) ·
 [Use cases](#use-cases) · [Which hardware](#which-hardware) · [Output modes](#output-modes) ·
-[Controllers](#controllers) · [Roadmap](docs/ROADMAP.md) · [Changelog](CHANGELOG.md)
+[Controllers](#controllers) · [Roadmap](docs/ROADMAP.md) · [Changelog](CHANGELOG.md) · [Reference projects](docs/REFERENCES.md)
 
 ## TL;DR
 
