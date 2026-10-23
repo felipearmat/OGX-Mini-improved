@@ -253,6 +253,8 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | STEAM ZL / ZR (Joy-Con pair, 2026-10-23) | pass after a fix | 6 + 6 presses, analog 255 and L2 / R2 bits each (before: nothing) |
 | Switch right stick (Joy-Con pair, hid-nintendo, 2026-10-23) | pass after a fix | rest RX 0.7 % / RY -1.8 %, edges 94-100 % with the calibration that matches the output |
 | DS4 full triggers (D-Input/Debug, 2026-10-23) | pass after a fix | L2 / R2 at 255 (254 before the Bluepad32 bit-replication patch) |
+| Switch mode in Steam (Joy-Con pair, 2026-10-23) | pass | the user's check after the calibration fix: sticks feel right again |
+| STEAM mode in a game (Joy-Con pair, 2026-10-23) | pass | the user's check: ZL / ZR work |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
