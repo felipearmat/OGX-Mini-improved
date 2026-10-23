@@ -183,6 +183,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Debug builds
 
+- **The kept log (LogRing) survives a power cut** — 2026-10-22, Pico 2 W hybrid: with the USB cable out 9 s the ring in `.uninitialized_data` still passed its magic and bounds check and `monitor` showed the previous session (intact this time). Only the magic is checked, not the reset cause, so after a longer cut a half-decayed ring could show garbage as the "kept log". Low priority: drop the ring on a power-on / brown-out reset (RP2040 `vreg_and_chip_reset`, RP2350 `powman` chip reset bits), keep it on watchdog reboots.
 - **DebugLite hangs at boot in Switch Pro mode** (seen after f259b0f, which shifts
   boot timing slightly). The Switch driver's USB-init logging (core 0, OGXM_LOG with its
   own mutex) collides with Bluepad32's banner/printf (core 1): both stop mid-line and the
