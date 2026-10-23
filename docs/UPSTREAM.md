@@ -149,6 +149,7 @@ later fixes reach every board in one PR.
 | 4ae300c and earlier | Status LED panel, mode colour wheel, D-Input/Debug in the mode lists, capabilities, unit / contract tests | todo | After the firmware features they use (rows above). |
 | 5600f85, 9f1b02d | Log report with the adapter's kept log and the log kept in flash; "Keep the log in flash" option in the Diagnostics panel | todo | After the firmware features (GET_LOG, GET_FLASH_LOG). |
 | eeb326f, e95834e | Playwright end-to-end tests against the firmware's virtual adapter | todo | With the virtual adapter. | Goes with the dongle options feature (a0e7cba). `serve.sh` and the README are fork-only. |
+| 6c45e65 (web app) | Touchpad and Motion panel: a box that turns with the controller (prototype) | fork only for now | Needs the fork's diagnostics report (`motion` block); offer with the live motion stream once it exists. |
 
 ## Features (offer, upstream may or may not want them)
 

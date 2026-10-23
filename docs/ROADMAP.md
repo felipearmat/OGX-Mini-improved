@@ -32,6 +32,9 @@ about any supported controller, so a problem can be read without switching modes
 - Web app: a live motion view, a box that turns with the controller (orientation from the gyro,
   levelled by gravity) with recentre and axis display, as Yuzu-based emulators show; motion
   streamed over USB in Debug mode, in the units and frame of the chosen output.
+  Prototype in the web app since 2026-10-23 (OGX-Mini-improved-WebApp 6c45e65, "Touchpad and Motion"
+  panel): the box from the diagnostics report's `motion` block, a few updates per second; the axis
+  directions still to be confirmed on hardware.
 - One report for the web app and the bench tools, with no mode change.
 
 ## 1. Turbo / auto-fire
