@@ -24,6 +24,7 @@
       "SET_GP_IN": 128,
       "SET_GP_OUT": 129,
       "GP_TOUCH": 130,
+      "GP_MOTION": 131,
       "RESP_ERROR": 255
     },
     "system": {
@@ -71,6 +72,7 @@
     "MODE_COLORS": 8192,
     "STATUS_LED_ESP32_EXT": 16384,
     "FLASH_LOG": 32768,
+    "MOTION_STREAM": 65536,
     "kPicoW": 761,
     "kHybrid": 19199
   },

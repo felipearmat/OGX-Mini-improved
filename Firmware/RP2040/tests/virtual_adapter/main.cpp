@@ -87,6 +87,19 @@ int main(int argc, char** argv)
             dtr = virtual_board::dtr();
             device.line_state_cb(0, dtr, false);  // the page opened or closed the port
         }
+        uint8_t source;
+        int32_t accel[3], gyro[3];
+        if (virtual_board::take_pad_motion(source, accel, gyro))
+        {
+            Gamepad::PadIn in{};  // a controller that only moves (the harness's P command)
+            in.motion_source = source;
+            for (int i = 0; i < 3; ++i)
+            {
+                in.accel[i] = accel[i];
+                in.gyro[i] = gyro[i];
+            }
+            gamepad.set_pad_in(in);
+        }
         device.process(0, gamepad);
         flash_log::tick(virtual_board::ms(), true);
         report_led(mode);

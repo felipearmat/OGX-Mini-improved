@@ -71,6 +71,12 @@ namespace webapp_protocol {
         /* Custom: DS4 / DualSense touchpad, sent after SET_GP_IN while the pad reports it. Data:
          * the two touch points as the pads send them (4 bytes each), then the touchpad click. */
         GP_TOUCH = 0x82,
+        /* Custom: motion, sent after SET_GP_IN while the pad reports it (capability MOTION_STREAM).
+         * Data (17 bytes, little-endian): motion source (uint8, Gamepad/MotionSource.h), accel in
+         * mg (int16 x3), gyro in deg/s x10 (int16 x3), the adapter's time in ms (uint32). The
+         * common frame every pad is converted to (MotionImu::remap_to_ds4_report_frame): X right,
+         * Y out of the face, Z toward the player; the same values as the report's motion block. */
+        GP_MOTION = 0x83,
         RESP_ERROR = 0xFF
     };
 

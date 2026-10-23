@@ -28,6 +28,9 @@ bool s_running = true;
 bool s_dtr = true;          // no control channel: the port is open from the start
 int s_control = -1;         // fd 3 when the harness passes one
 std::string s_control_line;
+bool s_motion_pending = false;  // P...: a controller's motion for the page
+uint8_t s_motion_source = 0;
+int32_t s_motion_accel[3]{}, s_motion_gyro[3]{};
 int s_mode_request = -1;
 bool s_fresh_flash = true;
 int s_flash_ops = 0;
@@ -86,6 +89,22 @@ void control_command(const std::string& line)
     }
     else if (line.size() > 1 && line[0] == 'M')
         s_mode_request = std::atoi(line.c_str() + 1);
+    else if (line.size() > 1 && line[0] == 'P')
+    {
+        long v[7]{};
+        if (std::sscanf(line.c_str() + 1, "%ld %ld %ld %ld %ld %ld %ld", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]) == 7)
+        {
+            s_motion_source = static_cast<uint8_t>(v[0]);
+            for (int i = 0; i < 3; ++i)
+            {
+                s_motion_accel[i] = static_cast<int32_t>(v[1 + i]);
+                s_motion_gyro[i] = static_cast<int32_t>(v[4 + i]);
+            }
+            s_motion_pending = true;
+        }
+        else
+            std::fprintf(stderr, "virtual_adapter: bad motion command '%s'\n", line.c_str());
+    }
     else
         std::fprintf(stderr, "virtual_adapter: unknown control command '%s'\n", line.c_str());
 }
@@ -148,6 +167,20 @@ bool running() { return s_running; }
 bool dtr() { return s_dtr; }
 
 bool fresh_flash() { return s_fresh_flash; }
+
+bool take_pad_motion(uint8_t& source, int32_t accel[3], int32_t gyro[3])
+{
+    if (!s_motion_pending)
+        return false;
+    s_motion_pending = false;
+    source = s_motion_source;
+    for (int i = 0; i < 3; ++i)
+    {
+        accel[i] = s_motion_accel[i];
+        gyro[i] = s_motion_gyro[i];
+    }
+    return true;
+}
 
 int take_mode_request()
 {

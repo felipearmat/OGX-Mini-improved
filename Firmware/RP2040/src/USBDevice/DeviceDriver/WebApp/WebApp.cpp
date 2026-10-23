@@ -17,6 +17,7 @@
 #include "Board/ModeIndicator.h"
 #include "UserSettings/BoardCapabilities.h"
 #include "Gamepad/I2CWirePad.h"
+#include "Gamepad/MotionImu.h"
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 
 void WebAppDevice::initialize() 
@@ -252,6 +253,41 @@ bool WebAppDevice::write_touch(uint8_t index, const Gamepad::PadIn& pad_in)
     packet_in.header.chunk_len = sizeof(pad_in.touch_raw) + 1;
     std::memcpy(packet_in.data.data(), pad_in.touch_raw, sizeof(pad_in.touch_raw));
     packet_in.data[sizeof(pad_in.touch_raw)] = pad_in.touchpad_click;
+    return write_packet(packet_in);
+}
+
+/* Custom: motion for the web app's motion view (GP_MOTION), in the common frame. */
+bool WebAppDevice::write_motion(uint8_t index, const Gamepad::PadIn& pad_in)
+{
+    if (tud_cdc_write_available() < sizeof(Packet))
+        return false;  // as write_gamepad: next pass
+    int32_t accel[3], gyro[3];
+    for (int i = 0; i < 3; ++i) {
+        accel[i] = pad_in.accel[i];
+        gyro[i] = pad_in.gyro[i];
+    }
+    MotionImu::remap_to_ds4_report_frame(pad_in.motion_source, accel, gyro);
+    Packet packet_in;
+    packet_in.header.packet_id = PacketID::GP_MOTION;
+    packet_in.header.max_gamepads = MAX_GAMEPADS;
+    packet_in.header.player_idx = index;
+    packet_in.header.chunks_total = 1;
+    packet_in.header.chunk_idx = 0;
+    packet_in.header.chunk_len = 17;
+    uint8_t* d = packet_in.data.data();
+    auto put16 = [&](size_t at, int64_t v) {
+        const int16_t c = static_cast<int16_t>(std::clamp<int64_t>(v, INT16_MIN, INT16_MAX));
+        d[at] = static_cast<uint8_t>(c);
+        d[at + 1] = static_cast<uint8_t>(static_cast<uint16_t>(c) >> 8);
+    };
+    d[0] = pad_in.motion_source;
+    for (int i = 0; i < 3; ++i) {
+        put16(1 + 2 * i, static_cast<int64_t>(accel[i]) * 1000 / 8192);  // DS4 units: 8192 / g
+        put16(7 + 2 * i, static_cast<int64_t>(gyro[i]) * 10 / 1024);     // 1024 / (deg/s)
+    }
+    const uint32_t now = board_api::ms_since_boot();
+    for (int i = 0; i < 4; ++i)
+        d[13 + i] = static_cast<uint8_t>(now >> (8 * i));
     return write_packet(packet_in);
 }
 
@@ -641,7 +677,7 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
 
             case PacketID::GET_CAPABILITIES:
             {
-                const uint32_t caps = capabilities::board() | capabilities::MODE_COLORS;
+                const uint32_t caps = capabilities::board() | capabilities::MODE_COLORS | capabilities::MOTION_STREAM;
                 Packet reply;
                 reply.header.packet_id = PacketID::GET_CAPABILITIES;
                 reply.header.chunks_total = 1;
@@ -736,6 +772,8 @@ void WebAppDevice::send_live_input(uint8_t idx, Gamepad& gamepad)
         return;
     live_pending_[idx] = false;
     live_sent_ms_[idx] = now;
+    if (gp_in.has_motion())
+        write_motion(idx, gp_in);  // a full transmit FIFO skips it: the next pass has newer motion
     if (!gp_in.touchpad_valid)
         return;
     uint8_t touch[9];

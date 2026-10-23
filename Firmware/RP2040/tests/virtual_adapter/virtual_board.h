@@ -6,6 +6,8 @@
 //   D1 / D0   the page opened / closed the port (DTR). Without fd 3 the port is open from the start.
 //   M<n>      the mode combo for output mode n was held (ModeCombos.h)
 //   L<text>   a line of the ESP32's serial output, into the kept log (Board/LogRing.h)
+//   P<source> <ax> <ay> <az> <gx> <gy> <gz>  a controller's motion as Gamepad::PadIn holds it
+//             (motion source, DS4 units), sent to the page as live input with GP_MOTION
 // and from the adapter, at boot:
 //   MODE <n>  the output mode it runs in; the serial port exists in D-Input/Debug (6) only.
 //   LED <rrggbb>  the external status LED's colour, when it changes (D-Input/Debug).
@@ -28,6 +30,8 @@ namespace virtual_board {
     bool fresh_flash();
     // The mode a combo asked for (M<n>), or -1; once.
     int take_mode_request();
+    // The controller motion the harness set (P...), or false; once.
+    bool take_pad_motion(uint8_t& source, int32_t accel[3], int32_t gyro[3]);
     // A line to the harness (no-op without the control channel).
     void control_write(const char* line);
     int finish();

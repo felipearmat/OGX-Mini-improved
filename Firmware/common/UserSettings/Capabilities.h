@@ -25,6 +25,7 @@ namespace capabilities {
     constexpr uint32_t MODE_COLORS               = 1u << 13; // colour per mode (USB GET / SET_LED_COLORS)
     constexpr uint32_t STATUS_LED_ESP32_EXT      = 1u << 14; // an external RGB LED on the hybrid ESP32 (GPIO 4)
     constexpr uint32_t FLASH_LOG                 = 1u << 15; // the kept log also in flash (RP2040 Board/FlashLog.h)
+    constexpr uint32_t MOTION_STREAM             = 1u << 16; // live motion to the web app (USB GP_MOTION)
 
     constexpr uint32_t kBluetooth = BLUETOOTH | JOYCON | MAC_PER_CONTROLLER | DISCONNECT_ON_MODE_CHANGE |
                                     SEARCH_TIMES | IDLE_OFF | BLE_WEBAPP;
