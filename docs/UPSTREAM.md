@@ -138,6 +138,10 @@ later fixes reach every board in one PR.
 | ebfc858 | GameCube output: a trigger at 255 clicks the digital L / R | todo | Same upstream (L / R only from LB / RB): a Joy-Con's ZL / ZR never clicked. Reference: HayBox (digital and analog trigger together); the Wii U adapter mode already clicked at 255. Needs 6048d4d for 8-bit pads to reach 255. Console test still to do. |
 | 6048d4d | Bluepad32 patch: full-scale triggers by bit replication | todo | Upstream's Bluepad32 widens 8-bit triggers `* 4` too (a full DS4 trigger reads 254). Reference: SDL `* 257`. Also for Bluepad32 upstream (ricardoquesada/bluepad32: ds3 / ds4 / ds5 / psmove / steam / wii parsers). |
 | 0a8924d | Docs: reference projects (docs/REFERENCES.md) | fork only | Where each behaviour decision comes from; cited by the fix PRs above. |
+| 414954e | Live motion to the web app (GP_MOTION, MOTION_STREAM) | fork only for now | Needs the fork's web app protocol additions; offer with the motion view. |
+| 245710a | Hybrid: OGXM_HYBRID_PICO_W build option (no onboard LED on a Pico W / Pico 2 W) | todo | Why: the hybrid build offered GP25 as a status LED, the radio chip's line on a W. Upstream's hybrid has the same LED_INDICATOR_PIN 25. Small. |
+| 31bd745 | Detailed controller diagnostics only with the log in flash | fork only | Fork options (Adapter Options v8). |
+| 573db6a | ESP32: log when the LED options arrive | fork only | Diagnostics of the fork's options. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 

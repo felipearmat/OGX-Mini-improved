@@ -183,6 +183,8 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Debug builds
 
+- **ESP32 LED options applied late with a controller connected** — 2026-10-23, Pico 2 W hybrid: turning the ESP32's external LED off or changing the brightness in the web app took effect much later (the user saw it off a while after). With no controller, the ESP32 logs the new options 1-2 s after the change ("LED options: ...", added for this). With a controller the link showed 42 % of the RP2040's replies cut and about 1800 packets rejected (16 % and 3 with none): the 37-byte GET_EXT reply, the longest on the link, rarely arrives whole then. Same jumper signal problem as the I2C corruption above; check on the soldered board, CRC planned.
+- **ESP32 "status LED" option drives GPIO15** (upstream's pin, `CONFIG_LED_PIN_1`): the 38-pin DevKit has no LED there; its blue LED that flickers with activity is the serial activity LED (not ours). Decide a pin with the final board.
 - **The kept log (LogRing) survives a power cut** — 2026-10-22, Pico 2 W hybrid: with the USB cable out 9 s the ring in `.uninitialized_data` still passed its magic and bounds check and `monitor` showed the previous session (intact this time). Only the magic is checked, not the reset cause, so after a longer cut a half-decayed ring could show garbage as the "kept log". Low priority: drop the ring on a power-on / brown-out reset (RP2040 `vreg_and_chip_reset`, RP2350 `powman` chip reset bits), keep it on watchdog reboots.
 - **DebugLite hangs at boot in Switch Pro mode** (seen after f259b0f, which shifts
   boot timing slightly). The Switch driver's USB-init logging (core 0, OGXM_LOG with its

@@ -91,6 +91,9 @@ SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / R
 power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. Tested on hardware with I2C on GP26 / GP27 and IO0 on GP22. The release
 UF2s use the defaults above. The ESP32 side does not move.
 
+On a **Pico W / Pico 2 W**, build with `-DOGXM_HYBRID_PICO_W=ON`: GP25 is the radio chip's line there
+(the hybrid keeps the radio off), so there is no onboard status LED and GP25 is left alone.
+
 **Perfboard layout with few crossing wires** (38-pin ESP32 DevKit, the boards on the two faces
 of a double-sided perfboard, USB ports at opposite ends): the ESP32's signal column (from the
 antenna end: 22, TX0, RX0, 21, GND, ..., 0) then faces the Pico's GP0-GP15 column in the order
