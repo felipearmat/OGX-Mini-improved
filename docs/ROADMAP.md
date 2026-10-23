@@ -37,6 +37,23 @@ about any supported controller, so a problem can be read without switching modes
   directions still to be confirmed on hardware.
 - One report for the web app and the bench tools, with no mode change.
 
+Decided with the user on 2026-10-23:
+
+1. **What the host asks for** (rumble per motor, Joy-Con / Pro HD Rumble decoded, lightbar, player
+   LEDs, DualSense adaptive triggers) is recorded in every output mode, with a short history, and
+   read back in D-Input/Debug mode (the host asks for none of it there): a `host_out` block in the
+   report. It is part of the advanced report: recorded only with the "Detailed controller
+   diagnostics" option (renamed from "Detailed link diagnostics"), kept in flash with the log, and
+   that option can only be on while "Keep the log in flash" is on (the web app greys it out
+   otherwise). Not chosen: the web app's serial port in every mode (it changes the USB device a
+   console sees).
+2. **The motion view's frame:** the controller's own movement in the common frame every pad is
+   converted to (X right, Y up out of the face, Z toward the player), so the box follows the hand
+   with any pad. No toggle to the output's frame for now.
+3. **Order:** first the live motion stream (about 100 updates a second, in place of the report
+   polling of the prototype), axis directions confirmed on hardware, then raw and mapped input side
+   by side; then the host-output record and HD Rumble test patterns.
+
 ## 1. Turbo / auto-fire
 
 Hold-to-repeat per button, set in the web app: on / off per button, a few speeds (for example 5,
