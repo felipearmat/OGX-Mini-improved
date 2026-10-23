@@ -62,7 +62,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_gamepad_out` | Short host rumble pulses between two feedback samples are not lost; host lightbar. |
 | `test_nvstool` | Settings in flash, on a simulated XIP flash (interrupts off while writing, entries past the first sector). |
 | `test_wire_pad` | 23-byte pad layout the web app expects. |
-| `test_dongle_settings` | Adapter Options defaults and wire / flash format; the status LED options (version 6) applied without a restart. |
+| `test_dongle_settings` | Adapter Options defaults and wire / flash format; the status LED options (version 6) restart the adapter; detailed controller diagnostics only with the log in flash. |
 | `test_webapp_contract` | What the web app must agree on, written from the firmware's code into `Firmware/common/contract/webapp_contract.json`: packet IDs, output mode values, capability bits, the settings record (length, offsets, defaults, how every older version decodes) and the colour per mode. Fails when the committed file is out of date (`./build-tests/test_webapp_contract --write` rewrites it, then copy it to the web app's `tests/contract/`). The web app's own tests (`npm test` in OGX-Mini-improved-WebApp) check its constants against the same file, and its CI fails when its copy differs from the firmware's. |
 | `test_joycon_settings` | Joy-Con motion defaults and sideways rotation. |
 | `test_reported_mac` | MAC address reported by the emulated DS4 / DualSense. |
@@ -100,9 +100,10 @@ status LED's colour (`virtual_board.h`).
 
 The web app (OGX-Mini-improved-WebApp, `e2e/`) runs its Playwright suite in Chromium against it,
 with `navigator.serial` replaced by a port wired to the process: connecting, profiles saved across
-a restart, a mode change away from D-Input/Debug and its combo back, live options (status LEDs,
-brightness, mode combos) without a restart, an option that needs one, the mode colour preview and
-save, the mouse + keyboard mapping, and the diagnostics panel and report. Both repositories' CI run
+a restart, a mode change away from D-Input/Debug and its combo back, live options (mode combos,
+search times) without a restart, options that need one (status LEDs and brightness among them), the
+mode colour preview, code box and save, the motion view's live stream (the virtual adapter's `P`
+command), the mouse + keyboard mapping, and the diagnostics panel and report. Both repositories' CI run
 it: this one against the web app's master, the web app's against this repository's master.
 
 ## Adding a test

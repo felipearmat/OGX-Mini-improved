@@ -267,6 +267,14 @@ Guide: [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md). Source and local 
 | Reduced search after it (seconds, 0-600, or no limit) | `OGXM_REDUCED_SEARCH_S` = NO_LIMIT |
 | Output modes whose button combo is off (bit mask by mode number) | `OGXM_COMBO_DISABLED_MODES` = 0 (all on) |
 | Turn a Bluetooth controller off after N minutes without input (0 = never) | `OGXM_IDLE_OFF_MINUTES` = 15 |
+| Higher Bluetooth transmit power (RP2040 + ESP32) | `OGXM_HIGH_TX_POWER` = OFF |
+| Status LEDs on: the Pico's own, an external RGB LED on the Pico (GP6), the ESP32's, an external RGB LED on the ESP32 (GPIO 4) | `OGXM_STATUS_LED_PICO`, `_PICO_EXT`, `_ESP32`, `_ESP32_EXT` = ON |
+| RGB LEDs' brightness (1-255) | `OGXM_EXT_RGB_BRIGHTNESS` = 48 |
+| Keep the log in flash (Diagnostics panel) | `OGXM_FLASH_LOG` = OFF |
+| Detailed controller diagnostics (needs the log in flash; Diagnostics panel) | `OGXM_DIAGNOSTICS_LINK` = OFF |
+
+The search times, idle time, transmit power, mode combos and the two diagnostics options apply
+without a restart; the others, the status LEDs included, restart the adapter when saved.
 
 The search times let several adapters sit next to each other without stealing each other's
 controllers.

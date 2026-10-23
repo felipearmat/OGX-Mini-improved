@@ -27,8 +27,8 @@ The Diagnostics panel works over USB only. Over Bluetooth, the mapping settings 
 With the controller connected to the adapter:
 
 - **Buttons:** pressing a button lights up its row in Digital Mappings (and Analog Mappings), by the physical button, whatever it is mapped to. A button that does not light up does not reach the adapter.
-- **Sticks and triggers:** the Axis Settings panel draws the live position of each stick and trigger. Tick **Preview** to see it after the deadzone and curve of the selected profile. A stick that rests off center, or does not reach the edge, shows up here.
-- **Touchpad (DS4 / DualSense):** the Touchpad panel draws the fingers; pressing the touchpad lights up its row.
+- **Sticks and triggers:** the Axis Settings panel draws each stick and trigger live: a **grey** dot (or mark) where the controller is, and a **green** one with the deadzone, curve and other settings shown on the page (what the game gets). A stick that rests off center, or does not reach the edge, shows up in the grey dot.
+- **Touchpad and motion:** the Touchpad and Motion panel draws the fingers on a DS4 / DualSense touchpad (pressing it lights up its row) and, below, a box that turns with the controller (press **Start**, lay the controller flat, **Recentre**), with the accelerometer (g) and gyro (deg/s) values. A box that turns the wrong way or drifts while the controller lies still points to a motion problem.
 - **Rumble:** the Rumble Test panel runs each motor (in the output modes that pass rumble to the controller), so you can tell whether the motors work and are the right way round.
 - **Link health:** open **Diagnostics** and click **Refresh** while moving the sticks (some controllers only report when something changes). Each controller gets a row:
 
@@ -39,7 +39,7 @@ With the controller connected to the adapter:
 | Late | Share of reports that arrived more than twice the usual interval after the previous one (last 5-10 s) |
 | Lost | Reports the controller numbered but the adapter never got (DualShock 4 and DualSense, which count their reports) |
 | Largest gap | Longest time without a report in the last 5-10 s |
-| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range), the radio channels in use, and the adapter's transmit power on the link (current / maximum) |
+| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range), the radio channels in use, and the adapter's transmit power on the link (current / maximum). Only with **Detailed controller diagnostics** on (top of the Diagnostics panel; it needs **Keep the log in flash** on too) |
 | Connected | Time since the controller connected |
 
 Lost works for the DualShock 4, the DualSense and Switch pads (Joy-Con, Pro Controller), which number their reports. Any stretch of 60 ms or more without input is also listed in the report's events ("no input for X ms").
@@ -71,4 +71,4 @@ Measurements of the mode you played with are kept across the switch into D-Input
 
 ### What the report contains
 
-The adapter's board, firmware version and build, output mode, and uptime; for each controller its name, USB / Bluetooth IDs, the first half of its Bluetooth address (the manufacturer part only), its Bluetooth chip vendor and version, its link and the timing figures above; a list of recent events (connections, disconnections with the reason, mode changes, searches for new controllers); the summary of the previous session; and the browser's version. It contains no personal data.
+The adapter's board, firmware version and build, output mode, and uptime; for each controller its name, USB / Bluetooth IDs, its battery level (and, for a DualShock 4 / DualSense, whether it is charging), the first half of its Bluetooth address (the manufacturer part only), its Bluetooth chip vendor and version, its link and the timing figures above; the latest motion sample of a controller with motion sensors; a list of recent events (connections, disconnections with the reason, mode changes, searches for new controllers); the summary of the previous session; the log kept in flash when **Keep the log in flash** is on; and the browser's version. It contains no personal data.
