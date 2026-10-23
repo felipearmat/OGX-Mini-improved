@@ -264,10 +264,17 @@ TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
     v5[7] = 1;
     CHECK(dongle_settings::decode(v5, sizeof(v5), s));
     CHECK_EQ(s.link_diagnostics, dongle_settings::defaults().link_diagnostics);
-    // The hybrid's ESP32 gets it in byte 7 of the version 6 record (an older ESP32 ignores it).
+    // In effect only with the log in flash on (the advanced report is kept there); the hybrid's
+    // ESP32 gets it so in byte 7 of the version 6 record (an older ESP32 ignores it).
     dongle_settings::Settings on = dongle_settings::defaults();
     on.link_diagnostics = 1;
+    on.keep_log_in_flash = 0;
+    CHECK(!dongle_settings::controller_diagnostics(on));
     uint8_t v6[dongle_settings::kV6Length];
+    dongle_settings::encode_v6(on, v6);
+    CHECK_EQ(v6[7], 0);
+    on.keep_log_in_flash = 1;
+    CHECK(dongle_settings::controller_diagnostics(on));
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 1);
     dongle_settings::Settings back{};

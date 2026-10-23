@@ -137,6 +137,10 @@ namespace dongle_settings {
     // needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 
+    // "Detailed controller diagnostics" in effect: the option needs "Keep the log in flash" on (the
+    // advanced report is kept there). The hybrid's ESP32 gets byte 7 already gated (encode_v6).
+    bool controller_diagnostics(const Settings& settings);
+
     // Current settings (defaults until set() is called at boot with the stored ones).
     const Settings& get();
     void set(const Settings& settings);

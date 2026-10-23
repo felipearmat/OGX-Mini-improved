@@ -65,7 +65,11 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         return;
     s_last_ms = now_ms;
     diag::searching(uni_bt_is_scanning());
-    const bool details = dongle_settings::get().link_diagnostics != 0;
+#if defined(ESP_PLATFORM)
+    const bool details = dongle_settings::get().link_diagnostics != 0;  // gated by the RP2040 (encode_v6)
+#else
+    const bool details = dongle_settings::controller_diagnostics(dongle_settings::get());
+#endif
     for (auto& vh : s_version_handles) {
         if (!details)
             break;

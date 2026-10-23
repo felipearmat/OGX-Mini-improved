@@ -216,6 +216,12 @@ void encode_v6(const Settings& settings, uint8_t* out)
     for (size_t i = 0; i < kV6Length; ++i)
         out[i] = p[i];
     out[0] = 6;
+    out[7] = controller_diagnostics(settings) ? 1 : 0;  // the record has no byte 23 (log in flash)
+}
+
+bool controller_diagnostics(const Settings& settings)
+{
+    return settings.link_diagnostics != 0 && settings.keep_log_in_flash != 0;
 }
 
 const Settings& get()
