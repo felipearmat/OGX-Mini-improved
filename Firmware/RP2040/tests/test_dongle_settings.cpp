@@ -32,7 +32,7 @@ TEST(decode_normalises_flags) {
     CHECK_EQ(s.joycon_solo_horizontal, 0);
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(s.ps4_legacy_motion_scale, 1);
-    CHECK_EQ(s.link_diagnostics, 1);  // byte 7: detailed link diagnostics since version 8
+    CHECK_EQ(s.link_diagnostics, 1);  // byte 7: detailed controller diagnostics since version 8
     CHECK_EQ(s.joycon_pair_rumble_per_side, 0);
 }
 

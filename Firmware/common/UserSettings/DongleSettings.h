@@ -32,13 +32,13 @@
  *    OGXM_STATUS_LED_ESP32_EXT             ON   an external RGB status LED on the ESP32 (GPIO 4)
  *    OGXM_EXT_RGB_BRIGHTNESS               48   the RGB LEDs' brightness (1-255)
  *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (ON with OGXM_DEV_DEFAULTS)
- *    OGXM_DIAGNOSTICS_LINK                 OFF  detailed link diagnostics: the Bluetooth link queries
+ *    OGXM_DIAGNOSTICS_LINK                 OFF  detailed controller diagnostics: the Bluetooth link queries
  *                                          of Bluepad32/LinkDiag (ON with OGXM_DEV_DEFAULTS)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
  *  24 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
  *  Version 8 = version 7 plus, applied without a restart:
- *    byte 7         detailed link diagnostics (0 / 1): the link queries of Bluepad32/LinkDiag (RSSI,
+ *    byte 7         detailed controller diagnostics (0 / 1): the link queries of Bluepad32/LinkDiag (RSSI,
  *                   channels in use, failed contacts, transmit power, the controller's Bluetooth
  *                   chip). Byte 7 was unused since version 3 (zero in what this firmware wrote), so
  *                   it is read from version 6 on: the hybrid's I2C link carries it in its version 6
@@ -133,7 +133,7 @@ namespace dongle_settings {
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
     // Same settings apart from the ones applied live (combo mask, search times, idle time,
-    // transmit power, status LEDs, the log in flash, link diagnostics): a change of those alone
+    // transmit power, status LEDs, the log in flash, controller diagnostics): a change of those alone
     // needs no restart.
     bool same_except_live(const Settings& a, const Settings& b);
 

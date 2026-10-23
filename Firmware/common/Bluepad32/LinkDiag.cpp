@@ -52,7 +52,7 @@ static uint8_t count_bits(const uint8_t* map, unsigned bits)
 
 /* One HCI query per pass, rotating (remote version and maximum transmit power once per pad;
  * then RSSI, channel map, failed contacts and current transmit power), so diagnostics never
- * crowd the command queue. Those queries only with the "detailed link diagnostics" option
+ * crowd the command queue. Those queries only with the "detailed controller diagnostics" option
  * (dongle_settings, applied live; what is pending waits for it); the QoS request, the scan state
  * and the Switch firmware version do not depend on it. */
 void query(uint32_t now_ms, bool (*slot_connected)(int slot))

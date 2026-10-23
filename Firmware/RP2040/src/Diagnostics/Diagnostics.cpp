@@ -1178,7 +1178,7 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"le_scan_adv_reports_per_s\":%lu", static_cast<unsigned long>(s_adv_rate));
     if (s_searching_known)
         w.raw(",\"accepting_new_controllers\":%s", s_searching ? "true" : "false");
-    /* The "detailed link diagnostics" option: without it the controllers carry no RSSI, channels,
+    /* The "detailed controller diagnostics" option: without it the controllers carry no RSSI, channels,
      * failed contacts, transmit power or remote chip. */
     w.raw(",\"link_details\":%s", dongle_settings::get().link_diagnostics ? "true" : "false");
     w.raw("}");
