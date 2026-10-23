@@ -250,6 +250,9 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 4.1 (DS4, PS4 mode, 2026-10-22) | pass | +0.98 g on Y still; a hand turn integrates to 349.8 degrees on Y, as the DS4 on USB (348) |
 | 2.2 (DS4 touchpad, PS4 mode, 2026-10-22) | pass | 9 clicks in 3 groups of 3, each counted once; touches seen |
 | 11.6 (2026-10-22) | pass, with a note | live output fine; the kept log still held the previous session after the cable was out 9 s (SRAM kept its contents; TODO) |
+| STEAM ZL / ZR (Joy-Con pair, 2026-10-23) | pass after a fix | 6 + 6 presses, analog 255 and L2 / R2 bits each (before: nothing) |
+| Switch right stick (Joy-Con pair, hid-nintendo, 2026-10-23) | pass after a fix | rest RX 0.7 % / RY -1.8 %, edges 94-100 % with the calibration that matches the output |
+| DS4 full triggers (D-Input/Debug, 2026-10-23) | pass after a fix | L2 / R2 at 255 (254 before the Bluepad32 bit-replication patch) |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
