@@ -496,6 +496,15 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
     if (dongle_settings::decode(ext.settings, sizeof(ext.settings), settings))
     {
         apply_tx_power(settings.high_tx_power != 0);
+        const dongle_settings::Settings& was = dongle_settings::get();
+        if (settings.status_led_esp32 != was.status_led_esp32 || settings.status_led_esp32_ext != was.status_led_esp32_ext ||
+            settings.status_led_brightness != was.status_led_brightness)
+        {
+            /* When the RP2040's LED options reach this side: a change made in the web app shows up
+             * here as soon as a GET_EXT reply arrives whole. */
+            diag_event("LED options: ESP32 LED %u, external %u, brightness %u", settings.status_led_esp32,
+                       settings.status_led_esp32_ext, settings.status_led_brightness);
+        }
         const bool imu_side_changed = settings.joycon_pair_imu_right != dongle_settings::get().joycon_pair_imu_right;
         dongle_settings::set(settings);
         if (imu_side_changed)
