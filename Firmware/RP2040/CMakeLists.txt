@@ -171,6 +171,8 @@ macro(ogxm_hybrid_pin_options)
     set(OGXM_HYBRID_ESP32_IO0_PIN 20 CACHE STRING "Hybrid: ESP32 IO0 (bootloader)")
     set(OGXM_HYBRID_BRIDGE_JUMPER_PIN 21 CACHE STRING "Hybrid: jumper to GND at boot for the UART bridge")
     set(OGXM_HYBRID_USB_DP_PIN 0 CACHE STRING "Hybrid: USB host port D+ (D- is the next GPIO)")
+    # A Pico W / Pico 2 W: GP25 is the radio chip's line (the hybrid keeps the radio off), not a LED.
+    option(OGXM_HYBRID_PICO_W "Hybrid on a Pico W / Pico 2 W: no onboard status LED (GP25 left alone)" OFF)
 endmacro()
 
 function(ogxm_hybrid_pin_check)
@@ -240,6 +242,9 @@ function(ogxm_hybrid_pin_check)
         OGXM_HYBRID_BRIDGE_JUMPER_PIN=${OGXM_HYBRID_BRIDGE_JUMPER_PIN}
         OGXM_HYBRID_USB_DP_PIN=${OGXM_HYBRID_USB_DP_PIN}
     )
+    if(OGXM_HYBRID_PICO_W)
+        add_compile_definitions(OGXM_HYBRID_PICO_W=1)
+    endif()
     message(STATUS "Hybrid pins: I2C ${OGXM_HYBRID_I2C_SDA_PIN}/${OGXM_HYBRID_I2C_SCL_PIN}, UART TX ${OGXM_HYBRID_UART_TX_PIN} (also ${OGXM_HYBRID_UART_TX_ALT_PIN}) RX ${OGXM_HYBRID_UART_RX_PIN}, EN ${OGXM_HYBRID_ESP32_EN_PIN}, IO0 ${OGXM_HYBRID_ESP32_IO0_PIN}, bridge jumper ${OGXM_HYBRID_BRIDGE_JUMPER_PIN}, USB host ${OGXM_HYBRID_USB_DP_PIN}/${usb_dm}")
 endfunction()
 

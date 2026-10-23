@@ -110,8 +110,11 @@
     #define ESP_PROG_PIN        OGXM_HYBRID_ESP32_IO0_PIN // ESP32 IO0
     #define ESP_RST_PIN         OGXM_HYBRID_ESP32_EN_PIN  // ESP32 EN
     /* Custom: the Pico / Pico 2's own LED as the status LED. On a Pico W / Pico 2 W GP25 goes to
-     * the radio chip, which the hybrid leaves off: the LED stays dark there. */
+     * the radio chip, which the hybrid leaves off: built with OGXM_HYBRID_PICO_W there is no
+     * onboard LED (GP25 left alone, the web app shows the option as unsupported). */
+    #if !defined(OGXM_HYBRID_PICO_W)
     #define LED_INDICATOR_PIN   25
+    #endif
     /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP0,
      * D- GP1 by default, 5 V from VBUS), as on the Pico W. */
     #define PIO_USB_DP_PIN      OGXM_HYBRID_USB_DP_PIN
