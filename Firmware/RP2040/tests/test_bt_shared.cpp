@@ -65,12 +65,15 @@ TEST(profile_applied_twice_stays_applied) {
     CHECK_EQ(mapper.MAP_BUTTON_A, GamepadBits::BUTTON_B);
 }
 
-TEST(web_app_mode_uses_the_default_mapping) {
-    // The web app shows the controller's own buttons; stick / trigger settings still apply.
+TEST(web_app_mode_uses_the_default_mapping_and_raw_sticks) {
+    // The web app shows the controller's own input: default buttons, and no stick / trigger
+    // settings (its Preview applies the edited ones once).
     GamepadMapper mapper;
     mapper.set_profile(custom_profile(), DeviceDriverType::WEBAPP);
     CHECK_EQ(mapper.MAP_BUTTON_A, GamepadBits::BUTTON_A);
-    CHECK_EQ(mapper.scale_trigger_l<10>(static_cast<uint16_t>(100)), 0);
+    CHECK(mapper.scale_trigger_l<10>(static_cast<uint16_t>(100)) > 0);  // the profile's dead zone would make it 0
+    const auto stick = mapper.scale_joystick_l<10>(static_cast<int32_t>(50), static_cast<int32_t>(0));
+    CHECK(stick.first > 0);
 }
 
 static bool all_modes_valid(DeviceDriverType) { return true; }

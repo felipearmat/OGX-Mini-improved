@@ -101,7 +101,7 @@ std::string contract_json() {
         N(c, BLUETOOTH), N(c, HYBRID), N(c, HIGH_TX_POWER), N(c, JOYCON), N(c, MAC_PER_CONTROLLER),
         N(c, DISCONNECT_ON_MODE_CHANGE), N(c, SEARCH_TIMES), N(c, IDLE_OFF), N(c, WIRED_INPUT),
         N(c, BLE_WEBAPP), N(c, STATUS_LED_PICO), N(c, STATUS_LED_ESP32), N(c, STATUS_LED_PICO_EXT),
-        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, FLASH_LOG), N(c, MOTION_STREAM), N(c, kPicoW), N(c, kHybrid),
+        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, FLASH_LOG), N(c, MOTION_STREAM), N(c, RAW_LIVE_INPUT), N(c, kPicoW), N(c, kHybrid),
     };
     o << "  \"capabilities\": " << object_json(caps, "  ") << ",\n";
 

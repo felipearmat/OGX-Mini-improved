@@ -73,6 +73,7 @@
     "STATUS_LED_ESP32_EXT": 16384,
     "FLASH_LOG": 32768,
     "MOTION_STREAM": 65536,
+    "RAW_LIVE_INPUT": 131072,
     "kPicoW": 761,
     "kHybrid": 19199
   },

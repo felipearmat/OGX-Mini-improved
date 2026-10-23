@@ -59,10 +59,13 @@ public:
 
     void set_profile(const UserProfile& user_profile, DeviceDriverType driver = DeviceDriverType::NONE) 
     {
-        /* Custom: Web App mode shows the controller's own buttons (live input, mapping rows that
-         * light up), so its mapping is the default one; stick and trigger settings still apply. */
-        set_profile_mappings(driver == DeviceDriverType::WEBAPP ? UserProfile() : user_profile);
-        set_profile_settings(user_profile, driver);
+        /* Custom: with the web app open the controller's own input goes out (live input, mapping
+         * rows that light up): the default mapping, and since 2026-10-23 no stick / trigger
+         * settings either, so the web app's "Preview" applies the settings being edited once
+         * instead of on top of the saved ones. */
+        const bool web_app = driver == DeviceDriverType::WEBAPP;
+        set_profile_mappings(web_app ? UserProfile() : user_profile);
+        set_profile_settings(web_app ? UserProfile() : user_profile, driver);
     }
 
     template <uint8_t bits = 0, typename T>

@@ -677,7 +677,8 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
 
             case PacketID::GET_CAPABILITIES:
             {
-                const uint32_t caps = capabilities::board() | capabilities::MODE_COLORS | capabilities::MOTION_STREAM;
+                const uint32_t caps = capabilities::board() | capabilities::MODE_COLORS | capabilities::MOTION_STREAM |
+                                      capabilities::RAW_LIVE_INPUT;
                 Packet reply;
                 reply.header.packet_id = PacketID::GET_CAPABILITIES;
                 reply.header.chunks_total = 1;
