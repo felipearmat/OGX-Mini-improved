@@ -1140,7 +1140,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     if (SteamActive::is_enabled()) {
         SteamPassthrough::input_has_touchpad =
             (device->controller_type == CONTROLLER_TYPE_PS5Controller);
-        SteamBtReport::store_ps5_core(bt_pad::ps5_core_from(uni_gp));  // Bluepad32/BtPad.h, shared
+        SteamBtReport::store_ps5_core(bt_pad::ps5_core_from(device, uni_gp));  // Bluepad32/BtPad.h, shared
         if (device->controller_type == CONTROLLER_TYPE_PS5Controller)
             SteamTouchpad::apply_to_passthrough(gp_in.touch_raw, gp_in.touchpad_click != 0);
     }

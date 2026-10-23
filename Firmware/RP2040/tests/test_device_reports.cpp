@@ -20,6 +20,7 @@
 #include "USBDevice/DeviceDriver/PS3/PS3.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
+#include "USBDevice/DeviceDriver/Steam/SteamBtReport.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
 #include "Descriptors/KBM.h"
 #include "Descriptors/PS4Usb.h"
@@ -386,6 +387,34 @@ TEST(steam_output_report_reaches_the_pad) {
     dev.process(0, gp);
     CHECK_EQ(out_of(gp).rumble_r, 0x11);
     CHECK_EQ(out_of(gp).rumble_l, 0x22);
+}
+
+TEST(steam_triggers_set_the_l2_r2_bits) {
+    // A synthesized DualSense: L2 / R2 bits with the analog triggers, as a real one (and PS4 / PS3).
+    Gamepad gp;
+    SteamDevice dev;
+    dev.initialize();
+    SteamPassthrough::clear();
+    Gamepad::PadIn in{};
+    in.trigger_l = 0xFF;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_last_report[5], 0xFF);
+    CHECK_EQ(g_last_report[6], 0);
+    CHECK((g_last_report[9] & PS5::Buttons1::L2) != 0);
+    CHECK((g_last_report[9] & PS5::Buttons1::R2) == 0);
+
+    // The passthrough core (a Joy-Con's digital ZR at full scale, Bluepad32/BtPad.h) gives the triggers.
+    Ps5Core core{};
+    core.buttons[0] = ps5_bits::DPAD_CENTER;
+    core.trigger_r = 0xFF;
+    core.buttons[1] = ps5_bits::R2;
+    SteamBtReport::store_ps5_core(core);
+    in.trigger_l = 0;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_last_report[6], 0xFF);
+    SteamPassthrough::clear();
 }
 
 TEST(steam_input_get_report_does_not_repeat_the_id) {

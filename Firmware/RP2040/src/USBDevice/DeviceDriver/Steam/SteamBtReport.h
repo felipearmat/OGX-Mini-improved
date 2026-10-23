@@ -36,6 +36,7 @@ inline void store_ps5_core(const Ps5Core& core)
 
 static_assert(ps5_bits::SQUARE == PS5::Buttons0::SQUARE && ps5_bits::CROSS == PS5::Buttons0::CROSS &&
               ps5_bits::DPAD_CENTER == PS5::Buttons0::DPAD_CENTER && ps5_bits::L1 == PS5::Buttons1::L1 &&
+              ps5_bits::L2 == PS5::Buttons1::L2 && ps5_bits::R2 == PS5::Buttons1::R2 &&
               ps5_bits::OPTIONS == PS5::Buttons1::OPTIONS && ps5_bits::R3 == PS5::Buttons1::R3 &&
               ps5_bits::PS_HOME == PS5::Buttons2::PS && ps5_bits::MUTE == PS5::Buttons2::MUTE,
               "Gamepad/Ps5Core.h bits follow Descriptors/PS5.h");
@@ -105,6 +106,13 @@ inline void fill_report_from_pad(PS5::InReport& rep, const Gamepad::PadIn& gp_in
 	}
 	if (gp_in.buttons & gamepad.MAP_BUTTON_RB) {
 		b1 |= PS5::Buttons1::R1;
+	}
+	/* Custom fix: the L2 / R2 bits with the triggers, as a DualSense (and the PS4 / PS3 outputs) */
+	if (gp_in.trigger_l) {
+		b1 |= PS5::Buttons1::L2;
+	}
+	if (gp_in.trigger_r) {
+		b1 |= PS5::Buttons1::R2;
 	}
 	if (gp_in.buttons & gamepad.MAP_BUTTON_BACK) {
 		b1 |= PS5::Buttons1::SHARE;

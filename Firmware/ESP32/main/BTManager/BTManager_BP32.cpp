@@ -279,7 +279,7 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         I2CDriver::PacketPadRaw raw;
         raw.index = static_cast<uint8_t>(out);
         raw.flags = bp_device->controller_type == CONTROLLER_TYPE_PS5Controller ? I2CDriver::PacketPadRaw::DUALSENSE : 0;
-        raw.core = bt_pad::ps5_core_from(uni_gp);
+        raw.core = bt_pad::ps5_core_from(bp_device, uni_gp);
         i2c_driver_.write_packet(slave_addr(static_cast<uint8_t>(out)), raw);
     }
     output.packet_in = packet_in;

@@ -28,7 +28,7 @@ namespace ps5_bits {
                       DPAD_CENTER = 0x08;
     constexpr uint8_t SQUARE = 0x10, CROSS = 0x20, CIRCLE = 0x40, TRIANGLE = 0x80;
     // buttons[1]
-    constexpr uint8_t L1 = 0x01, R1 = 0x02, SHARE = 0x10, OPTIONS = 0x20, L3 = 0x40, R3 = 0x80;
+    constexpr uint8_t L1 = 0x01, R1 = 0x02, L2 = 0x04, R2 = 0x08, SHARE = 0x10, OPTIONS = 0x20, L3 = 0x40, R3 = 0x80;
     // buttons[2]
     constexpr uint8_t PS_HOME = 0x01, MUTE = 0x04;  // not "PS": a register macro on the ESP32 (Xtensa)
 }

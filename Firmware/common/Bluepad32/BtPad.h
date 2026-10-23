@@ -391,7 +391,7 @@ namespace bt_pad {
     }
 
     /* A DualSense's own input for the STEAM mode passthrough (Gamepad/Ps5Core.h). */
-    inline Ps5Core ps5_core_from(const uni_gamepad_t* gp)
+    inline Ps5Core ps5_core_from(const uni_hid_device_t* d, const uni_gamepad_t* gp)
     {
         auto stick = [](int32_t axis) {
             const int32_t b = axis / 4 + 127;
@@ -406,8 +406,15 @@ namespace bt_pad {
         core.joystick_ly = stick(gp->axis_y);
         core.joystick_rx = stick(gp->axis_rx);
         core.joystick_ry = stick(gp->axis_ry);
-        core.trigger_l = trigger(gp->brake);
-        core.trigger_r = trigger(gp->throttle);
+        /* Custom fix: the triggers as the mapped input below takes them (the STEAM report uses
+         * these): digital ones (Joy-Con / Switch Pro ZL / ZR) at full scale, where they read 0;
+         * none while a Wii pad's shoulder is held (its Z reports brake / throttle as LB / RB). */
+        if (!(is_wii(d) && (gp->buttons & (BUTTON_SHOULDER_L | BUTTON_SHOULDER_R)))) {
+            core.trigger_l = trigger(gp->brake);
+            core.trigger_r = trigger(gp->throttle);
+            if (core.trigger_l == 0 && (gp->buttons & BUTTON_TRIGGER_L)) core.trigger_l = 0xFF;
+            if (core.trigger_r == 0 && (gp->buttons & BUTTON_TRIGGER_R)) core.trigger_r = 0xFF;
+        }
 
         uint8_t b0 = ps5_bits::DPAD_CENTER;
         switch (gp->dpad) {
@@ -430,6 +437,8 @@ namespace bt_pad {
         uint8_t b1 = 0;
         if (gp->buttons & BUTTON_SHOULDER_L) b1 |= ps5_bits::L1;
         if (gp->buttons & BUTTON_SHOULDER_R) b1 |= ps5_bits::R1;
+        if (core.trigger_l) b1 |= ps5_bits::L2;  // as a DualSense sets them (PS4 / PS3 outputs alike)
+        if (core.trigger_r) b1 |= ps5_bits::R2;
         if (gp->misc_buttons & MISC_BUTTON_BACK) b1 |= ps5_bits::SHARE;
         if (gp->misc_buttons & MISC_BUTTON_START) b1 |= ps5_bits::OPTIONS;
         if (gp->buttons & BUTTON_THUMB_L) b1 |= ps5_bits::L3;
