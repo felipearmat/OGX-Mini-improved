@@ -257,6 +257,8 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | STEAM mode in a game (Joy-Con pair, 2026-10-23) | pass | the user's check: ZL / ZR work |
 | 3.5 (Joy-Con pair, STEAM, Linux force feedback, 2026-10-23) | pass | per side (default): strong motor on the left Joy-Con, weak on the right, both on both; "both halves" option: both Joy-Cons for every motor, strong and weak still told apart |
 | 6.4 (lone left Joy-Con, 2026-10-23) | pass | Capture (its Start) + SL + stick pushed up to the edge went to STEAM: the stick stood in for the D-pad |
+| 17.10 (DS4 at 1-2 m, 60 s, 2026-10-23) | pass | 0 % lost at the radio and on the board link (56 % in the first test), 6-9 % late, largest gap 15 ms, RSSI -13 to -16 dB (golden range), about 680 reports/s; 12 I2C packets rejected in about 2 min (the known corruption on the jumpers, TODO) |
+| 14.3 (DS4 walked away, 2026-10-23) | pass | RSSI -14 -> -52 dB, rate 680 -> 0 /s, largest gap 13 ms -> 1269 ms, then "slot 0 disconnected", link closed reason 0x08 (supervision timeout), ESP32 back to searching. "Lost" stays 0 %: the counter compares reports that arrive, a fading link shows as gaps and rate |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
