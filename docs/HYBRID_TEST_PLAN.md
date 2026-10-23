@@ -255,6 +255,8 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | DS4 full triggers (D-Input/Debug, 2026-10-23) | pass after a fix | L2 / R2 at 255 (254 before the Bluepad32 bit-replication patch) |
 | Switch mode in Steam (Joy-Con pair, 2026-10-23) | pass | the user's check after the calibration fix: sticks feel right again |
 | STEAM mode in a game (Joy-Con pair, 2026-10-23) | pass | the user's check: ZL / ZR work |
+| 3.5 (Joy-Con pair, STEAM, Linux force feedback, 2026-10-23) | pass | per side (default): strong motor on the left Joy-Con, weak on the right, both on both; "both halves" option: both Joy-Cons for every motor, strong and weak still told apart |
+| 6.4 (lone left Joy-Con, 2026-10-23) | pass | Capture (its Start) + SL + stick pushed up to the edge went to STEAM: the stick stood in for the D-pad |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
