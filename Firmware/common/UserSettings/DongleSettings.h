@@ -133,8 +133,8 @@ namespace dongle_settings {
     void set_search_times(Settings& settings, uint16_t full_s, uint16_t reduced_s);
 
     // Same settings apart from the ones applied live (combo mask, search times, idle time,
-    // transmit power, status LEDs, the log in flash, controller diagnostics): a change of those alone
-    // needs no restart.
+    // transmit power, the log in flash, controller diagnostics): a change of those alone needs no
+    // restart. The status LED options do restart the adapter.
     bool same_except_live(const Settings& a, const Settings& b);
 
     // "Detailed controller diagnostics" in effect: the option needs "Keep the log in flash" on (the

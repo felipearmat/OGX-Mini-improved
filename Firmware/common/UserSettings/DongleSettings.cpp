@@ -196,11 +196,8 @@ bool same_except_live(const Settings& a, const Settings& b)
     for (int i = 0; i < 3; ++i) x.search_times[i] = y.search_times[i] = 0;
     x.idle_off_minutes = y.idle_off_minutes = 0;
     x.high_tx_power = y.high_tx_power = 0;
-    x.status_led_pico = y.status_led_pico = 0;
-    x.status_led_pico_ext = y.status_led_pico_ext = 0;
-    x.status_led_esp32 = y.status_led_esp32 = 0;
-    x.status_led_esp32_ext = y.status_led_esp32_ext = 0;
-    x.status_led_brightness = y.status_led_brightness = 0;
+    /* The status LED options restart the adapter (2026-10-23): live, the hybrid's ESP32 took
+     * seconds to get them over a busy I2C link; after a restart both boards start with them. */
     x.keep_log_in_flash = y.keep_log_in_flash = 0;
     x.link_diagnostics = y.link_diagnostics = 0;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);

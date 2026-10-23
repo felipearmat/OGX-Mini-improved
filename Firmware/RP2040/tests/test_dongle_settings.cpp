@@ -177,7 +177,7 @@ TEST(version_5_high_tx_power) {
     CHECK(dongle_settings::same_except_live(a, b));
 }
 
-TEST(version_6_status_leds_applied_live) {
+TEST(version_6_status_leds_restart_the_adapter) {
     uint8_t bytes[24] = {dongle_settings::kVersion};
     bytes[18] = 0;   // Pico LED off
     bytes[19] = 1;   // Pico external LED on
@@ -202,14 +202,16 @@ TEST(version_6_status_leds_applied_live) {
     CHECK_EQ(s.status_led_pico_ext, 1);
     CHECK_EQ(s.status_led_esp32, 1);
     CHECK_EQ(s.status_led_esp32_ext, 1);
-    // no restart for them
-    Settings a = dongle_settings::defaults(), b = a;
-    b.status_led_pico = 0;
-    b.status_led_pico_ext = 0;
-    b.status_led_esp32 = 0;
-    b.status_led_esp32_ext = 0;
-    b.status_led_brightness = 10;
-    CHECK(dongle_settings::same_except_live(a, b));
+    // A change restarts the adapter: the hybrid's ESP32 gets them at boot, not seconds later
+    // over a busy link.
+    Settings a = dongle_settings::defaults();
+    for (int field = 0; field < 5; ++field) {
+        Settings b = a;
+        uint8_t* f[5] = {&b.status_led_pico, &b.status_led_pico_ext, &b.status_led_esp32,
+                         &b.status_led_esp32_ext, &b.status_led_brightness};
+        *f[field] = static_cast<uint8_t>(*f[field] == 10 ? 11 : 10);
+        CHECK(!dongle_settings::same_except_live(a, b));
+    }
 }
 
 TEST(v7_keeps_the_log_in_flash_option_and_reads_v6_records) {
