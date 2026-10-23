@@ -33,6 +33,29 @@ TEST(the_right_stick_calibration_reads_the_same_at_0x6046_as_inside_0x603d) {
     CHECK(ly > 1800 && ly < 2300);
 }
 
+TEST(the_declared_stick_calibration_matches_the_output) {
+    // Centre = the output's centre, and a full stick (2047 +- 32767 / 22) reaches every range: the
+    // copied Pro Controller values (right centre 2141, ranges to 1566) left the right stick off
+    // centre and short of its travel once hosts read it at 0x6046.
+    uint8_t left[9], right[9];
+    switch_spi::read(0x603D, 9, left);
+    switch_spi::read(0x6046, 9, right);
+    const int full = 32767 / switch_spi::kStickGainInv;
+    int x, y;
+    unpack(left + 3, x, y);
+    CHECK_EQ(x, switch_spi::kStickCenter);
+    CHECK_EQ(y, switch_spi::kStickCenter);
+    unpack(right + 0, x, y);
+    CHECK_EQ(x, switch_spi::kStickCenter);
+    CHECK_EQ(y, switch_spi::kStickCenter);
+    const uint8_t* ranges[4] = {left + 0, left + 6, right + 3, right + 6};
+    for (const uint8_t* r : ranges) {
+        unpack(r, x, y);
+        CHECK(x > 1200 && x <= full);
+        CHECK(y > 1200 && y <= full);
+    }
+}
+
 TEST(the_known_reads_keep_their_bytes) {
     uint8_t b[29];
     switch_spi::read(0x6000, 16, b);  // serial number: none

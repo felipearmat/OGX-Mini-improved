@@ -15,6 +15,16 @@ namespace switch_spi {
 
     constexpr uint8_t kMaxRead = 0x1D;  // a subcommand reply holds 29 bytes of data
 
+    /* The output's sticks (Switch.cpp): 12-bit, centre 2047, int16 / 22 (as the wired Pro host's
+     * * 22), so a full stick is 2047 +- 1489. The factory calibration declares this centre and a
+     * range a little short of 1489, so a pad that stops short of full still reaches the edge. It
+     * used to be a real Pro Controller's (right centre 2141, ranges 1414-1566): once hosts read the
+     * right stick's at 0x6046 it sat off centre and short of its travel. */
+    constexpr int32_t kStickCenter = 2047;
+    constexpr int32_t kStickGainInv = 22;
+    constexpr int32_t kStickCalRange = 1420;
+    static_assert(kStickCalRange <= 32767 / kStickGainInv, "a full stick must reach the declared range");
+
     // Copies `len` bytes (at most kMaxRead) from address `addr` into `out`.
     void read(uint32_t addr, uint8_t len, uint8_t* out);
 

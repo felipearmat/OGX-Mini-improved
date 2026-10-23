@@ -103,8 +103,8 @@ void SwitchDevice::gamepad_to_switch_report(const Gamepad::PadIn& gp_in, SwitchP
 	// wired host (SwitchProHost::normalize_axis): 12bit -> (value - 2047) * 22 -> int16.
 	// Inverse: 12bit = 2047 + int16/22, so emulated output matches wired Pro feel.
 	constexpr int16_t DZ = 256;
-	constexpr int32_t PRO_CENTER = 2047;  // 0x7FF
-	constexpr int32_t PRO_GAIN_INV = 22;  // host uses *22 so we use /22
+	constexpr int32_t PRO_CENTER = switch_spi::kStickCenter;    // 0x7FF, as the declared calibration
+	constexpr int32_t PRO_GAIN_INV = switch_spi::kStickGainInv;  // host uses *22 so we use /22
 	auto to12 = [](int16_t val) -> uint16_t {
 		if (val > -DZ && val < DZ)
 			return static_cast<uint16_t>(SwitchPro::STICK_MID);
