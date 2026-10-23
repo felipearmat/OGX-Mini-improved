@@ -28,7 +28,7 @@ the latency read on every session end from #140 ported first).
    test first ([docs/TODO.md](TODO.md), Output modes); not for upstream yet.
 2. **DInput L2 / R2 buttons from the triggers** — DInput (upstream's mode of the same name) never
    sets the descriptor's L2 / R2 bits, so ZL / ZR do nothing on a PC; PS3 mode sets them. Two lines
-   in `DInput.cpp` with the unit test `dinput_triggers_press_the_l2_r2_buttons`. Small, standalone.
+   in `DInput.cpp` with the unit test `dinput_triggers_press_the_l2_r2_buttons` (6ac77ee). Small, standalone.
 3. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
    key bank on the Pico W / Pico 2 W; the fix keeps the entries in the 2 before it. Small, with its
    unit test. Upstream has the same NVSTool.
@@ -75,7 +75,9 @@ the latency read on every session end from #140 ported first).
    boot stage in the report (59e4786, 1997c79), mode change undone after the restart (ModeSync
    part of cc0526d), the ESP32's serial output by DMA into a RAM ring (aeb7c7a, boot lines cut;
    needs the kept log of 15); the I2C slave fixes of 2026-10-21/22 (non-blocking replies, length
-   check, mode requests only from combos).
+   check, mode requests only from combos: 3742e45, 5ea8700); the main loop's step in a hang report
+   (8e031db); the Pico-side wires set at build time and UART TX on GP28 (43fc128, 3157f49, d9fe90a,
+   c635f04, 1314111; d13b942 reverted).
 
 The hybrid's Pico 2 board target (ff5b909) and the connection rumble on the ESP32 come after these,
 then the feature list below. Code shared by the boards goes to `Firmware/common` from now on, so
@@ -142,6 +144,14 @@ later fixes reach every board in one PR.
 | 245710a | Hybrid: OGXM_HYBRID_PICO_W build option (no onboard LED on a Pico W / Pico 2 W) | todo | Why: the hybrid build offered GP25 as a status LED, the radio chip's line on a W. Upstream's hybrid has the same LED_INDICATOR_PIN 25. Small. |
 | 31bd745 | Detailed controller diagnostics only with the log in flash | fork only | Fork options (Adapter Options v8). |
 | 573db6a | ESP32: log when the LED options arrive | fork only | Diagnostics of the fork's options. |
+| b451868 | D-Input/Debug: serial writes never wait for a host that stopped reading (main loop hang) | todo | Why: a program holding the web app's port without reading made `write_serial` wait forever (the watchdog restarted the adapter). Upstream's Web App mode has the same blocking writes. Small. |
+| a57eb17 | Diagnostics: per-second rates tick in every board's main loop | todo | Why: the rates rolled over only when the web app asked for a report (reports_per_s 4x). Goes with upstream's diagnostics (#139 / #140). |
+| c21e77c | Builds: dependency patches applied to clean trees with a stamp, checked by `Tools/check_patched_trees.py` | todo | Why: a stale Bluepad32 tree (an old patch left in, a new one silently not applied) built firmware that matched no source. Upstream applies patches too. |
+| fdf97ec | Bench logger: a line split between a flash page and the RAM keeps its source | fork only | Fork bench tools. |
+| 5b33088 | Diagnostics: Classic connection requests, failed connections, key events and the scan state in the log | todo | With upstream's diagnostics; helps "won't pair" reports. |
+| 88436f4 | Web app open: sticks and triggers without the profile's settings (RAW_LIVE_INPUT) | fork only for now | Needs the fork's web app (two dots in Axis Settings). Upstream's Web App mode applies the settings too; offer with the web app change. |
+| 2fab119 | Status LED options restart the adapter | fork only | Fork options (status LEDs). |
+| 667e222 | "Detailed link diagnostics" renamed "Detailed controller diagnostics" | fork only | Labels only. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 
@@ -181,7 +191,7 @@ later fixes reach every board in one PR.
 | 5d3190f | Switch mode: the emulated SPI flash answers any address (Linux hid-nintendo reads the right stick calibration at 0x6046 and got 0xFF: right stick in one quadrant) | todo | Upstream has the same address-by-address answers. Small, self-contained fix PR. |
 | 743322d (NVS part) | Settings: erased NVS entries count as free (a cut sector rewrite made saved settings read as defaults and new ones fail, "table full") | todo | Upstream's NVSTool has the same check. Small fix PR with its unit test. |
 | c9e3b33 | Firmware version from the git tag, `GET_VERSION` (firmware, board, ESP32) for the web app's update check | todo | |
-| 02d9b88 | Diagnostics: DS4 / DualSense battery and charging state from the pad's status byte (Linux hid-playstation scale), forwarded by the hybrid's ESP32 | todo | Depends on the diagnostics report and LinkDiag (D-Input/Debug). The Bluepad32 DS4 battery formula (level x 25 + 1, level 11 wraps) could go to Bluepad32 upstream as its own fix. |
+| 96862ec | Diagnostics: DS4 / DualSense battery and charging state from the pad's status byte (Linux hid-playstation scale), forwarded by the hybrid's ESP32 | todo | Depends on the diagnostics report and LinkDiag (D-Input/Debug). The Bluepad32 DS4 battery formula (level x 25 + 1, level 11 wraps) could go to Bluepad32 upstream as its own fix. |
 | 568380c | Hybrid: USB reconnect for "MAC address per controller" (the Pico W loop had it, the hybrid's did not) | todo | Only with the dongle options (Adapter Options); goes with them. |
 | 2a0aa04, cc0526d (contract) | Virtual adapter (the web app side of the firmware built for the PC) and the firmware / web app contract file | todo | With the host unit tests (f0ab2f2); upstream's web app could run the same Playwright suite. |
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 11 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
@@ -189,7 +199,7 @@ later fixes reach every board in one PR.
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
-- ricardoquesada/bluepad32 (`develop`), Switch parser patches ported onto the current parser: enable vibration #226 (merged), rumble intensity #227 (merged; its per-side mapping left a single Joy-Con silent for one magnitude, follow-up #232 with the SDL mapping; maintainer will test it), #232 merged 2026-10-03; #228 (idle rumble refresh) closed 2026-10-05: the maintainer replaced the 32-slot output queue with a byte-stream ring buffer (b6531db), which fixes the lost stop (verified on hardware); #229 to #231 rebased onto that `develop` (tests moved to the new `uni_circular_buffer_get()` signature), request sleep #229, per-step setup timeout and stale replies #230 (on top of #226), one pad in setup at a time #231 (on top of #230; reimplemented without global state, not run on hardware). 2026-10-19: #229 rebased again onto `develop` (conflict with the new Home LED subcommand in the same `switch`, both cases kept; Bluepad32's posix tests pass with ASan + UBSan); #230 / #231 still merge cleanly; no maintainer comment waiting for an answer. Not sent: DS4 touchpad getter (upstream has no touchpad API at all; better as an issue proposing one), pair IMU side (upstream has no merged Joy-Con pairs; could be a review comment on its open PR #219, which copies motion from the left half). Candidates later: 8BitDo PIDs `2dc8:6003` / `6103`, accepting short DS4 / DS5 reports (behaviour change, needs discussion).
+- ricardoquesada/bluepad32 (`develop`), Switch parser patches ported onto the current parser: enable vibration #226 (merged), rumble intensity #227 (merged; its per-side mapping left a single Joy-Con silent for one magnitude, follow-up #232 with the SDL mapping; maintainer will test it), #232 merged 2026-10-03; #228 (idle rumble refresh) closed 2026-10-05: the maintainer replaced the 32-slot output queue with a byte-stream ring buffer (b6531db), which fixes the lost stop (verified on hardware); #229 to #231 rebased onto that `develop` (tests moved to the new `uni_circular_buffer_get()` signature), request sleep #229, per-step setup timeout and stale replies #230 (on top of #226), one pad in setup at a time #231 (on top of #230; reimplemented without global state, not run on hardware). 2026-10-19: #229 rebased again onto `develop` (conflict with the new Home LED subcommand in the same `switch`, both cases kept; Bluepad32's posix tests pass with ASan + UBSan); #230 / #231 still merge cleanly; no maintainer comment waiting for an answer. Not sent: DS4 touchpad getter (upstream has no touchpad API at all; better as an issue proposing one), pair IMU side (upstream has no merged Joy-Con pairs; could be a review comment on its open PR #219, which copies motion from the left half). Candidates later: 8BitDo PIDs `2dc8:6003` / `6103`, accepting short DS4 / DS5 reports (behaviour change, needs discussion). **2026-10-23:** #229 (request sleep) merged; #230 / #231 still open. Their `develop` is 102 commits past our pinned `bd81534` (BTstack update, Switch 2 IMU fixes, a `set_led_brightness` parser API...): re-sync our 13 patches onto it (next task). New candidate for them: `bluepad32_full_scale_triggers.diff` (6048d4d).
 - GP2040-CE: its PS3 driver copied output report 0x01 the way OGX-Mini did before 727ceb0 (motor bytes one off, right motor on with any report from Linux): OpenStickCommunity/GP2040-CE#1740, merged 2026-10-11.
 
 ## Fork only (not for upstream)
