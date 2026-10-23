@@ -65,6 +65,10 @@ void GameCubeDevice::process(const uint8_t idx, Gamepad& gamepad) {
     if (gp.buttons & Gamepad::BUTTON_MISC) gc_report_.buttons2 |= GC_Z;
     if (gp.buttons & Gamepad::BUTTON_RB)   gc_report_.buttons2 |= GC_R;
     if (gp.buttons & Gamepad::BUTTON_LB)   gc_report_.buttons2 |= GC_L;
+    /* Custom fix: a trigger at the end of its travel (255) clicks the digital L / R as on a
+     * GameCube pad (HayBox and the Wii U adapter mode alike); a Joy-Con's ZL / ZR never clicked. */
+    if (gp.trigger_l == 255) gc_report_.buttons2 |= GC_L;
+    if (gp.trigger_r == 255) gc_report_.buttons2 |= GC_R;
 
     gc_report_.l = gp.trigger_l;
     gc_report_.r = gp.trigger_r;
