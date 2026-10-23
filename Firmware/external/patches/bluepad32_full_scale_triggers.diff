@@ -1,0 +1,106 @@
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds3.c b/src/components/bluepad32/parser/uni_hid_parser_ds3.c
+index e9b7884..da3ee51 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_ds3.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_ds3.c
+@@ -182,8 +182,9 @@ void uni_hid_parser_ds3_parse_input_report(uni_hid_device_t* d, const uint8_t* r
+     ctl->gamepad.axis_ry = (r->ry - 127) * 4;
+ 
+     // Brake & throttle
+-    ctl->gamepad.brake = r->brake * 4;
+-    ctl->gamepad.throttle = r->throttle * 4;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.brake = (r->brake << 2) | (r->brake >> 6);
++    ctl->gamepad.throttle = (r->throttle << 2) | (r->throttle >> 6);
+ 
+     // Battery values:
+     //   0x01 : Shutdown
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds4.c b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
+index 51e967e..8fe18aa 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_ds4.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
+@@ -435,8 +435,9 @@ static void ds4_parse_input_report_01(uni_hid_device_t* d, const ds4_input_repor
+         ctl->gamepad.misc_buttons |= MISC_BUTTON_SYSTEM;  // PS
+ 
+     // Brake & throttle
+-    ctl->gamepad.brake = r->brake * 4;
+-    ctl->gamepad.throttle = r->throttle * 4;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.brake = (r->brake << 2) | (r->brake >> 6);
++    ctl->gamepad.throttle = (r->throttle << 2) | (r->throttle >> 6);
+ }
+ 
+ static void ds4_parse_input_report_11(uni_hid_device_t* d, const ds4_input_report_11_t* r) {
+@@ -485,8 +486,9 @@ static void ds4_parse_input_report_11(uni_hid_device_t* d, const ds4_input_repor
+         ctl->gamepad.misc_buttons |= MISC_BUTTON_SYSTEM;  // PS
+ 
+     // Brake & throttle
+-    ctl->gamepad.brake = r->brake * 4;
+-    ctl->gamepad.throttle = r->throttle * 4;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.brake = (r->brake << 2) | (r->brake >> 6);
++    ctl->gamepad.throttle = (r->throttle << 2) | (r->throttle >> 6);
+ 
+     // Gyro
+     for (size_t i = 0; i < ARRAY_SIZE(r->gyro); i++) {
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds5.c b/src/components/bluepad32/parser/uni_hid_parser_ds5.c
+index 0c3e215..11794a0 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_ds5.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_ds5.c
+@@ -615,8 +615,9 @@ void uni_hid_parser_ds5_parse_input_report(uni_hid_device_t* d, const uint8_t* r
+     ctl->gamepad.axis_rx = (r->rx - 127) * 4;
+     ctl->gamepad.axis_ry = (r->ry - 127) * 4;
+ 
+-    ctl->gamepad.brake = r->brake * 4;
+-    ctl->gamepad.throttle = r->throttle * 4;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.brake = (r->brake << 2) | (r->brake >> 6);
++    ctl->gamepad.throttle = (r->throttle << 2) | (r->throttle >> 6);
+ 
+     // Hat
+     uint8_t value = r->buttons[0] & 0xf;
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_psmove.c b/src/components/bluepad32/parser/uni_hid_parser_psmove.c
+index 0265f93..1eada99 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_psmove.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_psmove.c
+@@ -185,7 +185,8 @@ void uni_hid_parser_psmove_parse_input_report(uni_hid_device_t* d, const uint8_t
+     if (r->buttons[2] & 0x10)
+         ctl->gamepad.buttons |= BUTTON_TRIGGER_R;  // Trigger
+ 
+-    ctl->gamepad.throttle = r->trigger * 4;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.throttle = (r->trigger << 2) | (r->trigger >> 6);
+ 
+     ctl->gamepad.accel[0] = r->accel_x;
+     ctl->gamepad.accel[1] = r->accel_y;
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_steam.c b/src/components/bluepad32/parser/uni_hid_parser_steam.c
+index 015c3d6..09a048d 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_steam.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_steam.c
+@@ -407,8 +407,9 @@ static void parse_thumbstick(struct uni_hid_device_s* d, const uint8_t* data) {
+ static void parse_triggers(struct uni_hid_device_s* d, const uint8_t* data) {
+     uni_controller_t* ctl = &d->controller;
+ 
+-    ctl->gamepad.brake = data[0] << 2;
+-    ctl->gamepad.throttle = data[1] << 2;
++    // Custom (OGX-Mini-improved): 8 bits to 10 by bit replication, so 255 -> 1023 (was * 4 -> 1020).
++    ctl->gamepad.brake = (data[0] << 2) | (data[0] >> 6);
++    ctl->gamepad.throttle = (data[1] << 2) | (data[1] >> 6);
+ }
+ 
+ static void parse_right_pad(struct uni_hid_device_s* d, const uint8_t* data) {
+diff --git a/src/components/bluepad32/parser/uni_hid_parser_wii.c b/src/components/bluepad32/parser/uni_hid_parser_wii.c
+index be2103e..d5e9c8d 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser_wii.c
++++ b/src/components/bluepad32/parser/uni_hid_parser_wii.c
+@@ -966,8 +966,9 @@ static void process_drm_e(uni_hid_device_t* d, const uint8_t* report, uint16_t l
+     // Accel / Brake
+     int lt = (data[2] & 0b01100000) >> 2 | (data[3] & 0b11100000) >> 5;
+     int rt = data[3] & 0b00011111;
+-    ctl->gamepad.brake = lt * (AXIS_NORMALIZE_RANGE / 32);
+-    ctl->gamepad.throttle = rt * (AXIS_NORMALIZE_RANGE / 32);
++    // Custom (OGX-Mini-improved): 5 bits to 10 by bit replication, so 31 -> 1023 (was * 32 -> 992).
++    ctl->gamepad.brake = (lt << 5) | lt;
++    ctl->gamepad.throttle = (rt << 5) | rt;
+ 
+     // dpad
+     ctl->gamepad.dpad |= (data[4] & 0b10000000) ? 0 : DPAD_RIGHT;
