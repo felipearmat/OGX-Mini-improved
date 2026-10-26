@@ -18,6 +18,7 @@
 #include "parser/uni_hid_parser_xboxone.h"
 
 #include "Bluepad32/ComboHold.h"
+#include "Bluepad32/DropPolicy.h"
 #include "Bluepad32/JoyConSettings.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
@@ -39,14 +40,6 @@ namespace bt_pad {
     constexpr uint32_t kDisconnectComboHoldMs = 3000;
     constexpr uint32_t kDisconnectComboGraceMs = 3500;
     constexpr uint32_t kComboRebootDelayMs = 1500;
-
-    /* After the last pad that reached "ready" disconnects, the board reboots (not after a failed
-     * pairing attempt, or pairing would loop): some Classic HID pads leave Bluepad32 / BTstack in
-     * a stale state where they reconnect but never send usable input again. The reboot is armed
-     * on a hardware timer too (kLastPadRebootFallbackMs), as a run-loop timer never fires if the
-     * BT core hangs while the pads go away. */
-    constexpr uint32_t kLastPadRebootDelayMs = 500;
-    constexpr uint32_t kLastPadRebootFallbackMs = 3000;
 
     /* Host-to-pad output while idle (no rumble), or the BLE link drops: an Xbox pad puts it to
      * sleep after about a minute; a Switch 2 Pro drops it (HCI 0x08) without periodic vibration

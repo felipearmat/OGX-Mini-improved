@@ -9,6 +9,7 @@
 #include "I2C/ModeSync.h"
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
+#include "UserSettings/ComboCheck.h"
 #include "UserSettings/ModeCombos.h"
 #include "Gamepad/MotionSource.h"
 #include "test.h"
@@ -268,7 +269,9 @@ struct Rp2040 {
         if (replies < mode_sync::kRepliesBeforeRequests) ++replies;
         return true;
     }
-    void set_driver(D d, bool from_combo) {
+    mode_sync::RequestConfirm confirm;  // as ESP32_Bluepad32_I2C.cpp: the same request twice within 2 s
+    void set_driver(D d, bool from_combo, uint32_t now_ms) {
+        if (!confirm.take(d, now_ms)) return;
         if (keeps_settings ? mode_sync::rp2040_accepts(replies, d, mode, from_combo) : normalized(d) != mode)
             restart_into(d);
     }
@@ -281,8 +284,37 @@ void run_esp32(Rp2040& rp, D flash, uint32_t ms, uint32_t ext_delay_ms = 50, uin
     bool remote = false;
     for (uint32_t t = 0; t < ms; t += 50) {
         if (t >= ext_delay_ms && rp.answer_get_ext() && t >= lost_ms) remote = true;
-        if (mode_sync::esp32_sends_own_mode(remote, t)) rp.set_driver(flash, false);
+        if (mode_sync::esp32_sends_own_mode(remote, t)) rp.set_driver(flash, false, t);
     }
+}
+
+/* The ESP32's combo tick (BTManager::driver_update_timer_cb, mode_combos::kCheckDelayMs apart):
+ * a combo at `combo_at_ms` asking for `wanted`, then what esp32_send says each tick. `remote`: the
+ * ESP32 has the RP2040's settings. Returns the RP2040's mode at the end. */
+D run_combo(Rp2040& rp, D own, D wanted, bool remote, uint32_t combo_at_ms, uint32_t ms) {
+    D pending = D::NONE;
+    uint8_t ticks = 0;
+    for (uint32_t t = 0; t < ms; t += mode_combos::kCheckDelayMs) {
+        if (t >= combo_at_ms && pending == D::NONE && ticks == 0) {
+            pending = wanted;
+            ticks = mode_sync::kComboRequestTicks;
+            own = wanted;  // stored in the ESP32's flash (or taken as the remote mode)
+            rp.set_driver(wanted, true, t);  // sent at once
+        }
+        switch (mode_sync::esp32_send(remote, 60000 + t, pending != D::NONE)) {
+            case mode_sync::Esp32Send::COMBO_REQUEST:
+                rp.set_driver(pending, true, t);
+                if (--ticks == 0) pending = D::NONE;
+                break;
+            case mode_sync::Esp32Send::OWN_MODE:
+                rp.set_driver(own, false, t);
+                break;
+            case mode_sync::Esp32Send::NOTHING:
+                break;
+        }
+        if (rp.mode == normalized(wanted)) pending = D::NONE;  // the RP2040 reports it (GET_EXT)
+    }
+    return rp.mode;
 }
 
 }  // namespace
@@ -321,14 +353,36 @@ TEST(an_rp2040_that_keeps_no_settings_takes_the_esp32s_mode) {
 TEST(a_combo_on_the_esp32_changes_the_mode_once_in_sync) {
     Rp2040 rp{D::PS4};
     run_esp32(rp, D::PS4, 1000);
-    rp.set_driver(D::DINPUT_DEBUG, true);  // Start + RB + Left
-    CHECK(rp.mode == D::DINPUT_DEBUG);
+    CHECK(run_combo(rp, D::PS4, D::DINPUT_DEBUG, true, 1200, 10000) == D::DINPUT_DEBUG);  // Start + RB + Left
     CHECK_EQ(rp.restarts, 1);
     // An older ESP32 asking for the Web App mode means DInput: no restart loop.
     rp.answer_get_ext();
     rp.answer_get_ext();
-    rp.set_driver(D::WEBAPP, true);
+    rp.set_driver(D::WEBAPP, true, 20000);
+    rp.set_driver(D::WEBAPP, true, 20600);
     CHECK_EQ(rp.restarts, 1);
+}
+
+TEST(a_combo_works_before_the_esp32_has_the_rp2040s_settings) {
+    // 2026-10-25: a Joy-Con with a flat battery kept dropping and restarting the ESP32, which then
+    // went minutes without the RP2040's settings. A combo in that state sent its request flagged
+    // once, then the ESP32's own mode unflagged: never the same combo request twice, no change.
+    Rp2040 rp{D::STEAM};
+    rp.answer_get_ext();
+    rp.answer_get_ext();  // the RP2040 has answered since its own start
+    CHECK(run_combo(rp, D::STEAM, D::DINPUT_DEBUG, false, 1200, 10000) == D::DINPUT_DEBUG);
+    CHECK_EQ(rp.restarts, 1);
+}
+
+TEST(one_combo_request_alone_does_not_change_the_mode) {
+    Rp2040 rp{D::STEAM};
+    rp.answer_get_ext();
+    rp.answer_get_ext();
+    rp.set_driver(D::SWITCH, true, 1000);  // a corrupted packet that reads as a combo request
+    rp.set_driver(D::SWITCH, false, 1600);  // and then only unflagged ones
+    CHECK(rp.mode == D::STEAM);
+    rp.set_driver(D::SWITCH, true, 5000);   // too long after the first
+    CHECK(rp.mode == D::STEAM);
 }
 
 TEST(mode_requests_wait_for_the_rp2040s_answers) {
@@ -340,6 +394,10 @@ TEST(mode_requests_wait_for_the_rp2040s_answers) {
     CHECK(!mode_sync::esp32_sends_own_mode(false, 100));
     CHECK(!mode_sync::esp32_sends_own_mode(true, 60000));
     CHECK(mode_sync::esp32_sends_own_mode(false, mode_sync::kNoSettingsRp2040Ms));
+    CHECK(mode_sync::esp32_send(false, 60000, true) == mode_sync::Esp32Send::COMBO_REQUEST);
+    CHECK(mode_sync::esp32_send(true, 60000, true) == mode_sync::Esp32Send::COMBO_REQUEST);
+    CHECK(mode_sync::esp32_send(false, 60000, false) == mode_sync::Esp32Send::OWN_MODE);
+    CHECK(mode_sync::esp32_send(true, 60000, false) == mode_sync::Esp32Send::NOTHING);
 }
 
 TEST(gyro_crosses_the_link_without_saturating) {

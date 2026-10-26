@@ -358,6 +358,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static uint8_t reply_len = 0;
     static uint8_t reply_pos = 0;
     static bool reply_active = false;
+    static bool reply_is_settings = false;  // the reply being read is a PacketOutExt
 
     switch (event) {
         case I2C_SLAVE_RECEIVE: {
@@ -377,7 +378,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
         }
         case I2C_SLAVE_FINISH:
             if (reply_active) {
-                diag::i2c_reply(reply_pos < reply_len);  // a cut reply's rest is dropped here
+                diag::i2c_reply(reply_pos < reply_len, reply_is_settings);  // a cut reply's rest is dropped here
                 reply_active = false;
             }
             if (count == 0) {
@@ -516,12 +517,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                 case PacketID::SET_DRIVER: {
                     /* The same request twice within 2 s (the ESP32 repeats a combo's request every
                      * tick, I2C/ModeSync.h): one corrupted packet no longer changes the mode. */
-                    static DeviceDriverType last_request = DeviceDriverType::NONE;
-                    static uint32_t last_request_ms = 0;
-                    const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-                    const bool confirmed = packet_in.device_driver == last_request && now_ms - last_request_ms < 2000;
-                    last_request = packet_in.device_driver;
-                    last_request_ms = now_ms;
+                    static mode_sync::RequestConfirm request_confirm;
+                    const bool confirmed = request_confirm.take(packet_in.device_driver,
+                                                                to_ms_since_boot(get_absolute_time()));
                     if (confirmed && mode_sync::rp2040_accepts(ext_replies, packet_in.device_driver, current_device_type,
                                                               (packet_in.request_flags & PacketIn::FROM_COMBO) != 0)) {
                         OGXM_LOG("I2C: Driver change detected.\n");
@@ -548,6 +546,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             if (!reply_active) {  // the first byte of a read: build its reply
                 reply_active = true;
                 reply_pos = 0;
+                reply_is_settings = false;
                 if (blob_requested) {
                     blob_requested = false;
                     PacketBlob reply = blob_request;
@@ -579,6 +578,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         ++ext_replies;
                     }
                     const PacketOutExt reply = ext_reply(packet_in.index);
+                    reply_is_settings = true;
                     reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
                     std::memcpy(reply_buf, &reply, reply_len);
                 } else {

@@ -19,6 +19,18 @@ menu "OGXMini Options"
     config I2C_BAUDRATE
         int "Set I2C baudrate"
         default 1000000
+        help
+            Writes to the RP2040 (pad reports: a DualShock 4 sends about 760 per second, each
+            one or two 32-byte writes).
+
+    config I2C_READ_BAUDRATE
+        int "Set I2C baudrate for reads"
+        default 400000
+        help
+            Reads from the RP2040. At 1 MHz its replies longer than its 16-byte TX FIFO
+            (settings, profiles) stopped after their first byte about 9 times in 10 on the
+            bench hybrid (2026-10-26), none at 400 kHz: the settings reached the ESP32 late
+            or not at all. The bus switches rate between transfers.
 
     config RESET_PIN
         int "Set reset pin"

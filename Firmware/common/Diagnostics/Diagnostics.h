@@ -145,8 +145,8 @@ namespace diag {
     void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], const int32_t pad_gyro[3],
                        const int32_t ds4_accel[3], const int32_t ds4_gyro[3]);
     // The hybrid RP2040's I2C slave: a reply the ESP32 read (cut: it stopped before the reply's
-    // end). Safe from the I2C interrupt (counters only).
-    void i2c_reply(bool cut);
+    // end; settings: a PacketOutExt, the GET_EXT answer). Safe from the I2C interrupt (counters only).
+    void i2c_reply(bool cut, bool settings = false);
     // ... and a packet from the ESP32 dropped because its length was wrong (corrupted on the bus).
     void i2c_packet_rejected();
     // The ESP32's OGX-Mini-improved version (OGXM_VERSION), and a copy of it ("" while unknown).

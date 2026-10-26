@@ -30,12 +30,47 @@ void I2CDriver::initialize_i2c(i2c_port_t i2c_port, gpio_num_t sda, gpio_num_t s
     conf.scl_io_num = scl;
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = clk_speed;
-
+    /* Custom fix: reads at CONFIG_I2C_READ_BAUDRATE, writes at clk_speed (Kconfig). The bus
+     * timing of each rate is taken from the driver's own setup, then switched between
+     * transfers. */
+    conf.master.clk_speed = CONFIG_I2C_READ_BAUDRATE;
     i2c_param_config(i2c_port_, &conf);
+    read_timing_ = get_timing();
+
+    conf.master.clk_speed = clk_speed;
+    i2c_param_config(i2c_port_, &conf);
+    write_timing_ = get_timing();
+    reading_ = false;
+
     i2c_driver_install(i2c_port_, conf.mode, 0, 0, 0);
 
     initialized_ = true;
+}
+
+I2CDriver::BusTiming I2CDriver::get_timing() const
+{
+    BusTiming t;
+    i2c_get_period(i2c_port_, &t.high, &t.low);
+    i2c_get_start_timing(i2c_port_, &t.start_setup, &t.start_hold);
+    i2c_get_stop_timing(i2c_port_, &t.stop_setup, &t.stop_hold);
+    i2c_get_data_timing(i2c_port_, &t.data_sample, &t.data_hold);
+    i2c_get_timeout(i2c_port_, &t.timeout);
+    return t;
+}
+
+void I2CDriver::set_rate(bool reading)
+{
+    if (reading == reading_)
+    {
+        return;
+    }
+    reading_ = reading;
+    const BusTiming& t = reading ? read_timing_ : write_timing_;
+    i2c_set_period(i2c_port_, t.high, t.low);
+    i2c_set_start_timing(i2c_port_, t.start_setup, t.start_hold);
+    i2c_set_stop_timing(i2c_port_, t.stop_setup, t.stop_hold);
+    i2c_set_data_timing(i2c_port_, t.data_sample, t.data_hold);
+    i2c_set_timeout(i2c_port_, t.timeout);
 }
 
 void I2CDriver::run_tasks()
@@ -49,6 +84,7 @@ void I2CDriver::run_tasks()
             task();
         }
 
+        restart_if_requested();  // nothing queued: no transfer to wait for
         vTaskDelay(1);
     }
 }
@@ -66,10 +102,16 @@ void I2CDriver::read_packet(uint8_t address, std::function<void(const PacketOut&
     push([this, address, callback]() 
     {
         PacketOut data_out;
-        if (read(address, &data_out, sizeof(PacketOut)) == ESP_OK &&
-            data_out.packet_id == PacketID::GET_PAD)
+        if (read(address, &data_out, sizeof(PacketOut)) == ESP_OK)
         {
-            callback(data_out);
+            if (data_out.packet_id == PacketID::GET_PAD)
+            {
+                callback(data_out);
+            }
+            else
+            {
+                ++wrong_replies_;
+            }
         }
     });
 }
@@ -110,10 +152,16 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
             return;
         }
         PacketOutExt data_out;
-        if (read(address, &data_out, sizeof(PacketOutExt)) == ESP_OK &&
-            data_out.packet_id == PacketID::GET_EXT)
+        if (read(address, &data_out, sizeof(PacketOutExt)) == ESP_OK)
         {
-            callback(data_out);
+            if (data_out.packet_id == PacketID::GET_EXT)
+            {
+                callback(data_out);
+            }
+            else
+            {
+                ++wrong_replies_;
+            }
         }
     });
 }

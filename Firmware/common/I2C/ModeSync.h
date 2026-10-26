@@ -39,6 +39,41 @@ namespace mode_sync {
         return !rp2040_keeps_settings && ms_since_start >= kNoSettingsRp2040Ms;
     }
 
+    /* RP2040: a SET_DRIVER counts once the same request came twice within kConfirmWindowMs (the
+     * ESP32 repeats a combo's request every tick): one corrupted packet does not change the mode. */
+    constexpr uint32_t kConfirmWindowMs = 2000;
+
+    struct RequestConfirm
+    {
+        DeviceDriverType last{DeviceDriverType::NONE};
+        uint32_t last_ms{0};
+
+        bool take(DeviceDriverType requested, uint32_t now_ms)
+        {
+            const bool confirmed = requested == last && now_ms - last_ms < kConfirmWindowMs;
+            last = requested;
+            last_ms = now_ms;
+            return confirmed;
+        }
+    };
+
+    /* ESP32: ticks (mode_combos::kCheckDelayMs apart) a combo's request is repeated for, unless the
+     * RP2040 reports the new mode first. */
+    constexpr uint8_t kComboRequestTicks = 10;
+
+    enum class Esp32Send : uint8_t { NOTHING, OWN_MODE, COMBO_REQUEST };
+
+    /* ESP32: what it sends the RP2040 this tick. A combo's request goes first, flagged as a combo
+     * every time: an ESP32 that had not got the RP2040's settings yet (just restarted, reads lost)
+     * flagged it once and then sent its own mode unflagged, so the RP2040 never had the same
+     * combo request twice and the combo did nothing (2026-10-25). */
+    constexpr Esp32Send esp32_send(bool rp2040_keeps_settings, uint32_t ms_since_start, bool combo_pending)
+    {
+        return combo_pending ? Esp32Send::COMBO_REQUEST
+                             : (esp32_sends_own_mode(rp2040_keeps_settings, ms_since_start) ? Esp32Send::OWN_MODE
+                                                                                           : Esp32Send::NOTHING);
+    }
+
 } // namespace mode_sync
 
 #endif // _OGXM_MODE_SYNC_H_

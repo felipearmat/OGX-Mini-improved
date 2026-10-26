@@ -259,8 +259,11 @@ TEST(the_report_counts_i2c_replies_the_esp32_cut_short) {
     CHECK(!has(report(1000), "\"i2c_slave\""));  // not the hybrid / nothing read yet
     diag::i2c_reply(false);
     diag::i2c_reply(true);
+    diag::i2c_reply(true, true);   // a settings reply (PacketOutExt) cut short
+    diag::i2c_reply(false, true);
     diag::i2c_packet_rejected();
-    CHECK(has(report(2000), "\"i2c_slave\":{\"replies\":2,\"replies_cut\":1,\"packets_rejected\":1}"));
+    CHECK(has(report(2000), "\"i2c_slave\":{\"replies\":4,\"replies_cut\":2,\"settings_replies\":2,"
+                            "\"settings_replies_cut\":1,\"packets_rejected\":1}"));
 }
 
 TEST(the_report_says_whether_link_details_are_on) {

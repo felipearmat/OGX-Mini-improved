@@ -337,11 +337,12 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
         else if (result.new_driver != DeviceDriverType::NONE)
         {
             bt_manager.diag_event("mode change by button combo");
+            /* The RP2040 stores it and restarts in the new mode; sent until it reports it, also
+             * before this ESP32 has the RP2040's settings (I2C/ModeSync.h esp32_send). */
+            bt_manager.pending_driver_ = result.new_driver;
+            bt_manager.pending_driver_ticks_ = mode_sync::kComboRequestTicks;
             if (settings.remote())
             {
-                /* The RP2040 stores it and restarts in the new mode; sent until it reports it. */
-                bt_manager.pending_driver_ = result.new_driver;
-                bt_manager.pending_driver_ticks_ = 10;
                 settings.set_remote_driver(result.new_driver);
             }
             else
@@ -353,23 +354,24 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
         }
     }
 
-    if (!settings.remote())
+    /* An RP2040 that keeps no settings (it never answers GET_EXT) takes the mode from us, after a
+     * wait (I2C/ModeSync.h): a freshly started ESP32 would otherwise push the mode in its own flash
+     * onto an RP2040 that just restarted in another one. */
+    switch (mode_sync::esp32_send(settings.remote(), btstack_run_loop_get_time_ms() - bt_manager.boot_ms_,
+                                  bt_manager.pending_driver_ != DeviceDriverType::NONE))
     {
-        /* An RP2040 that keeps no settings (it never answers GET_EXT) takes the mode from us, after
-         * a wait (I2C/ModeSync.h): a freshly started ESP32 would otherwise push the mode in its own
-         * flash onto an RP2040 that just restarted in another one. */
-        if (mode_sync::esp32_sends_own_mode(settings.remote(), btstack_run_loop_get_time_ms() - bt_manager.boot_ms_))
-        {
+        case mode_sync::Esp32Send::COMBO_REQUEST:
+            bt_manager.send_driver_type(bt_manager.pending_driver_, true);
+            if (--bt_manager.pending_driver_ticks_ == 0)
+            {
+                bt_manager.pending_driver_ = DeviceDriverType::NONE;
+            }
+            break;
+        case mode_sync::Esp32Send::OWN_MODE:
             bt_manager.send_driver_type(settings.get_current_driver(), false);
-        }
-    }
-    else if (bt_manager.pending_driver_ != DeviceDriverType::NONE)
-    {
-        bt_manager.send_driver_type(bt_manager.pending_driver_, true);
-        if (--bt_manager.pending_driver_ticks_ == 0)
-        {
-            bt_manager.pending_driver_ = DeviceDriverType::NONE;
-        }
+            break;
+        case mode_sync::Esp32Send::NOTHING:
+            break;
     }
 
     btstack_run_loop_set_timer(ts, UserSettings::GP_CHECK_DELAY_MS);
@@ -433,6 +435,16 @@ void BTManager::stop_search_feedback()
 /* Settings from the RP2040 (GET_EXT): dongle options, host lightbar, motion use. */
 void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
 {
+    if (!ext_seen_)
+    {
+        /* How long the link took to deliver the first answer after a start: after a restart of
+         * the ESP32 alone it took from 6 s to minutes (2026-10-25), against 3 s at power-on. */
+        ext_seen_ = true;
+        diag_event("RP2040 settings after %lu ms (%lu read errors, %lu wrong replies)",
+                   static_cast<unsigned long>(btstack_run_loop_get_time_ms() - boot_ms_),
+                   static_cast<unsigned long>(i2c_driver_.read_errors()),
+                   static_cast<unsigned long>(i2c_driver_.wrong_replies()));
+    }
     motion_output_ = (ext.flags & I2CDriver::PacketOutExt::MOTION_OUTPUT) != 0;
     const bool web_app_open = (ext.flags & I2CDriver::PacketOutExt::WEB_APP_OPEN) != 0;
     if (web_app_open != web_app_open_)
@@ -828,16 +840,29 @@ void BTManager::disconnect_combo_timer_cb(btstack_timer_source *ts)
 }
 
 /* Restart from an esp_timer, not the BTstack run loop: it happens even if the BT stack stalls
- * while the pads go away (the Pico W path arms its hardware watchdog for the same reason). */
+ * while the pads go away (the Pico W path arms its hardware watchdog for the same reason). The
+ * timer hands the restart to the I2C task, which restarts before its next transfer (a restart
+ * in the middle of one left the RP2040 halfway through a reply); fired a second time
+ * (kRestartFallbackMs later, the I2C task stuck), it restarts at once. */
 static esp_timer_handle_t restart_timer = nullptr;
 static bool restart_for_last_pad = false;  // a pad connecting in the meantime calls it off
+static std::atomic<bool> restart_handed_over{false};
+static constexpr uint32_t kRestartFallbackMs = 500;
 
 void BTManager::restart_after_ms(uint32_t delay_ms, bool last_pad)
 {
     if (restart_timer == nullptr)
     {
         const esp_timer_create_args_t args = {
-            .callback = [](void*) { esp_restart(); },
+            .callback = [](void*)
+            {
+                if (restart_handed_over.exchange(true))
+                {
+                    esp_restart();
+                }
+                get_instance().i2c_driver_.restart_between_transfers();
+                esp_timer_start_once(restart_timer, static_cast<uint64_t>(kRestartFallbackMs) * 1000u);
+            },
             .arg = nullptr,
             .dispatch_method = ESP_TIMER_TASK,
             .name = "bt_restart",
@@ -864,7 +889,8 @@ void BTManager::restart_after_ms(uint32_t delay_ms, bool last_pad)
  * again, and restarting would drop the new pad (the RP2040 would keep its slot until then). */
 bool BTManager::cancel_last_pad_restart()
 {
-    if (restart_timer == nullptr || !restart_for_last_pad || !esp_timer_is_active(restart_timer))
+    if (restart_timer == nullptr || !restart_for_last_pad || restart_handed_over.load() ||
+        !esp_timer_is_active(restart_timer))
     {
         return false;
     }

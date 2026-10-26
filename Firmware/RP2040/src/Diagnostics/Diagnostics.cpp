@@ -610,6 +610,8 @@ struct Motion {
 static Motion s_motion{};
 static volatile uint32_t s_i2c_replies = 0;      // written by the I2C interrupt (Core1) only
 static volatile uint32_t s_i2c_replies_cut = 0;
+static volatile uint32_t s_i2c_settings_replies = 0;  // PacketOutExt (GET_EXT) among them
+static volatile uint32_t s_i2c_settings_replies_cut = 0;
 static volatile uint32_t s_i2c_rejected = 0;
 
 void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10)
@@ -655,11 +657,16 @@ void i2c_packet_rejected()
     s_i2c_rejected = s_i2c_rejected + 1;
 }
 
-void i2c_reply(bool cut)
+void i2c_reply(bool cut, bool settings)
 {
     s_i2c_replies = s_i2c_replies + 1;
     if (cut)
         s_i2c_replies_cut = s_i2c_replies_cut + 1;
+    if (settings) {
+        s_i2c_settings_replies = s_i2c_settings_replies + 1;
+        if (cut)
+            s_i2c_settings_replies_cut = s_i2c_settings_replies_cut + 1;
+    }
 }
 
 void companion_info(uint32_t now_ms, const char* firmware, uint32_t uptime_s, bool high_tx_power,
@@ -1201,10 +1208,13 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
               x10_dps(m.gyro[2]), x10_dps(peak[0]), x10_dps(peak[1]), x10_dps(peak[2]));
     }
     if (s_i2c_replies) {
-        /* The hybrid RP2040's side of the I2C link: replies the ESP32 stopped reading part way. */
-        w.raw(",\"i2c_slave\":{\"replies\":%lu,\"replies_cut\":%lu,\"packets_rejected\":%lu}",
+        /* The hybrid RP2040's side of the I2C link: replies the ESP32 stopped reading part way, and
+         * among them the settings replies (37 bytes, more than the 16-byte TX FIFO). */
+        w.raw(",\"i2c_slave\":{\"replies\":%lu,\"replies_cut\":%lu,\"settings_replies\":%lu,"
+              "\"settings_replies_cut\":%lu,\"packets_rejected\":%lu}",
               static_cast<unsigned long>(s_i2c_replies), static_cast<unsigned long>(s_i2c_replies_cut),
-              static_cast<unsigned long>(s_i2c_rejected));
+              static_cast<unsigned long>(s_i2c_settings_replies),
+              static_cast<unsigned long>(s_i2c_settings_replies_cut), static_cast<unsigned long>(s_i2c_rejected));
     }
     if (s_companion.present) {
         /* The hybrid's ESP32: what it reports about itself and the I2C link. */
@@ -1350,6 +1360,8 @@ void reset_for_tests()
     Lock l;
     s_i2c_replies = 0;
     s_i2c_replies_cut = 0;
+    s_i2c_settings_replies = 0;
+    s_i2c_settings_replies_cut = 0;
     s_i2c_rejected = 0;
     s_motion = Motion{};
     s_info = BoardInfo{};

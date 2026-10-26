@@ -68,6 +68,7 @@ private:
         bt_pad::KeepaliveState keepalive;
         Lightbar lightbar;              // last colour sent
         uint8_t battery_sent{0};        // last battery level sent to the diagnostics
+        bool battery_low_logged{false}; // "battery low" logged for this connection
         btstack_timer_source_t mode_lightbar_timer;
     };
 
@@ -101,6 +102,7 @@ private:
     bool motion_output_{false};
     bool web_app_open_{false};  // the RP2040's web app is open (D-Input/Debug): default mapping
     uint32_t boot_ms_{0};       // btstack time when the driver update timer started
+    bool ext_seen_{false};      // a PacketOutExt from the RP2040 arrived since the start
     int high_tx_power_{-1};  // applied transmit power option (-1: not yet)
     void apply_tx_power(bool high);
     void send_companion_summary();

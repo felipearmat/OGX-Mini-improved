@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "Bluepad32/ComboHold.h"
+#include "Bluepad32/DropPolicy.h"
 #include "Gamepad/GamepadMapper.h"
 #include "UserSettings/ComboCheck.h"
 #include "UserSettings/UserProfile.h"
@@ -142,6 +143,23 @@ TEST(dinput_debug_cannot_be_turned_off) {
     CHECK_EQ(static_cast<int>(hold(freed, GamepadBits::BUTTON_START | GamepadBits::BUTTON_LB | GamepadBits::BUTTON_RB,
                                    0, false, 0, 0, settings).new_driver),
              static_cast<int>(DeviceDriverType::NONE));
+}
+
+TEST(last_pad_restart_waits_right_after_a_start) {
+    // 2026-10-25: a Joy-Con on a flat battery dropped every 20-30 s and restarted the ESP32 each
+    // time. Right after a start the restart waits (a pad connecting meanwhile calls it off).
+    CHECK_EQ(bt_pad::last_pad_restart_delay_ms(20000), 40000u);
+    CHECK_EQ(bt_pad::last_pad_restart_delay_ms(0), bt_pad::kLastPadRestartMinUptimeMs);
+    CHECK_EQ(bt_pad::last_pad_restart_delay_ms(59800), bt_pad::kLastPadRebootDelayMs);
+    CHECK_EQ(bt_pad::last_pad_restart_delay_ms(600000), bt_pad::kLastPadRebootDelayMs);
+}
+
+TEST(battery_low_only_when_reported) {
+    CHECK(!bt_pad::battery_low(0));  // not reported
+    CHECK(bt_pad::battery_low(1));   // empty
+    CHECK(bt_pad::battery_low(bt_pad::kBatteryLowLevel));
+    CHECK(!bt_pad::battery_low(bt_pad::kBatteryLowLevel + 1));
+    CHECK(!bt_pad::battery_low(255));
 }
 
 TEST_MAIN()

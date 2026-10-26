@@ -635,6 +635,8 @@ static void apply_scan_policy(int exclude_idx, bool force)
 
 /** Set in device_ready — only reboot after a fully working pad disconnects (not failed pair attempts). */
 static bool s_bt_slot_was_ready[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+/* Custom: "battery low" logged for this connection (Bluepad32/BtPad.h battery_low). */
+static bool s_bt_slot_battery_low_logged[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 
 /** Full chip reset after last ready BT pad drops — next pair is always a clean first connect. */
 static btstack_timer_source_t s_bt_disconnect_reboot_timer;
@@ -779,6 +781,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
             diag::session_freeze(now);
         diag::slot_disconnected(static_cast<size_t>(idx), now);
         diag::event(now, "slot %d gone: %s", idx, device->name);
+        s_bt_slot_battery_low_logged[idx] = false;
     }
 
     if (uni_hid_parser_switch2_is_ble_device(device)) {
@@ -1044,6 +1047,12 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     if (bt_slot >= 0) {  /* Custom: battery for the web app's diagnostics (timing: uni_diag_on_input_report) */
         if (controller->battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
             diag::slot_battery(static_cast<size_t>(bt_slot), controller->battery);
+        if (bt_slot < CONFIG_BLUEPAD32_MAX_DEVICES && bt_pad::battery_low(controller->battery) &&
+            !s_bt_slot_battery_low_logged[bt_slot]) {
+            s_bt_slot_battery_low_logged[bt_slot] = true;
+            diag::event(to_ms_since_boot(get_absolute_time()), "slot %d battery low (%u/255)", bt_slot,
+                        static_cast<unsigned>(controller->battery));
+        }
     }
     int idx = bt_pad::output_idx(device);
     if (idx < 0)

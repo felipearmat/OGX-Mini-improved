@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <driver/i2c.h>
+#include <esp_system.h>
 
 #include "sdkconfig.h"
 #include "RingBuffer.h"
@@ -65,6 +66,13 @@ public:
     uint32_t write_errors() const { return write_errors_.load(); }
     uint32_t read_errors() const { return read_errors_.load(); }
     uint32_t queue_drops() const { return queue_drops_.load(); }
+    /* Reads that completed but carried another packet than the one asked for. */
+    uint32_t wrong_replies() const { return wrong_replies_.load(); }
+
+    /* Custom fix: restart the ESP32 from this task, before its next transfer. Restarting from a
+     * timer could cut a transfer in the middle (a pad that kept dropping restarted the ESP32 over
+     * and over, 2026-10-25), leaving the RP2040 halfway through a reply. */
+    void restart_between_transfers() { restart_requested_.store(true); }
 
 private:
     using TaskQueue = RingBuffer<std::function<void()>, CONFIG_I2C_RING_BUFFER_SIZE>;
@@ -72,6 +80,32 @@ private:
     std::atomic<uint32_t> write_errors_{0};
     std::atomic<uint32_t> read_errors_{0};
     std::atomic<uint32_t> queue_drops_{0};
+    std::atomic<uint32_t> wrong_replies_{0};
+    std::atomic<bool> restart_requested_{false};
+
+    /* The bus timing of one rate (as i2c_param_config sets it). */
+    struct BusTiming
+    {
+        int high{0}, low{0};
+        int start_setup{0}, start_hold{0};
+        int stop_setup{0}, stop_hold{0};
+        int data_sample{0}, data_hold{0};
+        int timeout{0};
+    };
+    BusTiming read_timing_;
+    BusTiming write_timing_;
+    bool reading_{false};  // the bus is at the read rate
+
+    BusTiming get_timing() const;
+    void set_rate(bool reading);
+
+    void restart_if_requested()
+    {
+        if (restart_requested_.load())
+        {
+            esp_restart();
+        }
+    }
 
     void push(std::function<void()> task)
     {
@@ -82,6 +116,8 @@ private:
     }
     esp_err_t write(uint8_t address, const void* data, size_t len)
     {
+        restart_if_requested();
+        set_rate(false);
         const esp_err_t ret = i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(data), len);
         if (ret != ESP_OK)
         {
@@ -91,6 +127,8 @@ private:
     }
     esp_err_t read(uint8_t address, void* data, size_t len)
     {
+        restart_if_requested();
+        set_rate(true);
         const esp_err_t ret = i2c_read_blocking(address, reinterpret_cast<uint8_t*>(data), len);
         if (ret != ESP_OK)
         {
@@ -99,6 +137,10 @@ private:
         return ret;
     }
     
+    /* A 37-byte read takes about 0.9 ms at 400 kHz: 2 ticks (1-2 ms, as the call falls between
+     * ticks) left little margin. */
+    static constexpr TickType_t kTransferTimeoutTicks = pdMS_TO_TICKS(4);
+
     TaskQueue task_queue_;
     i2c_port_t i2c_port_ = I2C_NUM_0;
     bool initialized_ = false;
@@ -111,7 +153,7 @@ private:
         i2c_master_write(cmd, buffer, len, true);
         i2c_master_stop(cmd);
 
-        esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(2));
+        esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, kTransferTimeoutTicks);
         i2c_cmd_link_delete(cmd);
         return ret;
     }
@@ -130,7 +172,7 @@ private:
         i2c_master_read_byte(cmd, buffer + len - 1, I2C_MASTER_NACK);
         i2c_master_stop(cmd);
         
-        esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(2));
+        esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, kTransferTimeoutTicks);
         i2c_cmd_link_delete(cmd);
         return ret;
     }

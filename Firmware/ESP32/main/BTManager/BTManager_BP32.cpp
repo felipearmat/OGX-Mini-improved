@@ -1,3 +1,5 @@
+#include <esp_timer.h>
+
 #include "btstack_port_esp32.h"
 #include "btstack_run_loop.h"
 #include "btstack_stdio_esp32.h"
@@ -92,6 +94,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     slot.lightbar = Lightbar{};
     slot.host_rumble_ok_ms = 0;
     slot.battery_sent = 0;
+    slot.battery_low_logged = false;
     diag::slot_disconnected(static_cast<size_t>(idx), btstack_run_loop_get_time_ms());
     diag_event("slot %d disconnected", idx);
 
@@ -118,8 +121,18 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     }
     if (was_ready && !any_slot)
     {
-        diag_event("last slot gone: restarting");
-        restart_after_ms(bt_pad::kLastPadRebootDelayMs, true);
+        const uint32_t delay_ms =
+            bt_pad::last_pad_restart_delay_ms(static_cast<uint32_t>(esp_timer_get_time() / 1000));
+        if (delay_ms > bt_pad::kLastPadRebootDelayMs)
+        {
+            diag_event("last slot gone: restarting in %lu s (just started)",
+                       static_cast<unsigned long>(delay_ms / 1000));
+        }
+        else
+        {
+            diag_event("last slot gone: restarting");
+        }
+        restart_after_ms(delay_ms, true);
     }
 }
 
@@ -238,6 +251,11 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     {
         slots_[idx].battery_sent = ext.battery;
         diag::slot_battery(static_cast<size_t>(idx), ext.battery);
+        if (bt_pad::battery_low(ext.battery) && !slots_[idx].battery_low_logged)
+        {
+            slots_[idx].battery_low_logged = true;
+            diag_event("slot %d battery low (%u/255)", idx, static_cast<unsigned>(ext.battery));
+        }
     }
 
     I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();
