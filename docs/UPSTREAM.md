@@ -13,16 +13,32 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Next fix PRs (send before any feature PR)
 
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
-one. Open upstream: #143 (Core1 flash lockout, 2026-10-19), #144 (docs: web app guide and the diagnostics report in support issues, 2026-10-20, branch `upstream-pr/41-docs-webapp-guide`). #103 (Docker build support) is someone else's. Merged: #129 (Switch Pro motion), #132 (rumble output
+one. No fork PR open upstream. #103 (Docker build support) is someone else's. Merged: #129 (Switch Pro motion), #132 (rumble output
 queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
-#139 / #140 (diagnostics, 2026-10-14). The fork is synced with upstream `develop` after them (c9a621a, 2026-10-16;
-the latency read on every session end from #140 ported first).
+#139 / #140 (diagnostics, 2026-10-14), #143 (Core1 flash lockout, 2026-10-24), #144 (docs: web app
+guide and the diagnostics report in support issues, 2026-10-25). The fork is synced with upstream
+`develop` after them (16b77fe, 2026-10-26): #143 / #144 kept in the fork's newer wording and its
+own "Firmware rules" CI job (`improved-ci.yml`, so `build.yml` keeps no copy); taken from others:
+#145 (README typo, already right in the fork's README) and #146 (georgboe: BTstack timers that
+ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced with the cause's fix
+(6473d8c, item 0 below).
+
+0. **Pico SDK timer backports instead of #146's poll** (6473d8c) — #146 polls the BTstack run loop
+   every 2 ms because timers ran only when a BT packet came. The cause is two Pico SDK 2.1.0 bugs:
+   pico-sdk #2838 (async context leaves `alarm_pending` set after cancelling its alarm with no
+   timer left, 2.3.0) and pico-sdk #2127 with #2190 / #2382 (alarm pool leaves the hardware alarm
+   disarmed, 2.1.1 / 2.2.0). The SDK's own regression test for #2838 on a Pico 2 W: worker never on
+   time on 2.1.0 or with either fix alone, every time with both. PR: the two patches in
+   `patch_libs.cmake` (or an SDK bump to 2.3.x, upstream's choice) and `btstack_run_loop_execute()`
+   back, crediting #146 for the diagnosis; also fixes the Wii run loop #146 did not cover. Before
+   sending: Pico 2 W hardware pass (connect rumble ends with an idle pad, reboot after the last
+   pad by its 500 ms timer, not the 3 s watchdog fallback).
 
 1. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
    so a settings write could hang Core1 executing from flash), with
    `.github/scripts/check_firmware_rules.py`. Every board with flash writes while Core1 runs.
-   High priority, standalone. **Open: #143** (2026-10-19, branch
+   High priority, standalone. **Merged: #143** (2026-10-24; branch
    `upstream-pr/42-core1-flash-lockout`, 2f95adf; adds a "Firmware rules" job to `build.yml`).
    The PS1 / PS2 Core1 entry (`psx_device_main()`) is left out on purpose: its fix needs a console
    test first ([docs/TODO.md](TODO.md), Output modes); not for upstream yet.
@@ -106,7 +122,7 @@ later fixes reach every board in one PR.
 | e091b01 | PS4 output: host output reports dropped (no rumble / lightbar) | merged #113 (output fix only) | Length check counted the report ID twice. Small, standalone. |
 | a189ac8 | STEAM output: complete DualSense emulation for non-DualSense pads (motion, touch, battery, features, rumble/lightbar output fix) | merged #114 (output fix only), pr #130 (rest) | Output reports were dropped (same length check as PS4). Output fix sent as #114; the rest is a feature. |
 | ba53db2 | Switch Pro wired input: follow the L3/R3 constant fix | merged #110 | Goes with 802537e (same PR); the wired Pro host driver compensated for the old values. |
-| 7f61088 | Reboot after the last pad disconnects: arm a hardware watchdog too | merged #127 | Upstream #106 reboots from a BT run-loop timer; if the BT core hangs during teardown it never fires (suspected freeze with a Joy-Con pair). Same safety net as the combo. Not confirmed with a log. |
+| 7f61088 | Reboot after the last pad disconnects: arm a hardware watchdog too | merged #127 | Upstream #106 reboots from a BT run-loop timer; if the BT core hangs during teardown it never fires (suspected freeze with a Joy-Con pair). Same safety net as the combo. Not confirmed with a log. 2026-10-26: likely not a hang but the Pico SDK 2.1.0 timer bugs (item 0): with no pad left no BT packet comes, so the 500 ms timer could wait forever; the watchdog stays as the safety net. |
 | 3f0a574 | Switch pads: rumble intensity follows the requested magnitude (amplitude, not frequency) | merged #132 (replaces #126) | Bluepad32 patch. 44f2190 replaced the DS4Windows recipe with the SDL mapping (same data on both actuators) after the per-side mapping left a single Joy-Con silent for one magnitude; PR updated 2026-10-02 and re-tested on hardware (Release, Joy-Con pair, Switch Pro mode). Same change for Bluepad32: ricardoquesada/bluepad32#232. |
 | 77f69f3 | STEAM output: DualSense rumble flags as SDL / Steam send them | merged #114 | Goes with the STEAM output-report PR. |
 | dd957f9 | DInput output: analog button pressure from the wrong buttons | merged #117 | circle/cross/square pressure rotated one position (PS3 was fixed upstream, DInput not; wiredopposite#265). Unit test of the real driver (`test_device_reports`); not tested on hardware. |

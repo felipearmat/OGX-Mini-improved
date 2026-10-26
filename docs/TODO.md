@@ -31,6 +31,10 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
+- **Pico W: hardware pass of the Pico SDK timer backports (6473d8c)** — idle pad's connect rumble
+  ends on time; reboot after the last pad by its 500 ms timer, not the 3 s watchdog fallback
+  (check `last_reset` / the stored session); disconnect combo; mode changes; Joy-Con pair off.
+  Then send the PR that replaces #146's 2 ms poll (UPSTREAM item 0).
 - **Hybrid: I2C reads at 1 MHz (found 2026-10-26)** — most read errors were the RP2040's replies
   longer than its 16-byte TX FIFO stopping after their first byte at 1 MHz (85-99 % of settings
   replies); the ESP32 now reads at 400 kHz and writes at 1 MHz (`dff4b53`). Still about 1 settings
