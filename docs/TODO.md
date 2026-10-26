@@ -31,6 +31,12 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
+- **Hybrid: I2C reads at 1 MHz (found 2026-10-26)** — most read errors were the RP2040's replies
+  longer than its 16-byte TX FIFO stopping after their first byte at 1 MHz (85-99 % of settings
+  replies); the ESP32 now reads at 400 kHz and writes at 1 MHz (`dff4b53`). Still about 1 settings
+  read in 20 cut with a DS4 connected. Why exactly the first byte (the ESP32's master ends the read
+  about 45 us in) is not known; check on the perfboard build whether 1 MHz reads work there before
+  raising `CONFIG_I2C_READ_BAUDRATE`. The entries below predate it.
 - **Hybrid: I2C read errors about 12 times higher with controllers since the evening of 2026-10-20**
   — about 4 per second with a Joy-Con pair (120 per 30 s), against 10.7 per 30 s that morning on
   the same jumpers; the same with and without the DMA receive (A/B), about 0.25 per second with no

@@ -152,6 +152,7 @@ later fixes reach every board in one PR.
 | 88436f4 | Web app open: sticks and triggers without the profile's settings (RAW_LIVE_INPUT) | fork only for now | Needs the fork's web app (two dots in Axis Settings). Upstream's Web App mode applies the settings too; offer with the web app change. |
 | 2fab119 | Status LED options restart the adapter | fork only | Fork options (status LEDs). |
 | 667e222 | "Detailed link diagnostics" renamed "Detailed controller diagnostics" | fork only | Labels only. |
+| dff4b53 | Hybrid: the mode combo after an ESP32 restart (combo request repeated as a combo), ESP32 I2C reads at 400 kHz / writes at 1 MHz, restart between transfers, restart backoff, "battery low" event | todo | Why: a pad that kept dropping (flat Joy-Con) restarted the ESP32; at 1 MHz the RP2040's replies longer than 16 bytes were cut after one byte 85-99 % of the time, so the settings arrived late, and the combo, sent flagged once, never reached the RP2040's two-request confirmation. Upstream's hybrid also reads at 1 MHz; check whether its replies show the same before sending the rate part. Depends on the fork's shared code (ModeSync.h, mode requests flagged as combos). |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 
