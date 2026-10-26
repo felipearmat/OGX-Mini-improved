@@ -646,6 +646,8 @@ static void bt_disconnect_reboot_cb(btstack_timer_source_t* ts) {
     (void)ts;
     s_bt_disconnect_reboot_pending = false;
     printf("[BP32] Last controller disconnected — storing the session, then restarting\n");
+    /* Custom: in the log, so a reboot by the watchdog fallback (this timer never fired) shows. */
+    diag::event(to_ms_since_boot(get_absolute_time()), "last slot gone: reboot timer fired");
     s_store_session_and_reboot.store(true);  // Core0: UserSettings stores it and reboots
 }
 
@@ -872,6 +874,9 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 		 * (nothing feeds it), like the combo does, so the board always reboots. */
 		watchdog_enable(DISCONNECT_REBOOT_WATCHDOG_MS, true);
 		printf("[BP32] Pairing mode on — reboot in 500 ms for clean reconnect\n");
+		diag::event(to_ms_since_boot(get_absolute_time()), "last slot gone: reboot in %lu ms (watchdog %lu ms)",
+		            static_cast<unsigned long>(bt_pad::kLastPadRebootDelayMs),
+		            static_cast<unsigned long>(DISCONNECT_REBOOT_WATCHDOG_MS));
 	}
 }
 
