@@ -25,6 +25,13 @@ time a decision leans on it.
 | [BlueRetro](https://github.com/darthcloud/BlueRetro) | Bluetooth controllers to retro consoles; community protocol notes (Switch 2) | Retro outputs, Switch 2 pads |
 | [Bluepad32](https://github.com/ricardoquesada/bluepad32) | The Bluetooth controller stack itself (patched, `Firmware/external/patches`) | Every Bluetooth controller |
 
+## Pico SDK fixes (backported as patches)
+
+| Project | What we take from it | Used for |
+|---|---|---|
+| [pico-sdk #2838](https://github.com/raspberrypi/pico-sdk/pull/2838) | Async context: reset `alarm_pending` when the alarm is cancelled with no timer left (issue #2836), and its regression test | Pico W / Pico 2 W Bluetooth timers (`pico_sdk_async_context_alarm_pending.diff`, 2026-10-26) |
+| [pico-sdk #2127](https://github.com/raspberrypi/pico-sdk/pull/2127), [#2190](https://github.com/raspberrypi/pico-sdk/pull/2190), [#2382](https://github.com/raspberrypi/pico-sdk/pull/2382) | Alarm pool: `ta_set_timeout()` always leaves an alarm armed; `ta_wakes_up_on_or_before()` past 2^32 us; unclaim on the right timer | The same (`pico_sdk_time_adapter_alarm.diff`); with #2838 alone the SDK's test still failed on a Pico 2 W |
+
 ## Protocol notes
 
 | Project | What we take from it | Used for |

@@ -68,7 +68,8 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_reported_mac` | MAC address reported by the emulated DS4 / DualSense. |
 | `test_kbm` | Mouse + Keyboard mode: settings wire format and the pad-to-report mapping. |
 | `test_diagnostics` | Diagnostics: controller identity, link and input timing, wired controllers, USB output, the session summary kept across the mode change, the JSON report. |
-| `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`); mode combos unique and holding Start; every hybrid mode reachable by combo and none of them a GPIO or Wii mode. |
+| `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`); mode combos unique and holding Start; every hybrid mode reachable by combo and none of them a GPIO or Wii mode; who decides the mode at start-up, and a mode combo on an ESP32 that has not got the RP2040's settings yet (the RP2040 needs the same combo request twice within 2 s). |
+| `test_bt_shared` | Bluepad32 code shared by the Pico W and the hybrid's ESP32 (`Firmware/common/Bluepad32`): disconnect combo hold and grace, profile mapper, mode combos (lone Joy-Con stick as D-pad, Start + L3), the restart after the last pad waiting in the first minute after a start, the battery level logged as low. |
 | `test_spin_lock_budget` | Claimed spin locks stay within the Pico SDK's 8 (one more freezes a Release build at boot). |
 | `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct); the shared status LED (`StatusLed`): blink code first, fast / slow blink by search state, solid without search, written only on a change. |
 

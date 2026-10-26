@@ -33,7 +33,9 @@ ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced wit
    back, crediting #146 for the diagnosis; also fixes the Wii run loop #146 did not cover. Pico 2 W
    pass done 2026-10-26 with a DS4 (mode changes, reboot after the last pad by its timer); the
    stall itself needs a pad silent while idle (Xbox Series BLE): ask georgboe to confirm with his.
-   Draft: `.ignore/upstream-pr-sdk-timers.md`.
+   Draft: `.ignore/upstream-pr-sdk-timers.md`. Branch `upstream-pr/43-sdk-timer-backports` ready
+   (ce4a067, worktree `~/git/ogxm-pr/43-sdk-timer-backports`; upstream's `git apply` blocks; builds
+   `PI_PICO2W` / `PI_PICOW` from a clean SDK), not pushed yet.
 
 1. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
@@ -170,6 +172,7 @@ later fixes reach every board in one PR.
 | 2fab119 | Status LED options restart the adapter | fork only | Fork options (status LEDs). |
 | 667e222 | "Detailed link diagnostics" renamed "Detailed controller diagnostics" | fork only | Labels only. |
 | dff4b53 | Hybrid: the mode combo after an ESP32 restart (combo request repeated as a combo), ESP32 I2C reads at 400 kHz / writes at 1 MHz, restart between transfers, restart backoff, "battery low" event | todo | Why: a pad that kept dropping (flat Joy-Con) restarted the ESP32; at 1 MHz the RP2040's replies longer than 16 bytes were cut after one byte 85-99 % of the time, so the settings arrived late, and the combo, sent flagged once, never reached the RP2040's two-request confirmation. Upstream's hybrid also reads at 1 MHz; check whether its replies show the same before sending the rate part. Depends on the fork's shared code (ModeSync.h, mode requests flagged as combos). |
+| b14c6d4 | Pico W: diagnostics events for the reboot after the last pad ("reboot in 500 ms (watchdog 3000 ms)", "reboot timer fired") | todo | Why: the reason recorded after the reboot is the same whether the 500 ms timer or the 3 s watchdog fallback rebooted; the events tell them apart (used 2026-10-26 to check #127's case). Small; goes with the diagnostics events upstream already has. |
 
 ## Web app (MegaCadeDev/OGX-Mini-2026-WebApp)
 

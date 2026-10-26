@@ -180,6 +180,12 @@ $env:PICO_SDK_PATH = "C:\path\to\pico-sdk"
 
 Point at a checkout of **2.1.0** (or a tree this firmware is known to build with). Nested SDK submodules must be initialized.
 
+**Prefer Option A.** `Firmware/cmake/patch_libs.cmake` patches the SDK only when it is the repo's
+`Firmware/external/pico-sdk`; an SDK elsewhere is left as it is. On Pico W / Pico 2 W builds that
+means BTstack's `hids_host.c` missing from the build, longer Xbox BLE events corrupted (CYW43 HCI
+pre-buffer) and Bluetooth timers that wait for the next controller packet (2.1.0's async-context
+and alarm-pool bugs, pico-sdk #2838 and #2127). The patches are in `Firmware/external/patches/pico_sdk_*.diff`.
+
 ### Confirm
 
 ```bash
