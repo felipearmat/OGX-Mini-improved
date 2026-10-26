@@ -1478,15 +1478,13 @@ void run_task(Gamepad(&gamepads)[MAX_GAMEPADS])
         uni_bt_stop_scanning_safe();
         OGXM_LOG("BT: applied deferred USB quiet (pad was plugged during BT bring-up)\n");
     }
-    /* Instead of btstack_run_loop_execute(), which sleeps until the async context's hardware
-     * alarm: that wake-up was sometimes lost, the context then never re-armed (alarm_pending
-     * stays set) and BTstack timers only ran on incoming BT traffic. An idle Series pad sends
-     * none, so its 1 s connect rumble ran until a button press. This core only runs BTstack
-     * (in the async context's IRQ), so nudge it every 2 ms. */
-    while (true) {
-        btstack_run_loop_poll_data_sources_from_irq();
-        busy_wait_us(2000);
-    }
+    /* Custom: back to btstack_run_loop_execute() (upstream #146 polled the run loop every 2 ms).
+     * The lost wake-up it worked around is the Pico SDK's: its async context left alarm_pending
+     * set when it cancelled the alarm with no timer left, so the next timer was never armed and
+     * BTstack timers ran only on incoming BT traffic (an idle Xbox Series pad's 1 s connect rumble
+     * ran until a button press). Fixed at the source by pico_sdk_async_context_alarm_pending.diff
+     * (pico-sdk #2838). */
+    btstack_run_loop_execute();
 }
 
 } // namespace bluepad32 
