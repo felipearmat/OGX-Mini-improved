@@ -53,6 +53,14 @@ namespace bt_pad {
                                 d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight);
     }
 
+    /* A pad that plays a Switch host's HD Rumble blocks as they are (Gamepad/HdRumbleFeed.h): the
+     * Switch parser's Joy-Cons and Pro Controllers (a Switch 2 pad has another rumble format). */
+    inline bool plays_hd_rumble(const uni_hid_device_t* d)
+    {
+        return d != nullptr && d->report_parser.play_dual_rumble == uni_hid_parser_switch_play_dual_rumble &&
+               (is_switch_joycon(d) || d->controller_type == CONTROLLER_TYPE_SwitchProController);
+    }
+
     inline bool is_joycon_pair_secondary(const uni_hid_device_t* d)
     {
         if (uni_hid_parser_switch2_is_ble_device(d))

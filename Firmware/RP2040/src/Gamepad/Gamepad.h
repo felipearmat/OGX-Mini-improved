@@ -13,6 +13,7 @@
 #include "libfixmath/fix16.hpp"
 
 #include "Gamepad/GamepadMapper.h"
+#include "Gamepad/HdRumbleFeed.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
 #include "Gamepad/Range.h"
@@ -247,6 +248,36 @@ public:
         return l;
     }
 
+    /* Custom: Switch HD Rumble reports (Gamepad/HdRumbleFeed.h), queued in order from the Switch
+     * output (Core0) to the BT core, which sends each one to a Joy-Con / Pro Controller as is.
+     * Kept apart from PadOut, like the host lightbar. Full (the BT core stalled): the oldest goes. */
+    static constexpr unsigned HD_RUMBLE_QUEUE_SIZE = 16;
+
+    inline void push_hd_rumble(const uint8_t blocks[8])
+    {
+        mutex_enter_blocking(&pad_out_mutex_);
+        if (hd_count_ == HD_RUMBLE_QUEUE_SIZE) {
+            hd_head_ = (hd_head_ + 1) % HD_RUMBLE_QUEUE_SIZE;
+            hd_count_--;
+        }
+        std::memcpy(hd_queue_[(hd_head_ + hd_count_) % HD_RUMBLE_QUEUE_SIZE].blocks, blocks, 8);
+        hd_count_++;
+        mutex_exit(&pad_out_mutex_);
+    }
+
+    inline bool pop_hd_rumble(hd_rumble::Frame& frame)
+    {
+        mutex_enter_blocking(&pad_out_mutex_);
+        const bool any = hd_count_ > 0;
+        if (any) {
+            frame = hd_queue_[hd_head_];
+            hd_head_ = (hd_head_ + 1) % HD_RUMBLE_QUEUE_SIZE;
+            hd_count_--;
+        }
+        mutex_exit(&pad_out_mutex_);
+        return any;
+    }
+
     inline ChatpadIn get_chatpad_in()
     {
         mutex_enter_blocking(&chatpad_in_mutex_);
@@ -431,6 +462,8 @@ public:
         pad_out_ = PadOut();
         peak_out_ = PadOut();
         host_lightbar_ = Lightbar();
+        hd_head_ = 0;
+        hd_count_ = 0;
         new_pad_out_.store(true);
         mutex_exit(&pad_out_mutex_);
     }
@@ -464,6 +497,9 @@ private:
     PadOut pad_out_;
     PadOut peak_out_;  // strongest rumble since the last take_pad_out_peak()
     Lightbar host_lightbar_;
+    hd_rumble::Frame hd_queue_[HD_RUMBLE_QUEUE_SIZE]{};
+    unsigned hd_head_{0};
+    unsigned hd_count_{0};
     PadIn pad_in_queue_[PAD_IN_QUEUE_SIZE];
     unsigned pad_in_head_{0};
     unsigned pad_in_tail_{0};

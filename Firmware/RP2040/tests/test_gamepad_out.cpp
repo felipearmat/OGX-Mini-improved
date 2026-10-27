@@ -96,6 +96,47 @@ TEST(host_lightbar) {
 
 // Web App mode shows the controller's own buttons: the stored profile's mapping is not applied
 // (the web app lights up each mapping row for its physical input).
+TEST(hd_rumble_reports_reach_the_bt_side_once_and_in_order) {
+    // HD Rumble blocks can be relative (step up / down): every host report once, in order.
+    Gamepad gp;
+    for (uint8_t i = 0; i < 5; ++i) {
+        uint8_t blocks[8] = {i, 1, 2, 3, i, 5, 6, 7};
+        gp.push_hd_rumble(blocks);
+    }
+    hd_rumble::Frame f;
+    for (uint8_t i = 0; i < 5; ++i) {
+        CHECK(gp.pop_hd_rumble(f));
+        CHECK_EQ(f.blocks[0], i);
+    }
+    CHECK(!gp.pop_hd_rumble(f));
+    // A stalled BT side: the oldest reports go, the latest stay.
+    for (uint8_t i = 0; i < Gamepad::HD_RUMBLE_QUEUE_SIZE + 3; ++i) {
+        uint8_t blocks[8] = {i};
+        gp.push_hd_rumble(blocks);
+    }
+    CHECK(gp.pop_hd_rumble(f));
+    CHECK_EQ(f.blocks[0], 3);
+}
+
+TEST(hd_rumble_feed_stops_a_host_that_went_quiet) {
+    hd_rumble::Feed feed;
+    CHECK(!feed.owns_rumble(0));
+    hd_rumble::Frame on{{0x28, 0x88, 0x60, 0x61, 0x28, 0x88, 0x60, 0x61}};
+    feed.on_frame(on, 1000);
+    CHECK(feed.playing());
+    CHECK(feed.owns_rumble(1500));
+    CHECK(!feed.stop_due(1000 + hd_rumble::kStopAfterMs - 1));
+    CHECK(feed.stop_due(1000 + hd_rumble::kStopAfterMs));  // one neutral report
+    CHECK(!feed.stop_due(2000));                          // and only one
+    CHECK(!feed.owns_rumble(1000 + hd_rumble::kOwnMs));   // intensity rumble back for the pad
+    // The host's own neutral: nothing more to send.
+    feed.on_frame(on, 3000);
+    feed.on_frame(hd_rumble::neutral_frame(), 3015);
+    CHECK(!feed.playing());
+    CHECK(!feed.stop_due(4000));
+    CHECK(hd_rumble::is_neutral(hd_rumble::neutral_frame().blocks));
+}
+
 TEST(web_app_mode_ignores_the_profile_mapping) {
     UserProfile swapped;
     swapped.button_a = Gamepad::BUTTON_B;

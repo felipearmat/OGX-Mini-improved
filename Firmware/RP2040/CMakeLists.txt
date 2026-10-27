@@ -463,7 +463,7 @@ option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads b
 set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
 set(OGXM_JOYCON_PAIR_ORIENTATION "VERTICAL" CACHE STRING "Merged Joy-Con pair orientation (VERTICAL|HORIZONTAL)")
 set(OGXM_JOYCON_SOLO_ORIENTATION "HORIZONTAL" CACHE STRING "Single Joy-Con orientation (VERTICAL|HORIZONTAL)")
-set(OGXM_JOYCON_PAIR_RUMBLE "PER_SIDE" CACHE STRING "Merged Joy-Con pair rumble: left motor on the left Joy-Con and right on the right one, as SDL / Steam do (PER_SIDE), or both motors on both (BOTH)")
+set(OGXM_JOYCON_PAIR_RUMBLE "PER_SIDE" CACHE STRING "Joy-Con pair compatibility: in every mode but Switch, left motor on the left Joy-Con and right on the right one, as SDL / Steam do (PER_SIDE), or both motors on both (BOTH); Switch mode plays the host's HD Rumble as on a Switch")
 set_property(CACHE OGXM_JOYCON_PAIR_IMU_SIDE PROPERTY STRINGS RIGHT LEFT)
 set_property(CACHE OGXM_JOYCON_PAIR_ORIENTATION PROPERTY STRINGS VERTICAL HORIZONTAL)
 set_property(CACHE OGXM_JOYCON_SOLO_ORIENTATION PROPERTY STRINGS VERTICAL HORIZONTAL)

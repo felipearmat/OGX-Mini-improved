@@ -318,6 +318,29 @@ static void test_request_sleep(void) {
     CHECK(p->bytes[12] == 0x00);  // disconnect + sleep
 }
 
+// HD Rumble passthrough (Switch mode): the host's blocks go out unchanged in one 0x10 report, a
+// pending dual rumble is called off (no stop arrives later on top of them), and nothing is sent
+// before the pad is set up.
+static void test_raw_rumble_blocks_unchanged(void) {
+    static const uint8_t blocks[8] = {0x28, 0x88, 0x60, 0x61, 0x14, 0x92, 0x48, 0x72};
+    fake_reset();
+    start_joycon(0, JCL);
+    const int before_setup = fake_sent_count();
+    uni_hid_parser_switch_play_raw_rumble(fake_device(0), blocks);
+    CHECK(fake_sent_count() == before_setup);  // not ready yet
+
+    fake_joycon_run_setup(0, JCL, 50);
+    uni_hid_parser_switch_play_dual_rumble(fake_device(0), 0, 350, 200, 200);
+    uni_hid_parser_switch_play_raw_rumble(fake_device(0), blocks);
+    const fake_sent_t* p = fake_sent(fake_sent_count() - 1);
+    CHECK(p->dev_idx == 0);
+    CHECK(p->bytes[1] == 0x10);
+    CHECK(memcmp(&p->bytes[3], blocks, 8) == 0);
+    const int neutral_before = count_neutral_rumble(0);
+    fake_advance_ms(1000);  // the dual rumble's 350 ms stop must not fire
+    CHECK(count_neutral_rumble(0) == neutral_before);
+}
+
 int main(void) {
     struct {
         const char* name;
@@ -337,6 +360,7 @@ int main(void) {
         {"rumble_single_magnitude_drives_both_actuators", test_rumble_single_magnitude_drives_both_actuators},
         {"rumble_same_data_on_both_actuators", test_rumble_same_data_on_both_actuators},
         {"request_sleep", test_request_sleep},
+        {"raw_rumble_blocks_unchanged", test_raw_rumble_blocks_unchanged},
     };
     int failed = 0;
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {

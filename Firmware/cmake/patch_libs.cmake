@@ -83,6 +83,8 @@ endfunction()
 # - full-scale triggers: 8-bit (DS3, DS4, DualSense, PS Move, Steam) and 5-bit (Wii Classic)
 #   triggers widened to 10 bits by bit replication (255 -> 1023, as SDL's * 257), not * 4 / * 32
 #   (255 -> 1020, 31 -> 992: a full trigger read 254 / 247 at 8 bits).
+# - Switch parser: raw rumble, a Switch host's HD Rumble blocks sent to the pad unchanged (Switch
+#   mode, Firmware/RP2040/docs/HD_Rumble.md).
 # Shared by the firmware builds and the host tests (Firmware/RP2040/tests), so all use one stamp.
 function(ogxm_patch_bluepad32 EXTERNAL_DIR)
     set(_p "${EXTERNAL_DIR}/patches")
@@ -99,7 +101,8 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_ds4_touchpad.diff"
         "${_p}/bluepad32_ds4_poll_interval.diff"
         "${_p}/bluepad32_no_deprecated_scan_calls.diff"
-        "${_p}/bluepad32_full_scale_triggers.diff")
+        "${_p}/bluepad32_full_scale_triggers.diff"
+        "${_p}/bluepad32_switch_raw_rumble.diff")
 endfunction()
 
 # Bluepad32's BTstack: BTstack v1.8 queues the HID Control Point command through the GATT query

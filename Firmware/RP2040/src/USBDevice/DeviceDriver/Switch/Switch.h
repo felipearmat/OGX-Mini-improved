@@ -57,6 +57,9 @@ private:
     uint8_t rumble_l_ = 0;
     uint8_t rumble_r_ = 0;
     bool rumble_dirty_ = false;
+    /* Custom: where the host's HD Rumble reports go as is (Gamepad::push_hd_rumble), set by
+     * process(); the output callback runs on the same core. */
+    Gamepad* hd_gamepad_ = nullptr;
 
     // USB init handshake: reply to 0x80 0x01 (MAC), 0x80 0x02 (handshake), 0x80 0x04/0x05 (timeout)
     std::array<uint8_t, SwitchPro::USB_INIT_REPORT_SIZE> report_81_{};

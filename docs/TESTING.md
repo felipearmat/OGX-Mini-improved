@@ -55,11 +55,11 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_switch_pro_layout` | Switch Pro button bits against Linux `hid-nintendo` (L3 / R3 swapped). |
 | `test_hd_rumble` | Switch HD rumble decoding, with blocks captured from Steam (stuck rumble, wrong amplitude). |
 | `test_switch_imu` | Motion for the emulated Switch Pro Controller. |
-| `test_switch_parser` | Bluepad32 Switch parser with the patch series, against a fake Joy-Con: vibration enabled at setup, setup retries, stale replies, one pad in setup at a time, timer cleanup, pair IMU side, Joy-Con pairing off, long rumble not interrupted, rumble intensity and the same rumble data on both actuators, sleep request. |
+| `test_switch_parser` | Bluepad32 Switch parser with the patch series, against a fake Joy-Con: vibration enabled at setup, setup retries, stale replies, one pad in setup at a time, timer cleanup, pair IMU side, Joy-Con pairing off, long rumble not interrupted, rumble intensity and the same rumble data on both actuators, sleep request, raw HD Rumble blocks sent unchanged (and a pending strength rumble called off). |
 | `test_output_queue` | Bluepad32 output queue with the byte-stream ring buffer: a rumble "stop" after a burst of updates is not dropped; random put / get sequences match a FIFO. |
 | `test_scan_policy` | Search for new controllers while others are connected (no 100% BLE scan next to a Classic pad). |
 | `test_idle_motion` | Motion as input for the idle turn-off: offsets, noise, spikes, stuck sensors and the controller's own rumble don't count; a clear rotation or tilt does. |
-| `test_gamepad_out` | Short host rumble pulses between two feedback samples are not lost; host lightbar. |
+| `test_gamepad_out` | Short host rumble pulses between two feedback samples are not lost; host lightbar; HD Rumble reports reach the BT side once and in order, and a quiet host gets one stop. |
 | `test_nvstool` | Settings in flash, on a simulated XIP flash (interrupts off while writing, entries past the first sector). |
 | `test_wire_pad` | 23-byte pad layout the web app expects. |
 | `test_dongle_settings` | Adapter Options defaults and wire / flash format; the status LED options (version 6) restart the adapter; detailed controller diagnostics only with the log in flash. |

@@ -240,6 +240,16 @@ void SwitchDevice::parse_host_rumble(uint8_t report_id, uint8_t const* buffer, u
 	else
 		return;
 
+	/* Custom: the blocks as the host sent them, for a Joy-Con / Pro Controller (HD Rumble, played
+	 * as on a Switch: Gamepad/HdRumbleFeed.h); the intensities below serve the other pads. */
+	if (hd_gamepad_ != nullptr)
+	{
+		uint8_t blocks[8];
+		std::memcpy(&blocks[0], motor_l, 4);
+		std::memcpy(&blocks[4], motor_r, 4);
+		hd_gamepad_->push_hd_rumble(blocks);
+	}
+
 	const uint8_t left = rumble_dec_l_.apply(motor_l);
 	const uint8_t right = rumble_dec_r_.apply(motor_r);
 	if (left == rumble_l_ && right == rumble_r_)
@@ -252,6 +262,7 @@ void SwitchDevice::parse_host_rumble(uint8_t report_id, uint8_t const* buffer, u
 void SwitchDevice::process(const uint8_t idx, Gamepad& gamepad)
 {
 	(void)idx;
+	hd_gamepad_ = &gamepad;
 	if (rumble_dirty_)
 	{
 		Gamepad::PadOut gp_out;

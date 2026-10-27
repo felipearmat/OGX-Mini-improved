@@ -321,6 +321,79 @@ static void apply_host_lightbar(uni_hid_device_t* d, int bt_idx, const Lightbar&
     bt_pad::set_lightbar(d, want, s_lightbar_applied[bt_idx]);
 }
 
+/* Custom: Switch HD Rumble passthrough (Gamepad/HdRumbleFeed.h). In Switch mode the host's reports
+ * go to the output's Joy-Cons / Pro Controller as they are, each once and in order (a Joy-Con of
+ * a pair plays its own side's block, as on a Switch); the intensity rumble of send_feedback_cb
+ * stays off for those pads while HD Rumble comes in. Other pads and modes are left as they were. */
+static btstack_timer_source_t s_hd_rumble_timer;
+static bool s_hd_rumble_timer_set{false};
+static hd_rumble::Feed s_hd_feed[MAX_GAMEPADS];
+
+static void hd_rumble_send(int gp_idx, const uint8_t blocks[8])
+{
+    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+        if (!bt_devices_[i].connected || !bt_pad::plays_hd_rumble(d))
+            continue;
+        const int out_i = bt_pad::output_idx(d);
+        if ((out_i >= 0 ? out_i : i) == gp_idx)
+            uni_hid_parser_switch_play_raw_rumble(d, blocks);
+    }
+}
+
+static void hd_rumble_cb(btstack_timer_source_t* ts)
+{
+    const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    for (int g = 0; g < static_cast<int>(MAX_GAMEPADS); ++g) {
+        Gamepad* gamepad = bt_devices_[g].gamepad;
+        if (gamepad == nullptr)
+            continue;
+        hd_rumble::Frame frame;
+        bool any = false;
+        while (gamepad->pop_hd_rumble(frame)) {
+            any = true;
+            s_hd_feed[g].on_frame(frame, now_ms);
+            hd_rumble_send(g, frame.blocks);
+        }
+        if (s_hd_feed[g].playing())
+            s_idle[g].note_rumble(now_ms);  // the idle turn-off ignores the shaking
+        if (!any && s_hd_feed[g].stop_due(now_ms)) {
+            const hd_rumble::Frame neutral = hd_rumble::neutral_frame();
+            hd_rumble_send(g, neutral.blocks);
+        }
+    }
+    if (s_hd_rumble_timer_set) {
+        btstack_run_loop_set_timer(ts, hd_rumble::kPeriodMs);
+        btstack_run_loop_add_timer(ts);
+    }
+}
+
+static void hd_rumble_start()
+{
+    if (s_hd_rumble_timer_set || UserSettings::get_instance().get_current_driver() != DeviceDriverType::SWITCH)
+        return;
+    s_hd_rumble_timer_set = true;
+    for (int g = 0; g < static_cast<int>(MAX_GAMEPADS); ++g) {  // reports queued with no pad: stale
+        hd_rumble::Frame stale;
+        while (bt_devices_[g].gamepad != nullptr && bt_devices_[g].gamepad->pop_hd_rumble(stale)) {
+        }
+    }
+    s_hd_rumble_timer.process = hd_rumble_cb;
+    s_hd_rumble_timer.context = nullptr;
+    btstack_run_loop_set_timer(&s_hd_rumble_timer, hd_rumble::kPeriodMs);
+    btstack_run_loop_add_timer(&s_hd_rumble_timer);
+}
+
+static void hd_rumble_stop()
+{
+    if (!s_hd_rumble_timer_set)
+        return;
+    s_hd_rumble_timer_set = false;
+    btstack_run_loop_remove_timer(&s_hd_rumble_timer);
+    for (auto& feed : s_hd_feed)
+        feed.reset();
+}
+
 static void send_feedback_cb(btstack_timer_source *ts)
 {
     uni_hid_device_t* bp_device = nullptr;
@@ -376,7 +449,8 @@ static void send_feedback_cb(btstack_timer_source *ts)
         bt_pad::ble_keepalive(bp_device, gp_out.rumble_l > 0 || gp_out.rumble_r > 0, now_ms, s_ble_keepalive[i]);
         if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0)  // Custom: idle turn-off ignores the shaking
             s_idle[gp_idx].note_rumble(now_ms);
-        if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0)
+        if ((gp_out.rumble_l > 0 || gp_out.rumble_r > 0) &&
+            !(bt_pad::plays_hd_rumble(bp_device) && s_hd_feed[gp_idx].owns_rumble(now_ms)))  // HD Rumble plays it
         {
             if (bp_device->controller_type == CONTROLLER_TYPE_PS4Controller &&
                 now_ms < s_ps4_rumble_ok_ms[i])
@@ -834,6 +908,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     if (feedback_timer_set_ && !any_other_connected) {
         feedback_timer_set_ = false;
         btstack_run_loop_remove_timer(&feedback_timer_);
+        hd_rumble_stop();
     }
 
     apply_scan_policy(idx, true);  // Custom: a slot is free again
@@ -1021,6 +1096,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
         btstack_run_loop_set_timer(&feedback_timer_, FEEDBACK_TIME_MS);
         btstack_run_loop_add_timer(&feedback_timer_);
     }
+    hd_rumble_start();
 
     bt_pad::play_connection_rumble(device);
 

@@ -25,6 +25,14 @@ time a decision leans on it.
 | [BlueRetro](https://github.com/darthcloud/BlueRetro) | Bluetooth controllers to retro consoles; community protocol notes (Switch 2) | Retro outputs, Switch 2 pads |
 | [Bluepad32](https://github.com/ricardoquesada/bluepad32) | The Bluetooth controller stack itself (patched, `Firmware/external/patches`) | Every Bluetooth controller |
 
+## HD Rumble
+
+| Project | What we take from it | Used for |
+|---|---|---|
+| [dekuNukem rumble_data_table.md](https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/rumble_data_table.md) | The 4-byte motor block: high / low band frequency and amplitude codes, the 3x5-bit and 7-bit forms, the neutral block | Switch mode HD Rumble passthrough, `Tools/bench/hd_rumble.py` |
+| [SDL `SDL_hidapi_switch.c`](https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/SDL_hidapi_switch.c) | `EncodeRumble` and the amplitude tables; `RumbleJoystick` uses fixed frequencies (0x74 / 0x3D, about 150 Hz); `SendJoystickEffect` takes a raw `0x10` packet | The pattern tool's encoder (checked against SDL's codes), what plain-strength hosts send |
+| [RenHDrum](https://github.com/trzz1214/RenHDrum) (Brontide) | HD Rumble generated on the PC in 5 ms sub-packets, sent as raw `0x10` packets every 15 ms through SDL3 | A host to test with; the 15 ms pace |
+
 ## Pico SDK fixes (backported to 2.1.0 until v1.4.1; in 2.3.1 since 2026-10-27)
 
 | Project | What we take from it | Used for |

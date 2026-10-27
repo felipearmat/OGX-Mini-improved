@@ -16,6 +16,7 @@ python -m pytest Tools/bench -v -m "not slow"       # without the restarts
 Tools/bench/run_bench.py --solo PI_PICO2W.uf2 --hybrid ESP32_BLUEPAD32_I2C_PICO2.uf2 --esp32 esp32-build/
 ```
 
+| `hd_rumble.py` | not a test: HD Rumble patterns written to the adapter in Switch mode (hidraw, Linux) for a Joy-Con / Pro Controller to play ([HD_Rumble.md](../../Firmware/RP2040/docs/HD_Rumble.md)) |
 | `test_logger.py` | `logger.py` against the firmware's virtual adapter on a pseudo-terminal (no board): kept log and first report recorded, each line once across runs, dropped bytes reported, old files cleaned up |
 
 ## Logger
