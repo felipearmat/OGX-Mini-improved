@@ -266,6 +266,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | ESP32 restarted by a pad that keeps dropping, then the mode combo (DS4, 2026-10-26) | pass after a fix | before: settings replies cut 99 % at 1 MHz, the combo did nothing (seen 2026-10-25 with a flat Joy-Con); after (reads 400 kHz, writes 1 MHz, `dff4b53`): settings 0.5 s after the ESP32's restart, combo 9 s after reconnecting changed the mode, DS4 about 740 reports/s, no queue drops, about 1 settings read in 20 still cut with the DS4 connected |
 | Pico SDK 2.3.1 on the RP2040 (2026-10-27) | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. |
 | Mode colour preview on the ESP32's LED with a DS4 connected (2026-10-27) | pass after a fix | follows the preview and Cancel almost at once (seconds late before the 400 kHz reads, dff4b53) |
+| Touchpad press and Misc apart (c645e1a, 2026-10-27) | pass | the user's check: STEAM in Steam, DS4 press = touchpad click only, Joy-Con Capture = Mute only; XInput, the press is Misc; web app Touchpad press row lit by the click |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
 ## Report
