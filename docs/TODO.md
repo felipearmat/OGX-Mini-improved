@@ -31,10 +31,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
-- **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) needs its hardware pass: Joy-Con
-  pair, lone Joy-Con, a Pro Controller if we get one; `Tools/bench/hd_rumble.py` patterns and Eden
-  with the direct Pro Controller driver; the diagnostics' output rate and lost / late input
-  reports with HD Rumble on (two links for a pair). Then phase 2, the hybrid (the user's order):
+- **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) passed the pattern test with a
+  Joy-Con pair (2026-10-27). Still to try: a game / Eden with the direct Pro Controller driver, a
+  lone Joy-Con, a Pro Controller if we get one, and the lost / late input reports with HD Rumble
+  on (two links for a pair; the diagnostics are read in D-Input/Debug, so play in Switch mode,
+  then switch and read the kept session). Then phase 2, the hybrid (the user's order):
   a `GET_HD_RUMBLE` reply (seq + 8 bytes) the ESP32 polls every 8 ms in Switch mode with a Switch
   pad, `HdRumbleFeed.h` and the same Bluepad32 patch there (`.ignore/spec-hd-rumble.md`).
 - **Pico SDK 2.3.1 under test (since 2026-10-27)** — the fork moved from 2.1.0 (with four patches)
