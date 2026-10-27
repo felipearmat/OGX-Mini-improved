@@ -12,6 +12,7 @@
 #include "sdkconfig.h"
 #include "RingBuffer.h"
 #include "I2C/Esp32Bridge.h"
+#include "Gamepad/HdRumbleFeed.h"
 #include "UserSettings/UserProfile.h"
 
 class I2CDriver 
@@ -34,6 +35,8 @@ public:
     using PacketProfile = Esp32Bridge::PacketProfile;
     using PacketBlob = Esp32Bridge::PacketBlob;
     using PacketPadRaw = Esp32Bridge::PacketPadRaw;
+    using PacketHdRumble = Esp32Bridge::PacketHdRumble;
+    using PacketHdRumbleOut = Esp32Bridge::PacketHdRumbleOut;
     static constexpr uint8_t PROFILE_COUNT = 8;  // UserSettings::MAX_PROFILES on both sides
     using Profiles = std::array<UserProfile, PROFILE_COUNT>;
     enum class PacketResp : uint8_t { OK = 1, ERROR };
@@ -54,6 +57,10 @@ public:
     /* GET_EXT request, then the RP2040's PacketOutExt (an older RP2040 answers a PacketOut,
      * which is dropped). */
     void read_ext(uint8_t address, uint8_t index, std::function<void(const PacketOutExt&)> callback);
+    /* Switch mode HD Rumble (GET_HD_RUMBLE): ask with the last report `rx` took, call `callback` with
+     * a new one. `rx` lives with the caller and is used on this task only. */
+    void read_hd_rumble(uint8_t address, uint8_t index, hd_rumble::LinkReceiver& rx,
+                        std::function<void(const hd_rumble::Frame&)> callback);
     /* Every profile the RP2040 keeps (GET_PROFILE, chunk by chunk, in one go). */
     void read_profiles(uint8_t address, std::function<void(const Profiles&)> callback);
     /* A profile saved over BLE, to the RP2040 (SET_PROFILE chunks). */

@@ -62,6 +62,8 @@ using Esp32Bridge::PacketDiag;
 using Esp32Bridge::PacketProfile;
 using Esp32Bridge::PacketBlob;
 using Esp32Bridge::PacketPadRaw;
+using Esp32Bridge::PacketHdRumble;
+using Esp32Bridge::PacketHdRumbleOut;
 
 /* Settings blobs for the ESP32's BLE web app (GET_BLOB / SET_BLOB): the current bytes of a kind. */
 static size_t blob_bytes(uint8_t kind, const uint8_t*& data) {
@@ -334,6 +336,12 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static PacketIn packet_in;
     static PacketOut packet_out;
     static bool ext_requested = false;  // answer the next read with a PacketOutExt
+    /* Custom: Switch mode HD Rumble for the ESP32's Joy-Cons / Pro Controller (Gamepad/HdRumbleFeed.h):
+     * answer the next read with the report in flight, resent until the ESP32 acknowledges it. */
+    static bool hd_requested = false;
+    static uint8_t hd_ack = 0;
+    static uint8_t hd_index = 0;
+    static hd_rumble::LinkSender hd_link[MAX_GAMEPADS];
     /* Mode changes from the ESP32 count once it has read our PacketOutExt (I2C/ModeSync.h). */
     static uint8_t ext_replies = 0;
     static PacketProfile profile_request;  // answer the next read with this chunk
@@ -448,6 +456,14 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                 case PacketID::GET_EXT:
                     ext_requested = true;
                     break;
+                case PacketID::GET_HD_RUMBLE: {
+                    PacketHdRumble request;
+                    std::memcpy(static_cast<void*>(&request), &packet_in, sizeof(request));
+                    hd_requested = request.index < MAX_GAMEPADS;
+                    hd_index = request.index;
+                    hd_ack = request.ack_seq;
+                    break;
+                }
                 case PacketID::GET_BLOB:
                     std::memcpy(static_cast<void*>(&blob_request), &packet_in, sizeof(blob_request));
                     blob_requested = true;
@@ -569,6 +585,18 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         std::memcpy(reply.data, reinterpret_cast<const uint8_t*>(&_profiles[reply.profile_id - 1]) + offset, len);
                     } else {
                         reply.profile_id = 0;  // nothing there
+                    }
+                    reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
+                    std::memcpy(reply_buf, &reply, reply_len);
+                } else if (hd_requested) {
+                    hd_requested = false;
+                    PacketHdRumbleOut reply;
+                    reply.index = hd_index;
+                    const hd_rumble::Frame* frame = hd_link[hd_index].reply(
+                        hd_ack, [](hd_rumble::Frame& f) { return _gamepads[hd_index].pop_hd_rumble(f); });
+                    if (frame != nullptr) {
+                        reply.seq = hd_link[hd_index].seq();
+                        std::memcpy(reply.blocks, frame->blocks, sizeof(reply.blocks));
                     }
                     reply_len = std::min<uint8_t>(reply.packet_len, sizeof(reply));
                     std::memcpy(reply_buf, &reply, reply_len);

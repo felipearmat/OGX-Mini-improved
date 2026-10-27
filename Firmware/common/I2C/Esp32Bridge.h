@@ -47,7 +47,8 @@ namespace Esp32Bridge
         SET_PROFILE,// ESP32 -> RP2040: a profile saved over BLE, in chunks (PacketProfile)
         GET_BLOB,   // ESP32 -> RP2040 request (PacketBlob), then that chunk on the next read
         SET_BLOB,   // ESP32 -> RP2040: settings saved over BLE, in chunks (PacketBlob)
-        SET_PAD_RAW // ESP32 -> RP2040: STEAM mode, the pad's own input (PacketPadRaw), before SET_PAD
+        SET_PAD_RAW, // ESP32 -> RP2040: STEAM mode, the pad's own input (PacketPadRaw), before SET_PAD
+        GET_HD_RUMBLE // ESP32 -> RP2040 request (PacketHdRumble), then a PacketHdRumbleOut on the next read
     };
 
     #pragma pack(push, 1)
@@ -242,6 +243,31 @@ namespace Esp32Bridge
     };
     static_assert(sizeof(PacketPadRaw) == 32, "Esp32Bridge::PacketPadRaw must stay 32 bytes");
     static_assert(offsetof(PacketPadRaw, core) == 4, "Esp32Bridge::PacketPadRaw layout changed");
+
+    /* Switch mode HD Rumble for the ESP32's Joy-Cons / Pro Controller (Gamepad/HdRumbleFeed.h): the
+     * host's reports, one per reply, each resent until the ESP32 acknowledges its sequence number in
+     * the next request (a read cut short would lose a report, and blocks can be relative). The reply
+     * fits the RP2040's 16-byte TX FIFO. An older RP2040 answers a PacketOut: dropped. */
+    struct PacketHdRumble
+    {
+        uint8_t  packet_len{sizeof(PacketHdRumble)};
+        PacketID packet_id{PacketID::GET_HD_RUMBLE};
+        uint8_t  index{0};
+        uint8_t  ack_seq{0};  // the last report's seq the ESP32 took (0 = none yet)
+        uint8_t  reserved[28]{};
+    };
+    static_assert(sizeof(PacketHdRumble) == 32, "Esp32Bridge::PacketHdRumble must stay 32 bytes");
+
+    struct PacketHdRumbleOut
+    {
+        uint8_t  packet_len{sizeof(PacketHdRumbleOut)};
+        PacketID packet_id{PacketID::GET_HD_RUMBLE};
+        uint8_t  index{0};
+        uint8_t  seq{0};        // 1..255 (0 = no report waiting)
+        uint8_t  blocks[8]{};   // left and right motor blocks, as the host sent them
+    };
+    static_assert(sizeof(PacketHdRumbleOut) == 12, "Esp32Bridge::PacketHdRumbleOut must stay 12 bytes");
+    static_assert(offsetof(PacketHdRumbleOut, blocks) == 4, "Esp32Bridge::PacketHdRumbleOut layout changed");
     #pragma pack(pop)
 
     /* Fletcher-16 over the profiles (in ID order): tells the ESP32 when to fetch them again. Never 0,

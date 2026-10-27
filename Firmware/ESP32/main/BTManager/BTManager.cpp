@@ -93,6 +93,11 @@ void BTManager::run_task()
     btstack_run_loop_set_timer(&fb_timer_, FEEDBACK_TIME_MS);
     btstack_run_loop_add_timer(&fb_timer_);
 
+    hd_timer_.process = hd_timer_cb;
+    hd_timer_.context = nullptr;
+    btstack_run_loop_set_timer(&hd_timer_, hd_rumble::kPeriodMs);
+    btstack_run_loop_add_timer(&hd_timer_);
+
     BLEServer::init_server();
 
     //Doesn't return
@@ -603,13 +608,99 @@ void BTManager::output_feedback_cb(void* context)
         {
             continue;
         }
-        if (rumbling)
+        if (rumbling && !(bt_pad::plays_hd_rumble(d) && bt_manager.hd_feed_[output].owns_rumble(now_ms)))
         {
             bt_pad::play_host_rumble(d, RUMBLE_DURATION_MS, packet_out.rumble_l, packet_out.rumble_r,
                                      joycon_settings::get().pair_rumble_per_side);
         }
         bt_pad::set_lightbar(d, bt_manager.outputs_[output].host_lightbar, slot.lightbar);
     }
+}
+
+/* Switch mode HD Rumble (Gamepad/HdRumbleFeed.h), as the Pico W path does: the host's reports go to
+ * the output's Joy-Cons / Pro Controller as they are, each once and in order (a Joy-Con of a pair
+ * plays its own side's block). The RP2040 answers GET_HD_RUMBLE with one report at a time, resent
+ * until acknowledged; asked only in Switch mode with such a pad. */
+bool BTManager::output_plays_hd_rumble(uint8_t output)
+{
+    for (uint8_t i = 0; i < slots_.size(); ++i)
+    {
+        uni_hid_device_t* d = slots_[i].connected && slots_[i].output == output ? get_connected_bp32_device(i) : nullptr;
+        if (bt_pad::plays_hd_rumble(d))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BTManager::hd_send(uint8_t output, const uint8_t blocks[8])
+{
+    for (uint8_t i = 0; i < slots_.size(); ++i)
+    {
+        uni_hid_device_t* d = slots_[i].connected && slots_[i].output == output ? get_connected_bp32_device(i) : nullptr;
+        if (bt_pad::plays_hd_rumble(d))
+        {
+            uni_hid_parser_switch_play_raw_rumble(d, blocks);
+        }
+    }
+}
+
+void BTManager::hd_timer_cb(btstack_timer_source *ts)
+{
+    BTManager& bt_manager = get_instance();
+    const uint32_t now_ms = btstack_run_loop_get_time_ms();
+    const bool switch_mode = UserSettings::get_instance().get_current_driver() == DeviceDriverType::SWITCH;
+    for (uint8_t out = 0; out < MAX_GAMEPADS; ++out)
+    {
+        const bool plays = switch_mode && bt_manager.output_plays_hd_rumble(out);
+        if (plays)
+        {
+            bt_manager.i2c_driver_.read_hd_rumble(slave_addr(out), out, bt_manager.hd_rx_[out],
+                [&bt_manager, out](const hd_rumble::Frame& frame)
+                {
+                    std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
+                    HdQueue& q = bt_manager.hd_queue_[out];
+                    if (q.count == HD_QUEUE_SIZE)
+                    {
+                        q.head = (q.head + 1) % HD_QUEUE_SIZE;  // the run loop stalled: the oldest go
+                        q.count--;
+                    }
+                    q.frames[(q.head + q.count) % HD_QUEUE_SIZE] = frame;
+                    q.count++;
+                });
+        }
+        bool any = false;
+        for (;;)
+        {
+            hd_rumble::Frame frame;
+            {
+                std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
+                HdQueue& q = bt_manager.hd_queue_[out];
+                if (q.count == 0)
+                {
+                    break;
+                }
+                frame = q.frames[q.head];
+                q.head = (q.head + 1) % HD_QUEUE_SIZE;
+                q.count--;
+            }
+            any = true;
+            bt_manager.hd_feed_[out].on_frame(frame, now_ms);
+            bt_manager.hd_send(out, frame.blocks);
+        }
+        if (bt_manager.hd_feed_[out].playing())
+        {
+            bt_manager.outputs_[out].idle.note_rumble(now_ms);  // the idle turn-off ignores the shaking
+        }
+        if (!any && bt_manager.hd_feed_[out].stop_due(now_ms))
+        {
+            const hd_rumble::Frame neutral = hd_rumble::neutral_frame();
+            bt_manager.hd_send(out, neutral.blocks);
+        }
+    }
+    btstack_run_loop_set_timer(ts, hd_rumble::kPeriodMs);
+    btstack_run_loop_add_timer(ts);
 }
 
 void BTManager::feedback_timer_cb(btstack_timer_source *ts)

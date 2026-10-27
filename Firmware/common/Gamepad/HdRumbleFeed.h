@@ -76,6 +76,48 @@ namespace hd_rumble {
         bool playing_{false};
     };
 
+    /* The RP2040 + ESP32 link (I2C/Esp32Bridge.h GET_HD_RUMBLE). RP2040 side: the report in flight
+     * is answered again until the ESP32 acknowledges its seq, then the next one is taken. */
+    class LinkSender
+    {
+    public:
+        /* `pop(Frame&)` takes the next queued report; returns the report to answer with, or null. */
+        template <typename Pop>
+        const Frame* reply(uint8_t ack_seq, Pop pop)
+        {
+            if (pending_ && ack_seq == seq_)
+                pending_ = false;
+            if (!pending_ && pop(frame_)) {
+                seq_ = static_cast<uint8_t>(seq_ == 255 ? 1 : seq_ + 1);
+                pending_ = true;
+            }
+            return pending_ ? &frame_ : nullptr;
+        }
+        uint8_t seq() const { return seq_; }
+
+    private:
+        Frame frame_{};
+        uint8_t seq_{0};
+        bool pending_{false};
+    };
+
+    /* ESP32 side: a reply is a new report when its seq differs from the last one taken. */
+    class LinkReceiver
+    {
+    public:
+        bool take(uint8_t seq)
+        {
+            if (seq == 0 || seq == last_)
+                return false;
+            last_ = seq;
+            return true;
+        }
+        uint8_t ack() const { return last_; }
+
+    private:
+        uint8_t last_{0};
+    };
+
 } // namespace hd_rumble
 
 #endif // _OGXM_HD_RUMBLE_FEED_H_

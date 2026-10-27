@@ -35,9 +35,9 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   Joy-Con pair (2026-10-27). Still to try: a game / Eden with the direct Pro Controller driver, a
   lone Joy-Con, a Pro Controller if we get one, and the lost / late input reports with HD Rumble
   on (two links for a pair; the diagnostics are read in D-Input/Debug, so play in Switch mode,
-  then switch and read the kept session). Then phase 2, the hybrid (the user's order):
-  a `GET_HD_RUMBLE` reply (seq + 8 bytes) the ESP32 polls every 8 ms in Switch mode with a Switch
-  pad, `HdRumbleFeed.h` and the same Bluepad32 patch there (`.ignore/spec-hd-rumble.md`).
+  then switch and read the kept session). Phase 2 (hybrid, `GET_HD_RUMBLE`) is built: its
+  hardware pass (patterns on the bench hybrid; I2C read errors and queue drops with HD Rumble on,
+  about 125 extra transfers a second in Switch mode with a Switch pad).
 - **Pico SDK 2.3.1 under test (since 2026-10-27)** — the fork moved from 2.1.0 (with four patches)
   to 2.3.1. Done 2026-10-27 on the bench hybrid (RP2040 side): DS4 and the Joy-Con pair in the web
   app, STEAM mode in Steam (touchpad as mouse), mode combos, disconnect combo, ESP32 flashing and

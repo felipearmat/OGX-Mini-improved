@@ -125,6 +125,25 @@ private:
 
     btstack_timer_source_t fb_timer_;
     bool fb_timer_running_ = false;
+
+    /* Switch mode HD Rumble (Gamepad/HdRumbleFeed.h): the RP2040's reports for an output's
+     * Joy-Cons / Pro Controller. hd_rx_ is used on the I2C task, hd_queue_ crosses to the BTstack
+     * run loop (hd_mutex_), hd_feed_ lives there. */
+    static constexpr size_t HD_QUEUE_SIZE = 16;
+    struct HdQueue
+    {
+        std::array<hd_rumble::Frame, HD_QUEUE_SIZE> frames{};
+        size_t head{0};
+        size_t count{0};
+    };
+    std::array<hd_rumble::LinkReceiver, MAX_GAMEPADS> hd_rx_{};
+    std::array<HdQueue, MAX_GAMEPADS> hd_queue_{};
+    std::array<hd_rumble::Feed, MAX_GAMEPADS> hd_feed_{};
+    std::mutex hd_mutex_;
+    btstack_timer_source_t hd_timer_;
+    bool output_plays_hd_rumble(uint8_t output);
+    void hd_send(uint8_t output, const uint8_t blocks[8]);
+    static void hd_timer_cb(btstack_timer_source *ts);
     btstack_timer_source_t led_timer_;
     btstack_timer_source_t disconnect_combo_timer_;
     int disconnect_combo_idx_ = -1;

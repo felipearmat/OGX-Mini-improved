@@ -11,7 +11,10 @@ game sends, as on a Switch. Every other controller and every other mode keeps th
 | Switch | any other (DS4, DualSense, Xbox...) | a strength per motor, decoded from the blocks |
 | any other | any | a strength per motor (the host sends nothing else) |
 
-Board: **Pico W / Pico 2 W** (and RP2354). The RP2040 + ESP32 adapter is next (TODO).
+Boards: **Pico W / Pico 2 W** (and RP2354), and the **RP2040 + ESP32** adapter: there the
+RP2040 hands the reports to the ESP32 over I2C (`GET_HD_RUMBLE`, polled every 8 ms in Switch mode
+while a Joy-Con / Pro Controller is connected), one at a time and resent until the ESP32
+acknowledges it, so a read cut short on the link loses nothing. Update both chips.
 
 ## How it works
 

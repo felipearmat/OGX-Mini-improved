@@ -4,9 +4,11 @@
 // that would break a dongle flashed from an older tree fails here instead of on hardware.
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "I2C/Esp32Bridge.h"
 #include "I2C/ModeSync.h"
+#include "Gamepad/HdRumbleFeed.h"
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 #include "UserSettings/ComboCheck.h"
@@ -70,6 +72,11 @@ TEST(packet_ids_are_stable) {
     CHECK_EQ(static_cast<int>(PacketID::GET_BLOB), 9);
     CHECK_EQ(static_cast<int>(PacketID::SET_BLOB), 10);
     CHECK_EQ(static_cast<int>(PacketID::SET_PAD_RAW), 11);
+    CHECK_EQ(static_cast<int>(PacketID::GET_HD_RUMBLE), 12);
+    CHECK_EQ(sizeof(PacketHdRumble), 32u);
+    CHECK_EQ(offsetof(PacketHdRumble, ack_seq), 3u);
+    CHECK_EQ(sizeof(PacketHdRumbleOut), 12u);  // fits the RP2040's 16-byte TX FIFO
+    CHECK_EQ(offsetof(PacketHdRumbleOut, seq), 3u);
     CHECK_EQ(sizeof(PacketPadRaw), 32u);
     CHECK_EQ(offsetof(PacketPadRaw, flags), 3u);
     CHECK_EQ(offsetof(PacketPadRaw, core), 4u);
@@ -398,6 +405,32 @@ TEST(mode_requests_wait_for_the_rp2040s_answers) {
     CHECK(mode_sync::esp32_send(true, 60000, true) == mode_sync::Esp32Send::COMBO_REQUEST);
     CHECK(mode_sync::esp32_send(false, 60000, false) == mode_sync::Esp32Send::OWN_MODE);
     CHECK(mode_sync::esp32_send(true, 60000, false) == mode_sync::Esp32Send::NOTHING);
+}
+
+TEST(hd_rumble_reports_cross_the_link_once_and_in_order) {
+    // Blocks can be relative, so a read cut short must not lose a report, and a report answered
+    // again must not be played twice.
+    std::vector<uint8_t> queue{1, 2, 3, 4};  // reports, by their first byte
+    auto pop = [&](hd_rumble::Frame& f) {
+        if (queue.empty()) return false;
+        f = hd_rumble::Frame{};
+        f.blocks[0] = queue.front();
+        queue.erase(queue.begin());
+        return true;
+    };
+    hd_rumble::LinkSender rp;
+    hd_rumble::LinkReceiver esp;
+    std::vector<uint8_t> played;
+    for (int poll = 0; poll < 20; ++poll) {
+        const hd_rumble::Frame* f = rp.reply(esp.ack(), pop);
+        if (!f) continue;
+        if (poll == 1 || poll == 2) continue;  // two replies lost on the bus (read cut short)
+        if (esp.take(rp.seq())) played.push_back(f->blocks[0]);
+        if (poll == 4 && esp.take(rp.seq())) played.push_back(f->blocks[0]);  // the same reply twice
+    }
+    CHECK_EQ(played.size(), 4u);
+    for (size_t i = 0; i < played.size(); ++i) CHECK_EQ(played[i], i + 1);
+    CHECK(rp.reply(esp.ack(), pop) == nullptr);  // nothing left
 }
 
 TEST(gyro_crosses_the_link_without_saturating) {

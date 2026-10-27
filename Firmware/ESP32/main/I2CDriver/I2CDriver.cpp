@@ -166,6 +166,37 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
     });
 }
 
+void I2CDriver::read_hd_rumble(uint8_t address, uint8_t index, hd_rumble::LinkReceiver& rx,
+                               std::function<void(const hd_rumble::Frame&)> callback)
+{
+    push([this, address, index, &rx, callback]()
+    {
+        PacketHdRumble request;
+        request.index = index;
+        request.ack_seq = rx.ack();
+        if (write(address, &request, sizeof(request)) != ESP_OK)
+        {
+            return;
+        }
+        PacketHdRumbleOut reply;
+        if (read(address, &reply, sizeof(reply)) != ESP_OK)
+        {
+            return;
+        }
+        if (reply.packet_id != PacketID::GET_HD_RUMBLE)
+        {
+            ++wrong_replies_;  // an older RP2040 (GET_PAD reply)
+            return;
+        }
+        if (rx.take(reply.seq))
+        {
+            hd_rumble::Frame frame;
+            std::memcpy(frame.blocks, reply.blocks, sizeof(frame.blocks));
+            callback(frame);
+        }
+    });
+}
+
 void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles&)> callback)
 {
     push([this, address, callback]()
