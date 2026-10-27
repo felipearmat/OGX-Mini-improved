@@ -267,6 +267,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | Pico SDK 2.3.1 on the RP2040 (2026-10-27) | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. |
 | Mode colour preview on the ESP32's LED with a DS4 connected (2026-10-27) | pass after a fix | follows the preview and Cancel almost at once (seconds late before the 400 kHz reads, dff4b53) |
 | Touchpad press and Misc apart (c645e1a, 2026-10-27) | pass | the user's check: STEAM in Steam, DS4 press = touchpad click only, Joy-Con Capture = Mute only; XInput, the press is Misc; web app Touchpad press row lit by the click |
+| HD Rumble in Switch mode (Joy-Con pair, `hd_rumble.py`, 2026-10-27) | pass | heartbeat on both, high-band sweep on the left only, low-band sweep on the right only, SDL vs HD compare: as on the Pico 2 W (the user's check); no I2C queue drops |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 
 ## Report
