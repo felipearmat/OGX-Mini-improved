@@ -244,5 +244,5 @@ later fixes reach every board in one PR.
 - `docs/TODO.md`, `docs/ROADMAP.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork's `README.md` (rewritten: use cases, hardware, generated mode table) and fork notes in the docs.
 - CI checks `.github/scripts/check_shared_sources.py`, `gen_docs_tables.py` and `check_doc_links.py` (could be offered with `Firmware/common` and a README that uses the generated table).
 - Removal of the `WebApp` submodule (points to the unmaintained wiredopposite web app; this fork uses OGX-Mini-improved-WebApp).
-- `Tools/bench` (bench tests on the fork's own hardware) and the `Tools/hybrid` conveniences (6c20ec8, c6a5a73).
+- `Tools/bench` (bench tests on the fork's own hardware) and the `Tools/hybrid` conveniences (6c20ec8, c6a5a73, 71e1abd: port listing that survives a device leaving).
 - `.github/workflows/build.yml`: release job limited to the original repository (keeps the fork from publishing releases).
