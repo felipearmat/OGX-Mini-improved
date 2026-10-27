@@ -33,7 +33,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   older ones).
 - **Pico W: Pico SDK timer backports (6473d8c) with an Xbox Series pad over BLE** — the case #146
   saw (connect rumble until a button press). Done with a DS4 on a Pico 2 W 2026-10-26; the stall
-  needs a pad that sends nothing while idle. Ask in the upstream PR (UPSTREAM item 0).
+  needs a pad that sends nothing while idle. Asked in upstream #147 (UPSTREAM item 0).
 - **Hybrid: I2C reads at 1 MHz (found 2026-10-26)** — most read errors were the RP2040's replies
   longer than its 16-byte TX FIFO stopping after their first byte at 1 MHz (85-99 % of settings
   replies); the ESP32 now reads at 400 kHz and writes at 1 MHz (`dff4b53`). Still about 1 settings

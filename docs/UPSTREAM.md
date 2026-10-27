@@ -13,7 +13,7 @@ Status: `todo` = not sent yet, `pr #N` = PR opened, `merged` = accepted upstream
 ## Next fix PRs (send before any feature PR)
 
 In this order; each one on its own branch from upstream `develop`, with its unit test when it has
-one. No fork PR open upstream. #103 (Docker build support) is someone else's. Merged: #129 (Switch Pro motion), #132 (rumble output
+one. Open upstream: #147 (Pico SDK timer backports, 2026-10-26). #103 (Docker build support) is someone else's. Merged: #129 (Switch Pro motion), #132 (rumble output
 queue / SDL mapping), #133 (search policy), #135-#138 (web app firmware PRs, rumble motors),
 #139 / #140 (diagnostics, 2026-10-14), #143 (Core1 flash lockout, 2026-10-24), #144 (docs: web app
 guide and the diagnostics report in support issues, 2026-10-25). The fork is synced with upstream
@@ -33,9 +33,10 @@ ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced wit
    back, crediting #146 for the diagnosis; also fixes the Wii run loop #146 did not cover. Pico 2 W
    pass done 2026-10-26 with a DS4 (mode changes, reboot after the last pad by its timer); the
    stall itself needs a pad silent while idle (Xbox Series BLE): ask georgboe to confirm with his.
-   Draft: `.ignore/upstream-pr-sdk-timers.md`. Branch `upstream-pr/43-sdk-timer-backports` ready
-   (ce4a067, worktree `~/git/ogxm-pr/43-sdk-timer-backports`; upstream's `git apply` blocks; builds
-   `PI_PICO2W` / `PI_PICOW` from a clean SDK), not pushed yet.
+   **Open: #147** (2026-10-26, branch `upstream-pr/43-sdk-timer-backports`, ce4a067, worktree
+   `~/git/ogxm-pr/43-sdk-timer-backports`; upstream's `git apply` blocks; builds `PI_PICO2W`,
+   `PI_PICOW`, `PI_PICO`, `ESP32_BLUEPAD32_I2C` from a clean SDK; text in
+   `.ignore/upstream-pr-sdk-timers.md`). georgboe asked to confirm with his Xbox Series pad.
 
 1. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
