@@ -32,7 +32,9 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
 - **Pico SDK 2.3.1 under test (since 2026-10-27)** — the fork moved from 2.1.0 (with four patches)
-  to 2.3.1. **Every bug found from now on: check whether the bump causes it** (does it happen on
+  to 2.3.1. Done 2026-10-27 on the bench hybrid (RP2040 side): DS4 and the Joy-Con pair in the web
+  app, STEAM mode in Steam (touchpad as mouse), mode combos, disconnect combo, ESP32 flashing and
+  restarts (settings 0.5 s later), no crash. **Every bug found from now on: check whether the bump causes it** (does it happen on
   v1.4.1, the last 2.1.0 build?). Hardware pass before offering it upstream: Pico 2 W and Pico W
   over Bluetooth (DS4, Joy-Con pair, a BLE pad; connect / reconnect, rumble, idle turn-off, mode
   combos, disconnect combo, Wii mode), a wired pad on the USB host port (PIO USB), the hybrid's
@@ -199,7 +201,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Debug builds
 
-- **Hybrid: the mode colour preview (and its Cancel) reaches the ESP32's LED late with a controller connected** — 2026-10-23: the colour goes in the 37-byte GET_EXT reply (`mode_rgb`), which the busy bench link rarely delivers whole; the LED caught up seconds later. Planned (the user's choice, next release): carry the colour to show in the 3 spare bytes of the 8-byte GET_PAD reply the ESP32 reads every cycle (an older ESP32 ignores them).
+- ~~**Hybrid: the mode colour preview (and its Cancel) reaches the ESP32's LED late with a controller connected**~~ — fixed by the ESP32 reading at 400 kHz (dff4b53): the 37-byte GET_EXT reply now arrives whole. 2026-10-27, DS4 connected, the user's check: the LED follows the preview and Cancel almost at once. The planned GET_PAD colour bytes are dropped.
 - **ESP32 LED options applied late with a controller connected** — 2026-10-23, Pico 2 W hybrid: turning the ESP32's external LED off or changing the brightness in the web app took effect much later (the user saw it off a while after). With no controller, the ESP32 logs the new options 1-2 s after the change ("LED options: ...", added for this). With a controller the link showed 42 % of the RP2040's replies cut and about 1800 packets rejected (16 % and 3 with none): the 37-byte GET_EXT reply, the longest on the link, rarely arrives whole then. Same jumper signal problem as the I2C corruption above; check on the soldered board, CRC planned. Since 2026-10-23 the LED options restart the adapter instead (CHANGELOG); the other live options sent to the ESP32 (search times, idle time, transmit power, combo mask, controller diagnostics) still take the slow path, accepted: they matter after a mode change, which restarts the ESP32.
 - **ESP32 "status LED" option drives GPIO15** (upstream's pin, `CONFIG_LED_PIN_1`): the 38-pin DevKit has no LED there; its blue LED that flickers with activity is the serial activity LED (not ours). Decide a pin with the final board.
 - **The kept log (LogRing) survives a power cut** — 2026-10-22, Pico 2 W hybrid: with the USB cable out 9 s the ring in `.uninitialized_data` still passed its magic and bounds check and `monitor` showed the previous session (intact this time). Only the magic is checked, not the reset cause, so after a longer cut a half-decayed ring could show garbage as the "kept log". Low priority: drop the ring on a power-on / brown-out reset (RP2040 `vreg_and_chip_reset`, RP2350 `powman` chip reset bits), keep it on watchdog reboots.
