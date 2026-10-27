@@ -13,7 +13,7 @@ set(SRC ${CMAKE_CURRENT_LIST_DIR}/src)
 # Sources shared with the ESP32 companion firmware (Firmware/common/README.md)
 set(COMMON ${CMAKE_CURRENT_LIST_DIR}/../common)
 set(EXTERNAL_DIR ${CMAKE_CURRENT_LIST_DIR}/../external)
-set(PICOSDK_VERSION_TAG "2.1.0")
+set(PICOSDK_VERSION_TAG "2.3.1")
 
 # Default Pico SDK path when not set (e.g. by CMake Tools or command line)
 if(NOT PICO_SDK_PATH)
@@ -736,6 +736,13 @@ include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 project(${FW_NAME} C CXX ASM)
 
 pico_sdk_init()
+
+# Custom: Pico SDK 2.3.1 (Firmware/cmake/patch_libs.cmake). An older SDK builds but brings back
+# Bluetooth timers that wait for the next controller packet (pico-sdk #2838, #2127).
+if (PICO_SDK_VERSION_STRING VERSION_LESS "2.3.0")
+    message(FATAL_ERROR "Pico SDK ${PICO_SDK_VERSION_STRING} found at ${PICO_SDK_PATH}; this firmware needs 2.3.1 "
+                        "(Firmware/RP2040/docs/Building_From_Source.md)")
+endif ()
 
 add_executable(${FW_NAME} ${SOURCES_BOARD})
 

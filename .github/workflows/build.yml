@@ -82,15 +82,15 @@ jobs:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
         with:
           path: Firmware/external/pico-sdk
-          key: pico-sdk-2.1.0
+          key: pico-sdk-2.3.1
 
-      - name: Get Pico SDK 2.1.0
+      - name: Get Pico SDK 2.3.1
         if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
           SDK="${{ github.workspace }}/Firmware/external/pico-sdk"
           .github/scripts/retry.sh 5 10m -- bash -c "
             rm -rf '$SDK' &&
-            git clone --branch 2.1.0 --depth 1 --recurse-submodules \
+            git clone --branch 2.3.1 --depth 1 --recurse-submodules \
               https://github.com/raspberrypi/pico-sdk.git '$SDK'"
 
       - name: Build ${{ matrix.board }}

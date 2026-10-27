@@ -442,7 +442,7 @@ Details and status: [docs/ROADMAP.md](docs/ROADMAP.md). Known bugs: [docs/TODO.m
 
 ## Building from source
 
-Full walkthrough (tools, submodules, Pico SDK 2.1.0, build scripts, manual CMake, flashing, the
+Full walkthrough (tools, submodules, Pico SDK 2.3.1, build scripts, manual CMake, flashing, the
 ESP32 companion): [Building from source](Firmware/RP2040/docs/Building_From_Source.md).
 
 **Quick version** — interactive scripts that check prerequisites and ask for the board, the mode

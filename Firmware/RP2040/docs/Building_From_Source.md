@@ -156,13 +156,13 @@ If that file is missing, re-run `git submodule update --init --recursive`.
 
 `Firmware/external/pico-sdk` is **gitignored**. The automatic CMake cloners (`get_pico_sdk`) is currently **commented out**, so a clean clone **will not** compile until the SDK is present.
 
-This project expects **Pico SDK tag `2.1.0`**.
+This project expects **Pico SDK tag `2.3.1`** (2.1.0 until 2026-10-27; configuring with an SDK older than 2.3.0 stops with an error).
 
 ### Option A — Clone into the repo (matches default `PICO_SDK_PATH`)
 
 ```bash
 cd Firmware/external
-git clone --branch 2.1.0 --depth 1 https://github.com/raspberrypi/pico-sdk.git
+git clone --branch 2.3.1 --depth 1 https://github.com/raspberrypi/pico-sdk.git
 cd pico-sdk
 git submodule update --init --recursive
 cd ../../..
@@ -178,13 +178,12 @@ export PICO_SDK_PATH=/path/to/pico-sdk
 $env:PICO_SDK_PATH = "C:\path\to\pico-sdk"
 ```
 
-Point at a checkout of **2.1.0** (or a tree this firmware is known to build with). Nested SDK submodules must be initialized.
+Point at a checkout of **2.3.1**. Nested SDK submodules must be initialized.
 
-**Prefer Option A.** `Firmware/cmake/patch_libs.cmake` patches the SDK only when it is the repo's
-`Firmware/external/pico-sdk`; an SDK elsewhere is left as it is. On Pico W / Pico 2 W builds that
-means BTstack's `hids_host.c` missing from the build, longer Xbox BLE events corrupted (CYW43 HCI
-pre-buffer) and Bluetooth timers that wait for the next controller packet (2.1.0's async-context
-and alarm-pool bugs, pico-sdk #2838 and #2127). The patches are in `Firmware/external/patches/pico_sdk_*.diff`.
+2.3.1 needs no patch. With 2.1.0 the Pico W / Pico 2 W builds missed BTstack's `hids_host.c`,
+corrupted longer Xbox BLE events (CYW43 HCI pre-buffer) and left Bluetooth timers waiting for the
+next controller packet (pico-sdk #2838, #2127); the fork patched those until v1.4.1. With Option A,
+`Firmware/cmake/patch_libs.cmake` also resets the SDK to a clean checkout of its tag.
 
 ### Confirm
 

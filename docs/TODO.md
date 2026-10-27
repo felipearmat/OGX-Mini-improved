@@ -31,6 +31,13 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
+- **Pico SDK 2.3.1 under test (since 2026-10-27)** — the fork moved from 2.1.0 (with four patches)
+  to 2.3.1. **Every bug found from now on: check whether the bump causes it** (does it happen on
+  v1.4.1, the last 2.1.0 build?). Hardware pass before offering it upstream: Pico 2 W and Pico W
+  over Bluetooth (DS4, Joy-Con pair, a BLE pad; connect / reconnect, rumble, idle turn-off, mode
+  combos, disconnect combo, Wii mode), a wired pad on the USB host port (PIO USB), the hybrid's
+  RP2040 side (I2C link, ESP32 flashing and log bridge), settings saved to flash, the web app,
+  a long session (over 71 min: timer wrap). Then the upstream PR (UPSTREAM, Features).
 - **Pico W: Pico SDK timer backports (6473d8c) with an Xbox Series pad over BLE** — the case #146
   saw (connect rumble until a button press). Done with a DS4 on a Pico 2 W 2026-10-26; the stall
   needs a pad that sends nothing while idle. Asked in upstream #147 (UPSTREAM item 0).

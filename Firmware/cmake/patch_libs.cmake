@@ -110,25 +110,18 @@ function(ogxm_patch_btstack EXTERNAL_DIR)
         "${EXTERNAL_DIR}/patches/btstack_hids_control_point.diff")
 endfunction()
 
-# Pico SDK 2.1.x: its pico_btstack still lists BTstack's old hids_client.c (Bluepad32's BTstack v1.8
-# renamed it hids_host.c); it places incoming HCI packets too close to the start of the receive
-# buffer for BTstack's pre-buffer (longer Xbox BLE GATT events were corrupted). And two bugs that
-# left BTstack timers waiting for the next BT packet (an idle pad's timers never ran): its async
-# context left alarm_pending set when it cancelled the alarm with no timer left, so the next timer
-# was never armed (backport of pico-sdk #2838, in 2.3.0); and its alarm pool could leave the
-# hardware alarm disarmed when the stale compare value looked earlier than the new target
-# (backport of pico-sdk #2127 with #2190 and #2382, in 2.1.1 / 2.2.0). On a Pico 2 W the SDK's
-# own regression test for #2838 passed only with both (2026-10-26).
+# Pico SDK 2.3.1 (feature under test since 2026-10-27, was 2.1.0 with four patches): no patch. It
+# has what 2.1.0 needed patching for: hids_host.c picked for Bluepad32's BTstack v1.8, the CYW43
+# HCI pre-buffer (pico-sdk #2165), and the two timer bugs that left BTstack timers waiting for the
+# next BT packet (pico-sdk #2838 and #2127 / #2190 / #2382). The tree is still reset to a clean
+# checkout (an empty list), so a hand edit or a leftover 2.1.0 patch does not survive.
+# CMakeLists.txt stops on an older SDK.
 function(ogxm_patch_pico_sdk EXTERNAL_DIR)
     set(_sdk "${EXTERNAL_DIR}/pico-sdk")
     if (NOT EXISTS "${_sdk}/src/rp2_common/pico_btstack/CMakeLists.txt")
         return()  # another SDK (PICO_SDK_PATH elsewhere): left as it is
     endif ()
-    ogxm_patch_tree("Pico SDK" "${_sdk}"
-        "${EXTERNAL_DIR}/patches/pico_sdk_hids_host.diff"
-        "${EXTERNAL_DIR}/patches/pico_sdk_cyw43_hci_prebuffer.diff"
-        "${EXTERNAL_DIR}/patches/pico_sdk_async_context_alarm_pending.diff"
-        "${EXTERNAL_DIR}/patches/pico_sdk_time_adapter_alarm.diff")
+    ogxm_patch_tree("Pico SDK" "${_sdk}")
 endfunction()
 
 function(apply_lib_patches EXTERNAL_DIR)

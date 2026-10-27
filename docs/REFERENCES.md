@@ -25,7 +25,7 @@ time a decision leans on it.
 | [BlueRetro](https://github.com/darthcloud/BlueRetro) | Bluetooth controllers to retro consoles; community protocol notes (Switch 2) | Retro outputs, Switch 2 pads |
 | [Bluepad32](https://github.com/ricardoquesada/bluepad32) | The Bluetooth controller stack itself (patched, `Firmware/external/patches`) | Every Bluetooth controller |
 
-## Pico SDK fixes (backported as patches)
+## Pico SDK fixes (backported to 2.1.0 until v1.4.1; in 2.3.1 since 2026-10-27)
 
 | Project | What we take from it | Used for |
 |---|---|---|
