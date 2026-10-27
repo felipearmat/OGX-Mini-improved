@@ -205,7 +205,7 @@ later fixes reach every board in one PR.
 
 | Commit | Change | Status | Notes |
 |---|---|---|---|
-| (this commit) | Pico SDK 2.3.1 instead of 2.1.0: no SDK patch (its two plus #147's two are in 2.3.1), version check in CMake | todo (under test in the fork) | Why: 2.1.0 needed four patches (hids_host.c, CYW43 pre-buffer, two timer bugs); 2.3.1 has them all, builds every board with no new warning, about 2 KB smaller. Brings about two years of SDK changes, so it goes upstream only after the fork's hardware pass (TODO: Pico SDK 2.3.1 under test). Every fork bug from now on is checked against it first. If #147 is merged first, this PR drops its two patches too. |
+| c150a67 | Pico SDK 2.3.1 instead of 2.1.0: no SDK patch (its two plus #147's two are in 2.3.1), version check in CMake | todo (under test in the fork) | Why: 2.1.0 needed four patches (hids_host.c, CYW43 pre-buffer, two timer bugs); 2.3.1 has them all, builds every board with no new warning, about 2 KB smaller. Brings about two years of SDK changes, so it goes upstream only after the fork's hardware pass (TODO: Pico SDK 2.3.1 under test). Every fork bug from now on is checked against it first. If #147 is merged first, this PR drops its two patches too. |
 | c7a6f2d (option), 037b5bf | `OGXM_DISCONNECT_PADS_ON_MODE_CHANGE`: every BT pad is turned off before a mode-change reboot (Joy-Cons asked to sleep, others disconnected) | todo | ON in this fork; offer upstream as OFF by default. Now a runtime dongle option (web app). |
 | 6e3d25b (indicator) | Output mode indicator (LED blinks, DS4/DualSense lightbar colour) | todo | |
 | 0720fea | Pico 2 W external WS2812 status LED in the mode colour (`OGXM_EXT_RGB_*`) | todo | Builds on the mode indicator; send after it. Not tested on hardware yet. |
