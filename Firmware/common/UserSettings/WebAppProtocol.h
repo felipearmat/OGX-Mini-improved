@@ -64,6 +64,10 @@ namespace webapp_protocol {
          * uptime in seconds when written (uint32), the running ring generation (uint32), then the
          * page's text. */
         GET_FLASH_LOG = 0x7C,
+        /* Custom: the controllers' raw Bluetooth input reports (capability RAW_CAPTURE; RP2040
+         * Diagnostics/RawCapture.h). Data: on (1) / off (0). Answered with an empty RAW_CAPTURE;
+         * ends when the port closes. */
+        RAW_CAPTURE = 0x7D,
         SET_GP_IN = 0x80,
         /* Custom: rumble test from the web app. Data: left (strong) motor 0-255, right (weak)
          * motor 0-255, duration in ms (uint16, little-endian). Answered with an empty SET_GP_OUT. */
@@ -77,6 +81,9 @@ namespace webapp_protocol {
          * common frame every pad is converted to (MotionImu::remap_to_ds4_report_frame): X right,
          * Y out of the face, Z toward the player; the same values as the report's motion block. */
         GP_MOTION = 0x83,
+        /* Custom: one raw report record while RAW_CAPTURE is on (Diagnostics/RawCapture.h layout),
+         * in chunks (chunks_total / chunk_idx / chunk_len) when longer than one packet. */
+        RAW_REPORT = 0x84,
         RESP_ERROR = 0xFF
     };
 

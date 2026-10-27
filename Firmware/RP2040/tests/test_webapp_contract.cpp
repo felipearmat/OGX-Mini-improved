@@ -76,8 +76,8 @@ std::string contract_json() {
         N(PacketID, SET_PROFILE), N(PacketID, GET_DONGLE_SETTINGS), N(PacketID, SET_DONGLE_SETTINGS),
         N(PacketID, GET_KBM_SETTINGS), N(PacketID, SET_KBM_SETTINGS), N(PacketID, GET_DIAGNOSTICS),
         N(PacketID, SYSTEM), N(PacketID, GET_CAPABILITIES), N(PacketID, GET_VERSION),
-        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW), N(PacketID, GET_LOG), N(PacketID, GET_FLASH_LOG),
-        N(PacketID, SET_GP_IN), N(PacketID, SET_GP_OUT), N(PacketID, GP_TOUCH), N(PacketID, GP_MOTION), N(PacketID, RESP_ERROR),
+        N(PacketID, GET_LED_COLORS), N(PacketID, SET_LED_COLORS), N(PacketID, LED_PREVIEW), N(PacketID, GET_LOG), N(PacketID, GET_FLASH_LOG), N(PacketID, RAW_CAPTURE),
+        N(PacketID, SET_GP_IN), N(PacketID, SET_GP_OUT), N(PacketID, GP_TOUCH), N(PacketID, GP_MOTION), N(PacketID, RAW_REPORT), N(PacketID, RESP_ERROR),
     };
     const std::vector<Named> system = {
         N(webapp_protocol, SYSTEM_BOOTSEL), N(webapp_protocol, SYSTEM_REBOOT),
@@ -101,7 +101,7 @@ std::string contract_json() {
         N(c, BLUETOOTH), N(c, HYBRID), N(c, HIGH_TX_POWER), N(c, JOYCON), N(c, MAC_PER_CONTROLLER),
         N(c, DISCONNECT_ON_MODE_CHANGE), N(c, SEARCH_TIMES), N(c, IDLE_OFF), N(c, WIRED_INPUT),
         N(c, BLE_WEBAPP), N(c, STATUS_LED_PICO), N(c, STATUS_LED_ESP32), N(c, STATUS_LED_PICO_EXT),
-        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, FLASH_LOG), N(c, MOTION_STREAM), N(c, RAW_LIVE_INPUT), N(c, kPicoW), N(c, kHybrid),
+        N(c, MODE_COLORS), N(c, STATUS_LED_ESP32_EXT), N(c, FLASH_LOG), N(c, MOTION_STREAM), N(c, RAW_LIVE_INPUT), N(c, RAW_CAPTURE), N(c, kPicoW), N(c, kHybrid),
     };
     o << "  \"capabilities\": " << object_json(caps, "  ") << ",\n";
 

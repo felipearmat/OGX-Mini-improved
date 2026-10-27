@@ -31,6 +31,12 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   arrives as is (a stray button press, a wrong stick value). If `i2c_slave.packets_rejected` in
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
+- **Fixture tests (end-to-end from real input)** — capture is in (`RAW_CAPTURE`,
+  `Tools/bench/capture_pad.py`). Next: record the DS4, the Joy-Con pair and the GameSir Nova Lite
+  in each of its modes (Pico W build); import `bentiss/hid-devices` traces for the USB host
+  drivers; the replay test `test_fixtures` (32-bit, the real parsers + `BtPad::map_input` + the
+  output drivers, golden files per pad and mode, semantic checks per label); synthetic fixtures
+  for pads we lack. Spec: `.ignore/spec-input-fixtures.md`.
 - **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) passed the pattern test with a
   Joy-Con pair (2026-10-27). Still to try: a game / Eden with the direct Pro Controller driver, a
   lone Joy-Con, a Pro Controller if we get one, and the lost / late input reports with HD Rumble

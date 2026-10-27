@@ -1,3 +1,6 @@
+#if defined(OGXM_RAW_CAPTURE)
+#include "Diagnostics/RawCapture.h"  // RP2040 Pico W path only
+#endif
 #include "Bluepad32/LinkDiag.h"
 
 #include "uni.h"
@@ -389,6 +392,10 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
     const int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || !report || len == 0)
         return;
+#if defined(OGXM_RAW_CAPTURE)
+    raw_capture::on_input_report(static_cast<uint8_t>(slot), static_cast<uint8_t>(d->controller_type), d->vendor_id,
+                                 d->product_id, btstack_run_loop_get_time_ms(), report, len);
+#endif
     /* Input timing per physical device (each half of a merged Joy-Con pair on its own); Switch
      * subcommand replies (0x21) are not input. */
     if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||

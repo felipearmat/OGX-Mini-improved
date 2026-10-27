@@ -18,6 +18,9 @@
 #include "UserSettings/BoardCapabilities.h"
 #include "Gamepad/I2CWirePad.h"
 #include "Gamepad/MotionImu.h"
+#if defined(OGXM_RAW_CAPTURE)
+#include "Diagnostics/RawCapture.h"
+#endif
 #include "USBDevice/DeviceDriver/WebApp/WebApp.h"
 
 void WebAppDevice::initialize() 
@@ -623,6 +626,23 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 }
                 break;
 
+#if defined(OGXM_RAW_CAPTURE)
+            case PacketID::RAW_CAPTURE:
+            {
+                raw_capture::set_enabled(packet_out.header.chunk_len >= 1 && packet_out.data[0] != 0);
+                Packet ack;
+                ack.header.packet_id = PacketID::RAW_CAPTURE;
+                ack.header.max_gamepads = MAX_GAMEPADS;
+                ack.header.chunks_total = 1;
+                if (!write_packet(ack))
+                {
+                    write_error();
+                    return;
+                }
+                break;
+            }
+#endif
+
             case PacketID::GET_FLASH_LOG:
             {
                 uint32_t from = 0;
@@ -750,8 +770,39 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
     } 
     else
     {
+        send_raw_reports();
         send_live_input(idx, gamepad);
     }
+}
+
+void WebAppDevice::send_raw_reports()
+{
+#if defined(OGXM_RAW_CAPTURE)
+    constexpr size_t kData = sizeof(Packet::data);
+    constexpr size_t kMaxChunks = (raw_capture::kMaxRecord + kData - 1) / kData;
+    uint8_t record[raw_capture::kMaxRecord];
+    /* Whole records only: start one when the transmit FIFO takes all its chunks. */
+    while (raw_capture::enabled() && tud_cdc_write_available() >= kMaxChunks * sizeof(Packet))
+    {
+        const size_t len = raw_capture::take(record);
+        if (len == 0)
+            break;
+        const uint8_t chunks = static_cast<uint8_t>((len + kData - 1) / kData);
+        for (uint8_t c = 0; c < chunks; ++c)
+        {
+            Packet packet;
+            packet.header.packet_id = PacketID::RAW_REPORT;
+            packet.header.max_gamepads = MAX_GAMEPADS;
+            packet.header.player_idx = record[1];
+            packet.header.chunks_total = chunks;
+            packet.header.chunk_idx = c;
+            const size_t offset = static_cast<size_t>(c) * kData;
+            packet.header.chunk_len = static_cast<uint8_t>(std::min(kData, len - offset));
+            std::memcpy(packet.data.data(), record + offset, packet.header.chunk_len);
+            write_packet(packet);
+        }
+    }
+#endif
 }
 
 /* Custom: the newest input at most every kLiveIntervalMs (the last state is always sent, also
@@ -795,6 +846,10 @@ void WebAppDevice::send_live_input(uint8_t idx, Gamepad& gamepad)
 void WebAppDevice::line_state_cb(uint8_t itf, bool dtr, bool rts)
 {
     (void)rts;
+#if defined(OGXM_RAW_CAPTURE)
+    if (!dtr)
+        raw_capture::set_enabled(false);  // the capture ends with the port
+#endif
     if (dtr)
     {
         diag::web_app_opened();  // this boot's session is a web app one (Diagnostics.h)

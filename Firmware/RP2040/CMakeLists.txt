@@ -595,6 +595,8 @@ endif()
 
 if(EN_BLUETOOTH)
     add_compile_definitions(CONFIG_EN_BLUETOOTH=1)
+    # Custom: raw Bluetooth input reports to the PC on request (Diagnostics/RawCapture.h).
+    add_compile_definitions(OGXM_RAW_CAPTURE=1)
     message(STATUS "Bluetooth enabled.")
 
     generate_gatt_header(${BTSTACK_ROOT} ${COMMON}/Bluepad32/att_delayed_response.gatt ${SRC}/BLEServer/att_delayed_response.h)
@@ -603,6 +605,7 @@ if(EN_BLUETOOTH)
         ${SRC}/Bluepad32/Bluepad32.cpp
         ${COMMON}/Bluepad32/ScanControl.cpp
         ${COMMON}/Bluepad32/LinkDiag.cpp
+        ${SRC}/Diagnostics/RawCapture.cpp
         ${SRC}/Bluepad32/ClassicPairingDebug.cpp
         ${COMMON}/Bluepad32/JoyConSettings.cpp
         ${COMMON}/Bluepad32/BLEServer.cpp

@@ -21,10 +21,12 @@
       "LED_PREVIEW": 122,
       "GET_LOG": 123,
       "GET_FLASH_LOG": 124,
+      "RAW_CAPTURE": 125,
       "SET_GP_IN": 128,
       "SET_GP_OUT": 129,
       "GP_TOUCH": 130,
       "GP_MOTION": 131,
+      "RAW_REPORT": 132,
       "RESP_ERROR": 255
     },
     "system": {
@@ -74,7 +76,8 @@
     "FLASH_LOG": 32768,
     "MOTION_STREAM": 65536,
     "RAW_LIVE_INPUT": 131072,
-    "kPicoW": 761,
+    "RAW_CAPTURE": 262144,
+    "kPicoW": 262905,
     "kHybrid": 19199
   },
   "dongle_settings": {

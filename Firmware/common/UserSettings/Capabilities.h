@@ -27,11 +27,12 @@ namespace capabilities {
     constexpr uint32_t FLASH_LOG                 = 1u << 15; // the kept log also in flash (RP2040 Board/FlashLog.h)
     constexpr uint32_t MOTION_STREAM             = 1u << 16; // live motion to the web app (USB GP_MOTION)
     constexpr uint32_t RAW_LIVE_INPUT            = 1u << 17; // live input without stick / trigger settings (USB, web app open)
+    constexpr uint32_t RAW_CAPTURE               = 1u << 18; // raw Bluetooth input reports (USB RAW_CAPTURE / RAW_REPORT)
 
     constexpr uint32_t kBluetooth = BLUETOOTH | JOYCON | MAC_PER_CONTROLLER | DISCONNECT_ON_MODE_CHANGE |
                                     SEARCH_TIMES | IDLE_OFF | BLE_WEBAPP;
     /* Pico W / Pico 2 W: the CYW43's transmit power is not settable here. */
-    constexpr uint32_t kPicoW = kBluetooth;
+    constexpr uint32_t kPicoW = kBluetooth | RAW_CAPTURE;
     /* RP2040 + ESP32 hybrid: the ESP32's LED and its external RGB LED pin (GPIO 4). */
     constexpr uint32_t kHybrid = kBluetooth | HYBRID | HIGH_TX_POWER | STATUS_LED_ESP32 | STATUS_LED_ESP32_EXT;
 
