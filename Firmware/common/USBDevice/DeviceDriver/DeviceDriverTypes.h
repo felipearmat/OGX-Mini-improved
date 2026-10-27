@@ -36,4 +36,15 @@ constexpr DeviceDriverType normalized(DeviceDriverType driver)
     return driver == DeviceDriverType::WEBAPP ? DeviceDriverType::DINPUT_DEBUG : driver;
 }
 
+/* Custom: outputs that carry a touchpad press of their own (SDL's TOUCHPAD button, apart from
+ * MISC1): the DS4 and DualSense outputs, Mouse + Keyboard (a left click) and the web app (its
+ * touchpad panel). On the others a DS4 / DualSense touchpad press stands in for the Misc button,
+ * so it still does something; where both exist, Misc is the pad's own extra button (Capture) and
+ * the press stays the touchpad's (in STEAM mode it was both: Mute and the touchpad click). */
+constexpr bool output_has_touchpad(DeviceDriverType driver)
+{
+    return driver == DeviceDriverType::PS4 || driver == DeviceDriverType::STEAM ||
+           driver == DeviceDriverType::KBM || driver == DeviceDriverType::WEBAPP;
+}
+
 #endif // _DEVICE_DRIVER_TYPES_H_

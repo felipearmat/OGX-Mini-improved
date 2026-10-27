@@ -100,7 +100,13 @@ void PS4Host::process_report(Gamepad& gamepad, uint8_t address, uint8_t instance
     if (in_report_.buttons[1] & PS4::Buttons1::SHARE)    gp_in.buttons |= gamepad.MAP_BUTTON_BACK;
     if (in_report_.buttons[1] & PS4::Buttons1::OPTIONS)  gp_in.buttons |= gamepad.MAP_BUTTON_START;
     if (in_report_.buttons[2] & PS4::Buttons2::PS)       gp_in.buttons |= gamepad.MAP_BUTTON_SYS;
-    if (in_report_.buttons[2] & PS4::Buttons2::TP)       gp_in.buttons |= gamepad.MAP_BUTTON_MISC;
+    /* Custom: the touchpad press is the touchpad's on outputs that have one, else Misc
+     * (GamepadMapper::touchpad_as_misc; it was always Misc, so STEAM mode got Mute as well). */
+    if (in_report_.buttons[2] & PS4::Buttons2::TP) {
+        gp_in.touchpad_click = 1;
+        if (gamepad.touchpad_as_misc())
+            gp_in.buttons |= gamepad.MAP_BUTTON_MISC;
+    }
 
     gp_in.trigger_l = gamepad.scale_trigger_l(in_report_.trigger_l);
     gp_in.trigger_r = gamepad.scale_trigger_r(in_report_.trigger_r);

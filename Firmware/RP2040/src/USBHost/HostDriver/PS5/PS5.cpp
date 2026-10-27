@@ -92,8 +92,12 @@ void PS5Host::process_report(Gamepad& gamepad, uint8_t address, uint8_t instance
         SteamPassthrough::store(report, len);
     }
 
-    if (in_report->points[0].touching || in_report->points[1].touching) {
-        gp_in.buttons |= gamepad.MAP_BUTTON_MISC;
+    /* Custom: the touchpad press (it was any touch) is the touchpad's on outputs that have one,
+     * else Misc (GamepadMapper::touchpad_as_misc). */
+    if (in_report->buttons[2] & PS5::Buttons2::TP) {
+        gp_in.touchpad_click = 1;
+        if (gamepad.touchpad_as_misc())
+            gp_in.buttons |= gamepad.MAP_BUTTON_MISC;
     }
 
     gp_in.trigger_l = gamepad.scale_trigger_l(in_report->trigger_l);

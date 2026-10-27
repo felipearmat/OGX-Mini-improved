@@ -343,7 +343,8 @@ Face-button convention into PadIn (Xbox names):
 | Select / View / Minus | **Back** |
 | Start / Menu / Plus | **Start** |
 | Guide / PS / Home | **SYS** |
-| Share / Capture / touchpad click | **MISC** (when present) |
+| Share / Capture | **MISC** (when present) |
+| Touchpad press (DS4 / DualSense) | `gp_in.touchpad_click = 1`, and **MISC** only when `gamepad.touchpad_as_misc()` (the output has no touchpad) |
 
 D-pad: set `gp_in.dpad` with `MAP_DPAD_*` (including diagonals if the pad reports them).
 

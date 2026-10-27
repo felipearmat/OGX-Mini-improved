@@ -64,9 +64,14 @@ public:
          * settings either, so the web app's "Preview" applies the settings being edited once
          * instead of on top of the saved ones. */
         const bool web_app = driver == DeviceDriverType::WEBAPP;
+        touchpad_as_misc_ = !output_has_touchpad(driver);
         set_profile_mappings(web_app ? UserProfile() : user_profile);
         set_profile_settings(web_app ? UserProfile() : user_profile, driver);
     }
+
+    /* Custom: a DS4 / DualSense touchpad press counts as the Misc button on this output (it has no
+     * touchpad of its own: USBDevice/DeviceDriver/DeviceDriverTypes.h output_has_touchpad). */
+    bool touchpad_as_misc() const { return touchpad_as_misc_; }
 
     template <uint8_t bits = 0, typename T>
     inline std::pair<int16_t, int16_t> scale_joystick_r(T x, T y, bool invert_y = false) const
@@ -175,6 +180,7 @@ private:
     bool joy_settings_r_en_{false};
     bool trig_settings_l_en_{false};
     bool trig_settings_r_en_{false};
+    bool touchpad_as_misc_{true};  // until a profile is set for an output
 
     void set_profile_settings(const UserProfile& profile, DeviceDriverType driver = DeviceDriverType::NONE)
     {

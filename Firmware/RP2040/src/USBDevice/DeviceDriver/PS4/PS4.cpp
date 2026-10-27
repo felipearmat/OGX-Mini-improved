@@ -255,7 +255,7 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	report_in_[ds4::kTouchCount] = 1;
 	report_in_[ds4::kTouchTimestamp] = static_cast<uint8_t>(frame_seq_);
 	sony_reports::put_touch_points(&report_in_[ds4::kTouchPoints], gp_in.touch_raw, gp_in.touchpad_valid != 0);
-	if (gp_in.touchpad_valid && gp_in.touchpad_click) {
+	if (gp_in.touchpad_click) {  // also from a wired pad, which sends no touch points (touchpad_valid 0)
 		report_in_[ds4::kButtons2] |= sony_reports::kTouchpadClick;
 	}
 

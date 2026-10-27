@@ -77,6 +77,22 @@ TEST(web_app_mode_uses_the_default_mapping_and_raw_sticks) {
     CHECK(stick.first > 0);
 }
 
+TEST(touchpad_press_is_misc_only_on_outputs_without_a_touchpad) {
+    // SDL keeps TOUCHPAD and MISC1 apart; outputs with a touchpad get the press as theirs.
+    GamepadMapper mapper;
+    CHECK(mapper.touchpad_as_misc());  // before a profile is set: as before, Misc
+    for (DeviceDriverType d : {DeviceDriverType::PS4, DeviceDriverType::STEAM, DeviceDriverType::KBM,
+                               DeviceDriverType::WEBAPP}) {
+        mapper.set_profile(UserProfile(), d);
+        CHECK(!mapper.touchpad_as_misc());
+    }
+    for (DeviceDriverType d : {DeviceDriverType::XINPUT, DeviceDriverType::DINPUT_DEBUG, DeviceDriverType::SWITCH,
+                               DeviceDriverType::PS3, DeviceDriverType::XBOXOG}) {
+        mapper.set_profile(UserProfile(), d);
+        CHECK(mapper.touchpad_as_misc());
+    }
+}
+
 static bool all_modes_valid(DeviceDriverType) { return true; }
 
 static mode_combos::ComboCheck::Result hold(mode_combos::ComboCheck& check, uint16_t buttons, uint8_t dpad,

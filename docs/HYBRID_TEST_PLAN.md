@@ -21,7 +21,9 @@ Save a diagnostics report (web app, D-Input/Debug mode) after any failure.
   [Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md) needs `pip install pyserial esptool`.
 - **Host:** a PC with a gamepad tester (e.g. gamepad-tester.com, `evtest` / `jstest-gtk` on Linux,
   Steam's controller settings). Motion and touchpad need PS4 or STEAM mode and a host that shows
-  them (Steam, or `evtest` on the motion / touchpad devices).
+  them (Steam, or `evtest` on the motion / touchpad devices). A browser tester often does not list
+  a DualSense on Linux (STEAM mode): Steam running holds its HID interface, Flatpak browsers lack
+  device access, and most browsers show a pad only after a button press; use Steam or `evtest`.
 - **Controllers:** DualShock 4 (required), Switch Pro Controller, a Joy-Con pair; optional:
   DualSense, Wii Remote (+ Nunchuk), Wii U Pro, Xbox Series (BLE), 8BitDo.
 
@@ -53,7 +55,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | # | Steps | Expected |
 |---|---|---|
 | 2.1 | DS4, DInput / Switch / XInput modes: every button, D-pad, sticks, triggers half and full | all reach the host; triggers analog |
-| 2.2 | DS4 touchpad press | Misc button |
+| 2.2 | DS4 touchpad press | Misc button in DInput / Switch / XInput; the touchpad click alone in PS4 / STEAM (not Mute as well) |
 | 2.3 | DualSense mute button | not Misc |
 | 2.4 | Wii U Pro: ZL / ZR | full trigger (digital fallback) |
 | 2.5 | Wiimote alone, then with Nunchuk | held upright (TV style) layout; Nunchuk stick = left stick; Z = LB, not a trigger |
@@ -262,7 +264,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | 2.8 (DS4, XInput, in a game, 2026-10-23) | pass | the user's check: stick sensitivity and rumble right (triggers now reach 255) |
 | I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
 | ESP32 restarted by a pad that keeps dropping, then the mode combo (DS4, 2026-10-26) | pass after a fix | before: settings replies cut 99 % at 1 MHz, the combo did nothing (seen 2026-10-25 with a flat Joy-Con); after (reads 400 kHz, writes 1 MHz, `dff4b53`): settings 0.5 s after the ESP32's restart, combo 9 s after reconnecting changed the mode, DS4 about 740 reports/s, no queue drops, about 1 settings read in 20 still cut with the DS4 connected |
-| Pico SDK 2.3.1 on the RP2040 (2026-10-27) | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. A browser gamepad tester did not list the STEAM-mode DualSense (not followed up, the user's call) |
+| Pico SDK 2.3.1 on the RP2040 (2026-10-27) | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. |
 | Mode colour preview on the ESP32's LED with a DS4 connected (2026-10-27) | pass after a fix | follows the preview and Cancel almost at once (seconds late before the 400 kHz reads, dff4b53) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
 

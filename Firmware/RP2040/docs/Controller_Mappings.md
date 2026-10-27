@@ -33,7 +33,7 @@ This document describes how OGX-Mini maps **input controllers** (USB host / Blue
 | **trigger_l / trigger_r** | Analog triggers (0–255) |
 | **Start / Back** | Menu buttons |
 | **SYS** | Guide / Home / PS |
-| **MISC** | Share / Capture / touchpad click (pad-dependent) |
+| **MISC** | Share / Capture (pad-dependent); a DS4 / DualSense touchpad press only in modes without a touchpad (PS4, STEAM and Mouse + Keyboard send it as the touchpad's own) |
 | **L3 / R3** | Stick clicks |
 | **dpad** | Up / Down / Left / Right (diagonals supported) |
 | **joystick_lx/ly, joystick_rx/ry** | Sticks (−32768 … +32767, center 0) |
@@ -213,7 +213,8 @@ Unless noted, **D-pad** and **sticks** map directly. **Triggers** map to analog 
 | Back / Start | Share / Options |
 | L3 / R3 | L3 / R3 |
 | SYS | PS |
-| MISC | Touchpad click |
+| MISC | Touchpad click (a Switch pad's Capture) |
+| Touchpad press (DS4 / DualSense, also wired) | Touchpad click |
 | D-pad / sticks | D-pad / sticks |
 | accel / gyro | DS4 motion fields (when input provides motion) |
 
@@ -276,7 +277,8 @@ Enumerates as **DualSense** (`054c:0ce6`) plus a **HID mouse** interface. **Dual
 | Back / Start | Share / Options |
 | L3 / R3 | L3 / R3 |
 | SYS | PS |
-| MISC | Touchpad click |
+| MISC | Mute (Capture on a Switch pad) |
+| Touchpad press (DS4 / DualSense) | Touchpad click (since 2026-10-27 not Mute as well) |
 | **DualSense touchpad** (input) | USB mouse movement + click (IF1) |
 
 **Source:** `USBDevice/DeviceDriver/Steam/*`, `SteamBtReport.h`, `SteamTouchpad.cpp`

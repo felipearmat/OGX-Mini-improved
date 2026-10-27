@@ -21,6 +21,8 @@
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/Steam/SteamBtReport.h"
+#include "USBDevice/DeviceDriver/Sony/SonyReports.h"
+#include "UserSettings/UserProfile.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
 #include "Descriptors/KBM.h"
 #include "Descriptors/PS4Usb.h"
@@ -415,6 +417,45 @@ TEST(steam_triggers_set_the_l2_r2_bits) {
     dev.process(0, gp);
     CHECK_EQ(g_last_report[6], 0xFF);
     SteamPassthrough::clear();
+}
+
+TEST(steam_touchpad_press_and_misc_are_two_buttons) {
+    // 2026-10-27: a DS4's touchpad press reached Steam as the touchpad click and Mute (the Misc
+    // button) at once. The press is the touchpad's; Misc (a Joy-Con's Capture) is Mute alone.
+    Gamepad gp;
+    gp.set_profile(UserProfile(), DeviceDriverType::STEAM);
+    CHECK(!gp.touchpad_as_misc());
+    SteamDevice dev;
+    dev.initialize();
+    SteamPassthrough::clear();
+    Gamepad::PadIn in{};
+    in.touchpad_valid = 1;
+    in.touchpad_click = 1;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK((g_last_report[sony_reports::ds5::kButtons2] & PS5::Buttons2::TP) != 0);
+    CHECK((g_last_report[sony_reports::ds5::kButtons2] & PS5::Buttons2::MUTE) == 0);
+
+    in = Gamepad::PadIn{};
+    in.buttons = Gamepad::BUTTON_MISC;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK((g_last_report[sony_reports::ds5::kButtons2] & PS5::Buttons2::MUTE) != 0);
+    CHECK((g_last_report[sony_reports::ds5::kButtons2] & PS5::Buttons2::TP) == 0);
+    SteamPassthrough::clear();
+}
+
+TEST(ps4_touchpad_press_from_a_wired_pad) {
+    // A wired DS4 / DualSense sends the press without touch points (touchpad_valid 0).
+    Gamepad gp;
+    gp.set_profile(UserProfile(), DeviceDriverType::PS4);
+    PS4Device dev;
+    dev.initialize();
+    Gamepad::PadIn in{};
+    in.touchpad_click = 1;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK((g_last_report[sony_reports::ds4::kButtons2] & sony_reports::kTouchpadClick) != 0);
 }
 
 TEST(steam_input_get_report_does_not_repeat_the_id) {

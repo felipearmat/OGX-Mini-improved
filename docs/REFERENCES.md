@@ -11,7 +11,7 @@ time a decision leans on it.
 |---|---|---|
 | [Linux hid-playstation](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c) | DS4 / DualSense report layout, battery and charging status byte, calibration report formulas, feature reports a host reads at start | PS4 and STEAM outputs; DS4 / DualSense battery in the diagnostics report |
 | [Linux hid-nintendo](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-nintendo.c) | Switch Pro subcommands and SPI reads (each stick's calibration read on its own) | Switch output, emulated SPI flash |
-| [SDL HIDAPI drivers](https://github.com/libsdl-org/SDL/tree/main/src/joystick/hidapi) (`SDL_hidapi_ps4.c`, `SDL_hidapi_ps5.c`, `SDL_hidapi_switch.c`) | How games and Steam read the same reports; DualSense rumble flags (the "improved rumble" flag) | STEAM, PS4 and Switch outputs |
+| [SDL HIDAPI drivers](https://github.com/libsdl-org/SDL/tree/main/src/joystick/hidapi) (`SDL_hidapi_ps4.c`, `SDL_hidapi_ps5.c`, `SDL_hidapi_switch.c`) | How games and Steam read the same reports; DualSense rumble flags (the "improved rumble" flag); `TOUCHPAD` and `MISC1` (Capture / Share / mic) as two buttons | STEAM, PS4 and Switch outputs; the touchpad press apart from Misc (2026-10-27) |
 | [DS4Windows](https://github.com/Ryochan7/DS4Windows) | A second reading of the DS4 (battery scale 0-8 / 0-11, calibration over Bluetooth with report 0x05) | Compared 2026-10-22; Linux's battery scale kept (a DS4 reported level 9 off the cable) |
 | [Chromium gamepad](https://chromium.googlesource.com/chromium/src/+/main/device/gamepad/) | Switch Pro wired USB init sequence | Wired Switch Pro host |
 

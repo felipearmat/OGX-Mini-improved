@@ -492,8 +492,8 @@ namespace bt_pad {
         if (gp->misc_buttons & MISC_BUTTON_BACK)   in.buttons |= map.MAP_BUTTON_BACK;
         if (gp->misc_buttons & MISC_BUTTON_START)  in.buttons |= map.MAP_BUTTON_START;
         if (gp->misc_buttons & MISC_BUTTON_SYSTEM) in.buttons |= map.MAP_BUTTON_SYS;
-        /* Capture (Switch pads) is the Misc button; the DS4 / DualSense touchpad press is added
-         * below. On a DualSense, MISC_BUTTON_CAPTURE is the mute button: left out. */
+        /* Capture (Switch pads) is the Misc button. On a DualSense, MISC_BUTTON_CAPTURE is the mute
+         * button: left out (it switches the adaptive triggers, Bluepad32.cpp). */
         if ((gp->misc_buttons & MISC_BUTTON_CAPTURE) && d->controller_type != CONTROLLER_TYPE_PS5Controller)
             in.buttons |= map.MAP_BUTTON_MISC;
 
@@ -518,7 +518,9 @@ namespace bt_pad {
             std::tie(in.joystick_rx, in.joystick_ry) = map.scale_joystick_r<10>(gp->axis_rx, gp->axis_ry);
         }
 
-        /* DS4 / DualSense touchpad; its press is the Misc button, mappable like the others. */
+        /* DS4 / DualSense touchpad. Its press goes out as the touchpad's own (PS4, STEAM, Mouse +
+         * Keyboard, the web app) and as the Misc button only on outputs without a touchpad
+         * (GamepadMapper::touchpad_as_misc): in STEAM mode it was the touchpad click and Mute. */
         if (d->controller_type == CONTROLLER_TYPE_PS4Controller ||
             d->controller_type == CONTROLLER_TYPE_PS5Controller) {
             bool click = false;
@@ -528,7 +530,7 @@ namespace bt_pad {
                 uni_hid_parser_ds4_get_touchpad(d, in.touch_raw, &click);
             in.touchpad_valid = true;
             in.touchpad_click = click;
-            if (click)
+            if (click && map.touchpad_as_misc())
                 in.buttons |= map.MAP_BUTTON_MISC;
         }
         return in;
