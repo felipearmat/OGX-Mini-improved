@@ -35,8 +35,9 @@ report in hex, its first byte the report ID).
 ## Other sources
 
 - `bentiss-hid-devices/`: recordings from [bentiss/hid-devices](https://github.com/bentiss/hid-devices)
-  (Benjamin Tissoires), mostly older USB pads (DualShock 3...), for the USB host drivers. Kept as
-  they were published, with their origin.
+  (Benjamin Tissoires), converted. Only `ds3_usb.jsonl` (a DualShock 3 on USB) is a game
+  controller there: about 3 s, the pad at rest (stick noise only), so it exercises the wired DS3
+  path, not the buttons. Origin and author kept in the header.
 - Synthetic reports (pads we do not have: DualSense, Switch Pro, Xbox Series BLE) are built from
   the public formats (Linux `hid-playstation`, dekuNukem's Switch notes) and marked
   `source: synthetic`; they test our chain, not a real pad's quirks.
