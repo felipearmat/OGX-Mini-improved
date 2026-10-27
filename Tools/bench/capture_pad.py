@@ -9,7 +9,8 @@
     capture_pad.py --list                    the script
 
 Walks through a script of actions ("press A", "left trigger fully", "turn 90 degrees right"...):
-Enter starts each one, it records for its time, then the next. Everything in between (the pad
+Enter starts each one, it records for its time, then the next; after a step, r records it again
+and b goes back to the step before (also from the prompt of the next step). Everything in between (the pad
 setting up, idle) is kept too, unlabelled. Output: Firmware/RP2040/tests/fixtures/<name>.jsonl, a
 header line then one line per report: time (ms), Bluetooth slot, label, hex. See
 Firmware/RP2040/tests/fixtures/README.md.
@@ -248,14 +249,17 @@ def main():
                 counts[label] = counts.get(label, 0) + 1
 
     print(f"Recording {args.name} ({meta['source']}). Connect the controller now if it is not; Enter starts each step.")
-    print("After each step: Enter for the next one, r + Enter to do it again.")
+    print("After each step: Enter = next, r = do it again, b = back to the step before.")
+    print("Before a step: Enter = start it, b = back to the step before.")
     try:
         input("Enter when the controller is connected and idle... ")
         drain()
         i = 0
         while i < len(steps):
             _, step_label, prompt, secs = steps[i]
-            input(f"\n[{step_label}] {prompt} - Enter, then do it ({secs} s) ")
+            if input(f"\n[{step_label}] {prompt} - Enter, then do it ({secs} s) ").strip().lower() == "b" and i > 0:
+                i -= 1
+                continue
             drain()
             lines[:] = [r for r in lines if r["label"] != step_label]  # a redo replaces it
             counts[step_label] = 0
@@ -265,7 +269,10 @@ def main():
                 time.sleep(0.05)
                 drain()
             label = None
-            if input(f"   {counts.get(step_label, 0)} reports. Enter = next, r = again: ").strip().lower() != "r":
+            answer = input(f"   {counts.get(step_label, 0)} reports. Enter = next, r = again, b = back: ").strip().lower()
+            if answer == "b":
+                i = max(i - 1, 0)
+            elif answer != "r":
                 i += 1
     except KeyboardInterrupt:
         print("\nStopped; writing what was recorded.")

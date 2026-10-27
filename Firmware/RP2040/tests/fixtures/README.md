@@ -21,7 +21,7 @@ python3 Tools/bench/capture_pad.py ds4 --hidraw /dev/hidraw7   # straight from t
   the PC may set the pad up differently (Linux enables both Joy-Cons' IMU, for instance).
 
 Name the file after the pad and its mode, e.g. `ds4`, `joycon_pair`, `nova_lite_switch`,
-`nova_lite_android` (`<name>.jsonl.gz`). After each step: Enter for the next, `r` to do it again;
+`nova_lite_android` (`<name>.jsonl.gz`). After each step: Enter for the next, `r` to do it again, `b` to go back to the step before (also before starting a step);
 `--redo lb,rb,l3` records only those steps again into the existing file.
 
 What is kept: the first 3 s (a pad connecting there leaves its setup replies) and the motion steps
