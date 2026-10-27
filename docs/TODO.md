@@ -32,9 +32,18 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   the report shows corruption happens, add a CRC-8 to every packet (both firmwares, a flag for
   older ones).
 - **Fixture tests (end-to-end from real input)** — capture is in (`RAW_CAPTURE`,
-  `Tools/bench/capture_pad.py`). Next: record the DS4, the Joy-Con pair and the GameSir Nova Lite
-  in each of its modes (Pico W build); import `bentiss/hid-devices` traces for the USB host
-  drivers; the replay test `test_fixtures` (32-bit, the real parsers + `BtPad::map_input` + the
+  `Tools/bench/capture_pad.py`). Recorded and checked step by step (2026-10-27): `ds4`,
+  `joycon_pair` (right half's IMU only, the pair-IMU default). Still to record (Pico W build,
+  D-Input/Debug, web app closed):
+  - Joy-Con setup: start the tool, then connect the pair (`joycon_pair_setup --steps idle`), so the
+    Switch `0x21` setup replies (SPI stick calibration, firmware) are in a file; the main
+    recording was made with the pads already connected.
+  - GameSir Nova Lite, one file per mode: Switch (`nova_lite_switch`, also start before
+    connecting), Android (`nova_lite_android`), iOS / Xbox-like if it has one, and wired USB
+    (XInput, Switch) with `--hidraw` from the PC.
+  - Optional: a lone Joy-Con L and R (`joycon_left`, `joycon_right`, sideways), the pair with the
+    left half's IMU (Adapter Option), the DS4 on USB with `--hidraw` (wired path).
+  Then: the replay test `test_fixtures` (32-bit, the real parsers + `BtPad::map_input` + the
   output drivers, golden files per pad and mode, semantic checks per label); synthetic fixtures
   for pads we lack. Spec: `.ignore/spec-input-fixtures.md`.
 - **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) passed the pattern test with a
