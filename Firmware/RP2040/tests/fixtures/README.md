@@ -20,14 +20,21 @@ python3 Tools/bench/capture_pad.py ds4 --hidraw /dev/hidraw7   # straight from t
   are the bytes the adapter's USB host port gets; over Bluetooth the report format is the same but
   the PC may set the pad up differently (Linux enables both Joy-Cons' IMU, for instance).
 
-Name the file after the pad and its mode, e.g. `ds4.jsonl`, `joycon_pair.jsonl`,
-`nova_lite_switch.jsonl`, `nova_lite_android.jsonl`.
+Name the file after the pad and its mode, e.g. `ds4`, `joycon_pair`, `nova_lite_switch`,
+`nova_lite_android` (`<name>.jsonl.gz`). After each step: Enter for the next, `r` to do it again;
+`--redo lb,rb,l3` records only those steps again into the existing file.
+
+What is kept: the first 3 s (a pad connecting there leaves its setup replies) and the motion steps
+at full rate (the gyro is integrated), the other steps at about 60 reports a second per
+controller, nothing between steps; gzip. A DS4 run: about 250 KB (16 MB as recorded).
+`--compact FILE` rewrites an older full recording that way.
 
 ## Format
 
-JSON lines. The first is the header: `format` (`ogxm-fixture`), `version` (1), `name`, `source`,
+gzip-compressed JSON lines. The first is the header: `format` (`ogxm-fixture`), `version` (1), `name`, `source`,
 `captured` (date), `firmware` / `board` (adapter recordings), `vid`, `pid`, `controller_type`
-(Bluepad32's), `steps` (the script's labels), `dropped` (reports the adapter could not send).
+(Bluepad32's), `steps` (the script's labels), `dropped` (reports the adapter could not send),
+`redone` (steps recorded again later).
 Then one line per report: `t` (ms), `slot` (Bluetooth slot; the two halves of a Joy-Con pair have
 their own), `label` (the action being done, `null` between actions and during setup), `r` (the
 report in hex, its first byte the report ID).

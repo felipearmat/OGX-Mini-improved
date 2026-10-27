@@ -16,6 +16,7 @@ Firmware/RP2040/tests/fixtures/README.md.
 """
 import argparse
 import datetime
+import gzip
 import glob
 import json
 import os
@@ -141,26 +142,87 @@ def hidraw_source(dev, out_q, stop):
         os.close(fd)
 
 
+MOTION_LABELS = {label for group, label, *_ in SCRIPT if group == "motion"}
+SETUP_MS = 3000       # unlabelled reports kept at the start (a pad connecting: its setup replies)
+DECIMATE_MS = 16      # other actions: about 60 reports a second per controller
+
+
+def compact(rows):
+    """What the file keeps: the start (setup) and the motion steps at full rate (the gyro is
+    integrated), the other actions at about 60 reports a second; nothing else between actions."""
+    if not rows:
+        return rows
+    t0 = rows[0]["t"]
+    kept, last = [], {}
+    for r in rows:
+        label = r["label"]
+        if label is None:
+            if r["t"] - t0 <= SETUP_MS:
+                kept.append(r)
+            continue
+        if label in MOTION_LABELS:
+            kept.append(r)
+            continue
+        key = (label, r["slot"])
+        if key not in last or r["t"] - last[key] >= DECIMATE_MS:
+            kept.append(r)
+            last[key] = r["t"]
+    return kept
+
+
+def read_fixture(path):
+    opener = gzip.open if str(path).endswith(".gz") else open
+    with opener(path, "rt") as f:
+        lines = f.read().splitlines()
+    return json.loads(lines[0]), [json.loads(l) for l in lines[1:]]
+
+
+def write_fixture(path, meta, rows):
+    with gzip.open(path, "wt", compresslevel=9) as f:
+        f.write(json.dumps(meta) + "\n")
+        for r in rows:
+            f.write(json.dumps({"t": r["t"], "slot": r["slot"], "label": r["label"], "r": r["r"]}) + "\n")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("name", nargs="?", help="fixture name, e.g. ds4, joycon_pair, nova_lite_switch")
     ap.add_argument("--hidraw", help="record from this hidraw node on the PC instead of the adapter")
     ap.add_argument("--steps", help="comma-separated script groups (" + ",".join(dict.fromkeys(g for g, *_ in SCRIPT)) + ")")
-    ap.add_argument("--out", help="output file (default: Firmware/RP2040/tests/fixtures/<name>.jsonl)")
+    ap.add_argument("--redo", help="comma-separated step labels to record again; they replace those in the existing file")
+    ap.add_argument("--compact", metavar="FILE", help="rewrite an older recording (.jsonl) in the kept form (.jsonl.gz) and exit")
+    ap.add_argument("--out", help="output file (default: Firmware/RP2040/tests/fixtures/<name>.jsonl.gz)")
     ap.add_argument("--list", action="store_true", help="print the script")
     args = ap.parse_args()
     if args.list:
         for group, label, prompt, secs in SCRIPT:
             print(f"{group:9} {label:14} {secs}s  {prompt}")
         return
+    if args.compact:
+        meta, rows = read_fixture(args.compact)
+        rows = compact(rows)
+        out = pathlib.Path(args.out) if args.out else pathlib.Path(str(args.compact).removesuffix(".jsonl") + ".jsonl.gz")
+        write_fixture(out, meta, rows)
+        print(f"{len(rows)} reports -> {out} ({out.stat().st_size // 1024} KB)")
+        return
     if not args.name:
         ap.error("a fixture name is needed")
+    out = pathlib.Path(args.out) if args.out else FIXTURES / f"{args.name}.jsonl.gz"
+    out.parent.mkdir(parents=True, exist_ok=True)
     steps = SCRIPT
     if args.steps:
         groups = set(args.steps.split(","))
         steps = [s for s in SCRIPT if s[0] in groups]
-    out = pathlib.Path(args.out) if args.out else FIXTURES / f"{args.name}.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
+    previous = None
+    if args.redo:
+        redo = args.redo.split(",")
+        unknown = [l for l in redo if l not in {s[1] for s in SCRIPT}]
+        if unknown:
+            ap.error(f"unknown steps: {', '.join(unknown)} (see --list)")
+        if not out.exists():
+            ap.error(f"{out} does not exist yet: record it first")
+        previous = read_fixture(out)
+        steps = [s for s in SCRIPT if s[1] in redo]
 
     q, stop = queue.Queue(), threading.Event()
     source = (lambda: hidraw_source(args.hidraw, q, stop)) if args.hidraw else (lambda: adapter_source(q, stop))
@@ -181,24 +243,30 @@ def main():
             if kind == "meta":
                 meta.update(item)
             else:
-                item["label"] = label
-                lines.append(item)
+                lines.append({"t": item["ms"], "slot": item["slot"], "label": label, "r": item["hex"],
+                              "vid": item["vid"], "pid": item["pid"], "type": item["type"], "dropped": item["dropped"]})
                 counts[label] = counts.get(label, 0) + 1
 
     print(f"Recording {args.name} ({meta['source']}). Connect the controller now if it is not; Enter starts each step.")
+    print("After each step: Enter for the next one, r + Enter to do it again.")
     try:
         input("Enter when the controller is connected and idle... ")
         drain()
-        for _, step_label, prompt, secs in steps:
+        i = 0
+        while i < len(steps):
+            _, step_label, prompt, secs = steps[i]
             input(f"\n[{step_label}] {prompt} - Enter, then do it ({secs} s) ")
             drain()
+            lines[:] = [r for r in lines if r["label"] != step_label]  # a redo replaces it
+            counts[step_label] = 0
             label = step_label
             end = time.monotonic() + secs
             while time.monotonic() < end:
                 time.sleep(0.05)
                 drain()
             label = None
-            print(f"   {counts.get(step_label, 0)} reports")
+            if input(f"   {counts.get(step_label, 0)} reports. Enter = next, r = again: ").strip().lower() != "r":
+                i += 1
     except KeyboardInterrupt:
         print("\nStopped; writing what was recorded.")
     stop.set()
@@ -207,12 +275,21 @@ def main():
     first = next((r for r in lines if r["vid"]), None)
     if first:
         meta.update({"vid": f"{first['vid']:04x}", "pid": f"{first['pid']:04x}", "controller_type": first["type"]})
-    meta["dropped"] = sum(r["dropped"] for r in lines)
-    with open(out, "w") as f:
-        f.write(json.dumps(meta) + "\n")
-        for r in lines:
-            f.write(json.dumps({"t": r["ms"], "slot": r["slot"], "label": r["label"], "r": r["hex"]}) + "\n")
-    print(f"\n{len(lines)} reports ({meta['dropped']} dropped by the adapter) -> {out}")
+    dropped = sum(r["dropped"] for r in lines)
+    rows = compact(lines)
+    if previous is not None:
+        old_meta, old_rows = previous
+        redone = {s[1] for s in steps}
+        kept = [r for r in old_rows if r["label"] not in redone]
+        new = [r for r in rows if r["label"] in redone]
+        rows = sorted(kept + new, key=lambda r: (r["label"] is not None, r["t"]))
+        old_meta["redone"] = sorted(set(old_meta.get("redone", [])) | redone)
+        old_meta["dropped"] = old_meta.get("dropped", 0) + dropped
+        meta = old_meta
+    else:
+        meta["dropped"] = dropped
+    write_fixture(out, meta, rows)
+    print(f"\n{len(rows)} reports kept ({dropped} dropped by the adapter) -> {out} ({out.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
