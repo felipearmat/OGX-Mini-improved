@@ -37,6 +37,18 @@ ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced wit
    `~/git/ogxm-pr/43-sdk-timer-backports`; upstream's `git apply` blocks; builds `PI_PICO2W`,
    `PI_PICOW`, `PI_PICO`, `ESP32_BLUEPAD32_I2C` from a clean SDK; text in
    `.ignore/upstream-pr-sdk-timers.md`). georgboe asked to confirm with his Xbox Series pad.
+   Upstream's own `build.yml` on the PR branch (run from the fork): the 12 boards that finished
+   applied both timer patches (two runners stuck on apt, rerun).
+   **SDK bump instead (checked 2026-10-26):** upstream `develop` on Pico SDK 2.3.1 builds
+   `PI_PICO2W`, `PI_PICOW`, `PI_PICO`, `PI_PICO2`, `RP2354`, `ESP32_BLUEPAD32_I2C`, `RP2040_ZERO`
+   with the same warnings, about 2 KB smaller. 2.3.1 has both timer fixes and makes upstream's two
+   SDK patches unneeded (it selects `hids_host.c` itself; CYW43 pre-buffer fixed by pico-sdk
+   #2165; neither diff applies, which upstream's CMake takes as "already applied"). The bump PR:
+   SDK tag in `build.yml` (clone and cache key), `CMakeLists.txt` and the build docs, drop the two
+   SDK patches and their CMake blocks, `btstack_run_loop_execute()` back. It also brings almost
+   two years of SDK changes (CYW43 BT writes no longer async, pico-sdk #3042; sleep / low-power
+   fixes; alarm pool), so it needs a hardware pass of every Bluetooth and USB-host path first.
+   Offered in #147 as the alternative; try it in the fork on the bench before proposing it.
 
 1. **Core1 flash lockout** — the lockout part of cc0526d: every Core1 entry calls
    `multicore_lockout_victim_init()` first (Standard, 4-channel, BlueRetro and the hybrid did not,
