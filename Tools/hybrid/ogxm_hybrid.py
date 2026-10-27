@@ -50,7 +50,14 @@ COMMANDS = {"bootsel": 1, "reboot": 2, "esp32-flash": 3, "esp32-monitor": 4}
 
 
 def ogxm_ports():
-    return [p for p in list_ports.comports() if p.vid == VID]
+    for _ in range(20):
+        try:
+            return [p for p in list_ports.comports() if p.vid == VID]
+        except (TypeError, ValueError, OSError):
+            # A device that left while pyserial read its sysfs entry (the adapter switching to the
+            # ESP32 bridge, BOOTSEL or another mode): its attributes read as missing. Look again.
+            time.sleep(0.25)
+    return []
 
 
 def find_port(product, timeout=0.0):
