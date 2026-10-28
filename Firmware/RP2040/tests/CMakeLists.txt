@@ -198,6 +198,16 @@ if (OGXM_HAVE_M32)
         ${DEV}/PS4/PS4.cpp
         ${DEV}/Steam/Steam.cpp
         ${DEV}/Steam/SteamTouchpad.cpp
+        ${DEV}/Switch/Switch.cpp
+        ${DEV}/Switch/HdRumble.cpp
+        ${DEV}/Switch/SwitchImu.cpp
+        ${DEV}/Switch/SwitchSpi.cpp
+        ${DEV}/XInput/XInput.cpp
+        ${EXTERNAL_DIR}/libxsm3/xsm3.c
+        ${EXTERNAL_DIR}/libxsm3/usbdsec.c
+        ${EXTERNAL_DIR}/libxsm3/excrypt_des.c
+        ${EXTERNAL_DIR}/libxsm3/excrypt_parve.c
+        ${EXTERNAL_DIR}/libxsm3/excrypt_sha.c
         ${FW_COMMON}/UserSettings/UserProfile.cpp
         ${FW_COMMON}/UserSettings/JoystickSettings.cpp
         ${FW_COMMON}/UserSettings/TriggerSettings.cpp
@@ -206,7 +216,7 @@ if (OGXM_HAVE_M32)
         ${FW_SRC}/Board/ReportedMac.cpp)
     target_include_directories(test_fixtures PRIVATE
         ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/fixtures ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${MOCKS} ${BP32}/include ${BP32}
-        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${EXTERNAL_DIR}/tinyusb/src ${FW_SRC} ${FW_COMMON})
+        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${EXTERNAL_DIR}/tinyusb/src ${EXTERNAL_DIR}/libxsm3 ${FW_SRC} ${FW_COMMON})
     target_compile_definitions(test_fixtures PRIVATE MAX_GAMEPADS=1 CONFIG_OGXM_BOARD_PI_PICO2W=1
         CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED
         TUP_DCD_ENDPOINT_MAX=8 OGXM_FIXTURES_DIR="${CMAKE_CURRENT_LIST_DIR}/fixtures")

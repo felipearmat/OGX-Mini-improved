@@ -41,3 +41,8 @@ int uni_hid_parser_switch2_get_pair_partner_idx(const struct uni_hid_device_s* d
     (void)d;
     return -1;
 }
+
+bool uni_hid_parser_switch2_is_joycon_pair_secondary(const struct uni_hid_device_s* d) {
+    (void)d;
+    return false;
+}

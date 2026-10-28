@@ -38,3 +38,8 @@ void fake_joycon_reply_last(int dev_idx, uint8_t controller_type);
 void fake_joycon_reply(int dev_idx, uint8_t subcmd, uint32_t spi_addr, uint8_t spi_len);
 // Answer every request until the device is ready (or `max_steps` replies).
 void fake_joycon_run_setup(int dev_idx, uint8_t controller_type, int max_steps);
+// SPI flash contents the emulator answers reads with (zeros elsewhere); fake_reset clears them.
+void fake_joycon_set_spi(int dev_idx, uint32_t addr, const uint8_t* data, int len);
+// Called with each controller the parser hands on (for a merged Joy-Con pair, its primary half),
+// as Bluepad32 calls the platform's on_controller_data. Cleared by fake_reset.
+extern void (*fake_on_controller)(uni_hid_device_t* d);

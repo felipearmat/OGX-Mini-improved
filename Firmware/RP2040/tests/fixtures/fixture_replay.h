@@ -30,4 +30,7 @@ struct ReplayFrame {
 bool bt_replay(const std::vector<FixtureRow>& rows, int controller_type, uint16_t vid, uint16_t pid,
                const Gamepad& gamepad, std::vector<ReplayFrame>& out);
 
+/* The pad (Bluepad32's controller type) has a touchpad: DS4, DualSense. */
+bool bt_has_touchpad(int controller_type);
+
 #endif // _OGXM_FIXTURE_REPLAY_H_

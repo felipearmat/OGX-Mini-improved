@@ -9,6 +9,7 @@
 //   test_fixtures --write    rewrite them (after reviewing the change)
 //
 // Built 32-bit like test_switch_parser (Bluepad32's structs as on the RP2350).
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -30,6 +31,10 @@
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/Steam/SteamBtReport.h"
 #include "USBDevice/DeviceDriver/Steam/SteamPassthrough.h"
+#include "USBDevice/DeviceDriver/Switch/Switch.h"
+#include "USBDevice/DeviceDriver/Switch/SwitchSpi.h"
+#include "USBDevice/DeviceDriver/XInput/XInput.h"
+#include "USBDevice/DeviceDriver/XInput/tud_xinput/tud_xinput.h"
 #include "UserSettings/UserProfile.h"
 
 /* ---- TinyUSB stubs (as test_device_reports) ----------------------------------------------- */
@@ -61,6 +66,18 @@ void hidd_reset(uint8_t) {}
 uint16_t hidd_open(uint8_t, tusb_desc_interface_t const*, uint16_t) { return 0; }
 bool hidd_xfer_cb(uint8_t, uint8_t, xfer_result_t, uint32_t) { return true; }
 }
+namespace tud_xinput {
+bool send_report_ready() { return true; }
+bool send_report(const uint8_t* report, uint16_t len) {
+    g_last_report.assign(report, report + len);
+    return true;
+}
+bool receive_report(uint8_t*, uint16_t) { return false; }
+const usbd_class_driver_t* class_driver() {
+    static const usbd_class_driver_t driver{};
+    return &driver;
+}
+}  // namespace tud_xinput
 uint16_t* DeviceDriver::get_string_descriptor(const char*, uint8_t) {
     static uint16_t desc[32]{};
     return desc;
@@ -203,6 +220,71 @@ void decode_dinput(const std::vector<uint8_t>& r, Summary& s) {
     s.r2 = std::max<int>(s.r2, r[18]);
 }
 
+/* The 0..7 hat (0 up, clockwise; -1 none) of four direction bits. */
+int hat_of(bool up, bool right, bool down, bool left) {
+    static const int hat[3][3] = {{7, 0, 1}, {6, -1, 2}, {5, 4, 3}};  // [down - up + 1][right - left + 1]
+    return hat[1 + down - up][1 + right - left];
+}
+
+/* Switch Pro report 0x30 (Switch mode), sticks as 0..255 with up = 0 through the factory
+ * calibration the driver declares (as the Switch reads them); the gyro reordered to
+ * pitch, yaw, roll as the Sony reports (the Switch's x runs along the pad, z points up). */
+void decode_switch(const std::vector<uint8_t>& r, Summary& s, uint32_t t) {
+    if (r.size() < 25 || r[0] != 0x30)
+        return;
+    static const char* nr[] = {"Y", "X", "B", "A", "SR", "SL", "R", "ZR"};
+    static const char* ns[] = {"minus", "plus", "RS", "LS", "home", "capture"};
+    static const char* nl[] = {"down", "up", "right", "left", "SR", "SL", "L", "ZL"};
+    for (int i = 0; i < 8; ++i)
+        if (r[3] & (1 << i)) s.buttons.insert(nr[i]);
+    for (int i = 0; i < 6; ++i)
+        if (r[4] & (1 << i)) s.buttons.insert(ns[i]);
+    for (int i = 4; i < 8; ++i)
+        if (r[5] & (1 << i)) s.buttons.insert(nl[i]);
+    const int h = hat_of(r[5] & 0x02, r[5] & 0x04, r[5] & 0x01, r[5] & 0x08);
+    if (h >= 0) s.dpad.insert(h);
+    auto calibrated = [](int v12) {
+        const double v = 127.5 + (v12 - switch_spi::kStickCenter) * 127.5 / switch_spi::kStickCalRange;
+        return static_cast<int>(std::lround(std::clamp(v, 0.0, 255.0)));
+    };
+    auto stick = [&](size_t at, int (&x)[2], int (&y)[2]) {
+        axis(calibrated(r[at] | ((r[at + 1] & 0x0F) << 8)), x);
+        axis(255 - calibrated((r[at + 1] >> 4) | (r[at + 2] << 4)), y);
+    };
+    stick(6, s.lx, s.ly);
+    stick(9, s.rx, s.ry);
+    if (r[5] & 0x80) s.l2 = 255;
+    if (r[3] & 0x80) s.r2 = 255;
+    if (s.reports > 0) {
+        const double dt = (t - s.last_t) / 1000.0;
+        const int order[3] = {1, 2, 0};
+        for (int i = 0; i < 3; ++i)
+            s.gyro[i] += le16(r, 19 + 2 * order[i]) * dt;
+        s.has_gyro = true;
+    }
+}
+
+/* XInput report (XInput mode), sticks as 0..255 with up = 0. */
+void decode_xinput(const std::vector<uint8_t>& r, Summary& s) {
+    if (r.size() < sizeof(XInput::InReport))
+        return;
+    static const char* n0[] = {nullptr, nullptr, nullptr, nullptr, "start", "back", "LS", "RS"};
+    static const char* n1[] = {"LB", "RB", "guide", nullptr, "A", "B", "X", "Y"};
+    for (int i = 0; i < 8; ++i) {
+        if (n0[i] && (r[2] & (1 << i))) s.buttons.insert(n0[i]);
+        if (n1[i] && (r[3] & (1 << i))) s.buttons.insert(n1[i]);
+    }
+    const int h = hat_of(r[2] & 0x01, r[2] & 0x08, r[2] & 0x02, r[2] & 0x04);
+    if (h >= 0) s.dpad.insert(h);
+    s.l2 = std::max<int>(s.l2, r[4]);
+    s.r2 = std::max<int>(s.r2, r[5]);
+    auto x8 = [](int16_t v) { return (v + 32768) >> 8; };
+    axis(x8(le16(r, 6)), s.lx);
+    axis(255 - x8(le16(r, 8)), s.ly);
+    axis(x8(le16(r, 10)), s.rx);
+    axis(255 - x8(le16(r, 12)), s.ry);
+}
+
 std::string text_of(const std::map<std::string, Summary>& by_label, const std::vector<std::string>& order) {
     std::ostringstream o;
     for (const std::string& label : order) {
@@ -231,42 +313,65 @@ std::string text_of(const std::map<std::string, Summary>& by_label, const std::v
 
 /* ---- what each action must give ----------------------------------------------------------- */
 
-struct Expect {
-    const char* label;
-    const char* button;  // the output's name for it ("" = none)
+/* What each mode calls the buttons of the script's Xbox-layout labels (by position: "a" is the
+ * bottom face button). `touchpad`: its touchpad click, or none. */
+struct Names {
+    const char *a, *b, *x, *y, *lb, *rb, *home, *l3, *r3, *back, *start, *touchpad;
 };
-// Xbox-layout labels (the script's); the outputs' PlayStation names.
-const Expect kButtons[] = {
-    {"a", "cross"}, {"b", "circle"}, {"x", "square"}, {"y", "triangle"}, {"lb", "L1"}, {"rb", "R1"},
-    {"home", "PS"}, {"l3", "L3"}, {"r3", "R3"},
-};
+const Names kPlayStation{"cross", "circle", "square", "triangle", "L1", "R1", "PS", "L3", "R3", "share", "options", "touchpad"};
+const Names kDInput{"cross", "circle", "square", "triangle", "L1", "R1", "PS", "L3", "R3", "select", "start", nullptr};
+const Names kSwitch{"B", "A", "Y", "X", "L", "R", "home", "LS", "RS", "minus", "plus", nullptr};
+const Names kXInput{"A", "B", "X", "Y", "LB", "RB", "guide", "LS", "RS", "back", "start", nullptr};
 
-void check(const std::string& where, const std::map<std::string, Summary>& by, bool dinput) {
+/* `touchpad`: the pad has one (its press must give the output's touchpad click). */
+void check(const std::string& where, const std::map<std::string, Summary>& by, const Names& n, bool touchpad) {
     auto has = [&](const char* label) { return by.count(label) != 0; };
-    for (const Expect& e : kButtons) {
-        if (!has(e.label)) continue;
-        const Summary& s = by.at(e.label);
-        if (!s.buttons.count(e.button))
-            fail(where + " " + e.label + ": " + e.button + " not pressed");
+    const std::pair<const char*, const char*> buttons[] = {
+        {"a", n.a}, {"b", n.b}, {"x", n.x}, {"y", n.y}, {"lb", n.lb}, {"rb", n.rb},
+        {"home", n.home}, {"l3", n.l3}, {"r3", n.r3}, {"back", n.back}, {"start", n.start},
+    };
+    for (const auto& [label, button] : buttons) {
+        if (!has(label)) continue;
+        const Summary& s = by.at(label);
+        if (!s.buttons.count(button))
+            fail(where + " " + label + ": " + button + " not pressed");
         for (const auto& b : s.buttons)
-            if (b != e.button) fail(where + " " + e.label + ": also " + b);
+            if (b != button) fail(where + " " + label + ": also " + b);
     }
-    const char* back = dinput ? "select" : "share";
-    const char* start = dinput ? "start" : "options";
-    if (has("back") && !by.at("back").buttons.count(back)) fail(where + " back: " + back + " not pressed");
-    if (has("start") && !by.at("start").buttons.count(start)) fail(where + " start: " + start + " not pressed");
     const std::pair<const char*, int> dpads[] = {{"dpad_up", 0}, {"dpad_right", 2}, {"dpad_down", 4}, {"dpad_left", 6}};
     for (const auto& [label, dir] : dpads)
         if (has(label) && !by.at(label).dpad.count(dir)) fail(where + " " + label + ": D-pad " + std::to_string(dir));
     if (has("lt_full") && by.at("lt_full").l2 != 255) fail(where + " lt_full: L2 " + std::to_string(by.at("lt_full").l2));
     if (has("rt_full") && by.at("rt_full").r2 != 255) fail(where + " rt_full: R2 " + std::to_string(by.at("rt_full").r2));
-    if (has("ls_right") && by.at("ls_right").lx[1] != 255) fail(where + " ls_right: LX max " + std::to_string(by.at("ls_right").lx[1]));
-    /* Up / left may stop at 1: Bluepad32 centres a DS4 stick on 127 ((v - 127) * 4, so -508..512)
-     * and a full push up comes out one step short of 0. */
-    if (has("ls_up") && by.at("ls_up").ly[0] > 1) fail(where + " ls_up: LY min " + std::to_string(by.at("ls_up").ly[0]));
-    if (has("rs_right") && by.at("rs_right").rx[1] != 255) fail(where + " rs_right: RX max " + std::to_string(by.at("rs_right").rx[1]));
-    if (has("rs_up") && by.at("rs_up").ry[0] > 1) fail(where + " rs_up: RY min " + std::to_string(by.at("rs_up").ry[0]));
-    if (!dinput && has("touch_press") && !by.at("touch_press").buttons.count("touchpad"))
+    /* A stick: pushed right / up it moves that way; over its steps (right, up, circle) it reaches
+     * every edge. An edge may stop at 1: Bluepad32 centres a DS4 stick on 127 ((v - 127) * 4, so
+     * -508..512) and a full push up or left comes out one step short of 0. */
+    auto toward = [&](const char* label, const char* axis, int v, bool high) {
+        if (has(label) && (high ? v < 224 : v > 32))
+            fail(where + " " + label + ": " + axis + (high ? " max " : " min ") + std::to_string(v));
+    };
+    if (has("ls_right")) toward("ls_right", "LX", by.at("ls_right").lx[1], true);
+    if (has("ls_up")) toward("ls_up", "LY", by.at("ls_up").ly[0], false);
+    if (has("rs_right")) toward("rs_right", "RX", by.at("rs_right").rx[1], true);
+    if (has("rs_up")) toward("rs_up", "RY", by.at("rs_up").ry[0], false);
+    for (const bool left : {true, false}) {
+        int x[2]{255, 0}, y[2]{255, 0};
+        bool any = false;
+        for (const char* step : {"_right", "_up", "_circle"}) {
+            const std::string label = std::string(left ? "ls" : "rs") + step;
+            if (!has(label.c_str())) continue;
+            const Summary& st = by.at(label);
+            const int* sx = left ? st.lx : st.rx;
+            const int* sy = left ? st.ly : st.ry;
+            x[0] = std::min(x[0], sx[0]); x[1] = std::max(x[1], sx[1]);
+            y[0] = std::min(y[0], sy[0]); y[1] = std::max(y[1], sy[1]);
+            any = true;
+        }
+        if (any && (x[0] > 1 || x[1] < 255 || y[0] > 1 || y[1] < 255))
+            fail(where + (left ? " left" : " right") + " stick range " + std::to_string(x[0]) + ".." +
+                 std::to_string(x[1]) + " / " + std::to_string(y[0]) + ".." + std::to_string(y[1]));
+    }
+    if (touchpad && n.touchpad && has("touch_press") && !by.at("touch_press").buttons.count(n.touchpad))
         fail(where + " touch_press: touchpad click not pressed");
     if (has("idle") && !by.at("idle").buttons.empty()) fail(where + " idle: a button pressed");
     /* A turn: the motion integrated over it is largest on the turn's own axis. */
@@ -282,14 +387,27 @@ void check(const std::string& where, const std::map<std::string, Summary>& by, b
 
 /* ---- replay ------------------------------------------------------------------------------- */
 
-enum class Mode { PS4, STEAM, DINPUT };
-const char* mode_name(Mode m) { return m == Mode::PS4 ? "ps4" : m == Mode::STEAM ? "steam" : "dinput"; }
+enum class Mode { PS4, STEAM, DINPUT, SWITCH, XINPUT };
+const char* mode_name(Mode m) {
+    switch (m) {
+        case Mode::PS4: return "ps4";
+        case Mode::STEAM: return "steam";
+        case Mode::DINPUT: return "dinput";
+        case Mode::SWITCH: return "switch";
+        default: return "xinput";
+    }
+}
+const Names& names_of(Mode m) {
+    return m == Mode::DINPUT ? kDInput : m == Mode::SWITCH ? kSwitch : m == Mode::XINPUT ? kXInput : kPlayStation;
+}
 
 std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known) {
     Gamepad gamepad;
-    const DeviceDriverType driver = mode == Mode::PS4 ? DeviceDriverType::PS4
-                                    : mode == Mode::STEAM ? DeviceDriverType::STEAM
-                                                          : DeviceDriverType::DINPUT_DEBUG;
+    const DeviceDriverType driver = mode == Mode::PS4      ? DeviceDriverType::PS4
+                                    : mode == Mode::STEAM  ? DeviceDriverType::STEAM
+                                    : mode == Mode::SWITCH ? DeviceDriverType::SWITCH
+                                    : mode == Mode::XINPUT ? DeviceDriverType::XINPUT
+                                                           : DeviceDriverType::DINPUT_DEBUG;
     gamepad.set_profile(UserProfile(), driver);
     std::vector<ReplayFrame> frames;
     known = bt_replay(fx.rows, fx.controller_type, fx.vid, fx.pid, gamepad, frames);
@@ -297,17 +415,25 @@ std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known)
     PS4Device ps4;
     SteamDevice steam;
     DInputDevice dinput;
-    DeviceDriver& dev = mode == Mode::PS4 ? static_cast<DeviceDriver&>(ps4)
-                        : mode == Mode::STEAM ? static_cast<DeviceDriver&>(steam)
-                                              : static_cast<DeviceDriver&>(dinput);
+    SwitchDevice sw;
+    XInputDevice xinput;
+    DeviceDriver& dev = mode == Mode::PS4      ? static_cast<DeviceDriver&>(ps4)
+                        : mode == Mode::STEAM  ? static_cast<DeviceDriver&>(steam)
+                        : mode == Mode::SWITCH ? static_cast<DeviceDriver&>(sw)
+                        : mode == Mode::XINPUT ? static_cast<DeviceDriver&>(xinput)
+                                               : static_cast<DeviceDriver&>(dinput);
     dev.initialize();
+    if (mode == Mode::SWITCH) {  // the host turns the IMU on (subcommand 0x40), as a Switch does
+        const uint8_t enable_imu[12] = {0x01, 0, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0x40, 0x01};
+        sw.set_report_cb(0, 0, HID_REPORT_TYPE_OUTPUT, enable_imu, sizeof(enable_imu));
+    }
     SteamPassthrough::clear();
     std::map<std::string, Summary> by_label;
     for (const ReplayFrame& f : frames) {
         mock_time_us = static_cast<uint64_t>(f.t) * 1000;
         if (mode == Mode::STEAM)
             SteamBtReport::store_ps5_core(f.core);
-        gamepad.set_pad_in(f.in);
+        gamepad.set_pad_in_from_bluetooth(f.in);
         g_last_report.clear();
         dev.process(0, gamepad);
         if (f.label->empty() || g_last_report.empty())
@@ -315,6 +441,10 @@ std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known)
         Summary& s = by_label[*f.label];
         if (mode == Mode::DINPUT)
             decode_dinput(g_last_report, s);
+        else if (mode == Mode::SWITCH)
+            decode_switch(g_last_report, s, f.t);
+        else if (mode == Mode::XINPUT)
+            decode_xinput(g_last_report, s);
         else
             decode_sony(g_last_report, mode == Mode::STEAM, s, f.t);
         s.last_t = f.t;
@@ -338,7 +468,7 @@ std::vector<std::string> label_order(const Fixture& fx) {
 int main(int argc, char** argv) {
     const bool write = argc > 1 && std::strcmp(argv[1], "--write") == 0;
     const std::string dir = OGXM_FIXTURES_DIR;
-    const char* pads[] = {"ds4"};  // Bluepad32 DS4 parser; more pads as their parsers are wired in
+    const char* pads[] = {"ds4", "joycon_pair"};  // pads whose Bluepad32 parser is wired in (replay_bt.cpp)
     for (const char* pad : pads) {
         Fixture fx;
         if (!load(dir + "/" + pad + ".jsonl.gz", fx)) {
@@ -346,7 +476,7 @@ int main(int argc, char** argv) {
             continue;
         }
         const std::vector<std::string> order = label_order(fx);
-        for (Mode mode : {Mode::PS4, Mode::STEAM, Mode::DINPUT}) {
+        for (Mode mode : {Mode::PS4, Mode::STEAM, Mode::DINPUT, Mode::SWITCH, Mode::XINPUT}) {
             const std::string where = std::string(pad) + "." + mode_name(mode);
             bool known = false;
             const auto by = replay(fx, mode, known);
@@ -354,7 +484,7 @@ int main(int argc, char** argv) {
                 fail(where + ": no parser for controller type " + std::to_string(fx.controller_type));
                 continue;
             }
-            check(where, by, mode == Mode::DINPUT);
+            check(where, by, names_of(mode), bt_has_touchpad(fx.controller_type));
             const std::string got = text_of(by, order);
             const std::string golden = dir + "/golden/" + where + ".txt";
             if (write) {

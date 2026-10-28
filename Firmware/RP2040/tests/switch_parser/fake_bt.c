@@ -23,6 +23,18 @@ static int s_timer_count;
 static fake_sent_t s_sent[FAKE_MAX_SENT];
 static int s_sent_count;
 
+#define FAKE_MAX_SPI 8
+typedef struct {
+    int dev_idx;
+    uint32_t addr;
+    uint8_t data[32];
+    int len;
+} fake_spi_t;
+static fake_spi_t s_spi[FAKE_MAX_SPI];
+static int s_spi_count;
+
+void (*fake_on_controller)(uni_hid_device_t* d);
+
 // ---------------------------------------------------------------- fake API
 
 void fake_reset(void) {
@@ -31,6 +43,8 @@ void fake_reset(void) {
     memset(s_timers, 0, sizeof(s_timers));
     s_timer_count = 0;
     s_sent_count = 0;
+    s_spi_count = 0;
+    fake_on_controller = NULL;
     s_now_ms = 1000;
     for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; i++) {
         s_devices[i].conn.handle = (hci_con_handle_t)(0x40 + i);
@@ -118,6 +132,16 @@ void fake_joycon_reply(int dev_idx, uint8_t subcmd, uint32_t spi_addr, uint8_t s
         r[17] = (spi_addr >> 16) & 0xff;
         r[18] = (spi_addr >> 24) & 0xff;
         r[19] = spi_len;
+        for (int i = 0; i < s_spi_count; i++) {
+            const fake_spi_t* m = &s_spi[i];
+            if (m->dev_idx != dev_idx)
+                continue;
+            for (int b = 0; b < spi_len && 20 + b < (int)sizeof(r); b++) {
+                const uint32_t at = spi_addr + (uint32_t)b;
+                if (at >= m->addr && at < m->addr + (uint32_t)m->len)
+                    r[20 + b] = m->data[at - m->addr];
+            }
+        }
     }
     uni_hid_parser_switch_parse_input_report(&s_devices[dev_idx], r, 50);
 }
@@ -153,6 +177,16 @@ void fake_joycon_reply_last(int dev_idx, uint8_t controller_type) {
             return;
         }
     }
+}
+
+void fake_joycon_set_spi(int dev_idx, uint32_t addr, const uint8_t* data, int len) {
+    if (s_spi_count >= FAKE_MAX_SPI || len > (int)sizeof(s_spi[0].data))
+        return;
+    fake_spi_t* m = &s_spi[s_spi_count++];
+    m->dev_idx = dev_idx;
+    m->addr = addr;
+    memcpy(m->data, data, (size_t)len);
+    m->len = len;
 }
 
 void fake_joycon_run_setup(int dev_idx, uint8_t controller_type, int max_steps) {
@@ -213,7 +247,8 @@ bool uni_hid_device_set_ready_complete(uni_hid_device_t* d) {
     return true;
 }
 void uni_hid_device_process_controller(uni_hid_device_t* d) {
-    (void)d;
+    if (fake_on_controller)
+        fake_on_controller(d);
 }
 void uni_hid_device_set_vendor_id(uni_hid_device_t* d, uint16_t vendor_id) {
     d->vendor_id = vendor_id;
