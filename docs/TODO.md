@@ -18,6 +18,13 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   hang. With that build (and the firmware since ca7ad13) no hang in about 290 transitions. Open:
   the stage it stops in, from a report that shows it. An earlier case needed the hub reconnected
   (macOS kept a stale BOOTSEL device on its port), so that one may be a separate problem.
+- **Web app: "The device has been lost" on connect until the dongle was replugged** (2026-10-28,
+  hybrid dev-opt1 at 72ea233, flatpak Chrome on Linux). The web app had connected earlier that
+  day; it failed after the bench logger and a Python script had used the port. Meanwhile the
+  adapter never left USB (udev quiet, the same device number, uptime unbroken) and Python could
+  still open the port the way Chrome does (9600 baud, DTR / RTS) and talk to it; restarting
+  Chrome did not help, replugging did. Watch for it: if it comes back, take `chrome://device-log`
+  before replugging, and note what used the port before.
 - **Settings: a rewrite that a reset cannot cut** — NVSTool rewrites a whole 4 KB sector (erase,
   then program) for one entry; a reset in between erases 16 settings (2026-10-22: the second sector
   found all 0xFF). Erased entries are now free again, but what they held is lost. Write to a spare
