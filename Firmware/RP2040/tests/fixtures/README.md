@@ -3,7 +3,7 @@
 Recordings of what real controllers send, for end-to-end tests: replayed through Bluepad32's
 parsers, our mapping and each output mode's driver on the PC, their output is compared with the
 golden files in `golden/<pad>.<mode>.txt` (test `test_fixtures`; `--write` rewrites them after a
-deliberate change, review the diff first). Replayed now: `ds4` and `joycon_pair` (PS4, STEAM, D-Input, Switch, XInput). A Joy-Con
+deliberate change, review the diff first). Replayed now: `ds4` and `joycon_pair` (PS4, STEAM, D-Input, Switch, XInput, PS3, Xbox OG, Wii U). A Joy-Con
 recording made with the pads already connected has no SPI calibration in it: the replay then gives
 the emulated pads the recording's own stick range (centre at rest, the extremes reached) and
 Bluepad32's default IMU calibration.

@@ -203,6 +203,9 @@ if (OGXM_HAVE_M32)
         ${DEV}/Switch/SwitchImu.cpp
         ${DEV}/Switch/SwitchSpi.cpp
         ${DEV}/XInput/XInput.cpp
+        ${DEV}/PS3/PS3.cpp
+        ${DEV}/XboxOG/XboxOG_GP.cpp
+        ${DEV}/WiiU/WiiU.cpp
         ${EXTERNAL_DIR}/libxsm3/xsm3.c
         ${EXTERNAL_DIR}/libxsm3/usbdsec.c
         ${EXTERNAL_DIR}/libxsm3/excrypt_des.c

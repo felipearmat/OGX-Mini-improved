@@ -24,8 +24,12 @@
 #include "fixture_replay.h"
 #include "Descriptors/DInput.h"
 #include "Descriptors/PS4.h"
+#include "Descriptors/PS3.h"
 #include "Descriptors/PS5.h"
+#include "Descriptors/WiiU.h"
+#include "Descriptors/XboxOG.h"
 #include "USBDevice/DeviceDriver/DInput/DInput.h"
+#include "USBDevice/DeviceDriver/PS3/PS3.h"
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
@@ -35,6 +39,9 @@
 #include "USBDevice/DeviceDriver/Switch/SwitchSpi.h"
 #include "USBDevice/DeviceDriver/XInput/XInput.h"
 #include "USBDevice/DeviceDriver/XInput/tud_xinput/tud_xinput.h"
+#include "USBDevice/DeviceDriver/WiiU/WiiU.h"
+#include "USBDevice/DeviceDriver/XboxOG/XboxOG_GP.h"
+#include "USBDevice/DeviceDriver/XboxOG/tud_xid/tud_xid.h"
 #include "UserSettings/UserProfile.h"
 
 /* ---- TinyUSB stubs (as test_device_reports) ----------------------------------------------- */
@@ -78,6 +85,21 @@ const usbd_class_driver_t* class_driver() {
     return &driver;
 }
 }  // namespace tud_xinput
+namespace tud_xid {
+void initialize(Type) {}
+const usbd_class_driver_t* class_driver() {
+    static const usbd_class_driver_t driver{};
+    return &driver;
+}
+uint8_t get_index_by_type(uint8_t, Type) { return 0; }
+bool receive_report(uint8_t, uint8_t*, uint16_t) { return false; }
+bool send_report(uint8_t, const uint8_t* report, uint16_t len) {
+    g_last_report.assign(report, report + len);
+    return true;
+}
+bool send_report_ready(uint8_t) { return true; }
+bool xremote_rom_available() { return false; }
+}  // namespace tud_xid
 uint16_t* DeviceDriver::get_string_descriptor(const char*, uint8_t) {
     static uint16_t desc[32]{};
     return desc;
@@ -285,6 +307,81 @@ void decode_xinput(const std::vector<uint8_t>& r, Summary& s) {
     axis(255 - x8(le16(r, 12)), s.ry);
 }
 
+/* DualShock 3 report 0x01 (PS3 mode). */
+void decode_ps3(const std::vector<uint8_t>& r, Summary& s) {
+    if (r.size() < sizeof(PS3::InReport))
+        return;
+    const size_t b = offsetof(PS3::InReport, buttons);
+    static const char* n0[] = {"select", "L3", "R3", "start", nullptr, nullptr, nullptr, nullptr};
+    static const char* n1[] = {"L2", "R2", "L1", "R1", "triangle", "circle", "cross", "square"};
+    for (int i = 0; i < 8; ++i) {
+        if (n0[i] && (r[b] & (1 << i))) s.buttons.insert(n0[i]);
+        if (r[b + 1] & (1 << i)) s.buttons.insert(n1[i]);
+    }
+    if (r[b + 2] & PS3::Buttons2::SYS) s.buttons.insert("PS");
+    if (r[b + 2] & PS3::Buttons2::TP) s.buttons.insert("touchpad");
+    const int h = hat_of(r[b] & PS3::Buttons0::DPAD_UP, r[b] & PS3::Buttons0::DPAD_RIGHT,
+                         r[b] & PS3::Buttons0::DPAD_DOWN, r[b] & PS3::Buttons0::DPAD_LEFT);
+    if (h >= 0) s.dpad.insert(h);
+    axis(r[offsetof(PS3::InReport, joystick_lx)], s.lx);
+    axis(r[offsetof(PS3::InReport, joystick_ly)], s.ly);
+    axis(r[offsetof(PS3::InReport, joystick_rx)], s.rx);
+    axis(r[offsetof(PS3::InReport, joystick_ry)], s.ry);
+    s.l2 = std::max<int>(s.l2, r[offsetof(PS3::InReport, l2_axis)]);
+    s.r2 = std::max<int>(s.r2, r[offsetof(PS3::InReport, r2_axis)]);
+}
+
+/* Original Xbox (Duke) report (Xbox OG mode): the face buttons and black / white are analog
+ * (pressed past half), sticks as 0..255 with up = 0. */
+void decode_xboxog(const std::vector<uint8_t>& r, Summary& s) {
+    using XboxOG::GP::InReport;
+    namespace B = XboxOG::GP::Buttons;
+    if (r.size() < sizeof(InReport))
+        return;
+    const uint8_t d = r[offsetof(InReport, buttons)];
+    if (d & B::START) s.buttons.insert("start");
+    if (d & B::BACK) s.buttons.insert("back");
+    if (d & B::L3) s.buttons.insert("LS");
+    if (d & B::R3) s.buttons.insert("RS");
+    const std::pair<size_t, const char*> analog[] = {
+        {offsetof(InReport, a), "A"}, {offsetof(InReport, b), "B"}, {offsetof(InReport, x), "X"},
+        {offsetof(InReport, y), "Y"}, {offsetof(InReport, white), "white"}, {offsetof(InReport, black), "black"}};
+    for (const auto& [at, name] : analog)
+        if (r[at] >= 0x80) s.buttons.insert(name);
+    const int h = hat_of(d & B::DPAD_UP, d & B::DPAD_RIGHT, d & B::DPAD_DOWN, d & B::DPAD_LEFT);
+    if (h >= 0) s.dpad.insert(h);
+    s.l2 = std::max<int>(s.l2, r[offsetof(InReport, trigger_l)]);
+    s.r2 = std::max<int>(s.r2, r[offsetof(InReport, trigger_r)]);
+    auto x8 = [](int16_t v) { return (v + 32768) >> 8; };
+    axis(x8(le16(r, offsetof(InReport, joystick_lx))), s.lx);
+    axis(255 - x8(le16(r, offsetof(InReport, joystick_ly))), s.ly);
+    axis(x8(le16(r, offsetof(InReport, joystick_rx))), s.rx);
+    axis(255 - x8(le16(r, offsetof(InReport, joystick_ry))), s.ry);
+}
+
+/* Wii U GameCube adapter report 0x21 (Wii U mode), port 1; the GameCube's Y grows upward, shown
+ * here as 0..255 with up = 0. */
+void decode_wiiu(const std::vector<uint8_t>& r, Summary& s) {
+    namespace B = WiiU::GCButtons;
+    if (r.size() < 10 || r[0] != WiiU::HID_REPORT_ID)
+        return;
+    const uint8_t* p = &r[1];
+    const std::pair<uint8_t, const char*> b1[] = {{B::A, "A"}, {B::B, "B"}, {B::X, "X"}, {B::Y, "Y"}};
+    for (const auto& [bit, name] : b1)
+        if (p[1] & bit) s.buttons.insert(name);
+    const std::pair<uint8_t, const char*> b2[] = {{B::START, "start"}, {B::Z, "Z"}, {B::L, "L"}, {B::R, "R"}};
+    for (const auto& [bit, name] : b2)
+        if (p[2] & bit) s.buttons.insert(name);
+    const int h = hat_of(p[1] & B::UP, p[1] & B::RIGHT, p[1] & B::DOWN, p[1] & B::LEFT);
+    if (h >= 0) s.dpad.insert(h);
+    axis(p[3], s.lx);
+    axis(255 - p[4], s.ly);
+    axis(p[5], s.rx);
+    axis(255 - p[6], s.ry);
+    s.l2 = std::max<int>(s.l2, p[7]);
+    s.r2 = std::max<int>(s.r2, p[8]);
+}
+
 std::string text_of(const std::map<std::string, Summary>& by_label, const std::vector<std::string>& order) {
     std::ostringstream o;
     for (const std::string& label : order) {
@@ -314,14 +411,21 @@ std::string text_of(const std::map<std::string, Summary>& by_label, const std::v
 /* ---- what each action must give ----------------------------------------------------------- */
 
 /* What each mode calls the buttons of the script's Xbox-layout labels (by position: "a" is the
- * bottom face button). `touchpad`: its touchpad click, or none. */
+ * bottom face button); nullptr: the mode has no such button, the action gives none. `touchpad`:
+ * its touchpad click, or none. `home_igr`: Home goes out as the in-game reset chord (Xbox OG).
+ * `y_max`: the stick's Y stops there (the Wii U's GameCube Y never sends 0 / 255). */
 struct Names {
     const char *a, *b, *x, *y, *lb, *rb, *home, *l3, *r3, *back, *start, *touchpad;
+    bool home_igr = false;
+    int y_max = 255;
 };
 const Names kPlayStation{"cross", "circle", "square", "triangle", "L1", "R1", "PS", "L3", "R3", "share", "options", "touchpad"};
 const Names kDInput{"cross", "circle", "square", "triangle", "L1", "R1", "PS", "L3", "R3", "select", "start", nullptr};
 const Names kSwitch{"B", "A", "Y", "X", "L", "R", "home", "LS", "RS", "minus", "plus", nullptr};
 const Names kXInput{"A", "B", "X", "Y", "LB", "RB", "guide", "LS", "RS", "back", "start", nullptr};
+const Names kPS3{"cross", "circle", "square", "triangle", "L1", "R1", "PS", "L3", "R3", "select", "start", "touchpad"};
+const Names kXboxOG{"A", "B", "X", "Y", "white", "black", nullptr, "LS", "RS", "back", "start", nullptr, true};
+const Names kWiiU{"B", "A", "Y", "X", nullptr, "Z", nullptr, nullptr, nullptr, nullptr, "start", nullptr, false, 254};
 
 /* `touchpad`: the pad has one (its press must give the output's touchpad click). */
 void check(const std::string& where, const std::map<std::string, Summary>& by, const Names& n, bool touchpad) {
@@ -331,12 +435,17 @@ void check(const std::string& where, const std::map<std::string, Summary>& by, c
         {"home", n.home}, {"l3", n.l3}, {"r3", n.r3}, {"back", n.back}, {"start", n.start},
     };
     for (const auto& [label, button] : buttons) {
-        if (!has(label)) continue;
+        if (!has(label) || (n.home_igr && std::strcmp(label, "home") == 0)) continue;
         const Summary& s = by.at(label);
-        if (!s.buttons.count(button))
+        if (button && !s.buttons.count(button))
             fail(where + " " + label + ": " + button + " not pressed");
         for (const auto& b : s.buttons)
-            if (b != button) fail(where + " " + label + ": also " + b);
+            if (!button || b != button) fail(where + " " + label + ": also " + b);
+    }
+    if (n.home_igr && has("home")) {  // the reset chord: both triggers full, Start and Back
+        const Summary& s = by.at("home");
+        if (s.l2 != 255 || s.r2 != 255 || !s.buttons.count(n.start) || !s.buttons.count(n.back))
+            fail(where + " home: not the in-game reset chord");
     }
     const std::pair<const char*, int> dpads[] = {{"dpad_up", 0}, {"dpad_right", 2}, {"dpad_down", 4}, {"dpad_left", 6}};
     for (const auto& [label, dir] : dpads)
@@ -367,7 +476,7 @@ void check(const std::string& where, const std::map<std::string, Summary>& by, c
             y[0] = std::min(y[0], sy[0]); y[1] = std::max(y[1], sy[1]);
             any = true;
         }
-        if (any && (x[0] > 1 || x[1] < 255 || y[0] > 1 || y[1] < 255))
+        if (any && (x[0] > 1 || x[1] < 255 || y[0] > 1 || y[1] < n.y_max))
             fail(where + (left ? " left" : " right") + " stick range " + std::to_string(x[0]) + ".." +
                  std::to_string(x[1]) + " / " + std::to_string(y[0]) + ".." + std::to_string(y[1]));
     }
@@ -387,18 +496,29 @@ void check(const std::string& where, const std::map<std::string, Summary>& by, c
 
 /* ---- replay ------------------------------------------------------------------------------- */
 
-enum class Mode { PS4, STEAM, DINPUT, SWITCH, XINPUT };
+enum class Mode { PS4, STEAM, DINPUT, SWITCH, XINPUT, PS3, XBOXOG, WIIU };
 const char* mode_name(Mode m) {
     switch (m) {
         case Mode::PS4: return "ps4";
         case Mode::STEAM: return "steam";
         case Mode::DINPUT: return "dinput";
         case Mode::SWITCH: return "switch";
+        case Mode::PS3: return "ps3";
+        case Mode::XBOXOG: return "xboxog";
+        case Mode::WIIU: return "wiiu";
         default: return "xinput";
     }
 }
 const Names& names_of(Mode m) {
-    return m == Mode::DINPUT ? kDInput : m == Mode::SWITCH ? kSwitch : m == Mode::XINPUT ? kXInput : kPlayStation;
+    switch (m) {
+        case Mode::DINPUT: return kDInput;
+        case Mode::SWITCH: return kSwitch;
+        case Mode::XINPUT: return kXInput;
+        case Mode::PS3: return kPS3;
+        case Mode::XBOXOG: return kXboxOG;
+        case Mode::WIIU: return kWiiU;
+        default: return kPlayStation;
+    }
 }
 
 std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known) {
@@ -407,6 +527,9 @@ std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known)
                                     : mode == Mode::STEAM  ? DeviceDriverType::STEAM
                                     : mode == Mode::SWITCH ? DeviceDriverType::SWITCH
                                     : mode == Mode::XINPUT ? DeviceDriverType::XINPUT
+                                    : mode == Mode::PS3    ? DeviceDriverType::PS3
+                                    : mode == Mode::XBOXOG ? DeviceDriverType::XBOXOG
+                                    : mode == Mode::WIIU   ? DeviceDriverType::WIIU
                                                            : DeviceDriverType::DINPUT_DEBUG;
     gamepad.set_profile(UserProfile(), driver);
     std::vector<ReplayFrame> frames;
@@ -417,7 +540,13 @@ std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known)
     DInputDevice dinput;
     SwitchDevice sw;
     XInputDevice xinput;
+    PS3Device ps3;
+    XboxOGDevice xboxog;
+    WiiUDevice wiiu;
     DeviceDriver& dev = mode == Mode::PS4      ? static_cast<DeviceDriver&>(ps4)
+                        : mode == Mode::PS3    ? static_cast<DeviceDriver&>(ps3)
+                        : mode == Mode::XBOXOG ? static_cast<DeviceDriver&>(xboxog)
+                        : mode == Mode::WIIU   ? static_cast<DeviceDriver&>(wiiu)
                         : mode == Mode::STEAM  ? static_cast<DeviceDriver&>(steam)
                         : mode == Mode::SWITCH ? static_cast<DeviceDriver&>(sw)
                         : mode == Mode::XINPUT ? static_cast<DeviceDriver&>(xinput)
@@ -445,6 +574,12 @@ std::map<std::string, Summary> replay(const Fixture& fx, Mode mode, bool& known)
             decode_switch(g_last_report, s, f.t);
         else if (mode == Mode::XINPUT)
             decode_xinput(g_last_report, s);
+        else if (mode == Mode::PS3)
+            decode_ps3(g_last_report, s);
+        else if (mode == Mode::XBOXOG)
+            decode_xboxog(g_last_report, s);
+        else if (mode == Mode::WIIU)
+            decode_wiiu(g_last_report, s);
         else
             decode_sony(g_last_report, mode == Mode::STEAM, s, f.t);
         s.last_t = f.t;
@@ -476,7 +611,8 @@ int main(int argc, char** argv) {
             continue;
         }
         const std::vector<std::string> order = label_order(fx);
-        for (Mode mode : {Mode::PS4, Mode::STEAM, Mode::DINPUT, Mode::SWITCH, Mode::XINPUT}) {
+        for (Mode mode : {Mode::PS4, Mode::STEAM, Mode::DINPUT, Mode::SWITCH, Mode::XINPUT, Mode::PS3,
+                          Mode::XBOXOG, Mode::WIIU}) {
             const std::string where = std::string(pad) + "." + mode_name(mode);
             bool known = false;
             const auto by = replay(fx, mode, known);
