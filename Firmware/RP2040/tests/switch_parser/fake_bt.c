@@ -225,9 +225,10 @@ uni_bt_conn_state_t uni_bt_conn_get_state(const uni_bt_conn_t* conn) {
     (void)conn;
     return UNI_BT_CONN_STATE_DEVICE_READY;
 }
-uint8_t uni_hid_parser_hat_to_dpad(uint8_t hat) {
-    (void)hat;
-    return 0;
+uint8_t uni_hid_parser_hat_to_dpad(uint8_t hat) {  // as Bluepad32's uni_hid_parser.c
+    static const uint8_t dpad[8] = {DPAD_UP, DPAD_UP | DPAD_RIGHT, DPAD_RIGHT, DPAD_RIGHT | DPAD_DOWN,
+                                    DPAD_DOWN, DPAD_DOWN | DPAD_LEFT, DPAD_LEFT, DPAD_LEFT | DPAD_UP};
+    return hat < 8 ? dpad[hat] : 0;
 }
 
 // ------------------------------------------------------------ radio / scan no-ops

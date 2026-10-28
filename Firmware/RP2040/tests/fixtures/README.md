@@ -2,7 +2,8 @@
 
 Recordings of what real controllers send, for end-to-end tests: replayed through Bluepad32's
 parsers, our mapping and each output mode's driver on the PC, their output is compared with the
-golden files kept next to them (the replay test comes next; see `docs/TODO.md`).
+golden files in `golden/<pad>.<mode>.txt` (test `test_fixtures`; `--write` rewrites them after a
+deliberate change, review the diff first). Replayed now: `ds4` (PS4, STEAM, D-Input).
 
 ## Recording one
 

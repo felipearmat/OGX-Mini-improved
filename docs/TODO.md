@@ -43,9 +43,12 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
     (XInput, Switch) with `--hidraw` from the PC.
   - Optional: a lone Joy-Con L and R (`joycon_left`, `joycon_right`, sideways), the pair with the
     left half's IMU (Adapter Option), the DS4 on USB with `--hidraw` (wired path).
-  Then: the replay test `test_fixtures` (32-bit, the real parsers + `BtPad::map_input` + the
-  output drivers, golden files per pad and mode, semantic checks per label); synthetic fixtures
-  for pads we lack. Spec: `.ignore/spec-input-fixtures.md`.
+  Replay test `test_fixtures` in (2026-10-27): `ds4` through PS4 / STEAM / D-Input. Next: the
+  Joy-Con pair replay (Switch parser setup, pair merge), the Switch and XInput outputs, the Nova
+  Lite files once recorded; synthetic fixtures for pads we lack. A DS4 stick pushed fully up or
+  left reaches 1, not 0, in PS4 / D-Input (Bluepad32 centres it on 127: `(v - 127) * 4`), a
+  one-step loss to look at in the Bluepad32 re-sync. The DS4 calibration feature report is not
+  in the recordings yet. Spec: `.ignore/spec-input-fixtures.md`.
 - **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) passed the pattern test with a
   Joy-Con pair (2026-10-27). Still to try: a game / Eden with the direct Pro Controller driver, a
   lone Joy-Con, a Pro Controller if we get one, and the lost / late input reports with HD Rumble

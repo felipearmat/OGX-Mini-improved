@@ -29,6 +29,7 @@ static std::atomic<bool> s_bt_any_connected_cached{false};
 #include "Board/ogxm_log.h"
 #include "Bluepad32/ScanControl.h"
 #include "Bluepad32/BtPad.h"
+#include "Bluepad32/BtPadIn.h"
 #include "Bluepad32/LinkDiag.h"
 #include "Bluepad32/ComboHold.h"
 #include "Bluepad32/IdleOff.h"
@@ -1187,7 +1188,6 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
 #endif
 
     Gamepad* gamepad = bt_devices_[idx].gamepad;
-    Gamepad::PadIn gp_in;
 
     /* Disconnect combo (Bluepad32/BtPad.h): Start + Select, L3 + R3 on an OUYA pad. On Pico W,
      * Start + Select is not used for input-source cycling. */
@@ -1199,33 +1199,12 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         return; // Don't process further input after disconnect
     }
 
-    /* Buttons, triggers, sticks and touchpad through the user profile (Bluepad32/BtPad.h). */
-    const bt_pad::Input mapped = bt_pad::map_input(device, uni_gp, *gamepad);
-    gp_in.dpad = mapped.dpad;
-    gp_in.buttons = mapped.buttons;
-    gp_in.trigger_l = mapped.trigger_l;
-    gp_in.trigger_r = mapped.trigger_r;
-    gp_in.joystick_lx = mapped.joystick_lx;
-    gp_in.joystick_ly = mapped.joystick_ly;
-    gp_in.joystick_rx = mapped.joystick_rx;
-    gp_in.joystick_ry = mapped.joystick_ry;
-    std::memcpy(gp_in.touch_raw, mapped.touch_raw, sizeof(gp_in.touch_raw));
-    gp_in.touchpad_click = mapped.touchpad_click ? 1 : 0;
-    gp_in.touchpad_valid = mapped.touchpad_valid ? 1 : 0;
-
-    {
-        static MotionImu::WiiPseudoGyroState s_wii_gyro[MAX_GAMEPADS]{};
-        const bool joycon = bt_pad::is_switch_joycon(device);
-        MotionImu::apply_bt_motion(gp_in, bt_pad::motion_source_of(device, uni_gp), uni_gp->accel, uni_gp->gyro,
-                                   joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft,
-                                   joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConRight,
-                                   joycon && bt_pad::pair_partner_idx(device) >= 0, s_wii_gyro[idx],
-                                   to_ms_since_boot(get_absolute_time()));
-        MotionImu::report_motion(gp_in, to_ms_since_boot(get_absolute_time()));
-    }
-
-    /* Custom: battery for every output mode (PS4 mode passes it and the touchpad to the host). */
-    gp_in.battery = device->controller.battery;
+    /* Buttons, triggers, sticks, touchpad, motion and battery (Bluepad32/BtPadIn.h, shared with
+     * the fixture tests). */
+    static MotionImu::WiiPseudoGyroState s_wii_gyro[MAX_GAMEPADS]{};
+    Gamepad::PadIn gp_in = bt_pad::pad_in_from(device, uni_gp, *gamepad, s_wii_gyro[idx],
+                                               to_ms_since_boot(get_absolute_time()));
+    MotionImu::report_motion(gp_in, to_ms_since_boot(get_absolute_time()));
 
     if (SteamActive::is_enabled()) {
         SteamPassthrough::input_has_touchpad =

@@ -174,6 +174,47 @@ if (OGXM_HAVE_M32)
     target_compile_options(test_switch_parser PRIVATE -m32 -Wno-unused-parameter -Wno-sign-compare)
     target_link_options(test_switch_parser PRIVATE -m32)
     add_test(NAME test_switch_parser COMMAND test_switch_parser)
+
+    # End-to-end replay of recorded controller input (fixtures/README.md): Bluepad32's parsers,
+    # the firmware's PadIn path and the output drivers, all 32-bit.
+    add_library(fixmath32 STATIC
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16.c
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_exp.c
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_sqrt.c
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_str.c
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/fix16_trig.c
+        ${EXTERNAL_DIR}/libfixmath/libfixmath/uint32.c)
+    target_include_directories(fixmath32 PUBLIC ${EXTERNAL_DIR}/libfixmath)
+    target_compile_options(fixmath32 PRIVATE -m32)
+    add_executable(test_fixtures
+        fixtures/test_fixtures.cpp
+        fixtures/replay_bt.cpp
+        fixtures/bp32_stubs.c
+        switch_parser/fake_bt.c
+        ${BP32}/parser/uni_hid_parser_switch.c
+        ${BP32}/parser/uni_hid_parser_ds4.c
+        ${BP32}/uni_utils.c
+        ${DEV}/DInput/DInput.cpp
+        ${DEV}/PS4/PS4.cpp
+        ${DEV}/Steam/Steam.cpp
+        ${DEV}/Steam/SteamTouchpad.cpp
+        ${FW_COMMON}/UserSettings/UserProfile.cpp
+        ${FW_COMMON}/UserSettings/JoystickSettings.cpp
+        ${FW_COMMON}/UserSettings/TriggerSettings.cpp
+        ${FW_COMMON}/UserSettings/DongleSettings.cpp
+        ${FW_COMMON}/Bluepad32/JoyConSettings.cpp
+        ${FW_SRC}/Board/ReportedMac.cpp)
+    target_include_directories(test_fixtures PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/fixtures ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${MOCKS} ${BP32}/include ${BP32}
+        ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${EXTERNAL_DIR}/tinyusb/src ${FW_SRC} ${FW_COMMON})
+    target_compile_definitions(test_fixtures PRIVATE MAX_GAMEPADS=1 CONFIG_OGXM_BOARD_PI_PICO2W=1
+        CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED
+        TUP_DCD_ENDPOINT_MAX=8 OGXM_FIXTURES_DIR="${CMAKE_CURRENT_LIST_DIR}/fixtures")
+    target_compile_options(test_fixtures PRIVATE -m32 -Wno-unused-parameter -Wno-sign-compare
+        $<$<COMPILE_LANGUAGE:CXX>:-Wno-volatile>)
+    target_link_options(test_fixtures PRIVATE -m32)
+    target_link_libraries(test_fixtures PRIVATE fixmath32)
+    add_test(NAME test_fixtures COMMAND test_fixtures)
 else ()
     message(WARNING "No 32-bit toolchain (install gcc-multilib): skipping test_switch_parser")
 endif ()
