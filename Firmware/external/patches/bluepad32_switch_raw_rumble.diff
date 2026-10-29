@@ -1,8 +1,8 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-index bcec7b6..79a262d 100644
+index 3b196b3..46ae64d 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-@@ -20,6 +20,11 @@ void uni_hid_parser_switch_play_dual_rumble(struct uni_hid_device_s* d,
+@@ -48,6 +48,11 @@ void uni_hid_parser_switch_play_dual_rumble(struct uni_hid_device_s* d,
                                              uint16_t duration_ms,
                                              uint8_t weak_magnitude,
                                              uint8_t strong_magnitude);
@@ -12,14 +12,14 @@ index bcec7b6..79a262d 100644
 +// the next ones (a neutral block, 00 01 40 40, stops it).
 +void uni_hid_parser_switch_play_raw_rumble(struct uni_hid_device_s* d, const uint8_t blocks[8]);
  bool uni_hid_parser_switch_does_name_match(struct uni_hid_device_s* d, const char* name);
- void uni_hid_parser_switch_device_dump(struct uni_hid_device_s* d);
- 
+ /**
+  * @brief Formats the Nintendo Switch controller firmware version (`major.minor` from
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index c69a406..e947985 100644
+index a2ca8d3..21deda6 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -1946,6 +1946,37 @@ static void switch_play_dual_rumble_now(uni_hid_device_t* d,
-     btstack_run_loop_add_timer(&ins->rumble_timer_duration);
+@@ -2006,6 +2006,28 @@ static uni_rumble_result_t switch_rumble_start(struct uni_hid_device_s* d,
+     return UNI_RUMBLE_OK;
  }
  
 +void uni_hid_parser_switch_play_raw_rumble(struct uni_hid_device_s* d, const uint8_t blocks[8]) {
@@ -31,17 +31,8 @@ index c69a406..e947985 100644
 +    if (ins->state < STATE_READY)
 +        return;
 +
-+    switch (ins->rumble_state) {
-+        case SWITCH_STATE_RUMBLE_DELAYED:
-+            btstack_run_loop_remove_timer(&ins->rumble_timer_delayed_start);
-+            break;
-+        case SWITCH_STATE_RUMBLE_IN_PROGRESS:
-+            btstack_run_loop_remove_timer(&ins->rumble_timer_duration);
-+            break;
-+        default:
-+            break;
-+    }
-+    ins->rumble_state = SWITCH_STATE_RUMBLE_DISABLED;
++    // Calls off a pending or playing strength rumble (its timers would stop or restart it).
++    uni_hid_parser_rumble_stop_timers(d);
 +
 +    struct switch_subcmd_request req = {
 +        .report_id = OUTPUT_RUMBLE_ONLY,
@@ -53,6 +44,6 @@ index c69a406..e947985 100644
 +    send_subcmd(d, &req, sizeof(req) - 1);
 +}
 +
- static void on_switch_set_rumble_on(btstack_timer_source_t* ts) {
-     uni_hid_device_t* d = ts->context;
+ static void switch_setup_timeout_callback(btstack_timer_source_t* ts) {
+     uni_hid_device_t* d = btstack_run_loop_get_timer_context(ts);
      switch_instance_t* ins = get_switch_instance(d);

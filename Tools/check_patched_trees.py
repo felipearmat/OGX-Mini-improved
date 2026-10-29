@@ -39,7 +39,7 @@ def patch_lists():
             continue  # the function's own definition
         directory = directory.replace("${EXTERNAL_DIR}", str(EXTERNAL)).replace("${_sdk}", str(EXTERNAL / "pico-sdk"))
         patches = [p.replace("${_p}", str(EXTERNAL / "patches")).replace("${EXTERNAL_DIR}", str(EXTERNAL))
-                   for p in re.findall(r'"([^"]+\.diff)"', rest)]
+                   for p in re.findall(r'"([^"]+\.(?:diff|patch))"', rest)]
         trees[name] = (pathlib.Path(directory), [pathlib.Path(p) for p in patches])
     if not trees:
         sys.exit(f"no ogxm_patch_tree calls found in {PATCH_LIBS}")

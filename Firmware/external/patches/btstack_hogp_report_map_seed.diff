@@ -1,0 +1,162 @@
+diff --git a/src/ble/gatt-service/hids_host.c b/src/ble/gatt-service/hids_host.c
+index 1a4a3ce9e..803ef7f83 100644
+--- a/src/ble/gatt-service/hids_host.c
++++ b/src/ble/gatt-service/hids_host.c
+@@ -45,6 +45,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
++#include <stdio.h>
+ 
+ #include "ble/gatt-service/hids_host.h"
+ 
+@@ -79,6 +80,11 @@ static uint8_t * hids_host_descriptor_storage;
+ static uint16_t  hids_host_descriptor_storage_len;
+ static hids_host_t * hids_host_descriptor_storage_owner;
+ 
++/** Optional: skip Report Map ATT long-read and inject this descriptor (Xbox BLE on CYW43). */
++static hci_con_handle_t s_seed_descriptor_handle = HCI_CON_HANDLE_INVALID;
++static const uint8_t * s_seed_descriptor;
++static uint16_t s_seed_descriptor_len;
++
+ 
+ #ifdef ENABLE_TESTING_SUPPORT
+ static char * hid_characteristic_name(uint16_t uuid){
+@@ -738,10 +744,16 @@ static void hids_host_send_next_query(void * context){
+             printf("\n\nQuery Services:\n");
+ #endif
+             client->state = HIDS_HOST_STATE_W4_SERVICE_RESULT;
++            printf("hids_host: discover HID service handle=0x%04x\n", client->con_handle);
+ 
+             // result in GATT_EVENT_SERVICE_QUERY_RESULT
+             att_status = gatt_client_discover_primary_services_by_uuid16(handle_gatt_client_event, client->con_handle, ORG_BLUETOOTH_SERVICE_HUMAN_INTERFACE_DEVICE);
+-            UNUSED(att_status);
++            if (att_status != ERROR_CODE_SUCCESS) {
++                printf("hids_host: HID service discover failed status=0x%02x\n", att_status);
++                hids_host_emit_connection_established(client, att_status);
++                hids_host_finalize(client);
++                return;
++            }
+             break;
+ 
+         case HIDS_HOST_STATE_W2_QUERY_CHARACTERISTIC:
+@@ -749,6 +761,7 @@ static void hids_host_send_next_query(void * context){
+             printf("\n\nQuery Characteristics of service %d:\n", client->service_index);
+ #endif
+             client->state = HIDS_HOST_STATE_W4_CHARACTERISTIC_RESULT;
++            printf("hids_host: discover characteristics service=%d\n", client->service_index);
+ 
+             service.start_group_handle = client->services[client->service_index].start_handle;
+             service.end_group_handle = client->services[client->service_index].end_handle;
+@@ -986,6 +999,11 @@ static void hids_host_request_to_send_next_query(hids_host_t * client){
+         (hids_host_descriptor_storage_owner != NULL)) return;
+     client->gatt_query_request.callback = &hids_host_send_next_query;
+     client->gatt_query_request.context = client;
++    /* If GATT is idle, run immediately (avoids CYW43 stalls waiting forever for can_send). */
++    if (gatt_client_is_ready(client->con_handle)) {
++        hids_host_send_next_query(client);
++        return;
++    }
+     gatt_client_request_to_send_gatt_query(&client->gatt_query_request, client->con_handle);
+ }
+ 
+@@ -1346,9 +1364,41 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
+                             for (i = 0; i < client->num_instances; i++){
+                                 client->services[i].protocol_mode = HID_PROTOCOL_MODE_REPORT;
+                             }
++                            /*
++                             * Xbox Series / SCUF BLE on CYW43: Report Map long-read hangs forever.
++                             * Inject a known descriptor and continue at Report Reference discovery.
++                             */
++                            if (client->con_handle == s_seed_descriptor_handle &&
++                                s_seed_descriptor != NULL && s_seed_descriptor_len > 0) {
++                                uint16_t b;
++                                log_info("hids_host: seed HID descriptor (%u bytes), skip Report Map",
++                                         s_seed_descriptor_len);
++                                printf("hids_host: seed HID descriptor (%u bytes), skip Report Map\n",
++                                       (unsigned)s_seed_descriptor_len);
++                                for (i = 0; i < client->num_instances; i++) {
++                                    if (client->services[i].report_map_value_handle == 0)
++                                        continue;
++                                    /* storage was reserved when the HID service was found */
++                                    for (b = 0; b < s_seed_descriptor_len; b++) {
++                                        if (!hids_host_descriptor_storage_store(client, i, s_seed_descriptor[b]))
++                                            break;
++                                    }
++                                    client->services[i].report_map_value_handle = 0;
++                                }
++                                s_seed_descriptor_handle = HCI_CON_HANDLE_INVALID;
++                                s_seed_descriptor = NULL;
++                                s_seed_descriptor_len = 0;
++                                if (hids_host_report_query_init(client)) {
++                                    break;
++                                }
++                                hids_host_emit_connection_established(client, ERROR_CODE_UNSUPPORTED_FEATURE_OR_PARAMETER_VALUE);
++                                hids_host_finalize(client);
++                                return;
++                            }
+                             // 1. we need to get HID Descriptor and
+                             // 2. get external Report characteristics if referenced from Report Map
+                             if (hids_host_report_map_query_init(client)){
++                                printf("hids_host: reading Report Map (long)\n");
+                                 break;
+                             }
+                             hids_host_emit_connection_established(client, ERROR_CODE_UNSUPPORTED_FEATURE_OR_PARAMETER_VALUE);
+@@ -1549,6 +1599,12 @@ uint8_t hids_host_connect(hci_con_handle_t con_handle, btstack_packet_handler_t
+     return ERROR_CODE_SUCCESS;
+ }
+ 
++void hids_host_set_seed_hid_descriptor(hci_con_handle_t con_handle, const uint8_t * descriptor, uint16_t descriptor_len){
++    s_seed_descriptor_handle = con_handle;
++    s_seed_descriptor = descriptor;
++    s_seed_descriptor_len = descriptor_len;
++}
++
+ uint8_t hids_host_disconnect(uint16_t hids_cid){
+     hids_host_t * client = hids_get_client_for_cid(hids_cid);
+     if (client == NULL){
+diff --git a/src/ble/gatt-service/hids_host.h b/src/ble/gatt-service/hids_host.h
+index 5febeb724..1f75e4fcc 100644
+--- a/src/ble/gatt-service/hids_host.h
++++ b/src/ble/gatt-service/hids_host.h
+@@ -63,7 +63,7 @@ extern "C" {
+ #endif
+ #define HIDS_HOST_INVALID_REPORT_INDEX 0xFF
+ 
+-#define HIDS_HOST_NUM_REPORTS 15
++#define HIDS_HOST_NUM_REPORTS 32
+ 
+ typedef enum {
+     HIDS_HOST_STATE_IDLE,
+@@ -238,6 +238,13 @@ void hids_host_init(uint8_t * hid_descriptor_storage, uint16_t hid_descriptor_st
+  */
+ uint8_t hids_host_connect(hci_con_handle_t con_handle, btstack_packet_handler_t packet_handler, hid_protocol_mode_t protocol_mode, uint16_t * hids_cid);
+ 
++/**
++ * @brief For the next hids_host_connect on this handle, skip the Report Map long-read
++ *        and inject a known HID descriptor instead (CYW43 / Xbox Series BLE hang workaround).
++ *        Cleared automatically after characteristics discovery.
++ */
++void hids_host_set_seed_hid_descriptor(hci_con_handle_t con_handle, const uint8_t * descriptor, uint16_t descriptor_len);
++
+ /**
+  * @brief Send HID report. Event GATTSERVICE_SUBEVENT_HID_REPORT_WRITTEN is emitted.
+  *
+diff --git a/src/ble/gatt_client.c b/src/ble/gatt_client.c
+index faed658f5..9a7c57691 100644
+--- a/src/ble/gatt_client.c
++++ b/src/ble/gatt_client.c
+@@ -3136,9 +3136,12 @@ uint8_t gatt_client_discover_characteristic_descriptors_with_context(btstack_pac
+     gatt_client->service_id = service_id;
+     gatt_client->connection_id = connection_id;
+ 
++    // Always set callback — empty descriptor range still emits QUERY_COMPLETE via
++    // P_W2_EMIT_QUERY_COMPLETE_EVENT and must reach the HIDS host handler.
++    gatt_client->callback = callback;
++
+     // check if there is space for characteristics descriptors
+     if (characteristic->end_handle > characteristic->value_handle){
+-        gatt_client->callback = callback;
+         gatt_client->start_group_handle = characteristic->value_handle + 1u;
+         gatt_client->end_group_handle   = characteristic->end_handle;
+         gatt_client->state = P_W2_SEND_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY;

@@ -176,10 +176,11 @@ static int bt_output_idx(uni_hid_device_t* d) {
     return resolve_bt_output_pad_idx(idx);
 }
 
-static void idle_note_input(int idx, const uni_gamepad_t* gp, uint32_t now_ms) {
+static void idle_note_input(int idx, uni_hid_device_t* d, const uni_gamepad_t* gp, uint32_t now_ms) {
     if (idx < 0 || idx >= static_cast<int>(MAX_GAMEPADS))
         return;
-    s_idle[idx].note_input(gp, now_ms, FEEDBACK_TIME_MS + 100);
+    const bt_pad::RawMotion motion = bt_pad::raw_motion(d, gp);
+    s_idle[idx].note_input(gp, motion.gyro, motion.accel, now_ms, FEEDBACK_TIME_MS + 100);
 }
 
 static void idle_check(uint32_t now_ms) {
@@ -523,8 +524,8 @@ static void init_complete_cb(void) {
     // Shorter inquiry (2) breaks discovery for 8BitDo SN30 Pro / Pro 2 in D-input /
     // Android modes — see uni_bt_defines.h. (#86)
     uni_bt_set_gap_inquiry_length(UNI_BT_INQUIRY_LENGTH);
-    uni_bt_set_gap_max_peridic_length(UNI_BT_MAX_PERIODIC_LENGTH);
-    uni_bt_set_gap_min_peridic_length(UNI_BT_MIN_PERIODIC_LENGTH);
+    uni_bt_set_gap_max_periodic_length(UNI_BT_MAX_PERIODIC_LENGTH);
+    uni_bt_set_gap_min_periodic_length(UNI_BT_MIN_PERIODIC_LENGTH);
 
     uni_bt_start_scanning_and_autoconnect_unsafe();
     // uni_bt_del_keys_unsafe();  // use -DOGXM_BT_CLEAR_KEYS_ON_BOOT=1 or ogxm_bt_debug_clear_keys()
@@ -1131,7 +1132,7 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
         return;
     {
         const uint32_t now_cb = to_ms_since_boot(get_absolute_time());
-        idle_note_input(idx, uni_gp, now_cb);  // Custom: idle turn-off
+        idle_note_input(idx, device, uni_gp, now_cb);  // Custom: idle turn-off
     }
 
     /* USB-owned OGX pad must not receive Bluetooth PadIn (MAX_GAMEPADS=1 collision). */

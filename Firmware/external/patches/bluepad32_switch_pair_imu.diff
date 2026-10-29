@@ -1,21 +1,21 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-index 87457cb..a1633f0 100644
+index 4591444..9e7110d 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-@@ -28,6 +28,8 @@ void uni_hid_parser_switch_teardown(struct uni_hid_device_s* d);
+@@ -67,6 +67,8 @@ void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d);
+ void uni_hid_parser_switch_teardown(struct uni_hid_device_s* d);
+ // Unlink the parser's timers before its instance data is wiped (device delete).
  void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d);
- // Ask the pad to disconnect itself and sleep (subcommand 0x06 / 0x00).
- void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d);
 +// Which half of a merged Joy-Con pair provides motion (true = right, the default).
 +void uni_hid_parser_switch_set_pair_imu_side(bool right);
  bool uni_hid_parser_switch_input_processed_in_parser(const struct uni_hid_device_s* d);
  bool uni_hid_parser_switch_solo_needs_partner(const struct uni_hid_device_s* d);
  bool uni_hid_parser_switch_any_awaiting_partner(void);
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index 57b8b2e..1ef23d7 100644
+index c93e479..b81207a 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -336,6 +336,14 @@ static const struct switch_rumble_amp_data rumble_amps[] = {
+@@ -337,6 +337,14 @@ static const struct switch_rumble_amp_data rumble_amps[] = {
  
  static uni_gamepad_t sw1_joycon_half_gp[CONFIG_BLUEPAD32_MAX_DEVICES];
  
@@ -30,7 +30,7 @@ index 57b8b2e..1ef23d7 100644
  static void parse_report_30(struct uni_hid_device_s* d, const uint8_t* report, int len);
  static void parse_report_30_joycon_left(uni_hid_device_t* d, const struct switch_report_30_s* r);
  static void parse_report_30_joycon_right(uni_hid_device_t* d, const struct switch_report_30_s* r);
-@@ -617,8 +625,8 @@ static void switch_establish_joycon_pair(uni_hid_device_t* d, int partner_idx) {
+@@ -602,8 +610,8 @@ static void switch_establish_joycon_pair(uni_hid_device_t* d, int partner_idx) {
      set_led(left_d, leds);
      set_led(right_d, leds);
  
@@ -41,7 +41,7 @@ index 57b8b2e..1ef23d7 100644
  
      logi("Switch: Joy-Con pair L@%d + R@%d -> player slot %d\n", left_idx, right_idx, output_idx);
      uni_bt_bredr_scan_stop();
-@@ -659,9 +667,10 @@ static void switch_merge_joycon_pair(uni_gamepad_t* dst, const uni_gamepad_t* le
+@@ -644,9 +652,10 @@ static void switch_merge_joycon_pair(uni_gamepad_t* dst, const uni_gamepad_t* le
      merged.buttons = left_gp->buttons | right_gp->buttons;
      merged.misc_buttons = left_gp->misc_buttons | right_gp->misc_buttons;
      merged.dpad = left_gp->dpad | right_gp->dpad;
@@ -54,15 +54,26 @@ index 57b8b2e..1ef23d7 100644
      }
      *dst = merged;
  }
-@@ -1320,7 +1329,10 @@ static void parse_report_30(struct uni_hid_device_s* d, const uint8_t* report, i
-     // 3 gyro/accel frames are reported.
-     // Different approaches: take the latest one, or average them.
-     // We just take the latest one. If it is not accurate enough, we can average them.
--    if (ins->mode == SWITCH_MODE_IMU && ins->pair_role == SWITCH_PAIR_NONE)
+@@ -1362,12 +1371,16 @@ static void parse_report_30(struct uni_hid_device_s* d, const uint8_t* report, i
+     }
+ 
+     // IMU is valid for all 3 types of controllers.
+-    // 3 gyro/accel frames are reported; we take the latest sample (`r->imu[2]`).
+-    // Because `uni_hid_parser_switch_parse_input_report()` admits packets with `len >= 12`
+-    // (enough for the 3-byte header + 9-byte `switch_buttons_s`), verify that the report
+-    // contains the full 48-byte `3 + sizeof(struct switch_report_30_s)` payload before
+-    // dereferencing `r->imu[2]` (bytes 36..47) to prevent out-of-bounds reads on short/clone packets.
+-    if (ins->mode == SWITCH_MODE_IMU && ins->pair_role == SWITCH_PAIR_NONE &&
++
++    // 3 gyro/accel frames are reported.
++    // Different approaches: take the latest one, or average them.
++    // We just take the latest one. If it is not accurate enough, we can average them.
 +    const enum switch_controller_types pair_imu_type =
 +        s_pair_imu_right ? SWITCH_CONTROLLER_TYPE_JCR : SWITCH_CONTROLLER_TYPE_JCL;
++    // The report must hold the whole 48-byte `3 + sizeof(struct switch_report_30_s)` payload
++    // before `r->imu[2]` (bytes 36..47) is read (short / clone packets).
 +    if (ins->mode == SWITCH_MODE_IMU &&
-+        (ins->pair_role == SWITCH_PAIR_NONE || ins->controller_type == pair_imu_type))
++        (ins->pair_role == SWITCH_PAIR_NONE || ins->controller_type == pair_imu_type) &&
+         len >= (int)(3 + sizeof(struct switch_report_30_s)))
          parse_imu(d, &r->imu[2]);
  
-     switch_maybe_process_joycon_input(d);

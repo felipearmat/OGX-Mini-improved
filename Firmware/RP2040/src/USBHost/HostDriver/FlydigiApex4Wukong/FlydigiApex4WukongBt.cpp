@@ -172,7 +172,7 @@ void install_final_parser(uni_hid_device_t* device, const char* reason)
     device->report_parser.parse_input_report = flydigi_apex4_bt_parse_input_report;
     device->report_parser.parse_usage = nullptr;
     device->report_parser.setup = nullptr;
-    device->report_parser.device_dump = flydigi_apex4_bt_device_dump;
+    device->report_parser.device_extra_info = flydigi_apex4_bt_device_extra_info;
     /* Leave play_dual_rumble as previously set (often Xbox) until dedicated rumble. */
 
     if (slot >= 0) {
@@ -205,12 +205,12 @@ void try_finalize(uni_hid_device_t* device, const char* reason)
 
 } // namespace
 
-extern "C" void flydigi_apex4_bt_device_dump(uni_hid_device_t* d)
+extern "C" int flydigi_apex4_bt_device_extra_info(const uni_hid_device_t* d, char* buf, size_t len)
 {
     (void)d;
-#if defined(CONFIG_OGXM_DEBUG)
-    OGXM_LOG("\tFlydigi model: 'Flydigi APEX 4 Wukong' (dedicated BT Report 0x01)\n");
-#endif
+    if (!buf || len == 0)
+        return -1;
+    return snprintf(buf, len, "Flydigi APEX 4 Wukong (dedicated BT Report 0x01)");
 }
 
 extern "C" void flydigi_apex4_bt_mark_candidate(uni_hid_device_t* device)

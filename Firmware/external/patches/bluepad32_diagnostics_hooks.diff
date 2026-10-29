@@ -1,5 +1,5 @@
 diff --git a/src/components/bluepad32/bt/uni_bt_le.c b/src/components/bluepad32/bt/uni_bt_le.c
-index 464dd4b..de92683 100644
+index 66ce303..b0c4c32 100644
 --- a/src/components/bluepad32/bt/uni_bt_le.c
 +++ b/src/components/bluepad32/bt/uni_bt_le.c
 @@ -53,6 +53,7 @@
@@ -10,7 +10,7 @@ index 464dd4b..de92683 100644
  #include "bt/uni_bt_le.h"
  #include "bt/uni_bt.h"
  
-@@ -578,6 +579,8 @@ static void uni_device_information_packet_handler(uint8_t packet_type,
+@@ -676,6 +677,8 @@ void uni_bt_le_on_hci_event_gattservice_meta(const uint8_t* packet, uint16_t siz
          return;
      }
  
@@ -52,7 +52,7 @@ index 0000000..dea4456
 +
 +#endif  // UNI_DIAG_HOOKS_H
 diff --git a/src/components/bluepad32/parser/uni_hid_parser.c b/src/components/bluepad32/parser/uni_hid_parser.c
-index 72f4c8f..ee12708 100644
+index 30cca6e..e16b644 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser.c
 @@ -2,6 +2,7 @@
@@ -62,8 +62,8 @@ index 72f4c8f..ee12708 100644
 +#include "uni_diag_hooks.h"
  #include "parser/uni_hid_parser.h"
  
- #include "hid_usage.h"
-@@ -20,9 +21,24 @@
+ #include <stdint.h>
+@@ -22,9 +23,24 @@
  #define USE_NEW_PARSER_API 0
  #endif
  

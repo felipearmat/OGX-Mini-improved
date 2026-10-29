@@ -1,6 +1,6 @@
 [submodule "Firmware/external/bluepad32"]
 	path = Firmware/external/bluepad32
-	url = https://github.com/MegaCadeDev/bluepad32.git
+	url = https://github.com/felipearmat/bluepad32.git
 [submodule "Firmware/external/tinyusb"]
 	path = Firmware/external/tinyusb
 	url = https://github.com/MegaCadeDev/tinyusb.git
