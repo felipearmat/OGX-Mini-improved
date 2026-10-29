@@ -54,8 +54,14 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   D-Input / Switch / XInput, PS3 / Xbox OG / Wii U (2026-10-28), every other mode (2026-10-29,
   c30b1c8: it found the Xbox OG remote's L3 and the PS1/PS2 right stick Y, both fixed). The Joy-Cons' stick calibration there comes from the recording's own
   range (the setup recording above will give the real one); then: the Nova Lite files once
-  recorded, synthetic fixtures for pads we lack. Two fixes not checked on a console yet: the
-  PS1/PS2 right stick (a PS2 game) and the Xbox OG remote's L3 / R3 (the DVD player). A DS4 stick pushed fully up or
+  recorded. Synthetic DualSense and Switch Pro in (2026-10-29, ae64ba8: they found Wii mode's
+  stick fully up sent as fully down); an Xbox pad still to do (its HID report descriptor from a
+  real pad). Fixes not checked on a console yet: the PS1/PS2 right stick (a PS2 game), the Xbox
+  OG remote's L3 / R3 (the DVD player), the Wii stick fully up (a wired pad in Wii mode).
+  To check on hardware: the roll sign. Rolling onto the right side gives the opposite roll in
+  PS4 mode with the DS4 (-1369) and the Joy-Con pair (+1873) recordings, while yaw and pitch
+  agree. Either one recording rolled the other way or the Switch pads' motion path flips roll;
+  roll each pad right in PS4 mode in a gyro tester (or Steam's) and compare. A DS4 stick pushed fully up or
   left reaches 1, not 0, in PS4 / D-Input (Bluepad32 centres it on 127: `(v - 127) * 4`), a
   one-step loss to look at in the Bluepad32 re-sync. The DS4 calibration feature report is not
   in the recordings yet. Spec: `.ignore/spec-input-fixtures.md`.

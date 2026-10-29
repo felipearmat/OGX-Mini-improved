@@ -49,6 +49,11 @@ report in hex, its first byte the report ID).
   (Benjamin Tissoires), converted. Only `ds3_usb.jsonl` (a DualShock 3 on USB) is a game
   controller there: about 3 s, the pad at rest (stick noise only), so it exercises the wired DS3
   path, not the buttons. Origin and author kept in the header.
-- Synthetic reports (pads we do not have: DualSense, Switch Pro, Xbox Series BLE) are built from
-  the public formats (Linux `hid-playstation`, dekuNukem's Switch notes) and marked
-  `source: synthetic`; they test our chain, not a real pad's quirks.
+- Synthetic reports, for pads we do not have: `dualsense_synthetic` and `switch_pro_synthetic`,
+  built by `Tools/bench/synth_pad.py all` from the public formats (Linux `hid-playstation`,
+  dekuNukem's Switch notes; the Pro's IMU axes measured on `joycon_pair`) walking the same script,
+  `source: synthetic`. They test our chain, not a real pad's quirks, and their sticks reach the
+  exact edges (-32768 after scaling) a real pad may not. A pad's replies to the feature reports
+  its parser asks for while it is set up are rows with `"kind": "feature"` (the DualSense's
+  pairing info, firmware version and calibration). Not yet: an Xbox pad (Bluepad32 parses it
+  through its HID report descriptor, needed from a real one).
