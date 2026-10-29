@@ -82,6 +82,17 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   combos, disconnect combo, Wii mode), a wired pad on the USB host port (PIO USB), the hybrid's
   RP2040 side (I2C link, ESP32 flashing and log bridge), settings saved to flash, the web app,
   a long session (over 71 min: timer wrap). Then the upstream PR (UPSTREAM, Features).
+  Done 2026-10-28 evening on a Pico 2 W (CYW43, dev build fe3bfa0, read from its flash log):
+  the Joy-Con pair in STEAM mode over five boots (about 5 slot-hours of play), a DS4 too; idle
+  turn-off of both halves after 15 min, USB suspend / resume with the PC, three sessions past
+  71 min (74, 86, 87 min: timer wrap) with no crash; input-to-USB latency 0.2 ms average, under
+  5 ms max. Input gaps (60-150 ms) 78 an hour per Joy-Con against 147 an hour on the same board
+  with v1.2.0 (SDK 2.1.0, 2026-10-20), both varying 14-350 an hour between sessions: no sign the
+  bump made them worse. One event to watch: 30 min into a session both halves dropped on the
+  supervision timeout (reason 0x08, 0.9 s apart) after a quiet minute, the right one alone again
+  14 s after reconnecting (its link was clean: 0 % lost, 46 ms max gap); then both ran 74 min.
+  3 such drops in 5 slot-hours against 2 in 19 on 2.1.0: too few to tell; the user's account of
+  that moment (moved, battery, interference?) decides whether to look further.
 - **Pico W: Pico SDK timer backports (6473d8c) with an Xbox Series pad over BLE** — the case #146
   saw (connect rumble until a button press). Done with a DS4 on a Pico 2 W 2026-10-26; the stall
   needs a pad that sends nothing while idle. Asked in upstream #147 (UPSTREAM item 0).
