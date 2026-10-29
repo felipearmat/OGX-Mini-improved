@@ -18,6 +18,13 @@ mode's colour can be changed in the web app): it blinks the mode number at boot,
 searching for controllers (fast; slow for the reduced search) and stays on when it stops (a
 controller connected and no free slot). The onboard LEDs keep working as before.
 
+Set it in the [web app](../Firmware/RP2040/docs/Web_App_Guide.md), Adapter Options: each LED on or off (the Pico's own,
+the external one on the Pico, the ESP32's and the external one on the ESP32, as the board has
+them) and the RGB LEDs' brightness; saving restarts the adapter, and both boards start with them.
+Each mode's colour is picked under Device Mode, with a live preview on the LED and the
+controller's lightbar. Tested on the RP2040 + ESP32 adapter (a Pico 2 W + an ESP32 DevKit), with
+an LED on GP6 and one on the ESP32's GPIO 4.
+
 Where to solder it:
 
 | Board | LED on | DIN pin |
@@ -40,18 +47,20 @@ Both firmwares drive their pin whether or not an LED is there, so one LED on eit
   cathode on the LED's 5V) so 3.3 V is a valid high for it.
 - Pico build options: `OGXM_EXT_RGB_PIN` (default `6`, `-1` = none), `OGXM_EXT_RGB_COUNT` (1 to 4;
   more LEDs can be chained, DOUT to the next DIN, for later use: the status is on the first one),
-  `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`). GP6 is free in every mode (debug UART is
+  `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`; the web app's brightness replaces it). GP6 is free in every mode (debug UART is
   GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
   use GP8, GP16 to GP21 and GP28). The LED uses PIO block 2, which the RP2040 does not have.
 - ESP32 options (`idf.py menuconfig`, *OGXMini Options*): `ENABLE_EXT_RGB` (on), `EXT_RGB_PIN`
-  (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral.
+  (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral. On the
+  hybrid the RP2040 keeps the settings: the ESP32 gets the web app's on / off, brightness and the
+  mode colour from it.
 
 # Pi Pico + ESP32
 The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;
 the S3, C3 and C6 have no Bluetooth Classic) handles the Bluetooth controllers, over I2C. Firmware:
 `OGXM_BOARD=ESP32_BLUEPAD32_I2C` for an RP2040 Pico, `ESP32_BLUEPAD32_I2C_PICO2` for a Pi Pico 2
 or Pico 2 W (same header pinout; on a Pico 2 W the on-board radio stays off and Bluetooth comes from
-the ESP32), plus the ESP32 companion in `Firmware/ESP32`. First bench test done; the full hardware test is [planned](../docs/HYBRID_TEST_PLAN.md).
+the ESP32), plus the ESP32 companion in `Firmware/ESP32`. Tested on a bench (a Pico 2 W and an ESP32 DevKit on jumpers, one controller at a time): results in the [test plan](../docs/HYBRID_TEST_PLAN.md).
 
 ![OGX-Mini](../images/DiagramPicoESP32.png)
 
