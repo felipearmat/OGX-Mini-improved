@@ -73,8 +73,9 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   patterns (2026-10-27). Missing: the link figures during a Switch-mode session (about 125 extra
   transfers a second): the ESP32's counters restart with the mode change, so keep them in the
   session summary (or log them as an event) before measuring.
-- **Pico SDK 2.3.1 under test (since 2026-10-27)** — the fork moved from 2.1.0 (with four patches)
-  to 2.3.1. Done 2026-10-27 on the bench hybrid (RP2040 side): DS4 and the Joy-Con pair in the web
+- **Pico SDK 2.3.1 (since 2026-10-27; released in v1.5.0 by the user's decision 2026-10-29)** — the fork
+  moved from 2.1.0 (with four patches) to 2.3.1. Still to check on hardware: a Pico W, the PIO USB
+  host port, Wii mode, a BLE pad. Done 2026-10-27 on the bench hybrid (RP2040 side): DS4 and the Joy-Con pair in the web
   app, STEAM mode in Steam (touchpad as mouse), mode combos, disconnect combo, ESP32 flashing and
   restarts (settings 0.5 s later), no crash. **Every bug found from now on: check whether the bump causes it** (does it happen on
   v1.4.1, the last 2.1.0 build?). Hardware pass before offering it upstream: Pico 2 W and Pico W
