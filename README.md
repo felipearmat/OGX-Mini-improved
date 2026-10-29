@@ -75,7 +75,7 @@ is stored in flash and kept across power cycles.
 This is a fork of [MegaCadeDev/OGX-Mini-2026](https://github.com/MegaCadeDev/OGX-Mini-2026)
 (itself based on [wiredopposite's OGX-Mini](https://github.com/wiredopposite/OGX-Mini)),
 developed and tested on a **Raspberry Pi Pico 2 W** as a Bluetooth → USB adapter for PC and
-Nintendo Switch. What the fork adds and fixes is listed in the [CHANGELOG](CHANGELOG.md).
+Nintendo Switch, and on the **RP2040 + ESP32 hybrid** (a Pico 2 W with an ESP32 DevKit). What the fork adds and fixes is listed in the [CHANGELOG](CHANGELOG.md).
 
 ## Use cases
 
@@ -99,7 +99,7 @@ Nintendo Switch. What the fork adds and fixes is listed in the [CHANGELOG](CHANG
 | Bluetooth controllers on PC, Steam, Switch, Xbox 360, PS3 (most people) | Raspberry Pi Pico 2 W (or Pico W) | One board, Bluetooth built in, nothing to wire |
 | Wired controllers or 2.4 GHz dongles | A board with a USB-A port: Waveshare RP2350-USB-A, Adafruit Feather RP2040 USB Host | Plug the controller straight in |
 | Bluetooth **and** wired on one adapter | Pico 2 W + a USB-A socket on GP0 / GP1 | Built-in Bluetooth plus a second USB port |
-| Longer Bluetooth range, several Bluetooth players *(experimental)* | RP2040 or Pi Pico 2 / Pico 2 W + an ESP32 with an external antenna (ESP32-WROOM-32U) | External antenna, higher transmit power. Builds today; not yet tested on hardware ([roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid)). |
+| Longer Bluetooth range, several Bluetooth players | RP2040 or Pi Pico 2 / Pico 2 W + an ESP32, with an external antenna for range (ESP32-WROOM-32U) | Higher transmit power, the ESP32's radio. Tested with one controller at a time ([test plan](docs/HYBRID_TEST_PLAN.md)); the range gain over a Pico 2 W and several players are not measured yet ([roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid)). |
 | Wii / Wii U | Pico 2 W + a USB-A socket (wired USB controller) | The radio talks to the console as a Wiimote |
 | PS1 / PS2, GameCube, N64, Dreamcast | Pico 2 W + a controller extension cable | Bluetooth controller in, console cable out |
 | Original Xbox, four players | 4-channel RP2040-Zero board | One USB device per console port |
@@ -413,10 +413,13 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   For local multiplayer on an Xbox 360, use one adapter per player: each adapter gets its own
   USB / XSM3 identity from the board's unique ID. On other consoles two adapters share the same
   USB identity, so they may not show up as two players.
-- **RP2040 / Pico 2 + ESP32 hybrid** (first bench test with a Pico 2 W, an ESP32 and a
-  DualShock 4 on a PC; the features below are built and unit-tested, their hardware test is
-  [planned](docs/HYBRID_TEST_PLAN.md)): the USB modes marked in the [mode table](#output-modes)
-  only (the GPIO modes would take over the I2C pins; Wii needs the Pico W radio). The ESP32 runs
+- **RP2040 / Pico 2 + ESP32 hybrid** (tested on a bench with a Pico 2 W and an ESP32 DevKit,
+  one controller at a time: a DualShock 4 and a Joy-Con pair on a PC and in Steam, in STEAM, PS4,
+  Switch, XInput and D-Input modes, with motion, rumble and HD Rumble, the touchpad, the lightbar,
+  the combos, the idle turn-off, the diagnostics and flashing both chips through the adapter;
+  results in the [test plan](docs/HYBRID_TEST_PLAN.md). Not tested yet: several controllers at once,
+  the range with an external antenna next to a Pico 2 W, BLE controllers): the USB modes marked in
+  the [mode table](#output-modes) only (the GPIO modes would take over the I2C pins; Wii needs the Pico W radio). The ESP32 runs
   the same Bluetooth code as the Pico W (`Firmware/common/Bluepad32`): Joy-Con pairs, motion,
   touchpad, battery, lightbar, combos, search policy, idle turn-off and the diagnostics report
   reach the RP2040 over I2C, and the RP2040 keeps the settings (the web app over USB or over
@@ -436,7 +439,7 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
 3. **Several controllers on one adapter** — up to 4 Bluetooth players, and a co-pilot mode
 4. **Bluetooth out where a system only takes Bluetooth** — Bluetooth controllers in Wii mode, Wii U
    Pro Controller, Apple TV
-5. **RP2040 + ESP32 hybrid** — hardware testing of the features it now shares with the Pico W
+5. **RP2040 + ESP32 hybrid** — several players, the range with an external antenna, a soldered board
 
 Details and status: [docs/ROADMAP.md](docs/ROADMAP.md). Known bugs: [docs/TODO.md](docs/TODO.md).
 
@@ -469,7 +472,7 @@ cmake --build build
 detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
 hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
 is not used), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
-outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W (this fork); Feather USB Host, Pico W,
+outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W and the hybrid on a Pico 2 W (`ESP32_BLUEPAD32_I2C_PICO2`) (this fork); Feather USB Host, Pico W,
 Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 
 **Options:** `MAX_GAMEPADS` (1–4, default 1; see [Limitations](#limitations)),

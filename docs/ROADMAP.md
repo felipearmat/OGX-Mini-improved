@@ -114,9 +114,13 @@ RP2350; same pins, the Pico 2 W radio unused): the RP2040 / RP2350 for USB and a
 needed; the ESP32-S3 / C3 / C6 do not have it) running Bluepad32, linked over I2C. Both firmwares
 build in CI and share their common code ([Firmware/common](../Firmware/common/README.md)).
 
-1. **Test on hardware** — first bench test done (Pico 2 W + ESP32 + DualShock 4 on a PC: pairing,
-   mode changes over I2C, buttons, rumble). Next: range against a Pico 2 W with the diagnostics
-   report (signal, lost reports, input gaps). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
+1. **Test on hardware** — done on the bench (Pico 2 W + ESP32 DevKit on jumpers, 2026-10-13 to
+   10-28): a DualShock 4 and a Joy-Con pair, one controller at a time, in STEAM, PS4, Switch,
+   XInput and D-Input modes (buttons, sticks, motion, rumble and HD Rumble, touchpad, lightbar,
+   combos, idle turn-off, diagnostics, flashing both chips through the adapter), results in
+   [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md). Next: several controllers at once (`MAX_GAMEPADS` > 1),
+   range against a Pico 2 W with the diagnostics report (signal, lost reports, input gaps), a BLE
+   controller, then a soldered board (the jumpers corrupt some I2C packets). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
    raise the Classic transmit power to +9 dBm (`esp_bredr_tx_power_set`).
 2. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
    - ~~shared Bluetooth core~~ — done: the ESP32 runs the Pico W's Bluetooth code
