@@ -1,5 +1,5 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_ds4.h b/src/components/bluepad32/include/parser/uni_hid_parser_ds4.h
-index edeab4b..4d33d59 100644
+index a132fb8..5eb4ba8 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_ds4.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_ds4.h
 @@ -5,6 +5,7 @@
@@ -10,7 +10,7 @@ index edeab4b..4d33d59 100644
  #include <stdint.h>
  
  #include "parser/uni_hid_parser.h"
-@@ -15,6 +16,8 @@ void uni_hid_parser_ds4_init_report(struct uni_hid_device_s* d);
+@@ -19,6 +20,8 @@ void uni_hid_parser_ds4_init_report(struct uni_hid_device_s* d);
  void uni_hid_parser_ds4_parse_input_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len);
  void uni_hid_parser_ds4_parse_feature_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len);
  void uni_hid_parser_ds4_set_lightbar_color(struct uni_hid_device_s* d, uint8_t r, uint8_t g, uint8_t b);
@@ -20,10 +20,10 @@ index edeab4b..4d33d59 100644
                                           uint16_t start_delay_ms,
                                           uint16_t duration_ms,
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds4.c b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
-index 5583a2e..9b5f696 100644
+index 8ff2cb6..634a53d 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_ds4.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
-@@ -87,6 +87,12 @@ typedef struct {
+@@ -74,6 +74,12 @@ typedef struct {
      uint8_t prev_color_blue;
      uint8_t prev_rumble_weak_magnitude;
      uint8_t prev_rumble_strong_magnitude;
@@ -36,7 +36,7 @@ index 5583a2e..9b5f696 100644
  } ds4_instance_t;
  _Static_assert(sizeof(ds4_instance_t) < HID_DEVICE_MAX_PARSER_DATA, "DS4 instance too big");
  
-@@ -502,6 +508,13 @@ static void ds4_parse_input_report_11(uni_hid_device_t* d, const ds4_input_repor
+@@ -503,6 +509,13 @@ static void ds4_parse_input_report_11(uni_hid_device_t* d, const ds4_input_repor
      // The +1 is to avoid having a value of 0, which means "battery unavailable".
      ctl->battery = (r->status[0] & DS4_STATUS_BATTERY_CAPACITY) * 25 + 1;
  
@@ -50,7 +50,7 @@ index 5583a2e..9b5f696 100644
      if (d->child) {
          ds4_parse_mouse(d->child, r);
      }
-@@ -523,6 +536,20 @@ void uni_hid_parser_ds4_parse_input_report(uni_hid_device_t* d, const uint8_t* r
+@@ -527,6 +540,20 @@ void uni_hid_parser_ds4_parse_input_report(uni_hid_device_t* d, const uint8_t* r
  // one supported. If needed, the function is preserved in git history:
  // https://gitlab.com/ricardoquesada/bluepad32/-/blob/c32598f39831fd8c2fa2f73ff3c1883049caafc2/src/main/uni_hid_parser_ds4.c#L185
  

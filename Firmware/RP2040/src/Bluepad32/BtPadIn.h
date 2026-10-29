@@ -31,7 +31,8 @@ namespace bt_pad {
         gp_in.touchpad_valid = mapped.touchpad_valid ? 1 : 0;
 
         const bool joycon = is_switch_joycon(device);
-        MotionImu::apply_bt_motion(gp_in, motion_source_of(device, uni_gp), uni_gp->accel, uni_gp->gyro,
+        const RawMotion motion = raw_motion(device, uni_gp);
+        MotionImu::apply_bt_motion(gp_in, motion_source_of(device, uni_gp), motion.accel, motion.gyro,
                                    joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft,
                                    joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConRight,
                                    joycon && pair_partner_idx(device) >= 0, wii_gyro, now_ms);

@@ -1,8 +1,8 @@
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_ds4.c b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
-index 5583a2e..85e27ca 100644
+index 634a53d..69250fb 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_ds4.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_ds4.c
-@@ -595,10 +595,15 @@ static ds4_instance_t* get_ds4_instance(uni_hid_device_t* d) {
+@@ -607,10 +607,15 @@ static ds4_instance_t* get_ds4_instance(uni_hid_device_t* d) {
      return (ds4_instance_t*)&d->parser_data[0];
  }
  

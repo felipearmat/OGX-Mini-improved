@@ -33,13 +33,15 @@ public:
         rumble_ms_ = now_ms;
     }
 
-    /* Every report of a pad feeding this output. rumble_window_ms: how long after a rumble
-     * request the pad may still shake (the feedback period plus a margin). */
-    void note_input(const uni_gamepad_t* gp, uint32_t now_ms, uint32_t rumble_window_ms)
+    /* Every report of a pad feeding this output, with its motion in the pad's own units
+     * (bt_pad::raw_motion). rumble_window_ms: how long after a rumble request the pad may still
+     * shake (the feedback period plus a margin). */
+    void note_input(const uni_gamepad_t* gp, const int32_t gyro[3], const int32_t accel[3], uint32_t now_ms,
+                    uint32_t rumble_window_ms)
     {
         const int32_t axis[6] = {gp->axis_x, gp->axis_y, gp->axis_rx, gp->axis_ry, gp->brake, gp->throttle};
         const bool rumbling = rumble_seen_ && now_ms - rumble_ms_ < rumble_window_ms;
-        const bool handled = motion_.update(gp->gyro, gp->accel, now_ms, rumbling);  // every report
+        const bool handled = motion_.update(gyro, accel, now_ms, rumbling);  // every report
         bool moved = !valid_ || handled || gp->buttons != buttons_ || gp->dpad != dpad_ || gp->misc_buttons != misc_;
         for (int i = 0; i < 6 && !moved; ++i) {
             const int32_t delta = axis[i] - axis_[i];

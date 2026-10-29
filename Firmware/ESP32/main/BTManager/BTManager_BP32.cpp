@@ -219,7 +219,8 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         schedule_disconnect_combo(static_cast<uint8_t>(idx));
         return;  // no further input from a pad that is going away
     }
-    output.idle.note_input(uni_gp, now_ms, FEEDBACK_TIME_MS + 100);
+    const bt_pad::RawMotion motion = bt_pad::raw_motion(bp_device, uni_gp);  // the pad's own units
+    output.idle.note_input(uni_gp, motion.gyro, motion.accel, now_ms, FEEDBACK_TIME_MS + 100);
 
     const bt_pad::Input mapped = bt_pad::map_input(bp_device, uni_gp, output.mapper);
 
@@ -230,8 +231,8 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     ext.motion_source = bt_pad::motion_source_of(bp_device, uni_gp);
     for (int i = 0; i < 3; ++i)
     {
-        ext.accel[i] = Esp32Bridge::saturate_i16(uni_gp->accel[i]);
-        ext.gyro[i] = Esp32Bridge::gyro_to_wire(uni_gp->gyro[i], ext.motion_source);
+        ext.accel[i] = Esp32Bridge::saturate_i16(motion.accel[i]);
+        ext.gyro[i] = Esp32Bridge::gyro_to_wire(motion.gyro[i], ext.motion_source);
     }
     std::memcpy(ext.touch_raw, mapped.touch_raw, sizeof(ext.touch_raw));
     ext.flags = (mapped.touchpad_valid ? I2CDriver::PacketInExt::TOUCHPAD_VALID : 0) |

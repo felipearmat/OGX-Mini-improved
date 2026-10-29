@@ -37,8 +37,8 @@ static void restart_inquiry(uint16_t min_period, uint16_t max_period)
 {
     s_inquiry_min = min_period;
     s_inquiry_max = max_period;
-    uni_bt_set_gap_min_peridic_length(min_period);  // later starts by Bluepad32 use it too
-    uni_bt_set_gap_max_peridic_length(max_period);
+    uni_bt_set_gap_min_periodic_length(min_period);  // later starts by Bluepad32 use it too
+    uni_bt_set_gap_max_periodic_length(max_period);
     gap_inquiry_stop();
     btstack_run_loop_remove_timer(&s_inquiry_restart_timer);
     s_inquiry_restart_tries = 0;
@@ -128,8 +128,8 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
             const uint16_t max_period = is_reduced ? scan_policy::kReducedMaxPeriod : scan_policy::kFullMaxPeriod;
             if (outputs <= 0 && !awaiting) {
                 /* No pad: the pairing paths run the search (the platform's, or here). */
-                uni_bt_set_gap_min_peridic_length(min_period);
-                uni_bt_set_gap_max_peridic_length(max_period);
+                uni_bt_set_gap_min_periodic_length(min_period);
+                uni_bt_set_gap_max_periodic_length(max_period);
                 if (start_when_empty && !uni_bt_is_scanning())
                     uni_bt_start_scanning_and_autoconnect_unsafe();
                 break;
@@ -142,8 +142,8 @@ void apply(const Pads& pads, int max_gamepads, bool pad_leaving, bool force, uin
                 if (force || previous != want)
                     restart_inquiry(min_period, max_period);
             } else {
-                uni_bt_set_gap_min_peridic_length(min_period);
-                uni_bt_set_gap_max_peridic_length(max_period);
+                uni_bt_set_gap_min_periodic_length(min_period);
+                uni_bt_set_gap_max_periodic_length(max_period);
                 uni_bt_le_scan_stop();  // new parameters apply when the scan starts
                 if (!pads.hogp)
                     uni_bt_le_scan_start();

@@ -1,8 +1,8 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-index dacb0a6..bcec7b6 100644
+index a04ff16..3b196b3 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-@@ -32,6 +32,8 @@ void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d);
+@@ -71,6 +71,8 @@ void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d);
  void uni_hid_parser_switch_set_pair_imu_side(bool right);
  // Whether a lone Joy-Con looks for its other half and merges with it (true, the default).
  void uni_hid_parser_switch_set_joycon_pairing(bool enabled);
@@ -12,10 +12,10 @@ index dacb0a6..bcec7b6 100644
  bool uni_hid_parser_switch_solo_needs_partner(const struct uni_hid_device_s* d);
  bool uni_hid_parser_switch_any_awaiting_partner(void);
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index 5e38735..b4a99ab 100644
+index f442ea9..f2334a1 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -2050,3 +2050,16 @@ int uni_hid_parser_switch_get_pair_partner_idx(const uni_hid_device_t* d) {
+@@ -2103,3 +2103,16 @@ int uni_hid_parser_switch_get_pair_partner_idx(const uni_hid_device_t* d) {
          return -1;
      return ins->pair_partner_idx;
  }

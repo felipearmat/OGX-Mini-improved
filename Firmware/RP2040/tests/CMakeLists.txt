@@ -166,7 +166,8 @@ if (OGXM_HAVE_M32)
     add_executable(test_switch_parser
         switch_parser/test_switch_parser.c
         switch_parser/fake_bt.c
-        ${BP32}/parser/uni_hid_parser_switch.c)
+        ${BP32}/parser/uni_hid_parser_switch.c
+        ${BP32}/parser/uni_hid_parser_rumble.c)
     target_include_directories(test_switch_parser PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${BP32}/include ${BP32}
         ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${FW_SRC} ${FW_COMMON})
@@ -192,6 +193,7 @@ if (OGXM_HAVE_M32)
         fixtures/bp32_stubs.c
         switch_parser/fake_bt.c
         ${BP32}/parser/uni_hid_parser_switch.c
+        ${BP32}/parser/uni_hid_parser_rumble.c
         ${BP32}/parser/uni_hid_parser_ds4.c
         ${BP32}/parser/uni_hid_parser_ds5.c
         ${BP32}/uni_utils.c

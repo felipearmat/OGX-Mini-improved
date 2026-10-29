@@ -49,7 +49,7 @@ int flydigi_apex4_bt_layout_confirmed(const uni_hid_device_t* device);
 
 void flydigi_apex4_bt_parse_input_report(uni_hid_device_t* d, const uint8_t* report, uint16_t len);
 void flydigi_apex4_bt_init_report(uni_hid_device_t* d);
-void flydigi_apex4_bt_device_dump(uni_hid_device_t* d);
+int flydigi_apex4_bt_device_extra_info(const uni_hid_device_t* d, char* buf, size_t len);
 
 /** Clear per-slot state on disconnect. */
 void flydigi_apex4_bt_on_slot_disconnected(uni_hid_device_t* device);

@@ -1,8 +1,8 @@
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index e8431b5..c69a406 100644
+index f2334a1..a2ca8d3 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -658,7 +658,7 @@ static void switch_try_joycon_pair(uni_hid_device_t* d) {
+@@ -643,7 +643,7 @@ static void switch_try_joycon_pair(uni_hid_device_t* d) {
          return;
      }
  
@@ -11,7 +11,7 @@ index e8431b5..c69a406 100644
      switch_resume_partner_scan();
      logi("Switch: Joy-Con solo — BR/EDR inquiry on for partner Joy-Con\n");
  }
-@@ -1988,7 +1988,7 @@ void uni_hid_parser_switch_teardown(uni_hid_device_t* d) {
+@@ -2040,7 +2040,7 @@ void uni_hid_parser_switch_teardown(uni_hid_device_t* d) {
          d->controller_type != CONTROLLER_TYPE_SwitchJoyConRight)
          return;
      switch_break_joycon_pair(d);

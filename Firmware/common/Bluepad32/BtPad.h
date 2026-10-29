@@ -361,6 +361,74 @@ namespace bt_pad {
         return (gp->misc_buttons & MISC_BUTTON_START) && (gp->misc_buttons & MISC_BUTTON_BACK);
     }
 
+    /* Custom: Bluepad32 5 reports motion in SI units (m/s^2 with gravity, rad/s) in one Y-up frame
+     * for every pad (X right, Y up out of the face, Z towards the player). The adapter's motion
+     * code (MotionImu, the idle turn-off, the hybrid's SET_PAD_EXT) works in each pad's own units
+     * and frame, as Bluepad32 gave them before: back to those, undoing what each parser does:
+     *  - DS4 / DualSense: 8192 per g, 1024 per deg/s, the same axes;
+     *  - Switch Pro / Joy-Cons: the Pro's axes (X forward, Y left, Z up; the right Joy-Con already
+     *    aligned with them), 4096 per g, gyro in raw counts * 1000 at the factory scale (13371
+     *    counts per 936 deg/s);
+     *  - Wiimote: counts from 0x200, 104 per g, its own axes;
+     *  - Switch 2 and Steam Controller 2026 (MegaCadeDev's parsers, kept): still raw counts;
+     *  - any other pad (DS3, PS Move, Steam Controller: no motion source here): DS4 units, for the
+     *    idle turn-off only. */
+    struct RawMotion {
+        int32_t accel[3];
+        int32_t gyro[3];
+    };
+
+    inline int32_t round_motion(float v)
+    {
+        return static_cast<int32_t>(v >= 0.0f ? v + 0.5f : v - 0.5f);
+    }
+
+    inline RawMotion raw_motion(const uni_hid_device_t* d, const uni_gamepad_t* gp)
+    {
+        constexpr float kPerG = 1.0f / UNI_STANDARD_GRAVITY;
+        constexpr float kDegPerRad = 1.0f / UNI_DEG_TO_RAD;
+        RawMotion m{};
+        const float* a = gp->accel;
+        const float* g = gp->gyro;
+        switch (d->controller_type) {
+            case CONTROLLER_TYPE_SwitchProController:
+            case CONTROLLER_TYPE_SwitchJoyConLeft:
+            case CONTROLLER_TYPE_SwitchJoyConRight: {
+                // Y-up (x, y, z) = Pro (-y, z, -x)
+                const float pro_a[3] = {-a[2], -a[0], a[1]};
+                const float pro_g[3] = {-g[2], -g[0], g[1]};
+                for (int i = 0; i < 3; ++i) {
+                    m.accel[i] = round_motion(pro_a[i] * kPerG * 4096.0f);
+                    m.gyro[i] = round_motion(pro_g[i] * kDegPerRad * (13371.0f * 1000.0f / 936.0f));
+                }
+                break;
+            }
+            case CONTROLLER_TYPE_WiiController: {
+                // Y-up (x, y, z) = Wiimote (-x, z, -y)
+                const float wii[3] = {-a[0], -a[2], a[1]};
+                for (int i = 0; i < 3; ++i)
+                    m.accel[i] = round_motion(wii[i] * kPerG * 104.0f);
+                break;
+            }
+            case CONTROLLER_TYPE_Switch2ProController:
+            case CONTROLLER_TYPE_Switch2JoyConLeft:
+            case CONTROLLER_TYPE_Switch2JoyConRight:
+            case CONTROLLER_TYPE_SteamControllerTriton:
+                for (int i = 0; i < 3; ++i) {
+                    m.accel[i] = round_motion(a[i]);
+                    m.gyro[i] = round_motion(g[i]);
+                }
+                break;
+            default:  // DS4 / DualSense units
+                for (int i = 0; i < 3; ++i) {
+                    m.accel[i] = round_motion(a[i] * kPerG * 8192.0f);
+                    m.gyro[i] = round_motion(g[i] * kDegPerRad * 1024.0f);
+                }
+                break;
+        }
+        return m;
+    }
+
     /* Where the pad's motion comes from (Gamepad/MotionSource.h); NONE without sensors. A Wiimote
      * counts once it reports accelerometer data (accel mode, or readings above the noise). */
     inline uint8_t motion_source_of(const uni_hid_device_t* d, const uni_gamepad_t* gp)
@@ -381,9 +449,10 @@ namespace bt_pad {
                 if (d->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_ACCEL ||
                     d->controller_subtype == CONTROLLER_SUBTYPE_WIIMOTE_NUNCHUK_ACCEL)
                     return motion_source::WII_BT;
-                const int32_t l1 = (gp->accel[0] >= 0 ? gp->accel[0] : -gp->accel[0]) +
-                                   (gp->accel[1] >= 0 ? gp->accel[1] : -gp->accel[1]) +
-                                   (gp->accel[2] >= 0 ? gp->accel[2] : -gp->accel[2]);
+                const RawMotion m = raw_motion(d, gp);
+                const int32_t l1 = (m.accel[0] >= 0 ? m.accel[0] : -m.accel[0]) +
+                                   (m.accel[1] >= 0 ? m.accel[1] : -m.accel[1]) +
+                                   (m.accel[2] >= 0 ? m.accel[2] : -m.accel[2]);
                 return l1 > 16 ? motion_source::WII_BT : motion_source::NONE;
             }
             default:

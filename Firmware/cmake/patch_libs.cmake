@@ -65,16 +65,14 @@ function(ogxm_patch_tree NAME DIR)
     file(WRITE "${_stamp_file}" "${_stamp}\n")
 endfunction()
 
-# Bluepad32 (OGX-Mini-improved), in order:
-# - Switch parser: enable vibration (subcommand 0x48) during setup, Joy-Cons ignore rumble until
-#   then; setup robustness (per-step timeout + retries, stale-reply filtering, one pad in setup at
-#   a time, timer cleanup before a device's parser data is wiped); request-sleep (subcommand
-#   0x06 / 0x00, a Joy-Con drops the link and sleeps); pair IMU (a merged Joy-Con pair keeps and
-#   parses only the selected half's IMU); rumble intensity (the requested magnitude mapped to the
-#   amplitude table at a fixed frequency, as DS4Windows's SwitchProDevice.PrepareRumbleData);
-#   Joy-Con pairing toggle; firmware version;
-# - output queue: byte-stream ring buffer (backport of ricardoquesada/bluepad32 b6531db; the old
-#   32-slot queue dropped packets when full, a rumble "stop" among them);
+# Bluepad32 (OGX-Mini-improved), in order. On felipearmat/bluepad32 `ogxm-mini-2026`:
+# MegaCadeDev's fork (Switch 2, Steam Controller 2026, Xbox BLE) merged with upstream `develop`
+# v5.0 (2026-10-29). Upstream has since taken our vibration enable (#226), rumble intensity
+# (#227 / #232), request sleep (#229) and its own output ring buffer (b6531db): no patch for them.
+# - Switch parser: setup robustness (per-step timeout + retries, stale-reply filtering, one pad
+#   in setup at a time; its timers unlinked in the parser's deinit before the device is wiped);
+#   pair IMU (a merged Joy-Con pair keeps and parses only the selected half's IMU); Joy-Con
+#   pairing toggle; firmware version;
 # - diagnostics hooks: raw input reports and BLE Device Information values;
 # - DS4 parser: the latest touch points for touchpad passthrough; the DS4 Bluetooth report
 #   interval set per platform (UNI_DS4_BT_POLL_INTERVAL_MS);
@@ -84,19 +82,16 @@ endfunction()
 #   triggers widened to 10 bits by bit replication (255 -> 1023, as SDL's * 257), not * 4 / * 32
 #   (255 -> 1020, 31 -> 992: a full trigger read 254 / 247 at 8 bits).
 # - Switch parser: raw rumble, a Switch host's HD Rumble blocks sent to the pad unchanged (Switch
-#   mode, Firmware/RP2040/docs/HD_Rumble.md).
+#   mode, Firmware/RP2040/docs/HD_Rumble.md); a pending strength rumble is called off through
+#   Bluepad32's shared rumble timers.
 # Shared by the firmware builds and the host tests (Firmware/RP2040/tests), so all use one stamp.
 function(ogxm_patch_bluepad32 EXTERNAL_DIR)
     set(_p "${EXTERNAL_DIR}/patches")
     ogxm_patch_tree("Bluepad32" "${EXTERNAL_DIR}/bluepad32"
-        "${_p}/bluepad32_switch_enable_vibration.diff"
         "${_p}/bluepad32_switch_setup_robustness.diff"
-        "${_p}/bluepad32_switch_request_sleep.diff"
         "${_p}/bluepad32_switch_pair_imu.diff"
-        "${_p}/bluepad32_switch_rumble_intensity.diff"
         "${_p}/bluepad32_switch_joycon_pairing_toggle.diff"
         "${_p}/bluepad32_switch_firmware_version.diff"
-        "${_p}/bluepad32_output_ring_buffer.diff"
         "${_p}/bluepad32_diagnostics_hooks.diff"
         "${_p}/bluepad32_ds4_touchpad.diff"
         "${_p}/bluepad32_ds4_poll_interval.diff"
@@ -105,11 +100,19 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_switch_raw_rumble.diff")
 endfunction()
 
-# Bluepad32's BTstack: BTstack v1.8 queues the HID Control Point command through the GATT query
-# scheduler although it is a write without response, which can leave Xbox BLE controllers
-# connected but unable to finish their setup (HID up, GETs return COMMAND_DISALLOWED, no input).
+# Bluepad32's BTstack (bluekitchen, at the commit upstream Bluepad32 pins), in order:
+# - Bluepad32's own L2CAP patch (external/patches in its tree: incoming connections with less
+#   security than asked for, as its build applies it);
+# - HOGP Report Map seed (MegaCadeDev/btstack 79c970b, which the fork pinned before): skip the
+#   Report Map long read that hangs Xbox Series / SCUF BLE pads on CYW43 and use a known
+#   descriptor; HID service discovery failures reported; more HID reports per service;
+# - BTstack queued the HID Control Point command through the GATT query scheduler although it is
+#   a write without response, which can leave Xbox BLE controllers connected but unable to finish
+#   their setup (HID up, GETs return COMMAND_DISALLOWED, no input).
 function(ogxm_patch_btstack EXTERNAL_DIR)
     ogxm_patch_tree("BTstack" "${EXTERNAL_DIR}/bluepad32/external/btstack"
+        "${EXTERNAL_DIR}/bluepad32/external/patches/0001-PATCH-l2cap-Allow-incoming-connection-with-not-enoug.patch"
+        "${EXTERNAL_DIR}/patches/btstack_hogp_report_map_seed.diff"
         "${EXTERNAL_DIR}/patches/btstack_hids_control_point.diff")
 endfunction()
 

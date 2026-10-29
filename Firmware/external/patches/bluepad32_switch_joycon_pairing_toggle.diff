@@ -1,9 +1,9 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-index a1633f0..dacb0a6 100644
+index 9e7110d..a04ff16 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-@@ -30,6 +30,8 @@ void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d);
- void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d);
+@@ -69,6 +69,8 @@ void uni_hid_parser_switch_teardown(struct uni_hid_device_s* d);
+ void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d);
  // Which half of a merged Joy-Con pair provides motion (true = right, the default).
  void uni_hid_parser_switch_set_pair_imu_side(bool right);
 +// Whether a lone Joy-Con looks for its other half and merges with it (true, the default).
@@ -12,10 +12,10 @@ index a1633f0..dacb0a6 100644
  bool uni_hid_parser_switch_solo_needs_partner(const struct uni_hid_device_s* d);
  bool uni_hid_parser_switch_any_awaiting_partner(void);
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index a3f3732..5e38735 100644
+index b81207a..f442ea9 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -344,6 +344,14 @@ void uni_hid_parser_switch_set_pair_imu_side(bool right) {
+@@ -345,6 +345,14 @@ void uni_hid_parser_switch_set_pair_imu_side(bool right) {
      s_pair_imu_right = right;
  }
  
@@ -30,7 +30,7 @@ index a3f3732..5e38735 100644
  static void parse_report_30(struct uni_hid_device_s* d, const uint8_t* report, int len);
  static void parse_report_30_joycon_left(uni_hid_device_t* d, const struct switch_report_30_s* r);
  static void parse_report_30_joycon_right(uni_hid_device_t* d, const struct switch_report_30_s* r);
-@@ -641,7 +649,7 @@ static void switch_resume_partner_scan(void) {
+@@ -626,7 +634,7 @@ static void switch_resume_partner_scan(void) {
  
  static void switch_try_joycon_pair(uni_hid_device_t* d) {
      switch_instance_t* ins = get_switch_instance(d);
@@ -39,7 +39,7 @@ index a3f3732..5e38735 100644
          return;
  
      const int partner_idx = switch_find_joycon_partner_idx(d);
-@@ -1999,6 +2007,8 @@ bool uni_hid_parser_switch_solo_needs_partner(const uni_hid_device_t* d) {
+@@ -2052,6 +2060,8 @@ bool uni_hid_parser_switch_solo_needs_partner(const uni_hid_device_t* d) {
      if (d->controller_type != CONTROLLER_TYPE_SwitchJoyConLeft &&
          d->controller_type != CONTROLLER_TYPE_SwitchJoyConRight)
          return false;

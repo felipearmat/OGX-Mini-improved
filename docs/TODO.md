@@ -63,7 +63,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   agree. Either one recording rolled the other way or the Switch pads' motion path flips roll;
   roll each pad right in PS4 mode in a gyro tester (or Steam's) and compare. A DS4 stick pushed fully up or
   left reaches 1, not 0, in PS4 / D-Input (Bluepad32 centres it on 127: `(v - 127) * 4`), a
-  one-step loss to look at in the Bluepad32 re-sync. The DS4 calibration feature report is not
+  one-step loss to look at in Bluepad32 (still `(v - 127) * 4` in v5.0). The DS4 calibration feature report is not
   in the recordings yet. Spec: `.ignore/spec-input-fixtures.md`.
 - **HD Rumble (Switch mode), next steps** — phase 1 (Pico W) passed the pattern test with a
   Joy-Con pair (2026-10-27). Still to try: a game / Eden with the direct Pro Controller driver, a
@@ -98,6 +98,24 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   and every controller and session leaves a summary line in the kept log (the flash log had only
   the last two summaries, so these sessions' figures were lost). The user's play sessions stop
   the PC logger (game mode), so the flash log is the source for them.
+- **Bluepad32 v5.0 re-sync on hardware (branch `bp32-resync`, 2026-10-29)** — felipearmat/bluepad32
+  `ogxm-mini-2026` (MegaCadeDev's fork merged with upstream `develop`; their Switch 2 / Triton
+  parsers and BLE flow kept), BTstack on bluekitchen at upstream's pin with three patches. Host
+  tests (all fixture goldens unchanged in 19 modes) and every board build pass. Upstream now gives
+  motion in SI units in one Y-up frame: `bt_pad::raw_motion` turns it back into each pad's former
+  units, so a wrong sign or scale there shows on hardware as motion, not as a build error. To check
+  on the Pico 2 W, then the hybrid (dev-opt1): DS4 and Joy-Con pair connect / reconnect after a
+  reboot, buttons and sticks in D-Input, gyro and tilt in STEAM / PS4 (direction and speed as
+  before), Switch mode (motion, HD Rumble patterns), the idle turn-off, the disconnect combo, the
+  Joy-Con pair setup (one pad in setup at a time), a long session in the flash log. Not testable
+  here: Switch 2, Steam Controller 2026, Xbox BLE (MegaCadeDev's code, unchanged by the merge but on
+  the new BTstack). Then master, the release notes, and later `raw_motion` can go: the motion code
+  could take the SI frame directly (it already is the DS4 report frame).
+- **Switch 2 / Steam Controller 2026: bring in what upstream's parsers have** (user's decision
+  2026-10-29: MegaCadeDev's parsers stay) — stick calibration from the pad's SPI flash, battery,
+  IMU orientation per model, the GameCube NSO pad's C button, connection and setup timeouts; the
+  Triton's connection timeout. Each against Ricardo's implementation; needs a pad to verify (none
+  here). The other way round in UPSTREAM.md (Other projects).
 - **Pico W: Pico SDK timer backports (6473d8c) with an Xbox Series pad over BLE** — the case #146
   saw (connect rumble until a button press). Done with a DS4 on a Pico 2 W 2026-10-26; the stall
   needs a pad that sends nothing while idle. Asked in upstream #147 (UPSTREAM item 0).
@@ -161,7 +179,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Motion
 
-- **DS4 motion calibration in Bluepad32 differs from Linux / DS4Windows** — compared 2026-10-22: (1) the accelerometer bias is computed but not subtracted (Linux: `raw - bias`); (2) the gyro pitch divisor uses `|minus + bias|` where Linux uses `minus - bias` (as for yaw / roll); (3) over Bluetooth it asks feature report 0x02 (the USB id) where Linux and DS4Windows ask 0x05, read in the Bluetooth field order. Measured on the test DS4 (v2, calibration 0x02 read over USB): biases -5 / 8 / 6, plus / minus ±8800-8867, speed 540 / 540 → gyro gain 62.4-62.7 (1/1024 deg/s per count) by Linux's formula; the same bytes in Bluepad32's order and pitch sign give 0.2-0.3 % off, and the uncalibrated default (62.5) is as close. Accelerometer biases 30-68 counts (4-8 mg). So all three are small on this pad (a pad with large biases or asymmetric ranges would show more), and none explains the 360 degree turn integrating to about 349 (3 %): the same pad on a USB cable, with its own calibration and nothing of ours in between, integrated a hand turn to 348 degrees, so that shortfall is the pad or the hand, not the adapter. Fix (1)-(3) by a Bluepad32 patch, also for upstream; low priority.
+- **DS4 motion calibration in Bluepad32 differs from Linux / DS4Windows** — compared 2026-10-22: (1) the accelerometer bias is computed but not subtracted (Linux: `raw - bias`; subtracted upstream since Bluepad32 v5.0, in the fork with the 2026-10-29 re-sync); (2) the gyro pitch divisor uses `|minus + bias|` where Linux uses `minus - bias` (as for yaw / roll); (3) over Bluetooth it asks feature report 0x02 (the USB id) where Linux and DS4Windows ask 0x05, read in the Bluetooth field order. Measured on the test DS4 (v2, calibration 0x02 read over USB): biases -5 / 8 / 6, plus / minus ±8800-8867, speed 540 / 540 → gyro gain 62.4-62.7 (1/1024 deg/s per count) by Linux's formula; the same bytes in Bluepad32's order and pitch sign give 0.2-0.3 % off, and the uncalibrated default (62.5) is as close. Accelerometer biases 30-68 counts (4-8 mg). So all three are small on this pad (a pad with large biases or asymmetric ranges would show more), and none explains the 360 degree turn integrating to about 349 (3 %): the same pad on a USB cable, with its own calibration and nothing of ours in between, integrated a hand turn to 348 degrees, so that shortfall is the pad or the hand, not the adapter. Fix (2)-(3) by a Bluepad32 patch, also for upstream; low priority.
 - **Linux evdev motion (hid-playstation) did not follow a turn** — 2026-10-21, STEAM mode, Joy-Con
   pair: integrating the "Motion Sensors" evdev device gave only the bias drift while the same
   reports' raw gyro (hidraw) integrated to the turn. Either the integration script or how
