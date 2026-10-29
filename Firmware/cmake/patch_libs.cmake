@@ -88,6 +88,11 @@ endfunction()
 #   probe point's Switch subcommand round trip, Firmware/RP2040/docs/Debug_Mode.md).
 # - Switch parser: set the standard report mode again on request (a Joy-Con that finished its
 #   setup but stays quiet, Bluepad32/InputWatch.h).
+# - BLE configuration service (v5.0, on by default): Kconfig leaves a bool option that is off
+#   undefined, which uni_config.h took as on, so ESP-IDF builds could not turn it off. The adapter
+#   keeps it off on both platforms (sdkconfig.h, ESP32 sdkconfig.defaults): it would replace our
+#   ATT server (the web app over BLE) and open, with no password, remapping, disconnecting pads
+#   and deleting pairings.
 # Shared by the firmware builds and the host tests (Firmware/RP2040/tests), so all use one stamp.
 function(ogxm_patch_bluepad32 EXTERNAL_DIR)
     set(_p "${EXTERNAL_DIR}/patches")
@@ -102,6 +107,7 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_no_deprecated_scan_calls.diff"
         "${_p}/bluepad32_full_scale_triggers.diff"
         "${_p}/bluepad32_switch_raw_rumble.diff"
+        "${_p}/bluepad32_ble_service_kconfig_off.diff"
         "${_p}/bluepad32_diag_output_hook.diff"
         "${_p}/bluepad32_switch_set_report_mode.diff"
         "${_p}/bluepad32_diag_output_queued.diff"

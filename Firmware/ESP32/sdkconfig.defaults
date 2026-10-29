@@ -37,6 +37,9 @@ CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
 #
 CONFIG_BLUEPAD32_MAX_DEVICES=4
 CONFIG_BLUEPAD32_PLATFORM_CUSTOM=y
+# Bluepad32's own BLE configuration service (on by default since v5.0): off, it would take the ATT
+# server from the web app's BLE service (Firmware/cmake/patch_libs.cmake).
+# CONFIG_BLUEPAD32_BLE_SERVICE_ENABLED is not set
 
 #
 # Add here other options
