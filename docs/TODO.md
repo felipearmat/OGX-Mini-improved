@@ -107,7 +107,8 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   on the Pico 2 W, then the hybrid (dev-opt1): DS4 and Joy-Con pair connect / reconnect after a
   reboot, buttons and sticks in D-Input, gyro and tilt in STEAM / PS4 (direction and speed as
   before), Switch mode (motion, HD Rumble patterns), the idle turn-off, the disconnect combo, the
-  Joy-Con pair setup (one pad in setup at a time), a long session in the flash log. Not testable
+  Joy-Con pair setup (one pad in setup at a time), a long session in the flash log, the web app
+  over BLE (Bluepad32's own BLE service must stay off: no "Bluepad32" device in a BLE scan). Not testable
   here: Switch 2, Steam Controller 2026, Xbox BLE (MegaCadeDev's code, unchanged by the merge but on
   the new BTstack). Then master, the release notes, and later `raw_motion` can go: the motion code
   could take the SI frame directly (it already is the DS4 report frame).

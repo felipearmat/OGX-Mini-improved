@@ -84,6 +84,11 @@ endfunction()
 # - Switch parser: raw rumble, a Switch host's HD Rumble blocks sent to the pad unchanged (Switch
 #   mode, Firmware/RP2040/docs/HD_Rumble.md); a pending strength rumble is called off through
 #   Bluepad32's shared rumble timers.
+# - BLE configuration service (v5.0, on by default): Kconfig leaves a bool option that is off
+#   undefined, which uni_config.h took as on, so ESP-IDF builds could not turn it off. The adapter
+#   keeps it off on both platforms (sdkconfig.h, ESP32 sdkconfig.defaults): it would replace our
+#   ATT server (the web app over BLE) and open, with no password, remapping, disconnecting pads
+#   and deleting pairings.
 # Shared by the firmware builds and the host tests (Firmware/RP2040/tests), so all use one stamp.
 function(ogxm_patch_bluepad32 EXTERNAL_DIR)
     set(_p "${EXTERNAL_DIR}/patches")
@@ -97,7 +102,8 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_ds4_poll_interval.diff"
         "${_p}/bluepad32_no_deprecated_scan_calls.diff"
         "${_p}/bluepad32_full_scale_triggers.diff"
-        "${_p}/bluepad32_switch_raw_rumble.diff")
+        "${_p}/bluepad32_switch_raw_rumble.diff"
+        "${_p}/bluepad32_ble_service_kconfig_off.diff")
 endfunction()
 
 # Bluepad32's BTstack (bluekitchen, at the commit upstream Bluepad32 pins), in order:

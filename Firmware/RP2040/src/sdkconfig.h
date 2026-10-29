@@ -16,6 +16,9 @@
 #define CONFIG_BLUEPAD32_GAP_SECURITY 1
 #define CONFIG_BLUEPAD32_ENABLE_BLE_BY_DEFAULT 1
 // #define CONFIG_BLUEPAD32_ENABLE_VIRTUAL_DEVICE_BY_DEFAULT 1
+/* Custom: Bluepad32's own BLE configuration service off (on by default since v5.0): it would take
+ * the ATT server from the web app's BLE service. Firmware/cmake/patch_libs.cmake. */
+#define CONFIG_BLUEPAD32_BLE_SERVICE_ENABLED 0
 
 #define CONFIG_BLUEPAD32_PLATFORM_CUSTOM
 #define CONFIG_TARGET_PICO_W

@@ -1,0 +1,18 @@
+diff --git a/src/components/bluepad32/include/uni_config.h b/src/components/bluepad32/include/uni_config.h
+index 8593ad5..a5f8ba3 100644
+--- a/src/components/bluepad32/include/uni_config.h
++++ b/src/components/bluepad32/include/uni_config.h
+@@ -27,8 +27,13 @@ extern "C" {
+ // "idf.py menuconfig" -> "Component config" -> "Bluepad32"
+ 
+ #ifndef CONFIG_BLUEPAD32_BLE_SERVICE_ENABLED
++#if defined(ESP_PLATFORM)
++// Kconfig leaves a bool option that is off undefined: off, not the default.
++#define CONFIG_BLUEPAD32_BLE_SERVICE_ENABLED 0
++#else
+ #define CONFIG_BLUEPAD32_BLE_SERVICE_ENABLED 1
+ #endif
++#endif
+ 
+ #ifndef CONFIG_BLUEPAD32_BLE_SERVICE_NAME
+ #define CONFIG_BLUEPAD32_BLE_SERVICE_NAME "Bluepad32"
