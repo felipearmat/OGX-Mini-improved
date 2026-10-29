@@ -123,6 +123,7 @@ struct Slot {
     // Gap events: last one logged, and gaps since then not logged
     uint32_t gap_event_ms;
     uint32_t gaps_unlogged;
+    uint32_t gaps;  // of kGapEventMs or more since connect (its kept log summary)
     Link link;
     // The hybrid's ESP32, for this slot (companion_slot)
     bool companion_valid;
@@ -339,6 +340,71 @@ uint32_t counter_lost_x10(const Slot& s, bool& usable)
     return (usable && total) ? s.counter_lost * 1000 / total : 0;
 }
 
+// One controller's figures: the session summary, and its kept log line when it goes away.
+SessionCtrl ctrl_summary(const Slot& s, uint32_t now_ms)
+{
+    SessionCtrl c{};
+    c.vid = s.vid;
+    c.pid = s.pid;
+    c.le = s.le;
+    c.rssi = s.link.rssi_valid ? s.link.rssi : -128;
+    c.interval = s.link.interval;
+    const uint32_t secs = (now_ms - s.connected_ms) / 1000;
+    c.reports_per_s = static_cast<uint16_t>(secs ? s.timing.reports / secs : s.timing.rate_hz);
+    uint32_t median = 0, late = 0;
+    s.timing.lateness(median, late);
+    c.late_pct_x10 = static_cast<uint16_t>(late);
+    bool usable = false;
+    const uint32_t lost = counter_lost_x10(s, usable);
+    c.lost_pct_x10 = usable ? static_cast<uint16_t>(lost) : 0xFFFF;
+    c.max_gap_ms = static_cast<uint16_t>(s.timing.gap_max > 0xFFFF ? 0xFFFF : s.timing.gap_max);
+    c.channels_used = s.link.channels_used;
+    c.channels_total = s.link.channels_total;
+    c.mode = s.link.mode_known ? s.link.mode : 0xFF;
+    c.sniff_interval = s.link.sniff_interval;
+    return c;
+}
+
+constexpr size_t kLineText = 160;  // a kept log line (an event's text, or a summary)
+static_assert(kLineText >= kEventText, "an event fits a kept log line");
+
+void ring_line(uint32_t now_ms, const char* text)
+{
+    char line[kLineText + 16];
+    const int n = std::snprintf(line, sizeof(line), "%lu.%03lu %s\n", static_cast<unsigned long>(now_ms / 1000),
+                                static_cast<unsigned long>(now_ms % 1000), text);
+    if (n > 0)
+        log_ring_append("rp", line, std::min(static_cast<size_t>(n), sizeof(line) - 1));
+}
+
+/* Custom: a controller's figures when it goes away, as a line in the kept log only (not an event:
+ * longer than one). The flash log then has every session's figures; the report keeps two. */
+struct CtrlLine {
+    SessionCtrl c;
+    uint32_t secs, gaps;
+    uint16_t battery;
+};
+
+void log_ctrl_summary(size_t slot, const CtrlLine& line, uint32_t now_ms)
+{
+    const SessionCtrl& c = line.c;
+    char lost[12] = "?";
+    if (c.lost_pct_x10 != 0xFFFF)
+        std::snprintf(lost, sizeof(lost), "%u.%u%%", c.lost_pct_x10 / 10, c.lost_pct_x10 % 10);
+    char text[kLineText];
+    int n = std::snprintf(text, sizeof(text),
+                          "slot %u summary %04x:%04x %s: %lu s, %u/s, late %u.%u%%, lost %s, %lu gaps, max gap %u ms",
+                          static_cast<unsigned>(slot), c.vid, c.pid, c.le ? "LE" : "Classic",
+                          static_cast<unsigned long>(line.secs), c.reports_per_s,
+                          c.late_pct_x10 / 10, c.late_pct_x10 % 10, lost, static_cast<unsigned long>(line.gaps),
+                          c.max_gap_ms);
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text) && c.rssi != -128)
+        n += std::snprintf(text + n, sizeof(text) - n, c.le ? ", rssi %d dBm" : ", rssi %+d dB from golden", c.rssi);
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text) && line.battery != 0xFFFF)
+        n += std::snprintf(text + n, sizeof(text) - n, ", battery %u/255", line.battery);
+    ring_line(now_ms, text);
+}
+
 void write_link(Writer& w, const Link& l, bool le)
 {
     if (le && l.interval) {
@@ -443,11 +509,7 @@ void event(uint32_t now_ms, const char* fmt, ...)
         s_p.check = persist_check();
     }
     /* Custom: also into the kept log (Board/LogRing.h), with the time since boot. */
-    char line[kEventText + 16];
-    const int n = std::snprintf(line, sizeof(line), "%lu.%03lu %s\n", static_cast<unsigned long>(now_ms / 1000),
-                                static_cast<unsigned long>(now_ms % 1000), text);
-    if (n > 0)
-        log_ring_append("rp", line, std::min(static_cast<size_t>(n), sizeof(line) - 1));
+    ring_line(now_ms, text);
 }
 
 void crash_record(const CrashInfo& crash)
@@ -509,10 +571,16 @@ void slot_connected(size_t slot, uint32_t now_ms, const char* name, uint16_t vid
 
 void slot_disconnected(size_t slot, uint32_t now_ms)
 {
-    (void)now_ms;
     if (slot >= kSlots) return;
-    Lock l;
-    s_slots[slot].active = false;
+    CtrlLine line{};
+    {
+        Lock l;
+        Slot& s = s_slots[slot];
+        if (!s.active) return;
+        line = {ctrl_summary(s, now_ms), (now_ms - s.connected_ms) / 1000, s.gaps, s.battery};
+        s.active = false;
+    }
+    log_ctrl_summary(slot, line, now_ms);
 }
 
 void slot_report(size_t slot, uint32_t now_ms)
@@ -524,6 +592,7 @@ void slot_report(size_t slot, uint32_t now_ms)
         Slot& s = s_slots[slot];
         if (!s.active) return;
         if (s.timing.reports > 0 && now_ms - s.timing.last_report_ms >= kGapEventMs) {
+            ++s.gaps;
             if (s.gap_event_ms == 0 || now_ms - s.gap_event_ms >= kGapEventEveryMs) {
                 gap = now_ms - s.timing.last_report_ms;
                 unlogged = s.gaps_unlogged;
@@ -1003,19 +1072,30 @@ bool session_relevant(const Session& ss);
 void session_freeze(uint32_t now_ms)
 {
     read_latency_source();  // before the lock: it takes the gamepad's mutex
-    Lock l;
-    if (s_frozen_valid) return;
-    s_frozen = build_session(now_ms);
-    s_frozen_valid = true;
-    if (!session_relevant(s_frozen))
-        return;  // the RAM keeps the latest relevant session
-    if (s_sessions_valid[0] && !s_ram_session_stored) {
-        s_replaced = s_sessions[0];  // to flash: take_replaced_session()
-        s_replaced_pending = true;
+    char text[kLineText];
+    {
+        Lock l;
+        if (s_frozen_valid) return;
+        s_frozen = build_session(now_ms);
+        s_frozen_valid = true;
+        if (!session_relevant(s_frozen))
+            return;  // the RAM keeps the latest relevant session
+        if (s_sessions_valid[0] && !s_ram_session_stored) {
+            s_replaced = s_sessions[0];  // to flash: take_replaced_session()
+            s_replaced_pending = true;
+        }
+        s_p.session = s_frozen;  // kept across the reboot in RAM
+        s_p.session_magic = kSessionMagic;
+        s_p.session_stored = 0;
+        const Session& ss = s_frozen;
+        std::snprintf(text, sizeof(text),
+                      "session summary %s: %lu s, USB %lu s, %lu/s sent, latency avg %lu us, max %lu us",
+                      ss.mode, static_cast<unsigned long>(ss.uptime_s), static_cast<unsigned long>(ss.usb_configured_s),
+                      static_cast<unsigned long>(ss.usb_configured_s ? ss.usb_reports_sent / ss.usb_configured_s : 0),
+                      static_cast<unsigned long>(ss.latency_avg_us), static_cast<unsigned long>(ss.latency_max_us));
     }
-    s_p.session = s_frozen;  // kept across the reboot in RAM
-    s_p.session_magic = kSessionMagic;
-    s_p.session_stored = 0;
+    // Custom: in the kept log too, so the flash log has every session's (see log_ctrl_summary).
+    ring_line(now_ms, text);
 }
 
 size_t session_capture(uint8_t* out, size_t out_len, uint32_t now_ms)
@@ -1045,25 +1125,7 @@ Session build_session(uint32_t now_ms)
     ss.latency_max_us = s_lat_max;
     for (const auto& s : s_slots) {
         if (!s.active || ss.controllers >= 2) continue;
-        SessionCtrl& c = ss.ctrl[ss.controllers++];
-        c.vid = s.vid;
-        c.pid = s.pid;
-        c.le = s.le;
-        c.rssi = s.link.rssi_valid ? s.link.rssi : -128;
-        c.interval = s.link.interval;
-        const uint32_t secs = (now_ms - s.connected_ms) / 1000;
-        c.reports_per_s = static_cast<uint16_t>(secs ? s.timing.reports / secs : s.timing.rate_hz);
-        uint32_t median = 0, late = 0;
-        s.timing.lateness(median, late);
-        c.late_pct_x10 = static_cast<uint16_t>(late);
-        bool usable = false;
-        const uint32_t lost = counter_lost_x10(s, usable);
-        c.lost_pct_x10 = usable ? static_cast<uint16_t>(lost) : 0xFFFF;
-        c.max_gap_ms = static_cast<uint16_t>(s.timing.gap_max > 0xFFFF ? 0xFFFF : s.timing.gap_max);
-        c.channels_used = s.link.channels_used;
-        c.channels_total = s.link.channels_total;
-        c.mode = s.link.mode_known ? s.link.mode : 0xFF;
-        c.sniff_interval = s.link.sniff_interval;
+        ss.ctrl[ss.controllers++] = ctrl_summary(s, now_ms);
     }
     for (const auto& u : s_usb) {
         if (!u.active || ss.wired) continue;

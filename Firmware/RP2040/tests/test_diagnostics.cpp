@@ -3,6 +3,7 @@
 #include <cstring>
 #include <string>
 
+#include "Board/LogRing.h"
 #include "Diagnostics/Diagnostics.h"
 #include "UserSettings/DongleSettings.h"
 #include "test.h"
@@ -412,6 +413,24 @@ TEST(a_new_session_sends_the_one_in_ram_to_flash_once) {
     diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
     diag::session_freeze(60000);
     CHECK_EQ(diag::take_replaced_session(blob, sizeof(blob)), 0u);
+}
+
+TEST(the_kept_log_gets_each_session_and_controller_summary) {
+    setup();  // XINPUT
+    log_ring_reset_for_test();
+    diag::slot_connected(0, 0, "DS4", 0x054c, 0x09cc, 1, false, 0x0b, kAddr);
+    for (uint32_t t = 10; t <= 5000; t += 10) diag::slot_report(0, t);
+    diag::slot_report(0, 5100);  // a 100 ms gap
+    for (uint32_t t = 5110; t <= 10000; t += 10) diag::slot_report(0, t);
+    diag::session_freeze(10000);
+    diag::slot_disconnected(0, 10010);
+    diag::slot_disconnected(0, 10020);  // already gone: no second line
+    std::string ring(log_ring_size(), '\0');
+    log_ring_read(0, reinterpret_cast<uint8_t*>(ring.data()), ring.size());
+    CHECK(has(ring, "10.000 session summary XINPUT: 10 s, USB 0 s"));
+    CHECK(has(ring, "10.010 slot 0 summary 054c:09cc Classic: 10 s, 99/s, late "));
+    CHECK(has(ring, ", 1 gaps, max gap 100 ms\n"));
+    CHECK_EQ(ring.find("slot 0 summary"), ring.rfind("slot 0 summary"));
 }
 
 TEST(short_sessions_without_a_controller_are_not_kept) {

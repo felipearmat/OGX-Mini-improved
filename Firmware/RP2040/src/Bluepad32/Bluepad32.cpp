@@ -123,6 +123,9 @@ static void disconnect_combo_timer_cb(btstack_timer_source_t* ts)
         return;
     printf("[BP32] Disconnect combo: reboot in %lu ms for a clean reconnect\n",
            static_cast<unsigned long>(DISCONNECT_COMBO_REBOOT_DELAY_MS));
+    /* Custom: in the flash log too (as on the ESP32), or it reads like the idle turn-off. */
+    diag::event(to_ms_since_boot(get_absolute_time()), "slot %d: off combo, reboot in %lu ms", idx,
+                static_cast<unsigned long>(DISCONNECT_COMBO_REBOOT_DELAY_MS));
     watchdog_enable(DISCONNECT_COMBO_REBOOT_DELAY_MS, true);
     bt_pad::disconnect_with_partner(d);
 }

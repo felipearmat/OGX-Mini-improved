@@ -91,8 +91,13 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   bump made them worse. One event to watch: 30 min into a session both halves dropped on the
   supervision timeout (reason 0x08, 0.9 s apart) after a quiet minute, the right one alone again
   14 s after reconnecting (its link was clean: 0 % lost, 46 ms max gap); then both ran 74 min.
-  3 such drops in 5 slot-hours against 2 in 19 on 2.1.0: too few to tell; the user's account of
-  that moment (moved, battery, interference?) decides whether to look further.
+  3 such drops in 5 slot-hours against 2 in 19 on 2.1.0: too few to tell. The user walked to the
+  kitchen with the Joy-Cons in hand about then: out of range, not the bump. Another session ended
+  by the adapter turning both halves off (reason 0x13) with no idle event: most likely the
+  disconnect combo, which the Pico W did not log; it does now ("slot N: off combo", as the ESP32),
+  and every controller and session leaves a summary line in the kept log (the flash log had only
+  the last two summaries, so these sessions' figures were lost). The user's play sessions stop
+  the PC logger (game mode), so the flash log is the source for them.
 - **Pico W: Pico SDK timer backports (6473d8c) with an Xbox Series pad over BLE** — the case #146
   saw (connect rumble until a button press). Done with a DS4 on a Pico 2 W 2026-10-26; the stall
   needs a pad that sends nothing while idle. Asked in upstream #147 (UPSTREAM item 0).
