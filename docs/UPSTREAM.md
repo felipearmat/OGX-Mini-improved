@@ -62,7 +62,7 @@ ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced wit
    test first ([docs/TODO.md](TODO.md), Output modes); not for upstream yet.
 2. **DInput L2 / R2 buttons from the triggers** — DInput (upstream's mode of the same name) never
    sets the descriptor's L2 / R2 bits, so ZL / ZR do nothing on a PC; PS3 mode sets them. Two lines
-   in `DInput.cpp` with the unit test `dinput_triggers_press_the_l2_r2_buttons` (6ac77ee). Small, standalone. **Prepared 2026-10-29:** branch `upstream-pr/44-dinput-l2-r2` (`30ae6eb` on upstream `ed241c2`, worktree `~/git/ogxm-pr/44-dinput-l2-r2`, not pushed), builds `PI_PICO2W`, `PI_PICOW`, `PI_PICO`, `ESP32_BLUEPAD32_I2C` on SDK 2.1.0; text in `.ignore/upstream-pr-dinput-l2-r2.md`, waiting for the user's review. Upstream has no host tests, so the PR describes the fork's.
+   in `DInput.cpp` with the unit test `dinput_triggers_press_the_l2_r2_buttons` (6ac77ee). Small, standalone. **Prepared 2026-10-29:** branch `upstream-pr/44-dinput-l2-r2` (`30ae6eb` on upstream `ed241c2`, worktree `~/git/ogxm-pr/44-dinput-l2-r2`), builds `PI_PICO2W`, `PI_PICOW`, `PI_PICO`, `ESP32_BLUEPAD32_I2C` on SDK 2.1.0; text in `.ignore/upstream-pr-dinput-l2-r2.md`. **Open: #150** (2026-10-29). Upstream has no host tests, so the PR describes the fork's.
 3. **Settings over the Bluetooth pairings** — NVSTool's 4 sectors include BTstack's 2-sector link
    key bank on the Pico W / Pico 2 W; the fix keeps the entries in the 2 before it. Small, with its
    unit test. Upstream has the same NVSTool.
