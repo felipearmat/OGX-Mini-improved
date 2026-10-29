@@ -51,9 +51,11 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   - Optional: a lone Joy-Con L and R (`joycon_left`, `joycon_right`, sideways), the pair with the
     left half's IMU (Adapter Option), the DS4 on USB with `--hidraw` (wired path).
   Replay test `test_fixtures` in (2026-10-27): `ds4` and `joycon_pair` through PS4 / STEAM /
-  D-Input / Switch / XInput, and PS3 / Xbox OG / Wii U (2026-10-28). The Joy-Cons' stick calibration there comes from the recording's own
+  D-Input / Switch / XInput, PS3 / Xbox OG / Wii U (2026-10-28), every other mode (2026-10-29,
+  c30b1c8: it found the Xbox OG remote's L3 and the PS1/PS2 right stick Y, both fixed). The Joy-Cons' stick calibration there comes from the recording's own
   range (the setup recording above will give the real one); then: the Nova Lite files once
-  recorded, the other output modes (Wii, PS Classic, Xbox OG Steel Battalion / remote, KBM, the GPIO consoles), synthetic fixtures for pads we lack. A DS4 stick pushed fully up or
+  recorded, synthetic fixtures for pads we lack. Two fixes not checked on a console yet: the
+  PS1/PS2 right stick (a PS2 game) and the Xbox OG remote's L3 / R3 (the DVD player). A DS4 stick pushed fully up or
   left reaches 1, not 0, in PS4 / D-Input (Bluepad32 centres it on 127: `(v - 127) * 4`), a
   one-step loss to look at in the Bluepad32 re-sync. The DS4 calibration feature report is not
   in the recordings yet. Spec: `.ignore/spec-input-fixtures.md`.
