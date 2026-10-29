@@ -72,7 +72,8 @@ void PS1PS2Device::process(const uint8_t idx, Gamepad& gamepad) {
     int32_t lx = static_cast<int32_t>(gp.joystick_lx) * 127 / 32767 + STICK_CENTER;
     int32_t ly = static_cast<int32_t>(gp.joystick_ly) * 127 / 32767 + STICK_CENTER;  /* PS2 left stick Y: up = lower value */
     int32_t rx = static_cast<int32_t>(gp.joystick_rx) * 127 / 32767 + STICK_CENTER;
-    int32_t ry = static_cast<int32_t>(gp.joystick_ry) * -127 / 32767 + STICK_CENTER;
+    /* Custom fix: the right stick's Y as the left's (up = lower value); it was inverted. */
+    int32_t ry = static_cast<int32_t>(gp.joystick_ry) * 127 / 32767 + STICK_CENTER;
     if (lx < 0) lx = 0; else if (lx > 255) lx = 255;
     if (ly < 0) ly = 0; else if (ly > 255) ly = 255;
     if (rx < 0) rx = 0; else if (rx > 255) rx = 255;

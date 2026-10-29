@@ -33,3 +33,5 @@ static inline int flash_safe_execute(void (*func)(void*), void* param, uint32_t)
     restore_interrupts(irq);
     return PICO_OK;
 }
+
+static inline bool flash_safe_execute_core_init(void) { return true; }

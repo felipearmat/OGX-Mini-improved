@@ -206,6 +206,17 @@ if (OGXM_HAVE_M32)
         ${DEV}/PS3/PS3.cpp
         ${DEV}/XboxOG/XboxOG_GP.cpp
         ${DEV}/WiiU/WiiU.cpp
+        ${DEV}/PSClassic/PSClassic.cpp
+        ${DEV}/XboxOG/XboxOG_SB.cpp
+        ${DEV}/XboxOG/XboxOG_XR.cpp
+        ${DEV}/KBM/KBM.cpp
+        ${DEV}/KBM/KbmSettings.cpp
+        ${DEV}/KBM/KbmMapper.cpp
+        ${DEV}/GameCube/GameCube.cpp
+        ${DEV}/N64/N64.cpp
+        ${DEV}/PS1PS2/PS1PS2.cpp
+        fixtures/console_outputs.cpp
+        ${FW_SRC}/Wii/WiiReportConverter.cpp
         ${EXTERNAL_DIR}/libxsm3/xsm3.c
         ${EXTERNAL_DIR}/libxsm3/usbdsec.c
         ${EXTERNAL_DIR}/libxsm3/excrypt_des.c
@@ -218,7 +229,7 @@ if (OGXM_HAVE_M32)
         ${FW_COMMON}/Bluepad32/JoyConSettings.cpp
         ${FW_SRC}/Board/ReportedMac.cpp)
     target_include_directories(test_fixtures PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/fixtures ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${MOCKS} ${BP32}/include ${BP32}
+        ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/fixtures ${CMAKE_CURRENT_LIST_DIR}/fixtures/stubs ${CMAKE_CURRENT_LIST_DIR}/switch_parser ${MOCKS} ${BP32}/include ${BP32}
         ${EXTERNAL_DIR}/bluepad32/external/btstack/src ${EXTERNAL_DIR}/tinyusb/src ${EXTERNAL_DIR}/libxsm3 ${FW_SRC} ${FW_COMMON})
     target_compile_definitions(test_fixtures PRIVATE MAX_GAMEPADS=1 CONFIG_OGXM_BOARD_PI_PICO2W=1
         CFG_TUSB_MCU=OPT_MCU_NONE BOARD_TUD_MAX_SPEED=OPT_MODE_FULL_SPEED BOARD_TUH_MAX_SPEED=OPT_MODE_FULL_SPEED
@@ -227,6 +238,8 @@ if (OGXM_HAVE_M32)
         $<$<COMPILE_LANGUAGE:CXX>:-Wno-volatile>)
     target_link_options(test_fixtures PRIVATE -m32)
     target_link_libraries(test_fixtures PRIVATE fixmath32)
+    # The Wiimote converter is built for the boards with a USB host port (Wii mode takes USB pads).
+    set_source_files_properties(${FW_SRC}/Wii/WiiReportConverter.cpp PROPERTIES COMPILE_DEFINITIONS CONFIG_EN_USB_HOST=1)
     add_test(NAME test_fixtures COMMAND test_fixtures)
 else ()
     message(WARNING "No 32-bit toolchain (install gcc-multilib): skipping test_switch_parser")

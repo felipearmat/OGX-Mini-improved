@@ -43,7 +43,9 @@ void XboxOGXRDevice::process(const uint8_t idx, Gamepad& gamepad)
 
     if (gp_in.buttons & Gamepad::BUTTON_L3 && !(gp_in.buttons & Gamepad::BUTTON_R3)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::TITLE;
     if (gp_in.buttons & Gamepad::BUTTON_R3 && !(gp_in.buttons & Gamepad::BUTTON_L3)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::MENU;
-    if (gp_in.buttons & (Gamepad::BUTTON_L3 | Gamepad::BUTTON_R3)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::INFO;
+    /* Custom fix: Info / Display only with both clicks / both shoulders. The codes are values, not
+     * bits: L3 alone gave TITLE | INFO = 0x0AE7, no button of the remote. */
+    if ((gp_in.buttons & (Gamepad::BUTTON_L3 | Gamepad::BUTTON_R3)) == (Gamepad::BUTTON_L3 | Gamepad::BUTTON_R3)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::INFO;
 
     if (gp_in.buttons & Gamepad::BUTTON_A) in_report_.buttonCode |= XboxOG::XR::ButtonCode::SELECT ;
     if (gp_in.buttons & Gamepad::BUTTON_Y) in_report_.buttonCode |= XboxOG::XR::ButtonCode::PAUSE  ;
@@ -52,7 +54,7 @@ void XboxOGXRDevice::process(const uint8_t idx, Gamepad& gamepad)
 
     if (gp_in.buttons & Gamepad::BUTTON_LB && !(gp_in.buttons & Gamepad::BUTTON_RB)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::SKIP_MINUS;
     if (gp_in.buttons & Gamepad::BUTTON_RB && !(gp_in.buttons & Gamepad::BUTTON_LB)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::SKIP_PLUS ;
-    if (gp_in.buttons & (Gamepad::BUTTON_LB | Gamepad::BUTTON_RB)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::DISPLAY;
+    if ((gp_in.buttons & (Gamepad::BUTTON_LB | Gamepad::BUTTON_RB)) == (Gamepad::BUTTON_LB | Gamepad::BUTTON_RB)) in_report_.buttonCode |= XboxOG::XR::ButtonCode::DISPLAY;
 
     if (gp_in.trigger_l >= 100) in_report_.buttonCode |= XboxOG::XR::ButtonCode::REVERSE;
     if (gp_in.trigger_r >= 100) in_report_.buttonCode |= XboxOG::XR::ButtonCode::FORWARD;

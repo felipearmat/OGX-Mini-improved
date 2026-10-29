@@ -149,6 +149,19 @@ bool bt_has_touchpad(int controller_type)
     return controller_type == CONTROLLER_TYPE_PS4Controller || controller_type == CONTROLLER_TYPE_PS5Controller;
 }
 
+bool bt_has_capture(int controller_type)
+{
+    switch (static_cast<uni_controller_type_t>(controller_type)) {
+        case CONTROLLER_TYPE_SwitchProController:
+        case CONTROLLER_TYPE_SwitchJoyConLeft:
+        case CONTROLLER_TYPE_SwitchJoyConRight:
+        case CONTROLLER_TYPE_SwitchJoyConPair:
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool bt_replay(const std::vector<FixtureRow>& rows, int controller_type, uint16_t vid, uint16_t pid,
                const Gamepad& gamepad, std::vector<ReplayFrame>& out)
 {

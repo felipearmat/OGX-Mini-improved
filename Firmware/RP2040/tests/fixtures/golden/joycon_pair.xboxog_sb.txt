@@ -1,0 +1,31 @@
+a: buttons=main weapon dpad= LX=128..128 LY=128..128 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+b: buttons=lock-on dpad= LX=128..128 LY=128..128 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+y: buttons=chaff dpad= LX=128..128 LY=128..128 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+lb: buttons=fire dpad= LX=128..128 LY=127..127 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rb: buttons=main weapon dpad= LX=128..128 LY=127..127 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+back: buttons= dpad= LX=128..128 LY=127..127 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+start: buttons=start dpad= LX=128..128 LY=127..127 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+home: buttons=eject dpad= LX=127..128 LY=127..127 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+capture: buttons= dpad= LX=132..133 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+l3: buttons=sight change dpad= LX=132..144 LY=118..146 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+r3: buttons=lock-on dpad= LX=134..134 LY=131..131 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+dpad_up: buttons= dpad= LX=134..134 LY=131..131 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+dpad_down: buttons= dpad= LX=134..134 LY=131..131 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+dpad_left: buttons= dpad= LX=134..134 LY=131..131 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=0..128
+dpad_right: buttons= dpad= LX=134..134 LY=131..131 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..255
+lt_half: buttons= dpad= LX=133..134 LY=131..131 L2=255 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+lt_full: buttons= dpad= LX=133..134 LY=131..131 L2=255 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rt_half: buttons= dpad= LX=133..134 LY=131..131 L2=0 R2=255 aimX=128..128 aimY=128..128 lever=128..128
+rt_full: buttons= dpad= LX=133..134 LY=131..131 L2=0 R2=255 aimX=128..128 aimY=128..128 lever=128..128
+ls_right: buttons= dpad= LX=133..255 LY=128..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+ls_up: buttons= dpad= LX=134..161 LY=7..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+ls_circle: buttons= dpad= LX=0..250 LY=0..255 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rs_right: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=128..162 aimY=128..128 lever=128..128
+rs_up: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=162..162 aimY=90..128 lever=128..128
+rs_circle: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=155..174 aimY=69..95 lever=128..128
+touch_drag: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
+touch_press: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
+flat: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
+yaw_right_90: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
+pitch_up_90: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
+roll_right_90: buttons= dpad= LX=123..123 LY=131..131 L2=0 R2=0 aimX=156..156 aimY=69..69 lever=128..128
