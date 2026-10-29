@@ -5,6 +5,7 @@
 extern "C" {
 #include "fake_bt.h"
 #include "parser/uni_hid_parser_ds4.h"
+#include "parser/uni_hid_parser_ds5.h"
 #include "parser/uni_hid_parser_switch.h"
 }
 #include "Bluepad32/BtPadIn.h"
@@ -100,6 +101,35 @@ namespace {
         fake_joycon_set_spi(slot, 0x6020, imu, sizeof(imu));
     }
 
+    /* A Switch Pro Controller: set up through the Switch parser with the emulated pad as a Pro
+     * (device type 3), both sticks' calibration from the recording's range. */
+    bool replay_switch_pro(const std::vector<FixtureRow>& rows)
+    {
+        set_joycon_calibration(0, true, rows);
+        set_joycon_calibration(0, false, rows);
+        uni_hid_device_t* d = fake_device(0);
+        d->controller_type = CONTROLLER_TYPE_SwitchProController;
+        d->vendor_id = 0x057e;
+        d->product_id = 0x2009;
+        uni_hid_parser_switch_setup(d);
+        fake_joycon_run_setup(0, 3, 50);
+        if (!fake_device_ready(0))
+            return false;
+        uint32_t last_t = rows.empty() ? 0 : rows.front().t;
+        for (const FixtureRow& row : rows) {
+            if (row.slot != 0 || row.feature)
+                continue;
+            fake_advance_ms(row.t > last_t ? row.t - last_t : 0);
+            last_t = row.t;
+            uni_hid_parser_switch_init_report(d);
+            uni_hid_parser_switch_parse_input_report(d, row.r.data(), static_cast<uint16_t>(row.r.size()));
+            s_ctx.row = &row;
+            push_frame(d);  // Bluepad32 calls the platform after the parser returns (no pair to merge)
+            s_ctx.row = nullptr;
+        }
+        return true;
+    }
+
     bool replay_joycons(const std::vector<FixtureRow>& rows)
     {
         /* Which half each slot is: a left Joy-Con fills only the left stick bytes. */
@@ -174,23 +204,32 @@ bool bt_replay(const std::vector<FixtureRow>& rows, int controller_type, uint16_
         case CONTROLLER_TYPE_SwitchJoyConRight:
         case CONTROLLER_TYPE_SwitchJoyConPair:
             return replay_joycons(rows);
+        case CONTROLLER_TYPE_SwitchProController:
+            return replay_switch_pro(rows);
         case CONTROLLER_TYPE_PS4Controller:
+        case CONTROLLER_TYPE_PS5Controller:
             break;
         default:
             return false;
     }
 
+    const bool ds5 = controller_type == CONTROLLER_TYPE_PS5Controller;
     uni_hid_device_t* d = fake_device(0);
     d->controller_type = static_cast<uni_controller_type_t>(controller_type);
     d->vendor_id = vid;
     d->product_id = pid;
-    d->report_parser.setup = uni_hid_parser_ds4_setup;
-    d->report_parser.init_report = uni_hid_parser_ds4_init_report;
-    d->report_parser.parse_input_report = uni_hid_parser_ds4_parse_input_report;
+    d->report_parser.setup = ds5 ? uni_hid_parser_ds5_setup : uni_hid_parser_ds4_setup;
+    d->report_parser.init_report = ds5 ? uni_hid_parser_ds5_init_report : uni_hid_parser_ds4_init_report;
+    d->report_parser.parse_input_report = ds5 ? uni_hid_parser_ds5_parse_input_report : uni_hid_parser_ds4_parse_input_report;
+    d->report_parser.parse_feature_report = ds5 ? uni_hid_parser_ds5_parse_feature_report : uni_hid_parser_ds4_parse_feature_report;
     d->report_parser.setup(d);
     for (const FixtureRow& row : rows) {
         if (row.slot != 0 || row.r.empty())
             continue;
+        if (row.feature) {  // the pad's reply to a feature report the parser asked for
+            d->report_parser.parse_feature_report(d, row.r.data(), static_cast<uint16_t>(row.r.size()));
+            continue;
+        }
         d->report_parser.init_report(d);
         d->report_parser.parse_input_report(d, row.r.data(), static_cast<uint16_t>(row.r.size()));
         s_ctx.row = &row;

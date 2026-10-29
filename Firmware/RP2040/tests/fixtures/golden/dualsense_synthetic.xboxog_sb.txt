@@ -1,0 +1,21 @@
+a: buttons=main weapon dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+b: buttons=lock-on dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+y: buttons=chaff dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+lb: buttons=fire dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rb: buttons=main weapon dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+start: buttons=start dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+home: buttons=eject dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+l3: buttons=sight change dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+r3: buttons=lock-on dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+dpad_left: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=0..128
+dpad_right: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..255
+lt_half: buttons= dpad= LX=129..129 LY=129..129 L2=128 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+lt_full: buttons= dpad= LX=129..129 LY=129..129 L2=255 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rt_half: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=128 aimX=128..128 aimY=128..128 lever=128..128
+rt_full: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=255 aimX=128..128 aimY=128..128 lever=128..128
+ls_right: buttons= dpad= LX=129..255 LY=129..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+ls_up: buttons= dpad= LX=129..129 LY=1..129 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+ls_circle: buttons= dpad= LX=1..255 LY=1..255 L2=0 R2=0 aimX=128..128 aimY=128..128 lever=128..128
+rs_right: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=128..132 aimY=128..128 lever=128..128
+rs_up: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=132..132 aimY=123..127 lever=128..128
+rs_circle: buttons= dpad= LX=129..129 LY=129..129 L2=0 R2=0 aimX=131..133 aimY=122..123 lever=128..128

@@ -213,6 +213,7 @@ bool load(const std::string& path, Fixture& fx) {
         r.slot = std::stoi(field(line, "slot"));
         const std::string l = field(line, "label");
         r.label = (l == "null") ? "" : l;
+        r.feature = field(line, "kind") == "feature";
         const std::string hex = field(line, "r");
         for (size_t i = 0; i + 1 < hex.size(); i += 2)
             r.r.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
@@ -1076,7 +1077,8 @@ std::vector<std::string> label_order(const Fixture& fx) {
 int main(int argc, char** argv) {
     const bool write = argc > 1 && std::strcmp(argv[1], "--write") == 0;
     const std::string dir = OGXM_FIXTURES_DIR;
-    const char* pads[] = {"ds4", "joycon_pair"};  // pads whose Bluepad32 parser is wired in (replay_bt.cpp)
+    // Pads whose Bluepad32 parser is wired in (replay_bt.cpp); *_synthetic: Tools/bench/synth_pad.py.
+    const char* pads[] = {"ds4", "joycon_pair", "dualsense_synthetic", "switch_pro_synthetic"};
     for (const char* pad : pads) {
         Fixture fx;
         if (!load(dir + "/" + pad + ".jsonl.gz", fx)) {

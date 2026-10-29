@@ -16,6 +16,7 @@ struct FixtureRow {
     int slot;
     std::string label;  // "" = between steps
     std::vector<uint8_t> r;
+    bool feature = false;  // a feature report reply (the pad being set up), not an input report
 };
 
 struct ReplayFrame {

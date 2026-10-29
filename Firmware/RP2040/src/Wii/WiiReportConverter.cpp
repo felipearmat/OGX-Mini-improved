@@ -44,6 +44,10 @@ static inline uint8_t stick_to_classic_xy(int16_t val) {
     return (uint8_t)std::clamp(v, 0, 63);
 }
 
+/* Custom fix: the Y axes are flipped with Range::invert, not negated: -(-32768) does not fit an
+ * int16_t and wrapped to -32768, so a stick held fully up sent the pointer / the Nunchuk / the
+ * Classic stick fully down. */
+
 // Classic right stick: center 15, range 0..30. Deadzone to avoid pointer drift at rest.
 static constexpr int16_t CLASSIC_RS_DEADZONE = 2048;
 static inline int16_t classic_rs_apply_deadzone(int16_t val) {
@@ -88,7 +92,7 @@ void gamepad_to_wiimote_report(Gamepad& gamepad, void* out_wiimote_report)
 
     // IR pointer: left stick for NO_EXTENSION (right→right, up→up; deadzone to prevent drift)
     out->wiimote.ir_x = stick_to_wiimote_ir(classic_rs_apply_deadzone(pad.joystick_lx));
-    out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(-pad.joystick_ly));
+    out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(Range::invert(pad.joystick_ly)));
 
     // Mode and extension data (match PicoGamepadConverter)
     switch (out->mode) {
@@ -122,10 +126,10 @@ void gamepad_to_wiimote_report(Gamepad& gamepad, void* out_wiimote_report)
         case WIIMOTE_AND_NUNCHUCK:
             // Wiimote IR from right stick (right→right, up→up; deadzone to prevent drift)
             out->wiimote.ir_x = stick_to_wiimote_ir(classic_rs_apply_deadzone(pad.joystick_rx));
-            out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(-pad.joystick_ry));
+            out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(Range::invert(pad.joystick_ry)));
             // Nunchuk stick from left stick (right→right, up→forward); deadzone so center is true 128 (stops drift in aiming)
             out->nunchuk.x = stick_to_nunchuk_xy(classic_rs_apply_deadzone(pad.joystick_lx));
-            out->nunchuk.y = stick_to_nunchuk_xy(classic_rs_apply_deadzone(-pad.joystick_ly));
+            out->nunchuk.y = stick_to_nunchuk_xy(classic_rs_apply_deadzone(Range::invert(pad.joystick_ly)));
             out->nunchuk.c = (pad.trigger_l > 127);
             out->nunchuk.z = (pad.buttons & Gamepad::BUTTON_RB) != 0;
             out->nunchuk.accel_x = 0x200;
@@ -166,7 +170,7 @@ void gamepad_to_wiimote_report(Gamepad& gamepad, void* out_wiimote_report)
         case CLASSIC_CONTROLLER: {
             // IR pointer from right stick (correct direction: +rx = right, -ry = up; deadzone avoids drift)
             out->wiimote.ir_x = stick_to_wiimote_ir(classic_rs_apply_deadzone(pad.joystick_rx));
-            out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(-pad.joystick_ry));
+            out->wiimote.ir_y = stick_to_wiimote_ir(classic_rs_apply_deadzone(Range::invert(pad.joystick_ry)));
             out->classic.a = (pad.buttons & Gamepad::BUTTON_A) != 0;
             out->classic.b = (pad.buttons & Gamepad::BUTTON_B) != 0;
             out->classic.x = (pad.buttons & Gamepad::BUTTON_Y) != 0;  // PicoGamepadConverter: x=Y, y=X
@@ -186,10 +190,10 @@ void gamepad_to_wiimote_report(Gamepad& gamepad, void* out_wiimote_report)
             out->classic.rtrigger = (pad.trigger_r > 32);
             // Left stick: correct direction (right→right, up→forward)
             out->classic.ls_x = stick_to_classic_xy(pad.joystick_lx);
-            out->classic.ls_y = stick_to_classic_xy(-pad.joystick_ly);
+            out->classic.ls_y = stick_to_classic_xy(Range::invert(pad.joystick_ly));
             // Right stick → classic RS (used for pointer): fix X/Y direction, deadzone to prevent drift up
             int16_t rs_x = classic_rs_apply_deadzone(pad.joystick_rx);
-            int16_t rs_y = classic_rs_apply_deadzone(-pad.joystick_ry);
+            int16_t rs_y = classic_rs_apply_deadzone(Range::invert(pad.joystick_ry));
             out->classic.rs_x = (uint8_t)std::clamp((int)((float)rs_x / 32768.f * 15.f + 15.f), 0, 30);
             out->classic.rs_y = (uint8_t)std::clamp((int)((float)rs_y / 32768.f * 15.f + 15.f), 0, 30);
             // Mode switch: home+down held -> NO_EXTENSION

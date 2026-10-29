@@ -193,6 +193,7 @@ if (OGXM_HAVE_M32)
         switch_parser/fake_bt.c
         ${BP32}/parser/uni_hid_parser_switch.c
         ${BP32}/parser/uni_hid_parser_ds4.c
+        ${BP32}/parser/uni_hid_parser_ds5.c
         ${BP32}/uni_utils.c
         ${DEV}/DInput/DInput.cpp
         ${DEV}/PS4/PS4.cpp
