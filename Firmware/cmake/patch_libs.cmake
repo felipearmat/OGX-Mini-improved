@@ -115,11 +115,15 @@ endfunction()
 # - BTstack queued the HID Control Point command through the GATT query scheduler although it is
 #   a write without response, which can leave Xbox BLE controllers connected but unable to finish
 #   their setup (HID up, GETs return COMMAND_DISALLOWED, no input).
+# - ESP32 port's btstack_config.h: sdkconfig.h first. It tested CONFIG_BTSTACK_INTERNAL_BT before
+#   including it, so where it came first Controller-to-Host flow control (required for VHCI, by
+#   its comment) was off and files disagreed on hci.h's structures.
 function(ogxm_patch_btstack EXTERNAL_DIR)
     ogxm_patch_tree("BTstack" "${EXTERNAL_DIR}/bluepad32/external/btstack"
         "${EXTERNAL_DIR}/bluepad32/external/patches/0001-PATCH-l2cap-Allow-incoming-connection-with-not-enoug.patch"
         "${EXTERNAL_DIR}/patches/btstack_hogp_report_map_seed.diff"
-        "${EXTERNAL_DIR}/patches/btstack_hids_control_point.diff")
+        "${EXTERNAL_DIR}/patches/btstack_hids_control_point.diff"
+        "${EXTERNAL_DIR}/patches/btstack_esp32_config_sdkconfig_first.diff")
 endfunction()
 
 # Pico SDK 2.3.1 (feature under test since 2026-10-27, was 2.1.0 with four patches): no patch. It
