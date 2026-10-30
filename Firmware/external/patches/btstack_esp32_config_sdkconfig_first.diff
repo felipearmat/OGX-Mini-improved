@@ -1,0 +1,14 @@
+diff --git a/port/esp32/components/btstack_config/include/btstack_config.h b/port/esp32/components/btstack_config/include/btstack_config.h
+index 7a89cc831..75f26d0ba 100644
+--- a/port/esp32/components/btstack_config/include/btstack_config.h
++++ b/port/esp32/components/btstack_config/include/btstack_config.h
+@@ -7,6 +7,9 @@
+ #ifndef BTSTACK_CONFIG_H
+ #define BTSTACK_CONFIG_H
+ 
++// sdkconfig.h first: the options below test CONFIG_ values (CONFIG_BTSTACK_INTERNAL_BT).
++#include "sdkconfig.h"
++
+ // Port related features
+ #define HAVE_ASSERT
+ #define HAVE_BTSTACK_STDIN
