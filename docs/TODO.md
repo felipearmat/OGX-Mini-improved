@@ -123,6 +123,12 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   the feedback period (not explained). Open: the re-sync or the surroundings (compare with v1.5.0, same
   game). Missing from the log: gap sizes between samples, rumble traffic, channels in use; the hybrid wrote
   no session summary when the last pad left (so no latency figure for that session).
+  The user's account (Divinity 2, a fair amount of rumble): the delay was not always during rumble, and it
+  felt the same on both hands (select with the left, activate with the right), which the per-half radio gaps
+  do not explain by themselves; the log sees nothing after the ESP32's input and has no latency figure for
+  the session, so a delay common to both could be further along. Same hub, dongle placed as usual. A/B on the
+  bench since 2026-10-30: v1.5.0 code (`3a78286`) on the hybrid, same game. Not tried yet: the re-sync on the
+  Pico 2 W alone.
 - **Switch 2 / Steam Controller 2026: bring in what upstream's parsers have** (user's decision
   2026-10-29: MegaCadeDev's parsers stay) — stick calibration from the pad's SPI flash, battery,
   IMU orientation per model, the GameCube NSO pad's C button, connection and setup timeouts; the
