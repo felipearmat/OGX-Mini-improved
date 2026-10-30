@@ -113,6 +113,16 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   here: Switch 2, Steam Controller 2026, Xbox BLE (MegaCadeDev's code, unchanged by the merge but on
   the new BTstack). Then master, the release notes, and later `raw_motion` can go: the motion code
   could take the SI frame directly (it already is the DS4 report frame).
+  **Play session 2026-10-29 evening (Joy-Con pair, STEAM, the re-sync on the bench hybrid): the user felt
+  a high delay several times, near the dongle.** Flash log, about 3.6 h of use: 1212 / 1813 input gaps
+  (left / right), max 1068 / 1701 ms, 0.8 / 1.8 % lost by the pads' counters, no crash or drop. 15 logged
+  gaps of 200 ms or more (events are sampled, at most one per slot every 5 s), against 1 in the 14 earlier
+  hybrid sessions over 30 min (about 30 h); the gap count itself is not new (675 / h on 2026-10-28). Only 1
+  of the 15 had the other half also late within 1 s, so not a stall shared by both (adapter, I2C, USB); worst
+  burst: right half, about 30 s at 4-5 gaps a second while the left stayed clean. Several are 250-251 ms,
+  the feedback period (not explained). Open: the re-sync or the surroundings (compare with v1.5.0, same
+  game). Missing from the log: gap sizes between samples, rumble traffic, channels in use; the hybrid wrote
+  no session summary when the last pad left (so no latency figure for that session).
 - **Switch 2 / Steam Controller 2026: bring in what upstream's parsers have** (user's decision
   2026-10-29: MegaCadeDev's parsers stay) — stick calibration from the pad's SPI flash, battery,
   IMU orientation per model, the GameCube NSO pad's C button, connection and setup timeouts; the
