@@ -129,6 +129,13 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   the session, so a delay common to both could be further along. Same hub, dongle placed as usual. A/B on the
   bench since 2026-10-30: v1.5.0 code (`3a78286`) on the hybrid, same game. Not tried yet: the re-sync on the
   Pico 2 W alone.
+  Delay in peaks, worse with the body position (bed), less so before. Suspect found in the re-sync (ESP32 only):
+  BTstack's port `btstack_config.h` tests `CONFIG_BTSTACK_INTERNAL_BT` before it includes `sdkconfig.h`, so
+  `ENABLE_HCI_CONTROLLER_TO_HOST_FLOW_CONTROL` is off where that file comes first. The re-sync ELF has no
+  `hci_set_controller_to_host_flow_control` / `hci_host_buffer_size` (the v1.5.0 ELF has both), so the host never
+  asks for it, though BTstack's comment calls it required for VHCI. Files that include `sdkconfig.h` first may also
+  see a different `hci_connection_t` / `hci_stack_t` (not measured). Link to the felt delay not proven. Fix to try,
+  after the A/B: include `sdkconfig.h` first, by a BTstack patch. Would not affect the Pico 2 W alone.
 - **Switch 2 / Steam Controller 2026: bring in what upstream's parsers have** (user's decision
   2026-10-29: MegaCadeDev's parsers stay) — stick calibration from the pad's SPI flash, battery,
   IMU orientation per model, the GameCube NSO pad's C button, connection and setup timeouts; the
