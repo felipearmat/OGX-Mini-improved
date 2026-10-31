@@ -18,6 +18,7 @@ Tools/bench/run_bench.py --solo PI_PICO2W.uf2 --hybrid ESP32_BLUEPAD32_I2C_PICO2
 
 | `capture_pad.py` | not a test: records a controller's raw input reports (through the adapter's `RAW_CAPTURE`, or a PC hidraw node) through a script of labelled actions, for the fixture tests ([fixtures](../../Firmware/RP2040/tests/fixtures/README.md)) |
 | `hd_rumble.py` | not a test: HD Rumble patterns written to the adapter in Switch mode (hidraw, Linux) for a Joy-Con / Pro Controller to play ([HD_Rumble.md](../../Firmware/RP2040/docs/HD_Rumble.md)) |
+| `ab_link.py` | not a test: compares firmware builds' radio link on the hybrid. `run` / `summary`: rounds in D-Input/Debug with the controllers still. `soak` / `soak-summary`: hours in STEAM mode with PC rumble, figures from the flash log; it waits for `<out>/go-<NAME>` because the adapter cannot tell whether both Joy-Cons connected, and for the combos it prints |
 | `test_logger.py` | `logger.py` against the firmware's virtual adapter on a pseudo-terminal (no board): kept log and first report recorded, each line once across runs, dropped bytes reported, old files cleaned up |
 
 ## Logger
