@@ -136,6 +136,18 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   asks for it, though BTstack's comment calls it required for VHCI. Files that include `sdkconfig.h` first may also
   see a different `hci_connection_t` / `hci_stack_t` (not measured). Link to the felt delay not proven. Fix to try,
   after the A/B: include `sdkconfig.h` first, by a BTstack patch. Would not affect the Pico 2 W alone.
+  Bench A/B 2026-10-30 (`Tools/bench/ab_link.py soak`: hybrid, STEAM, Joy-Con pair lying still near the dongle, PC
+  rumble 3 s every 10 s for 2 h; flash log). v1.5.0 code: 503 gaps in 2 h (L 201, R 302), largest per-slot max
+  144 ms. Re-sync without the patch: 271 gaps in 3.2 h (L 67, R 204; rumble only in 2 h of them), max 112 ms. No
+  USB loss and no sampled gap of 200 ms or more in either; adapter latency avg 533 / 519 us. So neither shows the
+  session's 1.7 s gaps here, and the re-sync is not worse in this setup; that does not clear it for play, since
+  position and traffic differ. Both had a burst on both halves at once (A min 90: 214; B min 180: 98), and the R
+  half has more gaps in both. Same-game v1.5.0 session still needed. The summary line's `late` covers only the last
+  diagnostics windows, not the session: B's 18-20 % against A's 4 % is the burst at its end, not a comparison.
+  One 15-min still round of the patched build gave more gaps (176 / h against 36), too short to mean anything;
+  the patch has no measured benefit yet.
+  Joy-Con R reconnect: after a reflash (A, B, C and A again) the left reconnected by a button press in 3 of 4 and
+  the right never did and had to be paired, on v1.5.0 too, so not from the re-sync; log not read yet.
 - **Switch 2 / Steam Controller 2026: bring in what upstream's parsers have** (user's decision
   2026-10-29: MegaCadeDev's parsers stay) — stick calibration from the pad's SPI flash, battery,
   IMU orientation per model, the GameCube NSO pad's C button, connection and setup timeouts; the
