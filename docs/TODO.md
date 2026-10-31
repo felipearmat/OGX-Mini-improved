@@ -137,7 +137,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   see a different `hci_connection_t` / `hci_stack_t` (not measured). Link to the felt delay not proven. Fix to try,
   after the A/B: include `sdkconfig.h` first, by a BTstack patch. Would not affect the Pico 2 W alone.
   Bench A/B 2026-10-30 (`Tools/bench/ab_link.py soak`: hybrid, STEAM, Joy-Con pair lying still near the dongle, PC
-  rumble 3 s every 10 s for 2 h; flash log). v1.5.0 code: 503 gaps in 2 h (L 201, R 302), largest per-slot max
+  rumble 3 s every 10 s for 2 h, seen on both halves in both runs; flash log). v1.5.0 code: 503 gaps in 2 h (L 201, R 302), largest per-slot max
   144 ms. Re-sync without the patch: 271 gaps in 3.2 h (L 67, R 204; rumble only in 2 h of them), max 112 ms. No
   USB loss and no sampled gap of 200 ms or more in either; adapter latency avg 533 / 519 us. So neither shows the
   session's 1.7 s gaps here, and the re-sync is not worse in this setup; that does not clear it for play, since
