@@ -13,6 +13,7 @@
 #include "libfixmath/fix16.hpp"
 
 #include "Gamepad/GamepadMapper.h"
+#include "Board/DebugProbe.h"
 #include "Gamepad/HdRumbleFeed.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
@@ -189,6 +190,7 @@ public:
                 latency_sum_us_ += lat;
                 if (lat > latency_max_us_)
                     latency_max_us_ = lat;
+                probe_record(PROBE_LATENCY, &lat, sizeof(lat));  // each one, to the probe point
             }
         } else {
             pad_in = last_pad_in_;
@@ -404,6 +406,10 @@ public:
     inline void set_pad_out(const PadOut& pad_out)
     {
         mutex_enter_blocking(&pad_out_mutex_);
+        if (pad_out.rumble_l != pad_out_.rumble_l || pad_out.rumble_r != pad_out_.rumble_r) {
+            const uint8_t rumble[2] = {pad_out.rumble_l, pad_out.rumble_r};
+            probe_record(PROBE_RUMBLE, rumble, sizeof(rumble));  // the host's rumble, when it changes
+        }
         pad_out_ = pad_out;
         if (pad_out.rumble_l > peak_out_.rumble_l) peak_out_.rumble_l = pad_out.rumble_l;
         if (pad_out.rumble_r > peak_out_.rumble_r) peak_out_.rumble_r = pad_out.rumble_r;

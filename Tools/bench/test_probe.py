@@ -80,3 +80,18 @@ def test_a_restart_starts_a_new_file(tmp_path):
     first, second = run(tmp_path, frames)
     assert "mode change to STEAM" in first and "the adapter restarted" in first
     assert "boot STEAM" in second
+
+
+def test_latency_rumble_and_cost(tmp_path):
+    frames = [hello(1_000_000)]
+    frames += [frame(probe.LATENCY, 1_100_000 + i, struct.pack("<I", us)) for i, us in enumerate((100, 300, 200))]
+    frames += [frame(probe.RUMBLE, 1_200_000, bytes([0, 128])), frame(probe.RUMBLE, 1_300_000, bytes([0, 255]))]
+    frames += [frame(probe.RUMBLE, 1_400_000, bytes([0, 0]))]
+    frames += [frame(probe.COST, 1_500_000, struct.pack("<IIII", 150_000, 1_500, 200, 150_000_000))]
+    frames += [hello(2_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "rumble on 0/128" in log and "rumble off" in log
+    assert log.count("rumble on") == 1  # a change of strength is not a new line
+    assert "latency avg 200 max 300 us" in log and "rumble max 255" in log
+    assert "probe 1000 us/s (0.100% of a core), longest frame 10.0 us" in log
+    assert "# latency (input to output driver): avg 200 us, max 300 us, 3 samples" in log

@@ -24,7 +24,7 @@ import serial
 
 BAUD = 921600
 SYNC = 0xA5
-HELLO, TEXT, REPORT, USB_SENT = 1, 2, 3, 4
+HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST = 1, 2, 3, 4, 5, 6, 7
 GAP_MS = 50  # a controller report later than this is a gap (as the adapter's "no input" event)
 
 
@@ -77,6 +77,12 @@ class Session:
         self.slots = {}  # slot -> [count this second, last µs, max gap µs, gaps]
         self.down = set()  # slots between the adapter's "slot N gone" and "slot N ready" (no gaps then)
         self.usb = 0
+        self.lat = []  # input-to-output waits this second (µs)
+        self.lat_all = [0, 0, 0]  # count, sum, max over the session
+        self.rumble = (0, 0)
+        self.rumble_max = 0
+        self.cost = None  # the adapter's last COST frame: µs/s, % of one core, max µs
+        self.cost_max = [0.0, 0.0]  # session: most % in a second, longest frame µs
         self.second = None
         self.id = "?"
         self.drops = 0
@@ -111,6 +117,12 @@ class Session:
         self.reset()
 
     def summary(self):
+        if self.lat_all[0]:
+            self.out(f"# latency (input to output driver): avg {self.lat_all[1] // self.lat_all[0]} us, "
+                     f"max {self.lat_all[2]} us, {self.lat_all[0]} samples")
+        if self.cost:
+            self.out(f"# probe cost: at most {self.cost_max[0]:.3f}% of a core in a second, "
+                     f"longest frame {self.cost_max[1]:.1f} us")
         for slot, s in sorted(self.slots.items()):
             self.out(f"# slot {slot}: max gap {s[2] / 1000:.1f} ms, {s[3]} gaps over {GAP_MS} ms")
 
@@ -167,6 +179,26 @@ class Session:
             s[1] = t_us
         elif ftype == USB_SENT:
             self.usb += 1
+        elif ftype == LATENCY and len(payload) >= 4:
+            us = struct.unpack_from("<I", payload)[0]
+            self.lat.append(us)
+            self.lat_all[0] += 1
+            self.lat_all[1] += us
+            self.lat_all[2] = max(self.lat_all[2], us)
+        elif ftype == RUMBLE and len(payload) >= 2:
+            new = (payload[0], payload[1])
+            if (new == (0, 0)) != (self.rumble == (0, 0)):  # start and stop as lines; strength per second
+                self.out(f"{self.stamp(t_us)} rumble {'on' if new != (0, 0) else 'off'}"
+                         + (f" {new[0]}/{new[1]}" if new != (0, 0) else ""))
+            self.rumble = new
+            self.rumble_max = max(self.rumble_max, *new)
+        elif ftype == COST and len(payload) >= 16:
+            cycles, most, frames, hz = struct.unpack_from("<IIII", payload)
+            if hz:
+                us_s = cycles * 1e6 / hz
+                self.cost = (us_s, us_s / 1e4, most * 1e6 / hz, frames)
+                self.cost_max[0] = max(self.cost_max[0], self.cost[1])
+                self.cost_max[1] = max(self.cost_max[1], self.cost[2])
 
     def slot_event(self, line):
         m = re.search(r"\bslot (\d+) (ready|gone)\b", line)
@@ -186,8 +218,17 @@ class Session:
             for slot, s in sorted(self.slots.items()):
                 parts.append(f"slot {slot} {s[0]}/s")
                 s[0] = 0
+            if self.lat:
+                parts.append(f"latency avg {sum(self.lat) // len(self.lat)} max {max(self.lat)} us")
+            if self.rumble_max:
+                parts.append(f"rumble max {self.rumble_max}")
+            if self.cost:
+                parts.append(f"probe {self.cost[0]:.0f} us/s ({self.cost[1]:.3f}% of a core), "
+                             f"longest frame {self.cost[2]:.1f} us")
             self.out(f"{self.stamp(t_us)} rate: " + ", ".join(parts), show=not self.quiet)
         self.usb = 0
+        self.lat = []
+        self.rumble_max = max(self.rumble)  # still on: still counts
         self.second = t_us
 
 

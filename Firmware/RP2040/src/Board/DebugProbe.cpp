@@ -5,11 +5,14 @@
 #include <algorithm>
 #include <cstring>
 
+#include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "hardware/timer.h"
+#include "hardware/structs/systick.h"
 #include "hardware/uart.h"
+#include "pico/platform.h"
 
 #include "UserSettings/DongleSettings.h"
 
@@ -35,6 +38,19 @@ uint32_t s_frames = 0, s_dropped = 0;
 uint32_t s_hello_us = 0;
 int s_dma = -1;
 bool s_ready = false, s_failed = false, s_hello_sent = false;
+uint32_t s_cost_cycles = 0, s_cost_max = 0, s_cost_frames = 0;  // this second, under the lock
+
+/* Cycles: each core's SysTick (24 bits, counting down at the CPU clock), started by the first frame
+ * on that core. Nothing else here uses SysTick. */
+inline uint32_t __not_in_flash_func(cycles)()
+{
+    if (!(systick_hw->csr & 1u)) {
+        systick_hw->rvr = 0x00FFFFFFu;
+        systick_hw->cvr = 0;
+        systick_hw->csr = 0x5u;  // enabled, processor clock, no interrupt
+    }
+    return systick_hw->cvr;
+}
 
 /* Both cores record: a spin lock of its own (the kept log has OS1), which also masks this core's
  * interrupts for the few dozen instructions of a copy. */
@@ -73,7 +89,7 @@ bool ready()
 
 /* Frees what the DMA finished and starts it on what waits (up to the end of the ring). Under the
  * lock. */
-void pump()
+void __not_in_flash_func(pump)()
 {
     if (s_flight) {
         if (dma_channel_is_busy(static_cast<uint>(s_dma))) return;
@@ -86,7 +102,7 @@ void pump()
     dma_channel_transfer_from_buffer_now(static_cast<uint>(s_dma), s_data + s_tail, s_flight);
 }
 
-void copy_in(const uint8_t* p, uint32_t len)
+void __not_in_flash_func(copy_in)(const uint8_t* p, uint32_t len)
 {
     const uint32_t first = std::min(len, kSize - s_head);
     std::memcpy(s_data + s_head, p, first);
@@ -94,8 +110,10 @@ void copy_in(const uint8_t* p, uint32_t len)
     s_head = (s_head + len) % kSize;
 }
 
-void frame(uint8_t type, const uint8_t* a, size_t a_len, const uint8_t* b, size_t b_len)
+/* In RAM: on the USB and Bluetooth paths, no flash cache misses. */
+void __not_in_flash_func(frame)(uint8_t type, const uint8_t* a, size_t a_len, const uint8_t* b, size_t b_len)
 {
+    const uint32_t c0 = cycles();
     const uint32_t len = static_cast<uint32_t>(std::min<size_t>(a_len + b_len, 255));
     b_len = len - std::min<size_t>(a_len, len);
     a_len = len - b_len;
@@ -121,6 +139,10 @@ void frame(uint8_t type, const uint8_t* a, size_t a_len, const uint8_t* b, size_
         ++s_frames;
     }
     pump();
+    const uint32_t spent = (c0 - cycles()) & 0x00FFFFFFu;
+    s_cost_cycles += spent;
+    if (spent > s_cost_max) s_cost_max = spent;
+    ++s_cost_frames;
 }
 
 void put_u32(uint8_t* p, uint32_t v)
@@ -133,7 +155,7 @@ void put_u32(uint8_t* p, uint32_t v)
 
 } // namespace
 
-extern "C" void probe_record(uint8_t type, const void* payload, size_t len)
+extern "C" void __not_in_flash_func(probe_record)(uint8_t type, const void* payload, size_t len)
 {
     if (!on()) return;
     frame(type, static_cast<const uint8_t*>(payload), len, nullptr, 0);
@@ -165,6 +187,16 @@ extern "C" void probe_tick(void)
         put_u32(counts + 4, s_dropped);
         put_u32(counts + 8, kSize);
         frame(PROBE_HELLO, counts, sizeof(counts), reinterpret_cast<const uint8_t*>(kId), sizeof(kId) - 1);
+        uint8_t cost[16];
+        {
+            Guard g;
+            put_u32(cost, s_cost_cycles);
+            put_u32(cost + 4, s_cost_max);
+            put_u32(cost + 8, s_cost_frames);
+            s_cost_cycles = s_cost_max = s_cost_frames = 0;
+        }
+        put_u32(cost + 12, clock_get_hz(clk_sys));
+        frame(PROBE_COST, cost, sizeof(cost), nullptr, 0);
         return;  // frame() pumped
     }
     Guard g;

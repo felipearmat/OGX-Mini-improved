@@ -14,6 +14,9 @@
  * reset, its USB chip reading the pin on TX0) at OGXM_PROBE_BAUD, 8N1. Nothing attached costs
  * nothing: the records go out either way.
  *
+ * Its own cost is measured (each core's SysTick, a free-running cycle counter here) and sent once a
+ * second, so every session says what the probe took.
+ *
  * Frame (little endian): 0xA5, type, payload length, check, time (µs since boot, 32 bits),
  * payload. The check makes the sum of every byte after 0xA5 a multiple of 256. */
 #define OGXM_PROBE_BAUD 921600u
@@ -23,6 +26,11 @@ enum {
     PROBE_TEXT = 0x02,    // a piece of the kept log: source letter ('r' rp, 'e' esp), then the text
     PROBE_REPORT = 0x03,  // a controller's input report: u8 slot
     PROBE_USB_SENT = 0x04,  // the host read a report from the adapter (no payload)
+    PROBE_LATENCY = 0x05,   // the newest controller input reached the output driver: u32 µs it waited
+    PROBE_RUMBLE = 0x06,    // the host's rumble changed: u8 left, u8 right (0-255)
+    PROBE_COST = 0x07,      // once a second, the probe's own cost over the last second: u32 cycles
+                            // spent recording (both cores), u32 most cycles for one frame, u32 frames,
+                            // u32 CPU clock (Hz)
 };
 
 #ifdef __cplusplus

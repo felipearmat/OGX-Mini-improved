@@ -60,7 +60,8 @@ python Tools/bench/probe.py --port /dev/ttyUSB0 --dir ~/ogxm-logs/probe   # COM5
 One file per session (`probe-YYYY-MM-DD_HHMMSS.log`; a restart or a mode change starts a new one):
 the adapter's events (`[rp]`, the hybrid's `[esp]`), a line per second with the rates (reports read
 by the host, each controller's reports), each controller report later than 50 ms (not while it
-connects again), and at the end each controller's longest gap. The adapter sends only raw records
+connects again), rumble on / off, and at the end each controller's longest gap, the input-to-output
+latency and the probe's own cost (the adapter measures it: about 0.1% of a core on a Pico 2 W). The adapter sends only raw records
 (Board/DebugProbe.h); the figures are worked out here. It holds RTS on and DTR off, which keeps an
 ESP32 board used as the reader in reset.
 
