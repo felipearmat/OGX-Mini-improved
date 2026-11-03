@@ -35,7 +35,7 @@
  *                                          log in RAM (the Diagnostics panel, the log report)
  *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (turns the activity log on)
  *    OGXM_DIAGNOSTICS_LINK                 OFF  detailed controller diagnostics: the Bluetooth link queries
- *                                          of Bluepad32/LinkDiag (needs the log in flash)
+ *                                          of Bluepad32/LinkDiag (needs the activity log)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
  *  24 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
@@ -153,8 +153,9 @@ namespace dongle_settings {
     bool activity_log(const Settings& settings);
     bool keep_log_in_flash(const Settings& settings);
 
-    // "Detailed controller diagnostics" in effect: the option needs "Keep the log in flash" on (the
-    // advanced report is kept there). The hybrid's ESP32 gets byte 7 already gated (encode_v6).
+    // "Detailed controller diagnostics" in effect: the option needs the activity log on (its link
+    // details go to the report and the probe point). The hybrid's ESP32 gets byte 7 already gated
+    // (encode_v6).
     bool controller_diagnostics(const Settings& settings);
 
     // Current settings (defaults until set() is called at boot with the stored ones).

@@ -30,9 +30,13 @@ enum {
     PROBE_RUMBLE = 0x06,    // the host's rumble changed: u8 left, u8 right (0-255)
     PROBE_COST = 0x07,      // once a second, the probe's own cost over the last second: u32 cycles
                             // spent recording (both cores), u32 most cycles for one frame, u32 frames,
-                            // u32 CPU clock (Hz)
+                            // u32 CPU clock (Hz); then u32 cycles in the activity
+                            // log's hooks (their own probe frames included), u32 most for one call
     PROBE_PAD_CLOCK = 0x08, // a controller report's own clock: u8 slot, u8 kind (diag::PadClock), u32 raw
     PROBE_PAD_COMMAND = 0x09,  // a Switch subcommand: u8 slot, u8 subcommand ID, u8 0 sent / 1 reply
+    PROBE_LINK = 0x0A,      // a detailed link reading (detailed controller diagnostics): u8 slot (0xFF
+                            // not a controller's yet), u8 what (1 RSSI, 2 channels, 3 failed contacts,
+                            // 4 transmit power, 5 its maximum, 6 link mode), i16 value, u16 second value
 };
 
 #ifdef __cplusplus
@@ -46,7 +50,13 @@ void probe_record(uint8_t type, const void* payload, size_t len);
 void probe_text(const char* source, const char* text, size_t len);
 /* Sends what waits and the once-a-second header; called from the boards' loops. */
 void probe_tick(void);
+/* The activity log's own cost: this core's cycle count (counting down), and the cycles one hook
+ * call took, added to the next PROBE_COST. */
+uint32_t probe_cycles(void);
+void probe_log_cost(uint32_t start_cycles);
 #else
+static inline uint32_t probe_cycles(void) { return 0; }
+static inline void probe_log_cost(uint32_t start_cycles) { (void)start_cycles; }
 static inline void probe_record(uint8_t type, const void* payload, size_t len) { (void)type; (void)payload; (void)len; }
 static inline void probe_text(const char* source, const char* text, size_t len) { (void)source; (void)text; (void)len; }
 static inline void probe_tick(void) {}

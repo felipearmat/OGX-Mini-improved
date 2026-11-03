@@ -131,3 +131,15 @@ def test_subcommand_round_trip(tmp_path):
     (log,) = run(tmp_path, frames)
     assert "subcommand 0x48 answered in 18.0 ms" in log and "subcommand 0x30 answered in 30.0 ms" in log
     assert "# slot 1 subcommand round trip: min 18.0 ms, median 30.0 ms, max 30.0 ms, 2 answered" in log
+
+
+def test_link_readings_and_the_log_cost(tmp_path):
+    link = lambda t, what, a, b=0: frame(probe.LINK, t, bytes([0, what]) + struct.pack("<hH", a, b))
+    frames = [hello(1_000_000), link(1_100_000, 1, -3), link(1_200_000, 2, 20, 79), link(1_300_000, 3, 4),
+              link(1_400_000, 1, -7),
+              frame(probe.COST, 1_500_000, struct.pack("<IIIIII", 150_000, 1_500, 200, 150_000_000, 450_000, 3_000)),
+              hello(2_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "slot 0 rssi -7 channels 20/79 failed contacts 4" in log
+    assert "log hooks 0.300% of a core, longest 20.0 us" in log
+    assert "# slot 0 rssi: min -7, median -3, max -3 (2 readings)" in log

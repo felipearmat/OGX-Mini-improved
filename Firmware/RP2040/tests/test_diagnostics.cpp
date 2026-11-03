@@ -291,10 +291,10 @@ TEST(the_report_says_whether_link_details_are_on) {
     setup();
     dongle_settings::Settings s = dongle_settings::defaults();
     s.link_diagnostics = 1;
-    s.log_level = dongle_settings::kLogActivity;  // the option needs the log in flash
+    s.log_level = dongle_settings::kLogNone;  // the option needs the activity log
     dongle_settings::set(s);
     CHECK(has(report(500), "\"link_details\":false}"));
-    s.log_level = dongle_settings::kLogFlash;
+    s.log_level = dongle_settings::kLogActivity;
     dongle_settings::set(s);
     CHECK(has(report(1000), "\"link_details\":true}"));
     dongle_settings::set(dongle_settings::defaults());

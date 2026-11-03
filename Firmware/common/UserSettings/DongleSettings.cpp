@@ -108,7 +108,7 @@ Settings defaults()
     s.status_led_esp32_ext = flag(OGXM_STATUS_LED_ESP32_EXT);
     s.status_led_brightness = static_cast<uint8_t>(OGXM_EXT_RGB_BRIGHTNESS);
     s.log_level = OGXM_FLASH_LOG ? kLogFlash : OGXM_ACTIVITY_LOG ? kLogActivity : kLogNone;
-    s.link_diagnostics = flag(OGXM_DIAGNOSTICS_LINK && OGXM_FLASH_LOG);
+    s.link_diagnostics = flag(OGXM_DIAGNOSTICS_LINK && (OGXM_ACTIVITY_LOG || OGXM_FLASH_LOG));
     return s;
 }
 
@@ -163,9 +163,10 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
         s.log_level = data[23] > kLogFlash ? kLogFlash : data[23];
     else if (v7)
         s.log_level = data[23] ? kLogFlash : kLogNone;
-    // Needs the log in flash. Not for a version 6 record: the hybrid's I2C link carries no byte 23,
-    // and its byte 7 comes already gated (encode_v6).
-    if (v7 && s.log_level < kLogFlash)
+    // Needs the activity log (since 2026-11 its details also go to the probe point, so the log in
+    // flash is no longer needed). Not for a version 6 record: the hybrid's I2C link carries no
+    // byte 23, and its byte 7 comes already gated (encode_v6).
+    if (v7 && s.log_level < kLogActivity)
         s.link_diagnostics = 0;
     out = s;
     return true;
@@ -238,7 +239,7 @@ bool keep_log_in_flash(const Settings& settings)
 
 bool controller_diagnostics(const Settings& settings)
 {
-    return settings.link_diagnostics != 0 && keep_log_in_flash(settings);
+    return settings.link_diagnostics != 0 && activity_log(settings);
 }
 
 const Settings& get()

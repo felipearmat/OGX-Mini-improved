@@ -273,7 +273,7 @@ Guide: [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md). Source and local 
 | RGB LEDs' brightness (1-255) | `OGXM_EXT_RGB_BRIGHTNESS` = 48 |
 | Activity log: controller / USB counters and the event log in RAM, for the Diagnostics panel and the log report (Diagnostics panel) | `OGXM_ACTIVITY_LOG` = OFF |
 | Keep the log in flash (needs the activity log; Diagnostics panel; adds a little lag) | `OGXM_FLASH_LOG` = OFF |
-| Detailed controller diagnostics (needs the log in flash; Diagnostics panel; adds more lag) | `OGXM_DIAGNOSTICS_LINK` = OFF |
+| Detailed controller diagnostics (needs the activity log; Diagnostics panel; adds more lag: being measured with the probe point) | `OGXM_DIAGNOSTICS_LINK` = OFF |
 
 All three log options are off by default, so the adapter counts and logs nothing while playing;
 turn them on in the web app to look into a problem. There is no separate "dev" build any more.

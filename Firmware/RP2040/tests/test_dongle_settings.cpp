@@ -25,7 +25,7 @@ TEST(defaults_follow_the_build) {
 
 TEST(decode_normalises_flags) {
     uint8_t bytes[24] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
-    bytes[23] = dongle_settings::kLogFlash;  // byte 7 needs the log in flash
+    bytes[23] = dongle_settings::kLogFlash;  // byte 7 needs the activity log
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -249,8 +249,8 @@ TEST(v9_log_level_in_byte_23_and_older_records) {
 }
 
 TEST(a_dependent_log_option_reads_off_while_the_one_above_is_off) {
-    // Detailed controller diagnostics (byte 7) needs the log in flash: a stored record with it on
-    // and the log in flash off reads with it off, as the web app shows it.
+    // Detailed controller diagnostics (byte 7) needs the activity log: a stored record with it on
+    // and the log off reads with it off, as the web app shows it.
     uint8_t v8[24] = {8};
     v8[7] = 1;
     dongle_settings::Settings s{};
@@ -258,9 +258,12 @@ TEST(a_dependent_log_option_reads_off_while_the_one_above_is_off) {
     CHECK_EQ(s.link_diagnostics, 0);
     uint8_t v9[24] = {dongle_settings::kVersion};
     v9[7] = 1;
-    v9[23] = dongle_settings::kLogActivity;
+    v9[23] = dongle_settings::kLogNone;
     CHECK(dongle_settings::decode(v9, sizeof(v9), s));
     CHECK_EQ(s.link_diagnostics, 0);
+    v9[23] = dongle_settings::kLogActivity;  // since 2026-11 the log in flash is not needed
+    CHECK(dongle_settings::decode(v9, sizeof(v9), s));
+    CHECK_EQ(s.link_diagnostics, 1);
     v9[23] = dongle_settings::kLogFlash;
     CHECK(dongle_settings::decode(v9, sizeof(v9), s));
     CHECK_EQ(s.link_diagnostics, 1);
@@ -304,16 +307,16 @@ TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
     v5[7] = 1;
     CHECK(dongle_settings::decode(v5, sizeof(v5), s));
     CHECK_EQ(s.link_diagnostics, dongle_settings::defaults().link_diagnostics);
-    // In effect only with the log in flash on (the advanced report is kept there); the hybrid's
-    // ESP32 gets it so in byte 7 of the version 6 record (an older ESP32 ignores it).
+    // In effect only with the activity log on; the hybrid's ESP32 gets it so in byte 7 of the
+    // version 6 record (an older ESP32 ignores it).
     dongle_settings::Settings on = dongle_settings::defaults();
     on.link_diagnostics = 1;
-    on.log_level = dongle_settings::kLogActivity;
+    on.log_level = dongle_settings::kLogNone;
     CHECK(!dongle_settings::controller_diagnostics(on));
     uint8_t v6[dongle_settings::kV6Length];
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 0);
-    on.log_level = dongle_settings::kLogFlash;
+    on.log_level = dongle_settings::kLogActivity;
     CHECK(dongle_settings::controller_diagnostics(on));
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 1);

@@ -257,6 +257,14 @@ bool on()
     return dongle_settings::activity_log(dongle_settings::get());
 }
 
+/* The activity log's cost on the hot paths, measured for the probe point (Board/DebugProbe.h):
+ * the cycles from here to the end of the hook. */
+struct Cost
+{
+    const uint32_t start = probe_cycles();
+    ~Cost() { probe_log_cost(start); }
+};
+
 Link* link_for_handle(uint16_t handle, bool create)
 {
     for (auto& s : s_slots)
@@ -503,6 +511,7 @@ void init(const BoardInfo& info)
 void event(uint32_t now_ms, const char* fmt, ...)
 {
     if (!on()) return;
+    Cost cost;
     char text[kEventText];
     va_list ap;
     va_start(ap, fmt);
@@ -596,6 +605,7 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
 void slot_report(size_t slot, uint32_t now_ms)
 {
     if (!on()) return;
+    Cost cost;
     if (slot >= kSlots) return;
     const uint8_t probe_slot = static_cast<uint8_t>(slot);
     probe_record(PROBE_REPORT, &probe_slot, 1);  // every report's time, to the probe point
@@ -642,6 +652,7 @@ void slot_command(size_t slot, uint8_t subcommand, bool reply)
 void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 {
     if (!on()) return;
+    Cost cost;
     if (slot >= kSlots || bits == 0 || bits > 31) return;
     Lock l;
     Slot& s = s_slots[slot];
@@ -726,6 +737,7 @@ void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], 
                    const int32_t ds4_accel[3], const int32_t ds4_gyro[3])
 {
     if (!on()) return;
+    Cost cost;
     Lock l;
     Motion& m = s_motion;
     if (!m.seen || now_ms - m.window_ms >= 1000) {
@@ -878,45 +890,72 @@ void pnp_id(uint16_t con_handle, uint8_t source, uint16_t vid, uint16_t pid, uin
     k->pnp_version = version;
 }
 
+/* A detailed link reading to the probe point too (PROBE_LINK), by slot. */
+void probe_link(uint16_t con_handle, uint8_t what, int16_t a, uint16_t b = 0)
+{
+    uint8_t slot = 0xFF;
+    {
+        Lock l;
+        for (size_t i = 0; i < kSlots; ++i)
+            if (s_slots[i].active && s_slots[i].link.used && s_slots[i].link.handle == con_handle)
+                slot = static_cast<uint8_t>(i);
+    }
+    const uint8_t p[6] = {slot, what, static_cast<uint8_t>(a), static_cast<uint8_t>(static_cast<uint16_t>(a) >> 8),
+                          static_cast<uint8_t>(b), static_cast<uint8_t>(b >> 8)};
+    probe_record(PROBE_LINK, p, sizeof(p));
+}
+
 void rssi(uint16_t con_handle, int8_t dbm)
 {
-    Lock l;
-    if (Link* k = link_for_handle(con_handle, false)) {
-        k->rssi = dbm;
-        k->rssi_valid = true;
+    {
+        Lock l;
+        if (Link* k = link_for_handle(con_handle, false)) {
+            k->rssi = dbm;
+            k->rssi_valid = true;
+        }
     }
+    probe_link(con_handle, 1, dbm);
 }
 
 void channels(uint16_t con_handle, uint8_t used, uint8_t total)
 {
-    Lock l;
-    if (Link* k = link_for_handle(con_handle, false)) {
-        k->channels_used = used;
-        k->channels_total = total;
+    {
+        Lock l;
+        if (Link* k = link_for_handle(con_handle, false)) {
+            k->channels_used = used;
+            k->channels_total = total;
+        }
     }
+    probe_link(con_handle, 2, used, total);
 }
 
 void failed_contacts(uint16_t con_handle, uint16_t count)
 {
-    Lock l;
-    if (Link* k = link_for_handle(con_handle, false)) {
-        k->failed_valid = true;
-        k->failed_contacts = count;
+    {
+        Lock l;
+        if (Link* k = link_for_handle(con_handle, false)) {
+            k->failed_valid = true;
+            k->failed_contacts = count;
+        }
     }
+    probe_link(con_handle, 3, static_cast<int16_t>(count));
 }
 
 void tx_power(uint16_t con_handle, bool maximum, int8_t dbm)
 {
-    Lock l;
-    if (Link* k = link_for_handle(con_handle, false)) {
-        if (maximum) {
-            k->tx_max_valid = true;
-            k->tx_max_dbm = dbm;
-        } else {
-            k->tx_valid = true;
-            k->tx_dbm = dbm;
+    {
+        Lock l;
+        if (Link* k = link_for_handle(con_handle, false)) {
+            if (maximum) {
+                k->tx_max_valid = true;
+                k->tx_max_dbm = dbm;
+            } else {
+                k->tx_valid = true;
+                k->tx_dbm = dbm;
+            }
         }
     }
+    probe_link(con_handle, maximum ? 5 : 4, dbm);
 }
 
 void link_mode(uint16_t con_handle, uint8_t mode, uint16_t interval_slots)
@@ -953,6 +992,7 @@ bool accepting_new_controllers(bool unknown, bool& reduced)
 void le_adv_report()
 {
     if (!on()) return;
+    Cost cost;
     Lock l;
     ++s_adv_count;
 }
@@ -1003,6 +1043,7 @@ void usb_unmounted(uint8_t address)
 void usb_report(uint8_t address, uint32_t now_ms)
 {
     if (!on()) return;
+    Cost cost;
     Lock l;
     for (auto& u : s_usb)
         if (u.active && u.address == address) u.timing.report(now_ms);
@@ -1020,6 +1061,7 @@ void usb_output_state(uint32_t now_ms, bool configured, bool suspended)
 void usb_report_sent()
 {
     if (!on()) return;
+    Cost cost;
     probe_record(PROBE_USB_SENT, nullptr, 0);
     Lock l;
     ++s_usb_sent;
@@ -1046,6 +1088,7 @@ void set_latency_source(LatencySource source)
 void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us)
 {
     if (!on()) return;
+    Cost cost;
     Lock l;
     s_lat_samples = samples;
     s_lat_avg = avg_us;

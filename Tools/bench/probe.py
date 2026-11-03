@@ -26,7 +26,7 @@ from serial.tools import list_ports
 
 BAUD = 921600
 SYNC = 0xA5
-HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND = 1, 2, 3, 4, 5, 6, 7, 8, 9
+HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND, LINK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 # The controllers' own clocks (diag::PadClock): nominal µs per count, counter size, and the longest
 # pause the counter still bridges (half a wrap); the real rate is fitted per session.
 CLOCKS = {1: ("Switch timer", 5000.0, 1 << 8), 2: ("DS4", 16 / 3, 1 << 16), 3: ("DualSense", 1 / 3, 1 << 32)}
@@ -152,6 +152,10 @@ class Session:
         self.rumble_max = 0
         self.cost = None  # the adapter's last COST frame: µs/s, % of one core, max µs
         self.cost_max = [0.0, 0.0]  # session: most % in a second, longest frame µs
+        self.log_cost = None  # the activity log's hooks: % of a core, longest call µs
+        self.log_cost_max = [0.0, 0.0]
+        self.linkinfo = {}  # slot -> {what: (a, b)} from the detailed link readings
+        self.rssi = {}      # slot -> RSSI readings over the session
         self.clocks = {}  # slot -> PadClock
         self.link = {}    # slot -> excess delays (ms) this second
         self.commands = {}  # (slot, subcommand) -> times sent (µs)
@@ -199,6 +203,12 @@ class Session:
         if self.cost:
             self.out(f"# probe cost: at most {self.cost_max[0]:.3f}% of a core in a second, "
                      f"longest frame {self.cost_max[1]:.1f} us")
+        if self.log_cost:
+            self.out(f"# activity log hooks (their probe frames included): at most {self.log_cost_max[0]:.3f}% "
+                     f"of a core in a second, longest call {self.log_cost_max[1]:.1f} us")
+        for slot, xs in sorted(self.rssi.items()):
+            self.out(f"# slot {slot} rssi: min {min(xs):+d}, median {sorted(xs)[len(xs) // 2]:+d}, "
+                     f"max {max(xs):+d} ({len(xs)} readings)")
         for slot, clk in sorted(self.clocks.items()):
             h = sorted(clk.hist)
             if h:
@@ -313,6 +323,17 @@ class Session:
                 self.cost = (us_s, us_s / 1e4, most * 1e6 / hz, frames)
                 self.cost_max[0] = max(self.cost_max[0], self.cost[1])
                 self.cost_max[1] = max(self.cost_max[1], self.cost[2])
+                if len(payload) >= 24:
+                    log_cycles, log_most = struct.unpack_from("<II", payload, 16)
+                    self.log_cost = (log_cycles * 100 / hz, log_most * 1e6 / hz)
+                    self.log_cost_max[0] = max(self.log_cost_max[0], self.log_cost[0])
+                    self.log_cost_max[1] = max(self.log_cost_max[1], self.log_cost[1])
+        elif ftype == LINK and len(payload) >= 6:
+            slot, what = payload[0], payload[1]
+            a, b = struct.unpack_from("<hH", payload, 2)
+            self.linkinfo.setdefault(slot, {})[what] = (a, b)
+            if what == 1:
+                self.rssi.setdefault(slot, []).append(a)
 
     def slot_event(self, line):
         m = re.search(r"\bslot (\d+) (ready|gone)\b", line)
@@ -337,6 +358,18 @@ class Session:
             self.link = {}
             for clk in self.clocks.values():
                 clk.refit()
+            for slot, info in sorted(self.linkinfo.items()):
+                bits = []
+                if 1 in info:
+                    bits.append(f"rssi {info[1][0]:+d}")
+                if 2 in info:
+                    bits.append(f"channels {info[2][0]}/{info[2][1]}")
+                if 3 in info:
+                    bits.append(f"failed contacts {info[3][0] & 0xFFFF}")
+                if 4 in info:
+                    bits.append(f"tx {info[4][0]} dBm")
+                if bits:
+                    parts.append(f"slot {slot if slot != 0xFF else '?'} " + " ".join(bits))
             if self.lat:
                 parts.append(f"latency avg {sum(self.lat) // len(self.lat)} max {max(self.lat)} us")
             if self.rumble_max:
@@ -344,6 +377,8 @@ class Session:
             if self.cost:
                 parts.append(f"probe {self.cost[0]:.0f} us/s ({self.cost[1]:.3f}% of a core), "
                              f"longest frame {self.cost[2]:.1f} us")
+            if self.log_cost:
+                parts.append(f"log hooks {self.log_cost[0]:.3f}% of a core, longest {self.log_cost[1]:.1f} us")
             self.out(f"{self.stamp(t_us)} rate: " + ", ".join(parts), show=not self.quiet)
         self.usb = 0
         self.lat = []
