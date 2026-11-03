@@ -238,6 +238,7 @@ later fixes reach every board in one PR.
 | 568380c | Hybrid: USB reconnect for "MAC address per controller" (the Pico W loop had it, the hybrid's did not) | todo | Only with the dongle options (Adapter Options); goes with them. |
 | 2a0aa04, cc0526d (contract) | Virtual adapter (the web app side of the firmware built for the PC) and the firmware / web app contract file | todo | With the host unit tests (f0ab2f2); upstream's web app could run the same Playwright suite. |
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 11 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
+| 726687a | Log levels (activity log, log in flash, detailed diagnostics; Adapter Options v9 byte 23) and no -dev build | todo | Only with the dongle options and the diagnostics they gate; goes with them. |
 
 ## Other projects
 
