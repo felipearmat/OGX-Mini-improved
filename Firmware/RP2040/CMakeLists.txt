@@ -585,12 +585,13 @@ else()
     set(_ogxm_probe_rx_pin -1)
 endif()
 add_compile_definitions(OGXM_DEBUG_UART_TX_PIN=${_ogxm_probe_pin} OGXM_DEBUG_UART_RX_PIN=${_ogxm_probe_rx_pin})
-# The log options, each needing the activity log (dongle options, set from the web app; all off by
-# default: nothing is counted or logged while playing):
-#  - the activity log: controller / USB counters and the event log in RAM (Diagnostics panel, log report);
-#  - the log kept in flash too (Board/FlashLog.h), so it outlives unplugging the adapter;
-#  - detailed controller diagnostics (Bluepad32/LinkDiag link queries: RSSI, channels, failed
-#    contacts, transmit power, the controller's chip), also on the probe point.
+# The log options (dongle options, set from the web app; both off by default: nothing is counted or
+# logged while playing):
+#  - the activity log: controller / USB counters, the event log in RAM (Diagnostics panel, log
+#    report), the detailed link queries (Bluepad32/LinkDiag: RSSI, channels, failed contacts,
+#    transmit power, the controller's chip) and the probe point;
+#  - the log kept in flash too (Board/FlashLog.h, needs the activity log), so it outlives
+#    unplugging the adapter.
 option(OGXM_ACTIVITY_LOG "Default: the activity log (counters and the event log in RAM)" OFF)
 if(OGXM_ACTIVITY_LOG)
     add_compile_definitions(OGXM_ACTIVITY_LOG=1)
@@ -598,10 +599,6 @@ endif()
 option(OGXM_FLASH_LOG "Default: keep the log in flash too (the activity log on)" OFF)
 if(OGXM_FLASH_LOG)
     add_compile_definitions(OGXM_FLASH_LOG=1)
-endif()
-option(OGXM_DIAGNOSTICS_LINK "Default: detailed Bluetooth link diagnostics (needs OGXM_ACTIVITY_LOG)" OFF)
-if(OGXM_DIAGNOSTICS_LINK)
-    add_compile_definitions(OGXM_DIAGNOSTICS_LINK=1)
 endif()
 option(OGXM_HIGH_TX_POWER "Default: higher Bluetooth transmit power where the radio allows it (hybrid: +9 dBm)" OFF)
 if(OGXM_HIGH_TX_POWER)

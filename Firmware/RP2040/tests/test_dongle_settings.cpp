@@ -19,13 +19,13 @@ TEST(defaults_follow_the_build) {
     CHECK_EQ(dongle_settings::reduced_search_s(d), dongle_settings::kSearchNoLimit);
     CHECK_EQ(d.combo_disabled_modes, 0u);
     CHECK_EQ(d.idle_off_minutes, 15);
-    CHECK_EQ(d.link_diagnostics, 0);  // OGXM_DIAGNOSTICS_LINK not defined
+    CHECK_EQ(d.link_diagnostics, 0);  // version 8 only
     CHECK_EQ(d.log_level, dongle_settings::kLogNone);  // nor OGXM_ACTIVITY_LOG / OGXM_FLASH_LOG
 }
 
 TEST(decode_normalises_flags) {
     uint8_t bytes[24] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
-    bytes[23] = dongle_settings::kLogFlash;  // byte 7 needs the activity log
+    bytes[23] = dongle_settings::kLogFlash;
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -34,7 +34,7 @@ TEST(decode_normalises_flags) {
     CHECK_EQ(s.joycon_solo_horizontal, 0);
     CHECK_EQ(s.mac_per_controller, 1);
     CHECK_EQ(s.ps4_legacy_motion_scale, 1);
-    CHECK_EQ(s.link_diagnostics, 1);  // byte 7: detailed controller diagnostics since version 8
+    CHECK_EQ(s.link_diagnostics, 0);  // byte 7: version 8's detailed diagnostics, not read since version 9
     CHECK_EQ(s.joycon_pair_rumble_per_side, 0);
 }
 
@@ -248,25 +248,23 @@ TEST(v9_log_level_in_byte_23_and_older_records) {
     CHECK_EQ(s.log_level, dongle_settings::defaults().log_level);
 }
 
-TEST(a_dependent_log_option_reads_off_while_the_one_above_is_off) {
-    // Detailed controller diagnostics (byte 7) needs the activity log: a stored record with it on
-    // and the log off reads with it off, as the web app shows it.
-    uint8_t v8[24] = {8};
-    v8[7] = 1;
-    dongle_settings::Settings s{};
-    CHECK(dongle_settings::decode(v8, sizeof(v8), s));
-    CHECK_EQ(s.link_diagnostics, 0);
+TEST(the_detailed_diagnostics_come_with_the_activity_log) {
+    // Version 9: byte 7 (version 8's detailed controller diagnostics) is not read; the link
+    // queries run whenever the activity log is on.
     uint8_t v9[24] = {dongle_settings::kVersion};
     v9[7] = 1;
-    v9[23] = dongle_settings::kLogNone;
+    dongle_settings::Settings s{};
     CHECK(dongle_settings::decode(v9, sizeof(v9), s));
-    CHECK_EQ(s.link_diagnostics, 0);
-    v9[23] = dongle_settings::kLogActivity;  // since 2026-11 the log in flash is not needed
+    CHECK(!dongle_settings::controller_diagnostics(s));
+    v9[7] = 0;
+    v9[23] = dongle_settings::kLogActivity;
     CHECK(dongle_settings::decode(v9, sizeof(v9), s));
-    CHECK_EQ(s.link_diagnostics, 1);
-    v9[23] = dongle_settings::kLogFlash;
-    CHECK(dongle_settings::decode(v9, sizeof(v9), s));
-    CHECK_EQ(s.link_diagnostics, 1);
+    CHECK(dongle_settings::controller_diagnostics(s));
+    // A version 8 record: its log in flash on reads as level 2, so they are on; byte 7 does not matter.
+    uint8_t v8[24] = {8};
+    v8[23] = 1;
+    CHECK(dongle_settings::decode(v8, sizeof(v8), s));
+    CHECK(dongle_settings::controller_diagnostics(s));
 }
 
 TEST(the_log_level_is_applied_live) {
@@ -291,39 +289,28 @@ TEST(the_i2c_link_carries_the_v6_record) {
     CHECK_EQ(back.status_led_brightness, 77);
 }
 
-TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
-    uint8_t bytes[24] = {dongle_settings::kVersion};
-    bytes[7] = 1;
-    bytes[23] = dongle_settings::kLogFlash;
-    dongle_settings::Settings s{};
-    CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
-    CHECK_EQ(s.link_diagnostics, 1);
-    // A stored version 7 / 6 record: byte 7 was always zero there, so off.
-    uint8_t v7[24] = {7};
-    CHECK(dongle_settings::decode(v7, sizeof(v7), s));
-    CHECK_EQ(s.link_diagnostics, 0);
-    // Version 3-5 records: the build default.
-    uint8_t v5[18] = {5};
-    v5[7] = 1;
-    CHECK(dongle_settings::decode(v5, sizeof(v5), s));
-    CHECK_EQ(s.link_diagnostics, dongle_settings::defaults().link_diagnostics);
-    // In effect only with the activity log on; the hybrid's ESP32 gets it so in byte 7 of the
-    // version 6 record (an older ESP32 ignores it).
+TEST(the_esp32_gets_the_activity_log_in_byte_7_of_the_v6_record) {
+    // The hybrid's ESP32 reads the version 6 record (no byte 23): byte 7 tells it whether the
+    // activity log is on, for its link queries (Bluepad32/LinkDiag runs there).
     dongle_settings::Settings on = dongle_settings::defaults();
-    on.link_diagnostics = 1;
     on.log_level = dongle_settings::kLogNone;
-    CHECK(!dongle_settings::controller_diagnostics(on));
     uint8_t v6[dongle_settings::kV6Length];
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 0);
-    on.log_level = dongle_settings::kLogActivity;
-    CHECK(dongle_settings::controller_diagnostics(on));
-    dongle_settings::encode_v6(on, v6);
-    CHECK_EQ(v6[7], 1);
     dongle_settings::Settings back{};
     CHECK(dongle_settings::decode(v6, sizeof(v6), back));
-    CHECK_EQ(back.link_diagnostics, 1);
-    // No restart for it.
+    CHECK(!dongle_settings::controller_diagnostics(back));
+    on.log_level = dongle_settings::kLogFlash;
+    dongle_settings::encode_v6(on, v6);
+    CHECK_EQ(v6[7], 1);
+    CHECK(dongle_settings::decode(v6, sizeof(v6), back));
+    CHECK(dongle_settings::activity_log(back));
+    CHECK(dongle_settings::controller_diagnostics(back));
+    // A version 7 record: byte 7 was always zero there.
+    uint8_t v7[24] = {7};
+    CHECK(dongle_settings::decode(v7, sizeof(v7), back));
+    CHECK_EQ(back.link_diagnostics, 0);
+    // No restart for the log level.
     CHECK(dongle_settings::same_except_live(dongle_settings::defaults(), on));
 }
 

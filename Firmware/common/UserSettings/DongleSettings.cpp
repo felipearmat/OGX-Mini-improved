@@ -59,9 +59,6 @@ static_assert(OGXM_EXT_RGB_BRIGHTNESS >= 1 && OGXM_EXT_RGB_BRIGHTNESS <= 255, "O
 #ifndef OGXM_FLASH_LOG
 #define OGXM_FLASH_LOG 0
 #endif
-#ifndef OGXM_DIAGNOSTICS_LINK
-#define OGXM_DIAGNOSTICS_LINK 0
-#endif
 #ifndef OGXM_IDLE_OFF_MINUTES
 #define OGXM_IDLE_OFF_MINUTES 15
 #endif
@@ -108,7 +105,7 @@ Settings defaults()
     s.status_led_esp32_ext = flag(OGXM_STATUS_LED_ESP32_EXT);
     s.status_led_brightness = static_cast<uint8_t>(OGXM_EXT_RGB_BRIGHTNESS);
     s.log_level = OGXM_FLASH_LOG ? kLogFlash : OGXM_ACTIVITY_LOG ? kLogActivity : kLogNone;
-    s.link_diagnostics = flag(OGXM_DIAGNOSTICS_LINK && (OGXM_ACTIVITY_LOG || OGXM_FLASH_LOG));
+    s.link_diagnostics = 0;  // version 8 only: the detailed diagnostics are part of the activity log now
     return s;
 }
 
@@ -157,17 +154,18 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
         s.status_led_esp32_ext = flag(data[21]);
         if (data[22] != 0)
             s.status_led_brightness = data[22];
-        s.link_diagnostics = flag(data[7]);  // version 8; zero in older version 6 / 7 records
+        /* The hybrid's I2C link carries a version 6 record (no byte 23): its byte 7 says whether
+         * the activity log is on (encode_v6), which the ESP32 needs for the link queries. A
+         * version 6 record kept in flash had byte 7 zero: no log, the default. */
+        if (data[0] == 6)
+            s.log_level = data[7] ? kLogActivity : kLogNone;
     }
     if (v9)
         s.log_level = data[23] > kLogFlash ? kLogFlash : data[23];
     else if (v7)
         s.log_level = data[23] ? kLogFlash : kLogNone;
-    // Needs the activity log (since 2026-11 its details also go to the probe point, so the log in
-    // flash is no longer needed). Not for a version 6 record: the hybrid's I2C link carries no
-    // byte 23, and its byte 7 comes already gated (encode_v6).
-    if (v7 && s.log_level < kLogActivity)
-        s.link_diagnostics = 0;
+    // Version 8's byte 7 (detailed controller diagnostics) is not read: since 2026-11 they come
+    // with the activity log (no measurable cost, Firmware/RP2040/docs/Debug_Mode.md).
     out = s;
     return true;
 }
@@ -224,7 +222,7 @@ void encode_v6(const Settings& settings, uint8_t* out)
     for (size_t i = 0; i < kV6Length; ++i)
         out[i] = p[i];
     out[0] = 6;
-    out[7] = controller_diagnostics(settings) ? 1 : 0;  // the record has no byte 23 (log in flash)
+    out[7] = activity_log(settings) ? 1 : 0;  // the record has no byte 23: whether the log is on
 }
 
 bool activity_log(const Settings& settings)
@@ -239,7 +237,7 @@ bool keep_log_in_flash(const Settings& settings)
 
 bool controller_diagnostics(const Settings& settings)
 {
-    return settings.link_diagnostics != 0 && activity_log(settings);
+    return activity_log(settings);
 }
 
 const Settings& get()

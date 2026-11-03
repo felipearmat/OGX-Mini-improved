@@ -7,14 +7,16 @@ session behaves like normal use.
 
 ## The log options
 
-Set in the [web app](Web_App_Guide.md), *Diagnostics* panel. The other two need the activity log; all are
-off by default, and then the adapter counts and logs nothing.
+Set in the [web app](Web_App_Guide.md), *Diagnostics* panel. The log in flash needs the activity
+log; both are off by default, and then the adapter counts and logs nothing.
 
 | Option | What it does | Cost |
 |---|---|---|
-| **Activity log** | Counters and an event log in RAM (the Diagnostics panel, the log report), and the **probe point**: the same events plus the time and the controller's own clock of every controller report, the time of every report the host reads, each input-to-output wait and each rumble change, streamed on one pin | Measured on a Pico 2 W: about 0.1% of one core for the probe point |
-| **Keep the log in flash** | The event log and the session summaries kept in flash too, so they outlive unplugging the adapter | Adds a little lag (a flash page write every 30 s while playing) |
-| **Detailed controller diagnostics** | Radio link queries per controller: signal, channels, failed contacts, transmit power, the controller's chip; also on the probe point | A radio command every 0.7 s; its effect on the link is being measured with the probe point |
+| **Activity log** | Counters and an event log in RAM (the Diagnostics panel, the log report), each Bluetooth controller's link readings (signal, channels in use, failed contacts, transmit power, its chip: one radio query every 0.7 s), and the **probe point**: the same events plus the time and the controller's own clock of every controller report, the time of every report the host reads, each input-to-output wait and each rumble change, streamed on one pin | Measured on a Pico 2 W in STEAM mode with a Joy-Con pair, with and without rumble: no change in the controllers' timing (on the PC and on the probe) against the log off; 0.78% of one core, the probe 0.32% of it |
+| **Keep the log in flash** | The event log and the session summaries kept in flash too, so they outlive unplugging the adapter | A flash page write every 30 s while playing (about 1 ms with the other core parked): may delay a report now and then |
+
+Until 2026-11 the link readings were a third option, "Detailed controller diagnostics"; measured
+without a cost, they are now part of the activity log (version 8 firmware still has the option).
 
 With a probe reader attached (below), the activity log alone is enough for a full record: the PC
 keeps everything. Keep the log in flash only when no PC can be near the adapter.

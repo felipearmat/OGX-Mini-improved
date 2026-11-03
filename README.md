@@ -271,14 +271,15 @@ Guide: [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md). Source and local 
 | Higher Bluetooth transmit power (RP2040 + ESP32) | `OGXM_HIGH_TX_POWER` = OFF |
 | Status LEDs on: the Pico's own, an external RGB LED on the Pico (GP6), the ESP32's, an external RGB LED on the ESP32 (GPIO 4) | `OGXM_STATUS_LED_PICO`, `_PICO_EXT`, `_ESP32`, `_ESP32_EXT` = ON |
 | RGB LEDs' brightness (1-255) | `OGXM_EXT_RGB_BRIGHTNESS` = 48 |
-| Activity log: controller / USB counters and the event log in RAM, for the Diagnostics panel and the log report (Diagnostics panel) | `OGXM_ACTIVITY_LOG` = OFF |
-| Keep the log in flash (needs the activity log; Diagnostics panel; adds a little lag) | `OGXM_FLASH_LOG` = OFF |
-| Detailed controller diagnostics (needs the activity log; Diagnostics panel; adds more lag: being measured with the probe point) | `OGXM_DIAGNOSTICS_LINK` = OFF |
+| Activity log: controller / USB counters, the event log in RAM and each Bluetooth controller's link readings (signal, channels, chip), for the Diagnostics panel, the log report and the [debug probe point](#debug-mode) (Diagnostics panel) | `OGXM_ACTIVITY_LOG` = OFF |
+| Keep the log in flash (needs the activity log; Diagnostics panel; may delay a report now and then) | `OGXM_FLASH_LOG` = OFF |
 
-All three log options are off by default, so the adapter counts and logs nothing while playing;
-turn them on in the web app to look into a problem. There is no separate "dev" build any more.
+Both log options are off by default, so the adapter counts and logs nothing while playing; turn
+them on in the web app to look into a problem. There is no separate "dev" build any more. Their
+cost was measured on the probe point (Pico 2 W, STEAM mode, a Joy-Con pair, with and without
+rumble): no change in the controllers' timing with the activity log, about 0.8% of one core.
 
-The search times, idle time, transmit power, mode combos and the three log options apply
+The search times, idle time, transmit power, mode combos and the two log options apply
 without a restart; the others, the status LEDs included, restart the adapter when saved.
 
 The search times let several adapters sit next to each other without stealing each other's

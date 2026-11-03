@@ -39,7 +39,7 @@ With the controller connected to the adapter:
 | Late | Share of reports that arrived more than twice the usual interval after the previous one (last 5-10 s) |
 | Lost | Reports the controller numbered but the adapter never got (DualShock 4 and DualSense, which count their reports) |
 | Largest gap | Longest time without a report in the last 5-10 s |
-| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range), the radio channels in use, and the adapter's transmit power on the link (current / maximum). Only with **Detailed controller diagnostics** on (top of the Diagnostics panel; it needs **Keep the log in flash** on too) |
+| Signal | Bluetooth signal (dBm for LE; for Classic, "good" or how far it is from the receiver's ideal range), the radio channels in use, and the adapter's transmit power on the link (current / maximum). Only with the **Activity log** on (top of the Diagnostics panel; version 8 firmware: **Detailed controller diagnostics**, which needs **Keep the log in flash**) |
 | Connected | Time since the controller connected |
 
 Lost works for the DualShock 4, the DualSense and Switch pads (Joy-Con, Pro Controller), which number their reports. Any stretch of 60 ms or more without input is also listed in the report's events ("no input for X ms").

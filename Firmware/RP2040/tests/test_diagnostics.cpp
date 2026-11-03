@@ -290,7 +290,6 @@ TEST(the_report_counts_i2c_replies_the_esp32_cut_short) {
 TEST(the_report_says_whether_link_details_are_on) {
     setup();
     dongle_settings::Settings s = dongle_settings::defaults();
-    s.link_diagnostics = 1;
     s.log_level = dongle_settings::kLogNone;  // the option needs the activity log
     dongle_settings::set(s);
     CHECK(has(report(500), "\"link_details\":false}"));
@@ -305,7 +304,7 @@ TEST(bredr_inquiry_running_only_while_inquiries_complete) {
     setup();
     diag::searching(true);
     std::string r = report(1000);
-    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true,\"activity_log\":true,\"link_details\":false}"));
+    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true,\"activity_log\":true,\"link_details\":true}"));
     diag::inquiry_complete(2000);
     CHECK(has(report(9000), "\"bredr_inquiry_running\":true,\"bredr_inquiries\":1"));
     CHECK(has(report(30000), "\"bredr_inquiry_running\":false"));
