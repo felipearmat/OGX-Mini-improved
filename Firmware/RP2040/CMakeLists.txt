@@ -87,6 +87,7 @@ set(SOURCES_BOARD
     ${COMMON}/UserSettings/DongleSettings.cpp
     ${SRC}/Diagnostics/Diagnostics.cpp
     ${SRC}/Board/LogRing.cpp
+    ${SRC}/Board/DebugProbe.cpp
     ${SRC}/Board/FlashLog.cpp
     ${COMMON}/Diagnostics/DiagNames.cpp
     ${SRC}/Diagnostics/DiagnosticsBoard.cpp
@@ -155,6 +156,19 @@ endif()
 add_definitions(-DMAX_GAMEPADS=${MAX_GAMEPADS})
 
 set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in src/board_config.h")
+# Custom: the debug probe point (src/Board/DebugProbe.h), a UART TX pin that streams the activity
+# log: GP4 on the boards where it is free (Pico W, Pico 2 W, the RP2040 + ESP32 hybrids), off
+# elsewhere until a board's pins are checked. -1 = none; any UART TX pin otherwise.
+set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP4 where free")
+if(OGXM_DEBUG_UART_TX_PIN STREQUAL "AUTO")
+    if(OGXM_BOARD MATCHES "^(PI_PICOW|PI_PICO2W|ESP32_BLUEPAD32_I2C|ESP32_BLUEPAD32_I2C_PICO2)$")
+        set(_ogxm_probe_pin 4)
+    else()
+        set(_ogxm_probe_pin -1)
+    endif()
+else()
+    set(_ogxm_probe_pin ${OGXM_DEBUG_UART_TX_PIN})
+endif()
 set(FLASH_SIZE_MB 2)
 set(PICO_BOARD none)
 
@@ -195,6 +209,12 @@ function(ogxm_hybrid_pin_check)
     endif()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         list(APPEND pins "4:DEBUG_UART_TX" "5:DEBUG_UART_RX")
+    elseif(NOT _ogxm_probe_pin EQUAL -1)
+        list(APPEND pins "${_ogxm_probe_pin}:DEBUG_UART_TX (probe point)")
+        # uart0 is the ESP32's
+        if(_ogxm_probe_pin MATCHES "^(0|12|16|28)$")
+            message(FATAL_ERROR "OGXM_DEBUG_UART_TX_PIN=${_ogxm_probe_pin}: on the hybrid the probe needs a UART1 TX pin (4, 8, 20 or 24); UART0 talks to the ESP32")
+        endif()
     endif()
     # GP23 / 24 / 25 / 29: the Pico W radio, or a Pico's power and LED pins
     set(seen 23 24 25 29)
@@ -523,6 +543,19 @@ endif()
 set(OGXM_FULL_SEARCH_S "60" CACHE STRING "Default: full search for new controllers while a slot is open, in seconds (0-600)")
 set(OGXM_REDUCED_SEARCH_S "NO_LIMIT" CACHE STRING "Default: reduced search after the full one, in seconds (0-600) or NO_LIMIT")
 set(OGXM_COMBO_DISABLED_MODES "0" CACHE STRING "Default: output modes whose button combo is off, bit mask by DeviceDriverType (e.g. 0x8000 = PS4)")
+# Custom: the probe point's pin (set above). A Debug build's own text log uses the same UART pins.
+if(NOT _ogxm_probe_pin EQUAL -1)
+    if(NOT _ogxm_probe_pin MATCHES "^(0|4|8|12|16|20|24|28)$")
+        message(FATAL_ERROR "OGXM_DEBUG_UART_TX_PIN=${_ogxm_probe_pin}: not a UART TX pin (0, 4, 8, 12, 16, 20, 24, 28) or -1")
+    endif()
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(STATUS "Debug probe point: off in a Debug build (its text log has the UART)")
+        set(_ogxm_probe_pin -1)
+    else()
+        message(STATUS "Debug probe point: UART TX on GP${_ogxm_probe_pin} while the activity log is on")
+    endif()
+endif()
+add_compile_definitions(OGXM_DEBUG_UART_TX_PIN=${_ogxm_probe_pin})
 # The log levels, each needing the one before (dongle options, set from the web app; all off by
 # default: nothing is counted or logged while playing):
 #  - the activity log: controller / USB counters and the event log in RAM (Diagnostics panel, log report);
@@ -873,6 +906,7 @@ endif()
 add_subdirectory(${LIBFIXMATH_PATH} libfixmath)
 
 target_link_libraries(${FW_NAME} PRIVATE ${LIBS_BOARD})
+target_link_libraries(${FW_NAME} PRIVATE hardware_dma hardware_uart)  # Custom: Board/DebugProbe.cpp
 
 target_compile_definitions(libfixmath PRIVATE
     FIXMATH_FAST_SIN

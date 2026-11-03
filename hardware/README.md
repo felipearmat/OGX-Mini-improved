@@ -55,6 +55,37 @@ Both firmwares drive their pin whether or not an LED is there, so one LED on eit
   hybrid the RP2040 keeps the settings: the ESP32 gets the web app's on / off, brightness and the
   mode colour from it.
 
+# Debug probe point
+Optional, for looking into a problem while playing, in any output mode and on a console too. While
+the web app's **Activity log** option is on, the adapter streams its log on one pin: every event,
+the time of every controller report and of every report the host reads, and a header once a
+second. A DMA channel sends it, so the adapter only copies a few bytes per record into RAM; with
+nothing attached it costs the same. The PC tool
+[`Tools/bench/probe.py`](../Tools/bench/README.md#probe-point) decodes it and writes one file per
+session.
+
+| Board | Probe pin |
+|---|---|
+| Pico W, Pico 2 W | GP4 (pin 6) |
+| [ESP32 hybrid](#pi-pico--esp32) (RP2040 or Pico 2 / Pico 2 W) | GP4 (pin 6) |
+| Other boards | none by default (set `OGXM_DEBUG_UART_TX_PIN` after checking the board's pins) |
+
+The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
+
+| Reader | Probe pin to | Also |
+|---|---|---|
+| A 3.3 V USB-UART adapter (FT232, CP2102, CH340) | **RX** | GND to GND; nothing on VCC or TX; a voltage jumper on 3.3 V |
+| A spare ESP32 board (its USB chip reads its TX0 pin) | **TX** / **TX0** / GPIO1 | GND to GND; a wire from **EN to GND** keeps the ESP32 in reset, so its TX0 does not drive the line |
+
+No 5 V or 3V3 between the boards: each takes power from its own USB. Tested with a Pico 2 W and an
+ESP32 board with an FT232R, in D-Input/Debug and STEAM mode, the adapter restarting between them.
+
+- Build option: `OGXM_DEBUG_UART_TX_PIN` (`AUTO` = the table above, `-1` = none, or a UART TX pin:
+  0, 4, 8, 12, 16, 20, 24, 28; on the hybrid a UART1 one, 4, 8, 20 or 24, since UART0 talks to the
+  ESP32). The build stops on a pin another job uses.
+- A Debug build (`CMAKE_BUILD_TYPE=Debug`) prints its text log on GP4 at 115200 instead, and has no
+  probe point.
+
 # Pi Pico + ESP32
 The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;
 the S3, C3 and C6 have no Bluetooth Classic) handles the Bluetooth controllers, over I2C. Firmware:

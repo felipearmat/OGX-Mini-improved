@@ -61,7 +61,7 @@ jobs:
           OGXM_VIRTUAL_ADAPTER: build-tests/virtual_adapter/virtual_adapter
         run: |
           .github/scripts/retry.sh 5 5m -- bash -c 'sudo apt-get -o DPkg::Lock::Timeout=120 install -y python3-serial python3-pytest'
-          python3 -m pytest Tools/bench/test_logger.py -v
+          python3 -m pytest Tools/bench/test_logger.py Tools/bench/test_probe.py -v
 
   # The web app (OGX-Mini-improved-WebApp, master) in Chromium against this firmware's virtual
   # adapter (Firmware/RP2040/tests/virtual_adapter): a protocol or settings change the web app does

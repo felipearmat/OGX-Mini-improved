@@ -1,5 +1,7 @@
 #include "Board/LogRing.h"
 
+#include "Board/DebugProbe.h"
+
 #include <cstring>
 #include <hardware/sync.h>
 
@@ -67,9 +69,7 @@ void put(uint8_t byte)
     ++s_ring.total;
 }
 
-} // namespace
-
-extern "C" void log_ring_append(const char* source, const char* text, size_t len)
+void append(const char* source, const char* text, size_t len)
 {
     Guard guard;
     ensure_valid();
@@ -97,6 +97,14 @@ extern "C" void log_ring_append(const char* source, const char* text, size_t len
         if (c == '\n')
             s_ring.line_start = 1;
     }
+}
+
+} // namespace
+
+extern "C" void log_ring_append(const char* source, const char* text, size_t len)
+{
+    append(source, text, len);
+    probe_text(source, text, len);  // the probe point too (Board/DebugProbe.h), outside the lock
 }
 
 extern "C" size_t log_ring_size(void)

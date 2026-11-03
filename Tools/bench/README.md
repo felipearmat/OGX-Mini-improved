@@ -19,6 +19,7 @@ Tools/bench/run_bench.py --solo PI_PICO2W.uf2 --hybrid ESP32_BLUEPAD32_I2C_PICO2
 | `capture_pad.py` | not a test: records a controller's raw input reports (through the adapter's `RAW_CAPTURE`, or a PC hidraw node) through a script of labelled actions, for the fixture tests ([fixtures](../../Firmware/RP2040/tests/fixtures/README.md)) |
 | `hd_rumble.py` | not a test: HD Rumble patterns written to the adapter in Switch mode (hidraw, Linux) for a Joy-Con / Pro Controller to play ([HD_Rumble.md](../../Firmware/RP2040/docs/HD_Rumble.md)) |
 | `ab_link.py` | not a test: compares firmware builds' radio link on the hybrid. `run` / `summary`: rounds in D-Input/Debug with the controllers still. `soak` / `soak-summary`: hours in STEAM mode with PC rumble, figures from the flash log; it waits for `<out>/go-<NAME>` because the adapter cannot tell whether both Joy-Cons connected, and for the combos it prints |
+| `test_probe.py` | `probe.py`'s decoder and session files from frames built in the test (no board): split frames and noise, text sent before the first header, gaps, no gaps while a controller connects again, a restart starts a new file |
 | `test_logger.py` | `logger.py` against the firmware's virtual adapter on a pseudo-terminal (no board): kept log and first report recorded, each line once across runs, dropped bytes reported, old files cleaned up |
 
 ## Logger
@@ -45,6 +46,23 @@ It reads the port only in D-Input/Debug, only while no other program has it open
 keeps it for its whole session) and only for a moment, under an flock that the bench tests and
 `Tools/hybrid` take too. In another output mode there is no serial port: the `[usb]` lines go on,
 and the kept log (it survives the mode change, not unplugging) is read once the adapter is back.
+
+## Probe point
+
+`probe.py` reads the adapter's [debug probe point](../../hardware/README.md#debug-probe-point) (GP4
+on the Pico W, Pico 2 W and the hybrids) through a USB-UART reader, in every output mode, also with
+the adapter on a console. The adapter's "Activity log" option must be on.
+
+```sh
+python Tools/bench/probe.py --port /dev/ttyUSB0 --dir ~/ogxm-logs/probe   # COM5 on Windows
+```
+
+One file per session (`probe-YYYY-MM-DD_HHMMSS.log`; a restart or a mode change starts a new one):
+the adapter's events (`[rp]`, the hybrid's `[esp]`), a line per second with the rates (reports read
+by the host, each controller's reports), each controller report later than 50 ms (not while it
+connects again), and at the end each controller's longest gap. The adapter sends only raw records
+(Board/DebugProbe.h); the figures are worked out here. It holds RTS on and DTR off, which keeps an
+ESP32 board used as the reader in reset.
 
 `run_bench.py` flashes each build (the Pico through its own USB port, the hybrid's ESP32 through
 the Pico's bridge) and runs the tests on it. The tests restore the settings and colours they

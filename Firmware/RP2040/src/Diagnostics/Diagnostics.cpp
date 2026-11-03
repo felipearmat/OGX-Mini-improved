@@ -7,6 +7,7 @@
 
 #include "pico/critical_section.h"
 
+#include "Board/DebugProbe.h"
 #include "Board/LogRing.h"
 #include "UserSettings/DongleSettings.h"
 
@@ -596,6 +597,8 @@ void slot_report(size_t slot, uint32_t now_ms)
 {
     if (!on()) return;
     if (slot >= kSlots) return;
+    const uint8_t probe_slot = static_cast<uint8_t>(slot);
+    probe_record(PROBE_REPORT, &probe_slot, 1);  // every report's time, to the probe point
     uint32_t gap = 0, unlogged = 0;
     {
         Lock l;
@@ -1004,6 +1007,7 @@ void usb_output_state(uint32_t now_ms, bool configured, bool suspended)
 void usb_report_sent()
 {
     if (!on()) return;
+    probe_record(PROBE_USB_SENT, nullptr, 0);
     Lock l;
     ++s_usb_sent;
     ++s_usb_sent_count;
@@ -1048,6 +1052,7 @@ bool quiet(uint32_t now_ms)
 
 void tick(uint32_t now_ms)
 {
+    probe_tick();  // its own lock: sends what waits, and the header once a second
     Lock l;
     if (now_ms - s_second_start >= 1000) {
         for (auto& s : s_slots) s.timing.second();

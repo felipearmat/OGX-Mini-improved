@@ -1,0 +1,82 @@
+"""probe.py's decoder and session files, from frames built here (no board)."""
+import os
+import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+import probe  # noqa: E402
+
+
+def frame(ftype, t_us, payload=b""):
+    head = bytes([ftype, len(payload)]) + b"\0" + struct.pack("<I", t_us)
+    body = head + payload
+    check = (-sum(body)) & 0xFF
+    return bytes([probe.SYNC]) + body[:2] + bytes([check]) + body[3:]
+
+
+def hello(t_us, frames=0, dropped=0, ident=b"v1 abc PI_PICO2W"):
+    return frame(probe.HELLO, t_us, struct.pack("<III", frames, dropped, 16384) + ident)
+
+
+def text(t_us, line, source=b"r"):
+    return frame(probe.TEXT, t_us, source + line)
+
+
+def report(t_us, slot):
+    return frame(probe.REPORT, t_us, bytes([slot]))
+
+
+def test_frames_split_and_noise_skipped():
+    # A false start (0xA5 then a length) is skipped once enough bytes came to check it.
+    tail = b"".join(frame(probe.USB_SENT, 40 + i) for i in range(40))
+    stream = b"\x00\xa5junk" + hello(10) + b"\xa5\x02" + report(20, 1) + frame(probe.USB_SENT, 30) + tail
+    dec = probe.Decoder()
+    got = []
+    for i in range(0, len(stream), 3):  # arrives in pieces
+        got += dec.feed(stream[i:i + 3])
+    assert [(f[0], f[1]) for f in got][:3] == [(probe.HELLO, 10), (probe.REPORT, 20), (probe.USB_SENT, 30)]
+    assert len(got) == 43
+    assert dec.bad > 0
+
+
+def run(tmp_path, frames):
+    ses = probe.Session(str(tmp_path), quiet=True)
+    dec = probe.Decoder()
+    for f in dec.feed(b"".join(frames)):
+        ses.frame(*f)
+    ses.close()
+    files = sorted(tmp_path.iterdir(), key=lambda p: (len(p.name), p.name))
+    return [p.read_text() for p in files]
+
+
+def test_session_file_lines_gaps_and_text_before_the_header(tmp_path):
+    frames = [text(100_000, b"0.100 boot DINPUT_DEBUG\n"), hello(1_000_000)]
+    frames += [text(1_100_000, b"1.100 slot 0 ready 057e:2006 Classic: Joy-Con (L)\n")]
+    frames += [report(1_200_000 + i * 15_000, 0) for i in range(10)]
+    frames += [report(1_200_000 + 9 * 15_000 + 80_000, 0)]  # an 80 ms gap
+    frames += [hello(2_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "adapter v1 abc PI_PICO2W" in log
+    assert "[rp] 0.100 boot DINPUT_DEBUG" in log  # sent before the first header: kept
+    assert "slot 0: report after 80.0 ms" in log
+    assert "rate: usb 0/s, slot 0 11/s" in log
+    assert "# slot 0: max gap 80.0 ms, 1 gaps over 50 ms" in log
+
+
+def test_no_gaps_while_a_controller_connects_again(tmp_path):
+    frames = [hello(1_000_000), report(1_100_000, 1)]
+    frames += [text(1_200_000, b"1.200 slot 1 gone: Joy-Con (R)\n")]
+    frames += [report(9_000_000, 1), report(9_200_000, 1)]  # pairing again
+    frames += [text(9_300_000, b"9.300 slot 1 ready 057e:2007 Classic: Joy-Con (R)\n")]
+    frames += [report(9_310_000, 1), report(9_325_000, 1)]
+    (log,) = run(tmp_path, frames)
+    assert "report after" not in log
+    assert "# slot 1: max gap 15.0 ms, 0 gaps over 50 ms" in log
+
+
+def test_a_restart_starts_a_new_file(tmp_path):
+    frames = [hello(5_000_000), text(5_100_000, b"5.100 mode change to STEAM\n")]
+    frames += [text(50_000, b"0.050 boot STEAM\n"), hello(1_000_000)]
+    first, second = run(tmp_path, frames)
+    assert "mode change to STEAM" in first and "the adapter restarted" in first
+    assert "boot STEAM" in second
