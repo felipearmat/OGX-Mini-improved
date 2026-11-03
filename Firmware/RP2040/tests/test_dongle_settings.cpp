@@ -1,5 +1,5 @@
 // Dongle options (UserSettings/DongleSettings): build-time defaults and the 24-byte wire/flash format
-// (version 8; records of versions 1-7 are still accepted).
+// (version 9; records of versions 1-8 are still accepted).
 #include "UserSettings/DongleSettings.h"
 #include "test.h"
 
@@ -8,7 +8,7 @@ using dongle_settings::Settings;
 TEST(defaults_follow_the_build) {
     const Settings d = dongle_settings::defaults();
     CHECK_EQ(d.version, dongle_settings::kVersion);
-    CHECK_EQ(d.disconnect_pads_on_mode_change, 0);  // host test build: option not defined
+    CHECK_EQ(d.disconnect_pads_on_mode_change, 1);  // on by default (option not defined here)
     CHECK_EQ(d.joycon_pair_imu_right, 1);
     CHECK_EQ(d.joycon_pair_horizontal, 0);
     CHECK_EQ(d.joycon_solo_horizontal, 1);
@@ -20,10 +20,12 @@ TEST(defaults_follow_the_build) {
     CHECK_EQ(d.combo_disabled_modes, 0u);
     CHECK_EQ(d.idle_off_minutes, 15);
     CHECK_EQ(d.link_diagnostics, 0);  // OGXM_DIAGNOSTICS_LINK not defined
+    CHECK_EQ(d.log_level, dongle_settings::kLogNone);  // nor OGXM_ACTIVITY_LOG / OGXM_FLASH_LOG
 }
 
 TEST(decode_normalises_flags) {
-    const uint8_t bytes[24] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
+    uint8_t bytes[24] = {dongle_settings::kVersion, 1, 0, 7, 0, 0xFF, 1, 0x55, 0};
+    bytes[23] = dongle_settings::kLogFlash;  // byte 7 needs the log in flash
     Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.disconnect_pads_on_mode_change, 1);
@@ -214,25 +216,60 @@ TEST(version_6_status_leds_restart_the_adapter) {
     }
 }
 
-TEST(v7_keeps_the_log_in_flash_option_and_reads_v6_records) {
+TEST(v9_log_level_in_byte_23_and_older_records) {
     uint8_t bytes[24] = {dongle_settings::kVersion};
-    bytes[23] = 1;
     dongle_settings::Settings s{};
+    for (uint8_t level : {0, 1, 2}) {
+        bytes[23] = level;
+        CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
+        CHECK_EQ(s.log_level, level);
+        CHECK_EQ(dongle_settings::activity_log(s), level >= 1);
+        CHECK_EQ(dongle_settings::keep_log_in_flash(s), level >= 2);
+    }
+    bytes[23] = 9;  // out of range: the highest level
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
-    CHECK_EQ(s.keep_log_in_flash, 1);
+    CHECK_EQ(s.log_level, dongle_settings::kLogFlash);
+    // Version 7 / 8: byte 23 was the log in flash (0 / 1). Those firmwares always ran the activity
+    // log; now it is off by default, so 0 reads as none and 1 as the log in flash.
+    for (uint8_t version : {7, 8}) {
+        uint8_t old[24] = {version};
+        CHECK(dongle_settings::decode(old, sizeof(old), s));
+        CHECK_EQ(s.log_level, dongle_settings::kLogNone);
+        old[23] = 1;
+        CHECK(dongle_settings::decode(old, sizeof(old), s));
+        CHECK_EQ(s.log_level, dongle_settings::kLogFlash);
+    }
     // A version 6 record (23 bytes): the option takes its build default.
     uint8_t v6[23] = {6};
     v6[22] = 100;
     CHECK(dongle_settings::decode(v6, sizeof(v6), s));
     CHECK_EQ(s.version, dongle_settings::kVersion);
     CHECK_EQ(s.status_led_brightness, 100);
-    CHECK_EQ(s.keep_log_in_flash, dongle_settings::defaults().keep_log_in_flash);
+    CHECK_EQ(s.log_level, dongle_settings::defaults().log_level);
 }
 
-TEST(the_log_in_flash_option_is_applied_live) {
+TEST(a_dependent_log_option_reads_off_while_the_one_above_is_off) {
+    // Detailed controller diagnostics (byte 7) needs the log in flash: a stored record with it on
+    // and the log in flash off reads with it off, as the web app shows it.
+    uint8_t v8[24] = {8};
+    v8[7] = 1;
+    dongle_settings::Settings s{};
+    CHECK(dongle_settings::decode(v8, sizeof(v8), s));
+    CHECK_EQ(s.link_diagnostics, 0);
+    uint8_t v9[24] = {dongle_settings::kVersion};
+    v9[7] = 1;
+    v9[23] = dongle_settings::kLogActivity;
+    CHECK(dongle_settings::decode(v9, sizeof(v9), s));
+    CHECK_EQ(s.link_diagnostics, 0);
+    v9[23] = dongle_settings::kLogFlash;
+    CHECK(dongle_settings::decode(v9, sizeof(v9), s));
+    CHECK_EQ(s.link_diagnostics, 1);
+}
+
+TEST(the_log_level_is_applied_live) {
     dongle_settings::Settings a = dongle_settings::defaults();
     dongle_settings::Settings b = a;
-    b.keep_log_in_flash = !a.keep_log_in_flash;
+    b.log_level = dongle_settings::kLogFlash;
     CHECK(dongle_settings::same_except_live(a, b));
 }
 
@@ -241,7 +278,7 @@ TEST(the_i2c_link_carries_the_v6_record) {
     // with older firmware still takes the settings.
     dongle_settings::Settings s = dongle_settings::defaults();
     s.status_led_brightness = 77;
-    s.keep_log_in_flash = 1;
+    s.log_level = dongle_settings::kLogFlash;
     uint8_t v6[dongle_settings::kV6Length];
     dongle_settings::encode_v6(s, v6);
     CHECK_EQ(v6[0], 6);
@@ -254,6 +291,7 @@ TEST(the_i2c_link_carries_the_v6_record) {
 TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
     uint8_t bytes[24] = {dongle_settings::kVersion};
     bytes[7] = 1;
+    bytes[23] = dongle_settings::kLogFlash;
     dongle_settings::Settings s{};
     CHECK(dongle_settings::decode(bytes, sizeof(bytes), s));
     CHECK_EQ(s.link_diagnostics, 1);
@@ -270,12 +308,12 @@ TEST(v8_link_diagnostics_in_byte_7_applied_live_and_carried_to_the_esp32) {
     // ESP32 gets it so in byte 7 of the version 6 record (an older ESP32 ignores it).
     dongle_settings::Settings on = dongle_settings::defaults();
     on.link_diagnostics = 1;
-    on.keep_log_in_flash = 0;
+    on.log_level = dongle_settings::kLogActivity;
     CHECK(!dongle_settings::controller_diagnostics(on));
     uint8_t v6[dongle_settings::kV6Length];
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 0);
-    on.keep_log_in_flash = 1;
+    on.log_level = dongle_settings::kLogFlash;
     CHECK(dongle_settings::controller_diagnostics(on));
     dongle_settings::encode_v6(on, v6);
     CHECK_EQ(v6[7], 1);

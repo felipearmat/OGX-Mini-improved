@@ -112,7 +112,7 @@ std::string contract_json() {
         F(joycon_solo_horizontal), F(mac_per_controller), F(ps4_legacy_motion_scale), F(link_diagnostics),
         F(joycon_pair_rumble_per_side), F(search_times), F(combo_disabled_modes), F(idle_off_minutes),
         F(high_tx_power), F(status_led_pico), F(status_led_pico_ext), F(status_led_esp32),
-        F(status_led_esp32_ext), F(status_led_brightness), F(keep_log_in_flash),
+        F(status_led_esp32_ext), F(status_led_brightness), F(log_level),
     };
 #undef F
     const Settings defaults = dongle_settings::defaults();

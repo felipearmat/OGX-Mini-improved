@@ -21,7 +21,7 @@ const uint8_t kAddr[6] = {1, 2, 3, 4, 5, 6};
 void enable(bool on)
 {
     dongle_settings::Settings s = dongle_settings::defaults();
-    s.keep_log_in_flash = on ? 1 : 0;
+    s.log_level = on ? dongle_settings::kLogFlash : dongle_settings::kLogActivity;
     dongle_settings::set(s);
 }
 

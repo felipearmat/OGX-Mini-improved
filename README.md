@@ -270,10 +270,14 @@ Guide: [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md). Source and local 
 | Higher Bluetooth transmit power (RP2040 + ESP32) | `OGXM_HIGH_TX_POWER` = OFF |
 | Status LEDs on: the Pico's own, an external RGB LED on the Pico (GP6), the ESP32's, an external RGB LED on the ESP32 (GPIO 4) | `OGXM_STATUS_LED_PICO`, `_PICO_EXT`, `_ESP32`, `_ESP32_EXT` = ON |
 | RGB LEDs' brightness (1-255) | `OGXM_EXT_RGB_BRIGHTNESS` = 48 |
-| Keep the log in flash (Diagnostics panel) | `OGXM_FLASH_LOG` = OFF |
-| Detailed controller diagnostics (needs the log in flash; Diagnostics panel) | `OGXM_DIAGNOSTICS_LINK` = OFF |
+| Activity log: controller / USB counters and the event log in RAM, for the Diagnostics panel and the log report (Diagnostics panel) | `OGXM_ACTIVITY_LOG` = OFF |
+| Keep the log in flash (needs the activity log; Diagnostics panel; adds a little lag) | `OGXM_FLASH_LOG` = OFF |
+| Detailed controller diagnostics (needs the log in flash; Diagnostics panel; adds more lag) | `OGXM_DIAGNOSTICS_LINK` = OFF |
 
-The search times, idle time, transmit power, mode combos and the two diagnostics options apply
+All three log options are off by default, so the adapter counts and logs nothing while playing;
+turn them on in the web app to look into a problem. There is no separate "dev" build any more.
+
+The search times, idle time, transmit power, mode combos and the three log options apply
 without a restart; the others, the status LEDs included, restart the adapter when saved.
 
 The search times let several adapters sit next to each other without stealing each other's

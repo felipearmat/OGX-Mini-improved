@@ -254,7 +254,7 @@ bool flush_one(uint32_t now_ms)
     return true;
 }
 
-bool enabled() { return dongle_settings::get().keep_log_in_flash != 0; }
+bool enabled() { return dongle_settings::keep_log_in_flash(dongle_settings::get()); }
 
 } // namespace
 

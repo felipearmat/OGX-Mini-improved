@@ -131,7 +131,7 @@ def test_flash_log_fills_in_what_happened_away_from_the_computer(port, tmp_path,
     logs = tmp_path / "logs"
     a = A.Adapter(port.device)
     record = bytearray(a.dongle_settings())
-    record[A.CONTRACT["dongle_settings"]["offsets"]["keep_log_in_flash"]] = 1
+    record[A.CONTRACT["dongle_settings"]["offsets"]["log_level"]] = 2  # the activity log and the log in flash
     a.set_dongle_settings(record)
     a.close()
     port.send("Lread live first")

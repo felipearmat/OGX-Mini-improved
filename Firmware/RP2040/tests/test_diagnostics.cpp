@@ -20,7 +20,10 @@ bool has(const std::string& s, const char* part) { return s.find(part) != std::s
 
 const uint8_t kAddr[6] = {0x98, 0x7B, 0xF3, 0x11, 0x22, 0x33};
 
-void setup() {
+void setup(uint8_t log_level = dongle_settings::kLogActivity) {
+    dongle_settings::Settings s = dongle_settings::defaults();
+    s.log_level = log_level;  // the activity log: off by default
+    dongle_settings::set(s);
     diag::reset_for_tests();
     diag::init(diag::BoardInfo{"v1.0.0.13a", "PI_PICO2W", "RP2350", 150, "Release", "XINPUT", "power-on", 1});
 }
@@ -59,6 +62,23 @@ TEST(input_rate_gaps_and_late_reports) {
     CHECK(has(r, "\"interval_median_ms\":10"));
     CHECK(has(r, "\"late_reports_pct\":4.8"));  // 5 of 104 intervals > 20 ms
     CHECK(has(r, "\"max_gap_ms_recent\":35"));
+}
+
+TEST(the_activity_log_off_counts_and_logs_nothing) {
+    setup(dongle_settings::kLogNone);
+    diag::slot_connected(0, 1000, "Xbox Wireless Controller", 0x045e, 0x0b13, 3, true, 0x40, kAddr);
+    for (uint32_t t = 1010; t <= 2000; t += 10) diag::slot_report(0, t);
+    diag::slot_report(0, 2500);  // a gap
+    diag::event(2600, "an event");
+    diag::tick(3000);
+    const std::string r = report(3000);
+    CHECK(has(r, "\"activity_log\":false"));
+    CHECK(has(r, "\"reports\":0"));
+    CHECK(!has(r, "an event"));
+    CHECK(!has(r, "no input"));
+    // Turned on live: counted from then on.
+    setup();
+    CHECK(has(report(100), "\"activity_log\":true"));
 }
 
 TEST(counter_losses_and_untrusted_counter) {
@@ -271,10 +291,10 @@ TEST(the_report_says_whether_link_details_are_on) {
     setup();
     dongle_settings::Settings s = dongle_settings::defaults();
     s.link_diagnostics = 1;
-    s.keep_log_in_flash = 0;  // the option needs the log in flash
+    s.log_level = dongle_settings::kLogActivity;  // the option needs the log in flash
     dongle_settings::set(s);
     CHECK(has(report(500), "\"link_details\":false}"));
-    s.keep_log_in_flash = 1;
+    s.log_level = dongle_settings::kLogFlash;
     dongle_settings::set(s);
     CHECK(has(report(1000), "\"link_details\":true}"));
     dongle_settings::set(dongle_settings::defaults());
@@ -285,7 +305,7 @@ TEST(bredr_inquiry_running_only_while_inquiries_complete) {
     setup();
     diag::searching(true);
     std::string r = report(1000);
-    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true,\"link_details\":false}"));
+    CHECK(has(r, "\"bluetooth\":{\"bredr_inquiry_running\":false,\"bredr_inquiries\":0,\"le_scan_adv_reports_per_s\":0,\"accepting_new_controllers\":true,\"activity_log\":true,\"link_details\":false}"));
     diag::inquiry_complete(2000);
     CHECK(has(report(9000), "\"bredr_inquiry_running\":true,\"bredr_inquiries\":1"));
     CHECK(has(report(30000), "\"bredr_inquiry_running\":false"));

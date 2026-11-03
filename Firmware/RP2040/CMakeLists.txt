@@ -456,8 +456,8 @@ add_compile_definitions(MAIN_LOOP_DELAY_US=${MAIN_LOOP_DELAY_US})
 # can be changed at runtime from the web app (Adapter Options); these only set the defaults.
 # Disconnect every Bluetooth pad before a mode-change reboot: pads turn off (LED off, a visible
 # sign the mode changed) and reconnect on a button press; Joy-Cons no longer hang with the LED on.
-# Off in published builds (the upstream behaviour), on in our own (OGXM_DEV_DEFAULTS).
-option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads before a mode-change reboot" ${OGXM_DEV_DEFAULTS})
+# On by default since 2026-11 (it was only in our own builds; upstream does not disconnect).
+option(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE "Default: disconnect Bluetooth pads before a mode-change reboot" ON)
 
 # Joy-Con motion defaults (dongle options).
 set(OGXM_JOYCON_PAIR_IMU_SIDE "RIGHT" CACHE STRING "Joy-Con half providing motion in a merged pair (RIGHT|LEFT)")
@@ -501,6 +501,8 @@ endif()
 message(STATUS "Joy-Con motion: pair IMU ${OGXM_JOYCON_PAIR_IMU_SIDE}, pair ${OGXM_JOYCON_PAIR_ORIENTATION}, solo ${OGXM_JOYCON_SOLO_ORIENTATION}; pair rumble ${OGXM_JOYCON_PAIR_RUMBLE}")
 if(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE)
     add_compile_definitions(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE=1)
+else()
+    add_compile_definitions(OGXM_DISCONNECT_PADS_ON_MODE_CHANGE=0)
     message(STATUS "Pad disconnect on mode change: enabled")
 endif()
 
@@ -521,15 +523,21 @@ endif()
 set(OGXM_FULL_SEARCH_S "60" CACHE STRING "Default: full search for new controllers while a slot is open, in seconds (0-600)")
 set(OGXM_REDUCED_SEARCH_S "NO_LIMIT" CACHE STRING "Default: reduced search after the full one, in seconds (0-600) or NO_LIMIT")
 set(OGXM_COMBO_DISABLED_MODES "0" CACHE STRING "Default: output modes whose button combo is off, bit mask by DeviceDriverType (e.g. 0x8000 = PS4)")
-# Keep the log in flash too (Board/FlashLog.h), so it outlives unplugging the adapter: off in
-# published builds, on in our own (OGXM_DEV_DEFAULTS).
-option(OGXM_FLASH_LOG "Default: keep the log in flash too" ${OGXM_DEV_DEFAULTS})
+# The log levels, each needing the one before (dongle options, set from the web app; all off by
+# default: nothing is counted or logged while playing):
+#  - the activity log: controller / USB counters and the event log in RAM (Diagnostics panel, log report);
+#  - the log kept in flash too (Board/FlashLog.h), so it outlives unplugging the adapter;
+#  - detailed controller diagnostics (Bluepad32/LinkDiag link queries: RSSI, channels, failed
+#    contacts, transmit power, the controller's chip).
+option(OGXM_ACTIVITY_LOG "Default: the activity log (counters and the event log in RAM)" OFF)
+if(OGXM_ACTIVITY_LOG)
+    add_compile_definitions(OGXM_ACTIVITY_LOG=1)
+endif()
+option(OGXM_FLASH_LOG "Default: keep the log in flash too (the activity log on)" OFF)
 if(OGXM_FLASH_LOG)
     add_compile_definitions(OGXM_FLASH_LOG=1)
 endif()
-# Detailed link diagnostics (Bluepad32/LinkDiag link queries: RSSI, channels, failed contacts,
-# transmit power, the controller's chip): off in published builds, on in our own.
-option(OGXM_DIAGNOSTICS_LINK "Default: detailed Bluetooth link diagnostics" ${OGXM_DEV_DEFAULTS})
+option(OGXM_DIAGNOSTICS_LINK "Default: detailed Bluetooth link diagnostics (needs OGXM_FLASH_LOG)" OFF)
 if(OGXM_DIAGNOSTICS_LINK)
     add_compile_definitions(OGXM_DIAGNOSTICS_LINK=1)
 endif()

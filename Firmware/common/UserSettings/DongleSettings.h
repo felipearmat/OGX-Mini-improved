@@ -31,12 +31,20 @@
  *    OGXM_STATUS_LED_ESP32                 ON   the hybrid ESP32's status LED
  *    OGXM_STATUS_LED_ESP32_EXT             ON   an external RGB status LED on the ESP32 (GPIO 4)
  *    OGXM_EXT_RGB_BRIGHTNESS               48   the RGB LEDs' brightness (1-255)
- *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (ON with OGXM_DEV_DEFAULTS)
+ *    OGXM_ACTIVITY_LOG                     OFF  the activity log: controller / USB counters and the event
+ *                                          log in RAM (the Diagnostics panel, the log report)
+ *    OGXM_FLASH_LOG                        OFF  keep the log in flash too (turns the activity log on)
  *    OGXM_DIAGNOSTICS_LINK                 OFF  detailed controller diagnostics: the Bluetooth link queries
- *                                          of Bluepad32/LinkDiag (ON with OGXM_DEV_DEFAULTS)
+ *                                          of Bluepad32/LinkDiag (needs the log in flash)
  *
  *  Settings is also the wire format (web app over USB and Bluetooth) and the flash format:
  *  24 bytes, a version byte then one byte per option (0 / 1), unused bytes zero.
+ *  Version 9 = version 8 with byte 23 as the log level, applied without a restart: 0 none, 1 the
+ *                   activity log (counters and the event log in RAM), 2 that and the log kept in
+ *                   flash. Each level needs the one below it, and detailed controller diagnostics
+ *                   (byte 7) needs level 2: a record that breaks this is read with the dependent
+ *                   options off. A version 7 / 8 byte 23 (the log in flash, 0 / 1) reads as 0 / 2:
+ *                   those firmwares always ran the activity log, but it is now off by default.
  *  Version 8 = version 7 plus, applied without a restart:
  *    byte 7         detailed controller diagnostics (0 / 1): the link queries of Bluepad32/LinkDiag (RSSI,
  *                   channels in use, failed contacts, transmit power, the controller's Bluetooth
@@ -73,7 +81,7 @@
  */
 namespace dongle_settings {
 
-    constexpr uint8_t kVersion = 8;
+    constexpr uint8_t kVersion = 9;
     constexpr uint16_t kMaxSearchS = 600;           // 10 minutes
     constexpr uint16_t kSearchNoLimit = 0xFFF;      // reduced search only
     constexpr size_t kV1Length = 8;
@@ -107,11 +115,15 @@ namespace dongle_settings {
         uint8_t status_led_esp32;
         uint8_t status_led_esp32_ext;
         uint8_t status_led_brightness;
-        // Version 7
-        uint8_t keep_log_in_flash;
+        // Version 7 (the log in flash, 0 / 1); version 9: the log level, kLogNone to kLogFlash
+        uint8_t log_level;
     };
 #pragma pack(pop)
     static_assert(sizeof(Settings) == 24, "dongle_settings::Settings is a wire format");
+
+    constexpr uint8_t kLogNone = 0;
+    constexpr uint8_t kLogActivity = 1;  // counters and the event log in RAM
+    constexpr uint8_t kLogFlash = 2;     // and the log kept in flash
 
     // Build-time defaults.
     Settings defaults();
@@ -119,7 +131,7 @@ namespace dongle_settings {
     // The version 6 record (kV6Length bytes, version byte 6): what the hybrid's I2C link carries.
     void encode_v6(const Settings& settings, uint8_t* out);
 
-    // Parse stored / received bytes, version 8, 7, 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
+    // Parse stored / received bytes, version 9, 8, 7, 6, 5, 4, 3, 2 or 1. False (out untouched) for a short buffer or
     // an unknown version; option bytes are normalised to 0 / 1.
     bool decode(const uint8_t* data, size_t len, Settings& out);
 
@@ -136,6 +148,10 @@ namespace dongle_settings {
     // transmit power, the log in flash, controller diagnostics): a change of those alone needs no
     // restart. The status LED options do restart the adapter.
     bool same_except_live(const Settings& a, const Settings& b);
+
+    // The activity log (Diagnostics counters, the event log in RAM) and the log kept in flash.
+    bool activity_log(const Settings& settings);
+    bool keep_log_in_flash(const Settings& settings);
 
     // "Detailed controller diagnostics" in effect: the option needs "Keep the log in flash" on (the
     // advanced report is kept there). The hybrid's ESP32 gets byte 7 already gated (encode_v6).

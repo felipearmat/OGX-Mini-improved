@@ -249,6 +249,13 @@ struct Lock {
     ~Lock() { if (s_lock_ready) critical_section_exit(&s_lock); }
 };
 
+/* The "activity log" option (dongle_settings): off, nothing is counted or logged, so the hot paths
+ * (every controller report, every USB report) return at once. */
+bool on()
+{
+    return dongle_settings::activity_log(dongle_settings::get());
+}
+
 Link* link_for_handle(uint16_t handle, bool create)
 {
     for (auto& s : s_slots)
@@ -370,6 +377,7 @@ static_assert(kLineText >= kEventText, "an event fits a kept log line");
 
 void ring_line(uint32_t now_ms, const char* text)
 {
+    if (!on()) return;
     char line[kLineText + 16];
     const int n = std::snprintf(line, sizeof(line), "%lu.%03lu %s\n", static_cast<unsigned long>(now_ms / 1000),
                                 static_cast<unsigned long>(now_ms % 1000), text);
@@ -493,6 +501,7 @@ void init(const BoardInfo& info)
 
 void event(uint32_t now_ms, const char* fmt, ...)
 {
+    if (!on()) return;
     char text[kEventText];
     va_list ap;
     va_start(ap, fmt);
@@ -585,6 +594,7 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
 
 void slot_report(size_t slot, uint32_t now_ms)
 {
+    if (!on()) return;
     if (slot >= kSlots) return;
     uint32_t gap = 0, unlogged = 0;
     {
@@ -615,6 +625,7 @@ void slot_report(size_t slot, uint32_t now_ms)
 
 void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 {
+    if (!on()) return;
     if (slot >= kSlots || bits == 0 || bits > 31) return;
     Lock l;
     Slot& s = s_slots[slot];
@@ -698,6 +709,7 @@ void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16
 void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], const int32_t pad_gyro[3],
                    const int32_t ds4_accel[3], const int32_t ds4_gyro[3])
 {
+    if (!on()) return;
     Lock l;
     Motion& m = s_motion;
     if (!m.seen || now_ms - m.window_ms >= 1000) {
@@ -924,6 +936,7 @@ bool accepting_new_controllers(bool unknown, bool& reduced)
 
 void le_adv_report()
 {
+    if (!on()) return;
     Lock l;
     ++s_adv_count;
 }
@@ -973,6 +986,7 @@ void usb_unmounted(uint8_t address)
 
 void usb_report(uint8_t address, uint32_t now_ms)
 {
+    if (!on()) return;
     Lock l;
     for (auto& u : s_usb)
         if (u.active && u.address == address) u.timing.report(now_ms);
@@ -989,6 +1003,7 @@ void usb_output_state(uint32_t now_ms, bool configured, bool suspended)
 
 void usb_report_sent()
 {
+    if (!on()) return;
     Lock l;
     ++s_usb_sent;
     ++s_usb_sent_count;
@@ -1013,6 +1028,7 @@ void set_latency_source(LatencySource source)
 
 void pipeline_latency(uint32_t samples, uint32_t avg_us, uint32_t max_us)
 {
+    if (!on()) return;
     Lock l;
     s_lat_samples = samples;
     s_lat_avg = avg_us;
@@ -1247,6 +1263,7 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.raw(",\"le_scan_adv_reports_per_s\":%lu", static_cast<unsigned long>(s_adv_rate));
     if (s_searching_known)
         w.raw(",\"accepting_new_controllers\":%s", s_searching ? "true" : "false");
+    w.raw(",\"activity_log\":%s", on() ? "true" : "false");
     /* The "detailed controller diagnostics" option: without it the controllers carry no RSSI, channels,
      * failed contacts, transmit power or remote chip. */
     w.raw(",\"link_details\":%s", dongle_settings::controller_diagnostics(dongle_settings::get()) ? "true" : "false");

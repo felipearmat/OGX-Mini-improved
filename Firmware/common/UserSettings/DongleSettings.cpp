@@ -2,7 +2,7 @@
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 
 #ifndef OGXM_DISCONNECT_PADS_ON_MODE_CHANGE
-#define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 0
+#define OGXM_DISCONNECT_PADS_ON_MODE_CHANGE 1
 #endif
 #ifndef OGXM_JOYCON_PAIR_IMU_RIGHT
 #define OGXM_JOYCON_PAIR_IMU_RIGHT 1
@@ -53,6 +53,9 @@
 #define OGXM_EXT_RGB_BRIGHTNESS 48
 #endif
 static_assert(OGXM_EXT_RGB_BRIGHTNESS >= 1 && OGXM_EXT_RGB_BRIGHTNESS <= 255, "OGXM_EXT_RGB_BRIGHTNESS: 1-255");
+#ifndef OGXM_ACTIVITY_LOG
+#define OGXM_ACTIVITY_LOG 0
+#endif
 #ifndef OGXM_FLASH_LOG
 #define OGXM_FLASH_LOG 0
 #endif
@@ -104,8 +107,8 @@ Settings defaults()
     s.status_led_esp32 = flag(OGXM_STATUS_LED_ESP32);
     s.status_led_esp32_ext = flag(OGXM_STATUS_LED_ESP32_EXT);
     s.status_led_brightness = static_cast<uint8_t>(OGXM_EXT_RGB_BRIGHTNESS);
-    s.keep_log_in_flash = flag(OGXM_FLASH_LOG);
-    s.link_diagnostics = flag(OGXM_DIAGNOSTICS_LINK);
+    s.log_level = OGXM_FLASH_LOG ? kLogFlash : OGXM_ACTIVITY_LOG ? kLogActivity : kLogNone;
+    s.link_diagnostics = flag(OGXM_DIAGNOSTICS_LINK && OGXM_FLASH_LOG);
     return s;
 }
 
@@ -113,7 +116,8 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
 {
     if (data == nullptr || len < 1)
         return false;
-    const bool v8 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v9 = data[0] == kVersion && len >= sizeof(Settings);
+    const bool v8 = (data[0] == 8 && len >= sizeof(Settings)) || v9;
     const bool v7 = (data[0] == 7 && len >= sizeof(Settings)) || v8;
     const bool v6 = (data[0] == 6 && len >= kV6Length) || v7;
     const bool v5 = (data[0] == 5 && len >= kV5Length) || v6;
@@ -155,8 +159,14 @@ bool decode(const uint8_t* data, size_t len, Settings& out)
             s.status_led_brightness = data[22];
         s.link_diagnostics = flag(data[7]);  // version 8; zero in older version 6 / 7 records
     }
-    if (v7)
-        s.keep_log_in_flash = flag(data[23]);
+    if (v9)
+        s.log_level = data[23] > kLogFlash ? kLogFlash : data[23];
+    else if (v7)
+        s.log_level = data[23] ? kLogFlash : kLogNone;
+    // Needs the log in flash. Not for a version 6 record: the hybrid's I2C link carries no byte 23,
+    // and its byte 7 comes already gated (encode_v6).
+    if (v7 && s.log_level < kLogFlash)
+        s.link_diagnostics = 0;
     out = s;
     return true;
 }
@@ -198,7 +208,7 @@ bool same_except_live(const Settings& a, const Settings& b)
     x.high_tx_power = y.high_tx_power = 0;
     /* The status LED options restart the adapter (2026-10-23): live, the hybrid's ESP32 took
      * seconds to get them over a busy I2C link; after a restart both boards start with them. */
-    x.keep_log_in_flash = y.keep_log_in_flash = 0;
+    x.log_level = y.log_level = 0;
     x.link_diagnostics = y.link_diagnostics = 0;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(&x);
     const uint8_t* q = reinterpret_cast<const uint8_t*>(&y);
@@ -216,9 +226,19 @@ void encode_v6(const Settings& settings, uint8_t* out)
     out[7] = controller_diagnostics(settings) ? 1 : 0;  // the record has no byte 23 (log in flash)
 }
 
+bool activity_log(const Settings& settings)
+{
+    return settings.log_level >= kLogActivity;
+}
+
+bool keep_log_in_flash(const Settings& settings)
+{
+    return settings.log_level >= kLogFlash;
+}
+
 bool controller_diagnostics(const Settings& settings)
 {
-    return settings.link_diagnostics != 0 && settings.keep_log_in_flash != 0;
+    return settings.link_diagnostics != 0 && keep_log_in_flash(settings);
 }
 
 const Settings& get()

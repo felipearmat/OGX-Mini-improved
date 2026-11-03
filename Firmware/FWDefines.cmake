@@ -21,14 +21,9 @@ if(NOT OGXM_VERSION)
     endif()
 endif()
 
-# Our own builds (the bench, play-testing): the options that help find problems on by default
-# (the kept log saved to flash, pads disconnected before a mode-change reboot) and the version
-# marked "-dev". Published builds leave it OFF; nothing else changes (same optimisation, same
-# behaviour), so a dev build tests what users get.
-option(OGXM_DEV_DEFAULTS "Our own builds: diagnostic options on by default, version marked -dev" OFF)
-if(OGXM_DEV_DEFAULTS AND NOT OGXM_VERSION MATCHES "-dev")
-    set(OGXM_VERSION "${OGXM_VERSION}-dev")
-endif()
+# No "dev" build any more (removed 2026-11): what our own builds turned on by default (the log in
+# flash, detailed controller diagnostics) are dongle options set from the web app, and the default
+# that helped (pads disconnected before a mode-change reboot) is now every build's.
 
 # The commit built (8 hex digits, "+" when the tree had changes), kept with a crash record so it
 # can be matched with its .elf.

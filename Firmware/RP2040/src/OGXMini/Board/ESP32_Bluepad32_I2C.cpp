@@ -876,7 +876,10 @@ void esp32_bp32_i2c::run() {
         static size_t esp_len = 0;
         static uint32_t esp_last_ms = 0;
         const uint32_t now_ms = board_api::ms_since_boot();
+        const bool keep_esp = dongle_settings::activity_log(dongle_settings::get());  // else drained, not kept
         auto esp_byte = [&](uint8_t b) {
+            if (!keep_esp)
+                return;
             const char c = static_cast<char>(b);
             esp_line[esp_len++] = c;
             esp_last_ms = now_ms;
@@ -892,7 +895,7 @@ void esp32_bp32_i2c::run() {
             while (uart_is_readable(uart0))  // no DMA channel: the FIFO, as before
                 esp_byte(static_cast<uint8_t>(uart_getc(uart0)));
         }
-        if (lost) {
+        if (lost && keep_esp) {
             char note[40];
             const int n = std::snprintf(note, sizeof(note), "\n(%lu bytes lost)\n", static_cast<unsigned long>(lost));
             log_ring_append("esp", note, static_cast<size_t>(n));
