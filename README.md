@@ -46,6 +46,7 @@ your controller in pairing mode → pick the mode with a [button combo](#output-
 - [Web app and adapter options](#web-app-and-adapter-options)
 - [Mouse + Keyboard mode](#mouse--keyboard-mode)
 - [Diagnostics and log report](#diagnostics-and-log-report)
+- [Debug mode](#debug-mode)
 - [Waking the PC from the controller](#waking-the-pc-from-the-controller)
 - [Limitations](#limitations)
 - [Roadmap](#roadmap)
@@ -340,6 +341,15 @@ where the firmware stopped if it ever crashed (the adapter restarts by itself af
 of freezing). Full guide, including what each Diagnostics column means:
 [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md).
 
+## Debug mode
+
+To record a whole play session in any output mode, also with the adapter on a console: turn on
+the **Activity log** in the web app and attach a 3.3 V USB-UART adapter (or a spare ESP32 board) to
+the adapter's probe pin (GP4 on the Pico W, Pico 2 W and the hybrid). The adapter streams its events
+and the time of every report on that pin at about 0.1% of one core; a reader service on the PC
+(`Tools/debug/install.sh`, `Tools\debug\install.ps1`) writes one file per session. Guide:
+[Debug mode](Firmware/RP2040/docs/Debug_Mode.md).
+
 ## Waking the PC from the controller
 
 The adapter can wake a sleeping PC over USB, but only if the PC allows that device to wake it.
@@ -532,7 +542,7 @@ Upstream: [Ko-fi](https://ko-fi.com/megacadedev) · [Discord](https://discord.gg
 
 | For | Where |
 |---|---|
-| Using a mode | [Steam / SteamOS / Bazzite](Firmware/RP2040/docs/SteamOS_Bazzite_Output_Mode.md) · [PS3 / PS4 motion](Firmware/RP2040/docs/PS3_PS4_Motion_Controls.md) · [Wii](Firmware/RP2040/docs/Wii_Mode_Guide.md) · [Wii with a USB controller on a Pico 2 W](Firmware/RP2040/docs/PICO2W_WII_USB_SETUP.md) · [GPIO pinouts](Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md) · [Button mappings](Firmware/RP2040/docs/Controller_Mappings.md) · [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md) |
+| Using a mode | [Steam / SteamOS / Bazzite](Firmware/RP2040/docs/SteamOS_Bazzite_Output_Mode.md) · [PS3 / PS4 motion](Firmware/RP2040/docs/PS3_PS4_Motion_Controls.md) · [Wii](Firmware/RP2040/docs/Wii_Mode_Guide.md) · [Wii with a USB controller on a Pico 2 W](Firmware/RP2040/docs/PICO2W_WII_USB_SETUP.md) · [GPIO pinouts](Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md) · [Button mappings](Firmware/RP2040/docs/Controller_Mappings.md) · [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md) · [Debug mode](Firmware/RP2040/docs/Debug_Mode.md) |
 | Controllers | [Wired controllers](Firmware/RP2040/docs/Wired_Controllers.md) · [GameSir Cyclone 2](Firmware/RP2040/docs/GameSir_Cyclone2.md) · [GameSir G7 Pro](Firmware/RP2040/docs/GameSir_G7Pro.md) · [Flydigi APEX 4](Firmware/RP2040/docs/Flydigi_APEX4_Wukong.md) · [Victrix Gambit](Firmware/RP2040/docs/Victrix_Gambit.md) |
 | Hardware | [Boards and wiring](hardware/README.md) |
 | Plans and changes | [Roadmap](docs/ROADMAP.md) · [Known issues](docs/TODO.md) · [Changelog](CHANGELOG.md) · [Fork commits offered upstream](docs/UPSTREAM.md) · [Upstream wish list and research](Firmware/RP2040/docs/Planned_Additions.md) |

@@ -6,8 +6,9 @@ Wiring: the probe pin (GP4 by default) to the RX of a 3.3 V USB-UART adapter, or
 ESP32 board held in reset (EN to GND, or this tool holds RTS), and GND to GND. The activity log
 must be on (web app, Diagnostics).
 
+  probe.py                                     the one USB-UART reader found; files in ./logs
   probe.py --port /dev/ttyUSB0                 live: events and a line per second; files in --dir
-  probe.py --port COM5 --dir logs --quiet      only the files
+  probe.py --port COM5 --dir logs --quiet      only the files (as the service runs it)
 
 A session file starts when the adapter's header (once a second) appears and ends when the stream
 stops for --idle seconds or the adapter restarts (its clock goes back).
@@ -21,11 +22,19 @@ import sys
 import time
 
 import serial
+from serial.tools import list_ports
 
 BAUD = 921600
 SYNC = 0xA5
 HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST = 1, 2, 3, 4, 5, 6, 7
 GAP_MS = 50  # a controller report later than this is a gap (as the adapter's "no input" event)
+
+
+def say(text, **kw):
+    try:
+        print(text, flush=True, **kw)
+    except OSError:  # no terminal (a service whose output went away): the files are what counts
+        pass
 
 
 class Decoder:
@@ -93,7 +102,10 @@ class Session:
             self.file.write(line + "\n")
             self.file.flush()
         if show and not self.quiet:
-            print(line, flush=True)
+            try:
+                print(line, flush=True)
+            except OSError:  # the terminal went away: keep writing the files
+                self.quiet = True
 
     def open(self, ident):
         self.close()
@@ -106,7 +118,7 @@ class Session:
         self.file = open(os.path.join(self.dir, name), "x", encoding="utf-8")
         self.out(f"# {dt.datetime.now().isoformat(timespec='seconds')} probe session, adapter {ident}")
         if not self.quiet:
-            print(f"-> {os.path.join(self.dir, name)}", flush=True)
+            say(f"-> {os.path.join(self.dir, name)}")
 
     def close(self):
         if self.file:
@@ -232,6 +244,22 @@ class Session:
         self.second = t_us
 
 
+ADAPTER_VID = 0xCAFE  # the adapter's own USB port is never the reader
+# USB-UART chips: FTDI, Silicon Labs CP210x, WCH CH340 / CH9102, Prolific
+READER_VIDS = (0x0403, 0x10C4, 0x1A86, 0x067B)
+
+
+def find_reader():
+    """The port of the one USB-UART reader attached, or None (none, or more than one)."""
+    found = [p for p in list_ports.comports() if p.vid in READER_VIDS]
+    return found[0].device if len(found) == 1 else None
+
+
+def reader_ports():
+    return [f"{p.device} ({p.vid:04x}:{p.pid:04x} {p.product or ''})".strip()
+            for p in list_ports.comports() if p.vid is not None and p.vid != ADAPTER_VID]
+
+
 def open_port(path):
     port = serial.Serial()
     port.port = path
@@ -247,7 +275,9 @@ def open_port(path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port", required=True, help="serial port of the USB-UART reader (e.g. /dev/ttyUSB0, COM5)")
+    ap.add_argument("--port", default="auto",
+                    help="serial port of the USB-UART reader (e.g. /dev/ttyUSB0, COM5); auto (default): the one "
+                         "FTDI / CP210x / CH340 / Prolific port attached")
     ap.add_argument("--dir", default="logs", help="where the session files go (default: logs)")
     ap.add_argument("--idle", type=float, default=5.0, help="seconds without data that end a session")
     ap.add_argument("--quiet", action="store_true", help="no output on the terminal")
@@ -258,15 +288,27 @@ def main():
     ses = Session(args.dir, args.quiet)
     start = time.monotonic()
     port = None
+    warned = False
     last_data = time.monotonic()
     try:
         while not args.seconds or time.monotonic() - start < args.seconds:
             if port is None:
+                path = find_reader() if args.port == "auto" else args.port
+                if path is None:
+                    if not warned and not args.quiet:
+                        say("waiting for one USB-UART reader (--port to pick one); serial ports now: "
+                            + (", ".join(reader_ports()) or "none"))
+                    warned = True
+                    time.sleep(2)
+                    continue
                 try:
-                    port = open_port(args.port)
+                    port = open_port(path)
                 except serial.SerialException:
                     time.sleep(2)
                     continue
+                if not args.quiet:
+                    say(f"reading {path}")
+                warned = False
             try:
                 data = port.read(65536)
             except serial.SerialException:
@@ -286,7 +328,7 @@ def main():
     finally:
         ses.close()
         if dec.bad and not args.quiet:
-            print(f"{dec.bad} bad frames skipped", file=sys.stderr)
+            say(f"{dec.bad} bad frames skipped", file=sys.stderr)
 
 
 if __name__ == "__main__":

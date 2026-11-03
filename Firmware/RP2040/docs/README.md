@@ -13,6 +13,7 @@ This folder holds **firmware user guides**, **references** and **contributor** d
 | [Support_Issue_Requirements.md](Support_Issue_Requirements.md) | **Required details** for GitHub issues. Incomplete reports may be **closed or delayed**. |
 | [HD_Rumble.md](HD_Rumble.md) | Switch mode: Joy-Cons and the Switch Pro Controller play the host's **HD Rumble** as on a Switch; trying it with `Tools/bench/hd_rumble.py`. |
 | [Web_App_Guide.md](Web_App_Guide.md) | Check a controller in the web app (buttons, sticks, touchpad, rumble, link health) and generate the **diagnostics log report** for an issue. |
+| [Debug_Mode.md](Debug_Mode.md) | Record what the adapter does while you play, in any mode or on a console: the log options, the probe point (GP4 and a USB-UART reader) and the reader service for Linux, macOS and Windows. |
 | [Building_From_Source.md](Building_From_Source.md) | Clone, submodules, **required tools**, Pico SDK, and build/flash on Linux / macOS / Windows. |
 | [Firmware_Architecture.md](Firmware_Architecture.md) | How the firmware is structured, runtime flow, modules, and **every file to touch** when adding host/device drivers. |
 | [Adding_Supported_Controllers.md](Adding_Supported_Controllers.md) | Add a new input pad: **dedicated driver by default**, adapter-side capture, PadIn mapping, Debug UART. |
