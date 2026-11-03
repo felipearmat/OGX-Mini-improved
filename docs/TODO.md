@@ -177,6 +177,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 
 ## Rumble
 
+- **Switch mode: Joy-Con (L) reports held back one interval more often** — 2026-11-03, Pico 2 W, probe point with the Joy-Con clock (median delay beyond the best case 0.1 ms, the timer stepping 3 counts of 5.000 ms every report, so the measure is sharp): in D-Input/Debug 1 % of the L half's reports came 15 ms late (one sniff interval) and the R half's fewer; in Switch mode with the host's rumble 5 % of the L half's (95th percentile 15.1 ms, max 60 ms) against the R half's 95th percentile 5 ms. The user felt some lag in Switch Pro mode before (2026-11) and not in STEAM. Lead: the host's rumble / HD Rumble output reports to the pad share its sniff slots with its input. Next: a Switch-mode session with and without rumble, then STEAM, compared on the probe's link delay.
 - **Hybrid: DS4 rumble in regular pulses after a reconnection** — 2026-10-21, STEAM mode: host
   rumble already on while the DS4 reconnected came as a long buzz with short, evenly spaced
   pauses; the same rumble with the DS4 already connected was continuous. Suspect the lightbar
