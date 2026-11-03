@@ -31,6 +31,8 @@ enum {
     PROBE_COST = 0x07,      // once a second, the probe's own cost over the last second: u32 cycles
                             // spent recording (both cores), u32 most cycles for one frame, u32 frames,
                             // u32 CPU clock (Hz)
+    PROBE_PAD_CLOCK = 0x08, // a controller report's own clock: u8 slot, u8 kind (diag::PadClock), u32 raw
+    PROBE_PAD_COMMAND = 0x09,  // a Switch subcommand: u8 slot, u8 subcommand ID, u8 0 sent / 1 reply
 };
 
 #ifdef __cplusplus

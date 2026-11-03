@@ -174,6 +174,10 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
     Writer(PacketDiag::SLOT_GONE, slot).send();
 }
 
+/* The probe point is the RP2040's; nothing to forward. */
+void slot_clock(size_t slot, uint8_t kind, uint32_t value) { (void)slot; (void)kind; (void)value; }
+void slot_command(size_t slot, uint8_t subcommand, bool reply) { (void)slot; (void)subcommand; (void)reply; }
+
 void slot_report(size_t slot, uint32_t now_ms)
 {
     // Timing: measured on the RP2040 from SET_PAD (PacketIn::bt_slot), one per report.

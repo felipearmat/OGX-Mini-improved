@@ -95,6 +95,12 @@ namespace diag {
     // reports are the skipped values. unit 0: learnt as the most common step of the first
     // kCounterLearnSteps steps (Switch pads, whose timer advances by more than 1 per report).
     void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit = 1);
+    /* Custom: the probe point's controller-side delay (Board/DebugProbe.h, RP2040 only; the ESP32
+     * ignores them). The controller's own clock in a report, raw (kind: PadClock), and a Switch
+     * subcommand sent to the pad or its reply (0x21), matched by subcommand ID on the PC. */
+    enum PadClock : uint8_t { kClockSwitchTimer = 1, kClockDs4 = 2, kClockDualSense = 3 };
+    void slot_clock(size_t slot, uint8_t kind, uint32_t value);
+    void slot_command(size_t slot, uint8_t subcommand, bool reply);
     void slot_battery(size_t slot, uint8_t level_0_255);
     /* The pad's own battery report (DS4 / DualSense status byte, read as Linux hid-playstation
      * does): percent and whether it is charging. Bluepad32's level has no charging state and,

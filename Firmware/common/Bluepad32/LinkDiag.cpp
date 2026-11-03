@@ -386,6 +386,19 @@ void set_poll_latency_us(uint32_t us)
 
 } // namespace link_diag
 
+/* Every output report to a Classic pad, when queued (bluepad32_diag_output_hook.diff): a Switch
+ * subcommand (report ID 0x01, its ID in byte 11 after the transaction byte) for the probe point's
+ * round trip. */
+extern "C" void uni_diag_on_output_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len)
+{
+    if (!report || len < 12 || report[1] != 0x01) return;
+    if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+          d->controller_type == CONTROLLER_TYPE_SwitchProController))
+        return;
+    const int slot = uni_hid_device_get_idx_for_instance(d);
+    if (slot >= 0) diag::slot_command(static_cast<size_t>(slot), report[11], false);
+}
+
 /* Bluepad32 diagnostics hooks (bluepad32_diagnostics_hooks.diff). */
 extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len)
 {
@@ -401,6 +414,27 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
     if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
           d->controller_type == CONTROLLER_TYPE_SwitchProController) || report[0] != 0x21)
         diag::slot_report(static_cast<size_t>(slot), btstack_run_loop_get_time_ms());
+    /* The pads' own clocks, for the probe point (the delay from the pad to here, worked out on the
+     * PC): DS4 report 0x11 bytes 12-13 (5.33 us units, checked against the recorded ds4 fixture),
+     * DualSense 0x31 bytes 29-32 (1/3 us units, Linux hid-playstation's sensor_timestamp), the
+     * Switch 0x30 timer in byte 1 (about 5 ms a count). A Switch subcommand reply (0x21) echoes the
+     * subcommand ID in byte 14. */
+    {
+        const size_t s = static_cast<size_t>(slot);
+        const bool sw = d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft ||
+                        d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+                        d->controller_type == CONTROLLER_TYPE_SwitchProController;
+        if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len >= 14)
+            diag::slot_clock(s, diag::kClockDs4, static_cast<uint32_t>(report[12] | report[13] << 8));
+        else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len >= 33)
+            diag::slot_clock(s, diag::kClockDualSense,
+                             static_cast<uint32_t>(report[29]) | static_cast<uint32_t>(report[30]) << 8 |
+                                 static_cast<uint32_t>(report[31]) << 16 | static_cast<uint32_t>(report[32]) << 24);
+        else if (sw && (report[0] == 0x30 || report[0] == 0x21) && len >= 2)
+            diag::slot_clock(s, diag::kClockSwitchTimer, report[1]);
+        if (sw && report[0] == 0x21 && len >= 15)
+            diag::slot_command(s, report[14], true);
+    }
     /* The pads' own report counters: DS4 report 0x11 (6 bits, byte 9), DualSense 0x31 (byte 8). */
     if (d->controller_type == CONTROLLER_TYPE_PS4Controller && report[0] == 0x11 && len >= 10)
         diag::slot_counter(static_cast<size_t>(slot), report[9] >> 2, 6);

@@ -26,7 +26,11 @@ from serial.tools import list_ports
 
 BAUD = 921600
 SYNC = 0xA5
-HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST = 1, 2, 3, 4, 5, 6, 7
+HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND = 1, 2, 3, 4, 5, 6, 7, 8, 9
+# The controllers' own clocks (diag::PadClock): nominal µs per count, counter size, and the longest
+# pause the counter still bridges (half a wrap); the real rate is fitted per session.
+CLOCKS = {1: ("Switch timer", 5000.0, 1 << 8), 2: ("DS4", 16 / 3, 1 << 16), 3: ("DualSense", 1 / 3, 1 << 32)}
+LINK_LATE_MS = 20  # a report this much later than the controller's best case is logged
 GAP_MS = 50  # a controller report later than this is a gap (as the adapter's "no input" event)
 
 
@@ -72,6 +76,62 @@ class Decoder:
         return out
 
 
+class PadClock:
+    """One controller's delay to the adapter beyond its best case: arrival time against the clock
+    the controller writes in each report. The controller's clock rate is fitted (least squares)
+    over the fastest report of each second, so the line follows the best case and the rest is
+    delay added between the controller and the adapter (radio, retransmissions, the stack)."""
+
+    def __init__(self, kind):
+        self.name, self.nominal, self.mod = CLOCKS[kind]
+        self.reset()
+        self.hist = []  # excess delays (ms) counted for the session, once the fit holds
+
+    def reset(self):
+        self.last_raw = None
+        self.count = 0        # unwrapped controller clock, in counts
+        self.bins = {}        # second of arrival -> (residual, count, arrival) of its fastest report
+        self.fit = None       # (offset_us, us_per_count)
+        self.start = None
+
+    def add(self, t_us, raw):
+        """Returns the excess delay in ms, or None while the fit is not settled yet."""
+        if self.last_raw is not None:
+            step = (raw - self.last_raw) % self.mod
+            pause = t_us - self.last_t
+            if pause > self.mod * self.nominal / 2 or step > self.mod // 2:
+                self.reset()  # the counter may have wrapped unseen: start over
+        if self.last_raw is not None:
+            self.count += (raw - self.last_raw) % self.mod
+        else:
+            self.start = t_us
+        self.last_raw, self.last_t = raw, t_us
+        key = int(t_us // 1_000_000)
+        resid = t_us - self.count * self.nominal
+        best = self.bins.get(key)
+        if best is None or resid < best[0]:
+            self.bins[key] = (resid, self.count, t_us)
+        if self.fit is None or t_us - self.start < 10_000_000:
+            return None
+        off, rate = self.fit
+        return (t_us - off - rate * self.count) / 1000.0
+
+    def refit(self):
+        pts = [(c, a) for _, c, a in self.bins.values()]
+        if len(pts) < 3:
+            self.fit = None
+            return
+        n = len(pts)
+        mc = sum(c for c, _ in pts) / n
+        ma = sum(a for _, a in pts) / n
+        var = sum((c - mc) ** 2 for c, _ in pts)
+        rate = sum((c - mc) * (a - ma) for c, a in pts) / var if var else self.nominal
+        if not 0.9 * self.nominal < rate < 1.1 * self.nominal:
+            rate = self.nominal  # not this clock after all: keep the nominal rate
+        off = min(a - rate * c for c, a in pts)  # the line through the fastest reports
+        self.fit = (off, rate)
+
+
 class Session:
     def __init__(self, directory, quiet):
         self.dir = directory
@@ -92,6 +152,10 @@ class Session:
         self.rumble_max = 0
         self.cost = None  # the adapter's last COST frame: µs/s, % of one core, max µs
         self.cost_max = [0.0, 0.0]  # session: most % in a second, longest frame µs
+        self.clocks = {}  # slot -> PadClock
+        self.link = {}    # slot -> excess delays (ms) this second
+        self.commands = {}  # (slot, subcommand) -> times sent (µs)
+        self.rtt = {}     # slot -> round trips (ms)
         self.second = None
         self.id = "?"
         self.drops = 0
@@ -135,6 +199,17 @@ class Session:
         if self.cost:
             self.out(f"# probe cost: at most {self.cost_max[0]:.3f}% of a core in a second, "
                      f"longest frame {self.cost_max[1]:.1f} us")
+        for slot, clk in sorted(self.clocks.items()):
+            h = sorted(clk.hist)
+            if h:
+                pick = lambda q: h[min(len(h) - 1, int(q * len(h)))]
+                late = sum(1 for x in h if x >= 10)
+                self.out(f"# slot {slot} link delay beyond the best case ({clk.name} clock, {len(h)} reports): "
+                         f"median {pick(0.5):.1f} ms, 95% {pick(0.95):.1f} ms, 99% {pick(0.99):.1f} ms, "
+                         f"max {h[-1]:.1f} ms, {late} reports 10 ms or more")
+        for slot, xs in sorted(self.rtt.items()):
+            self.out(f"# slot {slot} subcommand round trip: min {min(xs):.1f} ms, avg {sum(xs) / len(xs):.1f} ms, "
+                     f"max {max(xs):.1f} ms, {len(xs)} answered")
         for slot, s in sorted(self.slots.items()):
             self.out(f"# slot {slot}: max gap {s[2] / 1000:.1f} ms, {s[3]} gaps over {GAP_MS} ms")
 
@@ -204,6 +279,32 @@ class Session:
                          + (f" {new[0]}/{new[1]}" if new != (0, 0) else ""))
             self.rumble = new
             self.rumble_max = max(self.rumble_max, *new)
+        elif ftype == PAD_CLOCK and len(payload) >= 6 and payload[1] in CLOCKS:
+            slot, kind = payload[0], payload[1]
+            raw = struct.unpack_from("<I", payload, 2)[0]
+            clk = self.clocks.get(slot)
+            if clk is None or clk.name != CLOCKS[kind][0]:
+                clk = self.clocks[slot] = PadClock(kind)
+            if slot in self.down:
+                clk.reset()
+                return
+            excess = clk.add(t_us, raw)
+            if excess is not None:
+                clk.hist.append(excess)
+                self.link.setdefault(slot, []).append(excess)
+                if excess >= LINK_LATE_MS:
+                    self.out(f"{self.stamp(t_us)} slot {slot}: report {excess:.1f} ms later than the controller's best case")
+        elif ftype == PAD_COMMAND and len(payload) >= 3:
+            slot, sub, reply = payload[0], payload[1], payload[2]
+            key = (slot, sub)
+            if not reply:
+                self.commands.setdefault(key, []).append(t_us)
+            elif self.commands.get(key):
+                sent = self.commands[key].pop(0)
+                rtt = (t_us - sent) / 1000.0
+                if rtt < 2000:
+                    self.rtt.setdefault(slot, []).append(rtt)
+                    self.out(f"{self.stamp(t_us)} slot {slot}: subcommand 0x{sub:02x} answered in {rtt:.1f} ms")
         elif ftype == COST and len(payload) >= 16:
             cycles, most, frames, hz = struct.unpack_from("<IIII", payload)
             if hz:
@@ -230,6 +331,11 @@ class Session:
             for slot, s in sorted(self.slots.items()):
                 parts.append(f"slot {slot} {s[0]}/s")
                 s[0] = 0
+            for slot, xs in sorted(self.link.items()):
+                parts.append(f"slot {slot} link +{max(xs):.1f} ms max")
+            self.link = {}
+            for clk in self.clocks.values():
+                clk.refit()
             if self.lat:
                 parts.append(f"latency avg {sum(self.lat) // len(self.lat)} max {max(self.lat)} us")
             if self.rumble_max:

@@ -626,6 +626,19 @@ void slot_report(size_t slot, uint32_t now_ms)
     }
 }
 
+void slot_clock(size_t slot, uint8_t kind, uint32_t value)
+{
+    const uint8_t p[6] = {static_cast<uint8_t>(slot), kind, static_cast<uint8_t>(value), static_cast<uint8_t>(value >> 8),
+                          static_cast<uint8_t>(value >> 16), static_cast<uint8_t>(value >> 24)};
+    probe_record(PROBE_PAD_CLOCK, p, sizeof(p));  // returns at once with the activity log off
+}
+
+void slot_command(size_t slot, uint8_t subcommand, bool reply)
+{
+    const uint8_t p[3] = {static_cast<uint8_t>(slot), subcommand, static_cast<uint8_t>(reply ? 1 : 0)};
+    probe_record(PROBE_PAD_COMMAND, p, sizeof(p));
+}
+
 void slot_counter(size_t slot, uint32_t value, uint8_t bits, uint8_t unit)
 {
     if (!on()) return;

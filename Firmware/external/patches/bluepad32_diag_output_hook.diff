@@ -1,0 +1,54 @@
+diff --git a/src/components/bluepad32/include/uni_diag_hooks.h b/src/components/bluepad32/include/uni_diag_hooks.h
+index dea4456..8938ac7 100644
+--- a/src/components/bluepad32/include/uni_diag_hooks.h
++++ b/src/components/bluepad32/include/uni_diag_hooks.h
+@@ -16,6 +16,10 @@ struct uni_hid_device_s;
+ // Every input report, before it is parsed (report[0] is the report ID).
+ void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t report_len);
+ 
++// Every output report queued on a Classic controller's interrupt channel (report[0] is the HID
++// transaction byte, report[1] the report ID), when it is queued.
++void uni_diag_on_output_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t report_len);
++
+ // Every GATT service event of the BLE Device Information query (HCI_EVENT_GATTSERVICE_META).
+ void uni_diag_on_device_information(const uint8_t* packet, uint16_t size);
+ 
+diff --git a/src/components/bluepad32/parser/uni_hid_parser.c b/src/components/bluepad32/parser/uni_hid_parser.c
+index ee12708..cea1780 100644
+--- a/src/components/bluepad32/parser/uni_hid_parser.c
++++ b/src/components/bluepad32/parser/uni_hid_parser.c
+@@ -29,6 +29,14 @@ __attribute__((weak)) void uni_diag_on_input_report(struct uni_hid_device_s* d,
+     (void)report_len;
+ }
+ 
++__attribute__((weak)) void uni_diag_on_output_report(struct uni_hid_device_s* d,
++                                                     const uint8_t* report,
++                                                     uint16_t report_len) {
++    (void)d;
++    (void)report;
++    (void)report_len;
++}
++
+ __attribute__((weak)) void uni_diag_on_device_information(const uint8_t* packet, uint16_t size) {
+     (void)packet;
+     (void)size;
+diff --git a/src/components/bluepad32/uni_hid_device.c b/src/components/bluepad32/uni_hid_device.c
+index e4ee762..5cc9b24 100644
+--- a/src/components/bluepad32/uni_hid_device.c
++++ b/src/components/bluepad32/uni_hid_device.c
+@@ -35,6 +35,7 @@
+ #include "parser/uni_hid_parser_switch.h"
+ #include "parser/uni_hid_parser_switch2.h"
+ #include "parser/uni_hid_parser_wii.h"
++#include "uni_diag_hooks.h"
+ #include "parser/uni_hid_parser_xboxone.h"
+ #include "platform/uni_platform.h"
+ #include "uni_common.h"
+@@ -959,6 +960,7 @@ void uni_hid_device_send_intr_report(uni_hid_device_t* d, const uint8_t* report,
+         loge("Invalid device\n");
+         return;
+     }
++    uni_diag_on_output_report(d, report, len);  // OGX-Mini-improved: diagnostics
+     uni_hid_device_send_report(d, d->conn.interrupt_cid, report, len);
+ }
+ 

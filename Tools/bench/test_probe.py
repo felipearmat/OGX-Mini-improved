@@ -95,3 +95,39 @@ def test_latency_rumble_and_cost(tmp_path):
     assert "latency avg 200 max 300 us" in log and "rumble max 255" in log
     assert "probe 1000 us/s (0.100% of a core), longest frame 10.0 us" in log
     assert "# latency (input to output driver): avg 200 us, max 300 us, 3 samples" in log
+
+
+def clock(t_us, slot, kind, raw):
+    return frame(probe.PAD_CLOCK, t_us, bytes([slot, kind]) + struct.pack("<I", raw))
+
+
+def test_link_delay_from_the_controller_clock(tmp_path):
+    """A Joy-Con timer 0.2% off its nominal 5 ms: the fitted rate takes it out; two reports held
+    back by the radio (25 and 12 ms) show up as delay beyond the best case."""
+    tick_us = 5010.0
+    frames = [hello(1_000_000), text(1_500_000, b"1.500 slot 0 ready 057e:2006 Classic: Joy-Con (L)\n")]
+    held = {1500: 25_000, 2500: 12_000}
+    last = 0
+    for i in range(3000):  # 45 s at 15 ms (3 counts) a report
+        count = 3 * i
+        sent = 2_000_000 + count * tick_us
+        t = int(sent + 1500 + (i % 3) * 300 + held.get(i, 0))  # 1.5-2.1 ms on the air and in the stack
+        t = last = max(t, last + 200)  # what was held back delays the next one too (arrival order)
+        frames.append(clock(t, 0, 1, count % 256))
+        if i % 66 == 0:
+            frames.append(hello(t + 1))
+    (log,) = run(tmp_path, frames)
+    assert "slot 0: report 25." in log and "later than the controller's best case" in log
+    summary = [line for line in log.splitlines() if line.startswith("# slot 0 link delay")][0]
+    assert "Switch timer clock" in summary and "max 25." in summary
+    assert "3 reports 10 ms or more" in summary  # 25 ms, the one queued behind it (+10), 12 ms
+    assert "median 0." in summary  # the steady delay is the best case, not counted
+
+
+def test_subcommand_round_trip(tmp_path):
+    cmd = lambda t, sub, reply: frame(probe.PAD_COMMAND, t, bytes([1, sub, reply]))
+    frames = [hello(1_000_000), cmd(1_100_000, 0x48, 0), cmd(1_118_000, 0x48, 1),
+              cmd(1_200_000, 0x30, 0), cmd(1_230_000, 0x30, 1), cmd(1_300_000, 0x02, 1)]
+    (log,) = run(tmp_path, frames)
+    assert "subcommand 0x48 answered in 18.0 ms" in log and "subcommand 0x30 answered in 30.0 ms" in log
+    assert "# slot 1 subcommand round trip: min 18.0 ms, avg 24.0 ms, max 30.0 ms, 2 answered" in log
