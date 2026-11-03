@@ -130,4 +130,4 @@ def test_subcommand_round_trip(tmp_path):
               cmd(1_200_000, 0x30, 0), cmd(1_230_000, 0x30, 1), cmd(1_300_000, 0x02, 1)]
     (log,) = run(tmp_path, frames)
     assert "subcommand 0x48 answered in 18.0 ms" in log and "subcommand 0x30 answered in 30.0 ms" in log
-    assert "# slot 1 subcommand round trip: min 18.0 ms, avg 24.0 ms, max 30.0 ms, 2 answered" in log
+    assert "# slot 1 subcommand round trip: min 18.0 ms, median 30.0 ms, max 30.0 ms, 2 answered" in log

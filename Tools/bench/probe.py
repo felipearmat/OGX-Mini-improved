@@ -208,7 +208,8 @@ class Session:
                          f"median {pick(0.5):.1f} ms, 95% {pick(0.95):.1f} ms, 99% {pick(0.99):.1f} ms, "
                          f"max {h[-1]:.1f} ms, {late} reports 10 ms or more")
         for slot, xs in sorted(self.rtt.items()):
-            self.out(f"# slot {slot} subcommand round trip: min {min(xs):.1f} ms, avg {sum(xs) / len(xs):.1f} ms, "
+            m = sorted(xs)[len(xs) // 2]  # the median: the first replies of a setup wait far longer
+            self.out(f"# slot {slot} subcommand round trip: min {min(xs):.1f} ms, median {m:.1f} ms, "
                      f"max {max(xs):.1f} ms, {len(xs)} answered")
         for slot, s in sorted(self.slots.items()):
             self.out(f"# slot {slot}: max gap {s[2] / 1000:.1f} ms, {s[3]} gaps over {GAP_MS} ms")
