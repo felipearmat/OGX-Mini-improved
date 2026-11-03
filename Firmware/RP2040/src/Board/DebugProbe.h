@@ -1,6 +1,7 @@
 #ifndef _OGXM_DEBUG_PROBE_H_
 #define _OGXM_DEBUG_PROBE_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -34,10 +35,28 @@ enum {
                             // log's hooks (their own probe frames included), u32 most for one call
     PROBE_PAD_CLOCK = 0x08, // a controller report's own clock: u8 slot, u8 kind (diag::PadClock), u32 raw
     PROBE_PAD_COMMAND = 0x09,  // a Switch subcommand: u8 slot, u8 subcommand ID, u8 0 sent / 1 reply
+    PROBE_ACK = 0x0B,       // a command from the PC was carried out: u8 command, u8 a, u8 b (sent
+                            // whatever the log options are)
     PROBE_LINK = 0x0A,      // a detailed link reading (detailed controller diagnostics): u8 slot (0xFF
                             // not a controller's yet), u8 what (1 RSSI, 2 channels, 3 failed contacts,
                             // 4 transmit power, 5 its maximum, 6 link mode), i16 value, u16 second value
 };
+
+/* The command channel: the same UART's RX pin (OGXM_DEBUG_UART_RX_PIN, GP5 beside GP4) takes short
+ * commands from the PC (Tools/bench/probe.py), in every output mode, once the UART is up (the
+ * activity log was on at some point since the adapter started). A command is 8 bytes: "OGX!",
+ * command, a, b, check (the sum of the last four bytes a multiple of 256). Anything else is
+ * ignored, so a loose wire or noise does nothing. Carried out from the boards' mode combo check
+ * (UserSettings::check_for_driver_change), and acknowledged with PROBE_ACK. */
+enum {
+    PROBE_CMD_OPTIONS = 'O',  // a = log level (0 none, 1 activity, 2 flash), b = detailed diagnostics:
+                              // applied live, in RAM only (a restart brings back the saved options)
+    PROBE_CMD_MODE = 'M',     // a = output mode (DeviceDriverType): stored, the adapter restarts in it
+};
+
+typedef struct {
+    uint8_t cmd, a, b;
+} probe_command_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,7 +73,12 @@ void probe_tick(void);
  * call took, added to the next PROBE_COST. */
 uint32_t probe_cycles(void);
 void probe_log_cost(uint32_t start_cycles);
+/* The command the PC sent, if one came; and its acknowledgement. */
+bool probe_take_command(probe_command_t* out);
+void probe_ack(const probe_command_t* command);
 #else
+static inline bool probe_take_command(probe_command_t* out) { (void)out; return false; }
+static inline void probe_ack(const probe_command_t* command) { (void)command; }
 static inline uint32_t probe_cycles(void) { return 0; }
 static inline void probe_log_cost(uint32_t start_cycles) { (void)start_cycles; }
 static inline void probe_record(uint8_t type, const void* payload, size_t len) { (void)type; (void)payload; (void)len; }

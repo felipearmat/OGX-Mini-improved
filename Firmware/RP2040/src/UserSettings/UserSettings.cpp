@@ -10,6 +10,7 @@
 
 #include "Board/ogxm_log.h"
 #include "Board/board_api.h"
+#include "Board/DebugProbe.h"
 #include "UserSettings/UserSettings.h"
 #include "Board/ModeIndicator.h"
 #include "UserSettings/ModeCombos.h"
@@ -142,6 +143,26 @@ DeviceDriverType UserSettings::DEFAULT_DRIVER()
 //Checks if button combo has been held for 3 seconds, returns true if mode has been changed
 bool UserSettings::check_for_driver_change(Gamepad& gamepad)
 {
+    /* Custom: a command from the PC through the debug probe point (Board/DebugProbe.h): the log
+     * options live in RAM, or a mode change as a combo would make it. */
+    probe_command_t command;
+    if (probe_take_command(&command)) {
+        if (command.cmd == PROBE_CMD_OPTIONS) {
+            dongle_settings::Settings s = dongle_settings::get();
+            s.log_level = command.a > dongle_settings::kLogFlash ? dongle_settings::kLogFlash : command.a;
+            s.link_diagnostics = command.b ? 1 : 0;
+            dongle_settings::set(s);  // not saved: a restart brings back the saved options
+            probe_ack(&command);
+        } else if (command.cmd == PROBE_CMD_MODE) {
+            const DeviceDriverType driver = normalized(static_cast<DeviceDriverType>(command.a));
+            if (is_valid_driver(driver) && driver != current_driver_) {
+                probe_ack(&command);
+                current_driver_ = driver;
+                return true;
+            }
+        }
+    }
+
 #if defined(CONFIG_OGXM_FIXED_DRIVER) && !defined(CONFIG_OGXM_FIXED_DRIVER_ALLOW_COMBOS)
     (void)gamepad;
     return false;  // Fixed output build: combos disabled

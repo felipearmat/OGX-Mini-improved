@@ -77,6 +77,11 @@ The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
 | A 3.3 V USB-UART adapter (FT232, CP2102, CH340) | **RX** | GND to GND; nothing on VCC or TX; a voltage jumper on 3.3 V |
 | A spare ESP32 board (its USB chip reads its TX0 pin) | **TX** / **TX0** / GPIO1 | GND to GND; a wire from **EN to GND** keeps the ESP32 in reset, so its TX0 does not drive the line |
 
+Optional, for automated tests: a second wire from the reader's **TX** (USB-UART adapter) or the
+ESP32 board's **RX0** / GPIO3 (its USB chip's TX, free while the ESP32 is held in reset) to **GP5**
+(pin 7) lets the PC send the adapter short commands in any output mode: the log options live, a
+mode change (`OGXM_DEBUG_UART_RX_PIN`, `AUTO` = the pin after the probe pin, `-1` = none).
+
 No 5 V or 3V3 between the boards: each takes power from its own USB. Tested with a Pico 2 W and an
 ESP32 board with an FT232R, in D-Input/Debug and STEAM mode, the adapter restarting between them.
 

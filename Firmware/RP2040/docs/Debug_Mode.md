@@ -30,6 +30,23 @@ Hardware: a 3.3 V USB-UART adapter (FT232, CP2102, CH340, a few dollars), or a s
 held in reset. Wiring: [hardware/README.md](../../../hardware/README.md#debug-probe-point). The
 adapter stays on its own USB port (PC or console); the reader goes to a PC.
 
+## Commands to the adapter (automated tests)
+
+With a second wire, from the reader's TX to GP5 ([hardware/README.md](../../../hardware/README.md#debug-probe-point)),
+the PC can drive the adapter in any output mode, which is otherwise only possible in
+D-Input/Debug through the web app:
+
+```sh
+python Tools/bench/probe.py --send O 1 1     # log options live: level (0 none, 1 activity, 2 flash), detailed
+python Tools/bench/probe.py --send M 16      # output mode (16 STEAM, 6 D-Input/Debug): stored, the adapter restarts
+```
+
+The log options set this way are not saved: a restart brings back the saved ones. The channel
+listens once the probe's UART is up, that is once the activity log was on since the adapter
+started. A command is 8 bytes with a check ("OGX!", command, two values, check), anything else is
+ignored, and the adapter answers each one on the probe point. Tests can then run whole sessions by
+themselves, for example the log options compared with both Joy-Cons connected in STEAM mode.
+
 ## Recording on a PC
 
 Once, from a copy of this repository, install the reader as a service of your user. It starts at

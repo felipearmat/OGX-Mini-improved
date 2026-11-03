@@ -143,3 +143,11 @@ def test_link_readings_and_the_log_cost(tmp_path):
     assert "slot 0 rssi -7 channels 20/79 failed contacts 4" in log
     assert "log hooks 0.300% of a core, longest 20.0 us" in log
     assert "# slot 0 rssi: min -7, median -3, max -3 (2 readings)" in log
+
+
+def test_command_bytes_and_their_acknowledgement(tmp_path):
+    cmd = probe.command(probe.CMD_OPTIONS, 2, 1)
+    assert cmd[:4] == b"OGX!" and len(cmd) == 8 and sum(cmd[4:]) % 256 == 0
+    frames = [hello(1_000_000), frame(probe.ACK, 1_100_000, bytes([probe.CMD_OPTIONS, 2, 1]))]
+    (log,) = run(tmp_path, frames)
+    assert "command done: log options 2 1" in log

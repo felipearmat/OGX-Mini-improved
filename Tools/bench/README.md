@@ -63,7 +63,9 @@ by the host, each controller's reports), each controller report later than 50 ms
 connects again), rumble on / off, and at the end each controller's longest gap, the input-to-output
 latency and the probe's own cost (the adapter measures it: about 0.1% of a core on a Pico 2 W). The adapter sends only raw records
 (Board/DebugProbe.h); the figures are worked out here. It holds RTS on and DTR off, which keeps an
-ESP32 board used as the reader in reset.
+ESP32 board used as the reader in reset. With the reader's TX wired to GP5, `--send O LEVEL DETAILED`
+sets the log options live and `--send M MODE` changes the output mode, in any mode (commands for
+automated tests, [Debug mode](../../Firmware/RP2040/docs/Debug_Mode.md#commands-to-the-adapter-automated-tests)).
 
 `run_bench.py` flashes each build (the Pico through its own USB port, the hybrid's ESP32 through
 the Pico's bridge) and runs the tests on it. The tests restore the settings and colours they

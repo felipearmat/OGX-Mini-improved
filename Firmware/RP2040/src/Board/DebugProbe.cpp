@@ -26,6 +26,11 @@ constexpr uint32_t kSize = 4 * 1024;
 constexpr uint32_t kHeader = 8;
 constexpr uint32_t kHelloEveryUs = 1000000;
 constexpr uint kPin = OGXM_DEBUG_UART_TX_PIN;
+#if defined(OGXM_DEBUG_UART_RX_PIN) && OGXM_DEBUG_UART_RX_PIN >= 0
+constexpr int kRxPin = OGXM_DEBUG_UART_RX_PIN;
+#else
+constexpr int kRxPin = -1;
+#endif
 /* UART TX pins: uart0 on GP0 / 12 / 16 / 28, uart1 on GP4 / 8 / 20 / 24 (CMake checks the pin). */
 uart_inst_t* uart() { return ((kPin + 4) >> 3) & 1 ? uart1 : uart0; }
 
@@ -40,6 +45,37 @@ int s_dma = -1;
 bool s_ready = false, s_failed = false, s_hello_sent = false;
 uint32_t s_cost_cycles = 0, s_cost_max = 0, s_cost_frames = 0;  // this second, under the lock
 uint32_t s_log_cycles = 0, s_log_max = 0;  // the activity log's hooks this second, under the lock
+uint8_t s_rx[8];             // the command being received
+uint8_t s_rx_len = 0;
+probe_command_t s_command{};  // the last whole command, until taken
+bool s_command_ready = false;
+constexpr uint8_t kMagic[4] = {'O', 'G', 'X', '!'};
+
+/* Reads what the PC sent (the RX FIFO holds 32 bytes; called often). Under the lock. */
+void poll_rx()
+{
+    if (kRxPin < 0 || !s_ready) return;
+    while (uart_is_readable(uart())) {
+        const uint8_t c = static_cast<uint8_t>(uart_get_hw(uart())->dr);
+        if (s_rx_len < sizeof(kMagic)) {
+            if (c == kMagic[s_rx_len]) {
+                s_rx[s_rx_len++] = c;
+            } else {
+                s_rx_len = c == kMagic[0] ? 1 : 0;
+                s_rx[0] = c;
+            }
+            continue;
+        }
+        s_rx[s_rx_len++] = c;
+        if (s_rx_len == sizeof(s_rx)) {
+            s_rx_len = 0;
+            if (static_cast<uint8_t>(s_rx[4] + s_rx[5] + s_rx[6] + s_rx[7]) == 0) {
+                s_command = probe_command_t{s_rx[4], s_rx[5], s_rx[6]};
+                s_command_ready = true;
+            }
+        }
+    }
+}
 
 /* Cycles: each core's SysTick (24 bits, counting down at the CPU clock), started by the first frame
  * on that core. Nothing else here uses SysTick. */
@@ -78,6 +114,10 @@ bool ready()
     }
     uart_init(uart(), OGXM_PROBE_BAUD);
     gpio_set_function(kPin, GPIO_FUNC_UART);
+    if (kRxPin >= 0) {
+        gpio_pull_up(static_cast<uint>(kRxPin));  // nothing attached reads idle, not noise
+        gpio_set_function(static_cast<uint>(kRxPin), GPIO_FUNC_UART);
+    }
     dma_channel_config c = dma_channel_get_default_config(static_cast<uint>(s_dma));
     channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
     channel_config_set_read_increment(&c, true);
@@ -188,8 +228,28 @@ extern "C" void __not_in_flash_func(probe_log_cost)(uint32_t start_cycles)
     if (spent > s_log_max) s_log_max = spent;
 }
 
+extern "C" bool probe_take_command(probe_command_t* out)
+{
+    Guard g;
+    poll_rx();
+    if (!s_command_ready) return false;
+    *out = s_command;
+    s_command_ready = false;
+    return true;
+}
+
+extern "C" void probe_ack(const probe_command_t* command)
+{
+    const uint8_t p[3] = {command->cmd, command->a, command->b};
+    frame(PROBE_ACK, p, sizeof(p), nullptr, 0);  // whatever the log options are
+}
+
 extern "C" void probe_tick(void)
 {
+    {
+        Guard g;
+        poll_rx();  // also with the log turned off since: the channel stays
+    }
     if (!on()) return;
     const uint32_t now = time_us_32();
     if (!s_hello_sent || now - s_hello_us >= kHelloEveryUs) {  // the first one at once: a reader opens its file on it

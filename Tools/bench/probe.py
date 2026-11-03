@@ -26,7 +26,14 @@ from serial.tools import list_ports
 
 BAUD = 921600
 SYNC = 0xA5
-HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND, LINK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND, LINK, ACK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+# Commands to the adapter (Board/DebugProbe.h), on the reader's TX wired to the probe's RX pin.
+CMD_OPTIONS, CMD_MODE = ord("O"), ord("M")
+
+
+def command(cmd, a=0, b=0):
+    """The 8 bytes of a command: "OGX!", command, a, b, check."""
+    return b"OGX!" + bytes([cmd, a, b, (-(cmd + a + b)) & 0xFF])
 # The controllers' own clocks (diag::PadClock): nominal µs per count, counter size, and the longest
 # pause the counter still bridges (half a wrap); the real rate is fitted per session.
 CLOCKS = {1: ("Switch timer", 5000.0, 1 << 8), 2: ("DS4", 16 / 3, 1 << 16), 3: ("DualSense", 1 / 3, 1 << 32)}
@@ -328,6 +335,9 @@ class Session:
                     self.log_cost = (log_cycles * 100 / hz, log_most * 1e6 / hz)
                     self.log_cost_max[0] = max(self.log_cost_max[0], self.log_cost[0])
                     self.log_cost_max[1] = max(self.log_cost_max[1], self.log_cost[1])
+        elif ftype == ACK and len(payload) >= 3:
+            what = {CMD_OPTIONS: "log options", CMD_MODE: "mode"}.get(payload[0], chr(payload[0]))
+            self.out(f"{self.stamp(t_us)} command done: {what} {payload[1]} {payload[2]}")
         elif ftype == LINK and len(payload) >= 6:
             slot, what = payload[0], payload[1]
             a, b = struct.unpack_from("<hH", payload, 2)
@@ -424,6 +434,9 @@ def main():
     ap.add_argument("--idle", type=float, default=5.0, help="seconds without data that end a session")
     ap.add_argument("--quiet", action="store_true", help="no output on the terminal")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = run until stopped)")
+    ap.add_argument("--send", nargs=3, metavar=("CMD", "A", "B"),
+                    help="send one command first (needs the reader's TX on the probe's RX pin): "
+                         "O LEVEL DETAILED sets the log options live, M MODE changes the output mode")
     args = ap.parse_args()
 
     dec = Decoder()
@@ -451,6 +464,9 @@ def main():
                 if not args.quiet:
                     say(f"reading {path}")
                 warned = False
+                if args.send:
+                    port.write(command(ord(args.send[0][0]), int(args.send[1]), int(args.send[2])))
+                    args.send = None
             try:
                 data = port.read(65536)
             except serial.SerialException:
