@@ -192,8 +192,8 @@ namespace bt_pad {
             }
         }
 
-        /* DualSense: start with adaptive triggers off (the touchpad press toggles them where
-         * the platform supports it). */
+        /* DualSense: start with adaptive triggers off (a pad keeps the effect a game or an
+         * earlier host left on it). */
         if (d->controller_type == CONTROLLER_TYPE_PS5Controller) {
             ds5_adaptive_trigger_effect_t off = ds5_new_adaptive_trigger_effect_off();
             ds5_set_adaptive_trigger_effect(d, UNI_ADAPTIVE_TRIGGER_TYPE_LEFT, &off);

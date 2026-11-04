@@ -257,20 +257,12 @@ static void gpio_process_timer_cb(btstack_timer_source_t* ts) {
     btstack_run_loop_add_timer(ts);
 }
 
-// PS5: touchpad click toggles adaptive triggers (per-controller state)
-static bool adaptive_trigger_enabled_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
-static bool prev_touchpad_clicked_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
-// Defer sending adaptive trigger effect out of BT callback to avoid l2cap_send in callback (reduces input lag)
-static bool pending_adaptive_trigger_send_[CONFIG_BLUEPAD32_MAX_DEVICES]{false};
 /* Regression guard: these are indexed by Bluetooth slot (see the comment on the per-pad state
  * arrays above); a pad in slot 1 wrote past them when they were sized MAX_GAMEPADS. */
 template <typename T, size_t N>
 constexpr size_t bt_slots_of(const T (&)[N]) { return N; }
 static_assert(bt_slots_of(s_disconnect_combo) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 static_assert(bt_slots_of(s_ps4_rumble_ok_ms) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
-static_assert(bt_slots_of(adaptive_trigger_enabled_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
-static_assert(bt_slots_of(prev_touchpad_clicked_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
-static_assert(bt_slots_of(pending_adaptive_trigger_send_) >= CONFIG_BLUEPAD32_MAX_DEVICES, "sized per BT slot");
 
 bool any_connected()
 {
@@ -937,8 +929,6 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     s_disconnect_combo[idx].reset();
     s_ps4_rumble_ok_ms[idx] = 0;
     s_lightbar_applied[idx] = Lightbar();
-    prev_touchpad_clicked_[idx] = false;
-    pending_adaptive_trigger_send_[idx] = false;
     /* Never clear PadIn for an OGX slot owned by USB (BT idx often equals USB pad 0). */
     const int out_for_reset = bt_pad::output_idx(device);
     const int pad_for_reset =
@@ -1136,7 +1126,6 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
 
     /* Player LED, Wiimote held upright, DualSense adaptive triggers off (Bluepad32/BtPad.h). */
     bt_pad::setup_on_ready(device, static_cast<uint8_t>(pad_idx), MotionOutputActive::is_enabled());
-    adaptive_trigger_enabled_[pad_idx] = false;  // the touchpad press toggles them
 
     /* Custom: the LED timer keeps running: check_led_cb shows the search state (solid once the
      * search stops, after the boot mode blink code). */
@@ -1289,41 +1278,11 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     }
 #endif
 
-    // PS5: defer adaptive trigger send to main loop so callback never does l2cap_send (reduces input lag)
-    if (device->controller_type == CONTROLLER_TYPE_PS5Controller && idx >= 0 && idx < static_cast<int>(MAX_GAMEPADS)) {
-        bool touchpad_clicked = (uni_gp->misc_buttons & MISC_BUTTON_CAPTURE) != 0;
-        if (touchpad_clicked && !prev_touchpad_clicked_[idx]) {
-            adaptive_trigger_enabled_[idx] = !adaptive_trigger_enabled_[idx];
-            pending_adaptive_trigger_send_[idx] = true;
-        }
-        prev_touchpad_clicked_[idx] = touchpad_clicked;
-    }
 }
 
 const uni_property_t* get_property_cb(uni_property_idx_t idx) 
 {
     return nullptr;
-}
-
-void process_pending_adaptive_triggers()
-{
-    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
-        if (!pending_adaptive_trigger_send_[i])
-            continue;
-        pending_adaptive_trigger_send_[i] = false;
-        uni_hid_device_t* device = uni_hid_device_get_instance_for_idx(static_cast<int>(i));
-        if (!device || device->controller_type != CONTROLLER_TYPE_PS5Controller)
-            continue;
-        if (adaptive_trigger_enabled_[i]) {
-            ds5_adaptive_trigger_effect_t on = ds5_new_adaptive_trigger_effect_feedback(5, 4);
-            ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_LEFT, &on);
-            ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &on);
-        } else {
-            ds5_adaptive_trigger_effect_t off = ds5_new_adaptive_trigger_effect_off();
-            ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_LEFT, &off);
-            ds5_set_adaptive_trigger_effect(device, UNI_ADAPTIVE_TRIGGER_TYPE_RIGHT, &off);
-        }
-    }
 }
 
 uni_platform* get_driver() 

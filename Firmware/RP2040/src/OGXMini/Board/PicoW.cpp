@@ -310,7 +310,6 @@ static void gpio_device_process_cb(void* ctx) {
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
             s_gpio_device_driver->process(i, _gamepads[i]);
         }
-        bluepad32::process_pending_adaptive_triggers();
     }
 }
 
@@ -614,7 +613,6 @@ void pico_w::run() {
         for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
             device_driver->process(i, _gamepads[i]);
         }
-        bluepad32::process_pending_adaptive_triggers();
 #if defined(CONFIG_EN_USB_HOST)
         InputSlot::poll_perf_log();
 #endif
