@@ -410,7 +410,7 @@ extern "C" void uni_diag_on_output_queued(struct uni_hid_device_s* d, uint8_t dr
         ++s_queued[slot];
     const uint32_t now_ms = btstack_run_loop_get_time_ms();
     if (now_ms - s_last_ms[slot] >= 1000) {
-        diag::event(now_ms, "slot %d: %u output reports waited for the radio, %u lost (queue full)", slot,
+        diag::event(now_ms, "slot %d out: %u waited for the radio, %u lost", slot,
                     static_cast<unsigned>(s_queued[slot]), static_cast<unsigned>(s_lost[slot]));
         s_queued[slot] = 0;
         s_lost[slot] = 0;

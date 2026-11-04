@@ -1,0 +1,41 @@
+--- a/src/components/bluepad32/uni_hid_device.c
++++ b/src/components/bluepad32/uni_hid_device.c
+@@ -938,7 +938,12 @@
+         return;
+     }
+ 
+-    int err = l2cap_send(cid, (uint8_t*)report, len);
++    // OGX-Mini-improved fix: keep the reports in order. With reports already queued, one that
++    // found the radio free went out ahead of them, and they followed it late: a Switch pad played
++    // a stale HD Rumble block after the newer one, or after the stop (a buzz at the end of a
++    // vibration, 2026-11-04). It waits behind them instead.
++    int err = uni_circular_buffer_is_empty(&d->outgoing_buffer) ? l2cap_send(cid, (uint8_t*)report, len)
++                                                                : BTSTACK_ACL_BUFFERS_FULL;
+     if (err != 0) {
+         logd("Could not send report (error=0x%04x). Adding it to queue\n", err);
+         if (len > HID_MAX_OUTGOING_REPORT_LEN) {
+@@ -989,6 +994,13 @@
+         return;
+     }
+ 
++    // OGX-Mini-improved fix: the oldest report leaves the queue only when the radio takes it, so it
++    // keeps its place (sending it through uni_hid_device_send_report put it back at the end when
++    // the radio was still busy, behind the newer ones).
++    if (!l2cap_can_send_packet_now(d->conn.interrupt_cid)) {
++        l2cap_request_can_send_now_event(d->conn.interrupt_cid);
++        return;
++    }
+     uint8_t data[HID_MAX_OUTGOING_REPORT_LEN];
+     int data_len;
+     int16_t cid;
+@@ -996,7 +1008,9 @@
+         loge("ERROR: could not get buffer from circular buffer.\n");
+         return;
+     }
+-    uni_hid_device_send_report(d, cid, data, (uint16_t)data_len);
++    l2cap_send(cid, data, (uint16_t)data_len);
++    if (!uni_circular_buffer_is_empty(&d->outgoing_buffer))
++        l2cap_request_can_send_now_event(d->conn.interrupt_cid);
+ }
+ 
+ bool uni_hid_device_does_require_hid_descriptor(const uni_hid_device_t* d) {
