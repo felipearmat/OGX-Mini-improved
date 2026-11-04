@@ -718,6 +718,17 @@ void BTManager::hd_timer_cb(btstack_timer_source *ts)
     {
         const bool plays = switch_mode && bt_manager.output_plays_hd_rumble(out);
         polling |= plays;
+        /* In the log when it changes: the mode, whether a pad here plays HD Rumble, the poll. */
+        static uint16_t s_state[MAX_GAMEPADS] = {0xFFFF};
+        const bool pad_plays = bt_manager.output_plays_hd_rumble(out);
+        const uint16_t state = static_cast<uint16_t>(static_cast<uint8_t>(UserSettings::get_instance().get_current_driver()) << 2 |
+                                                     (pad_plays ? 2 : 0) | (plays ? 1 : 0));
+        if (state != s_state[out])
+        {
+            s_state[out] = state;
+            bt_manager.diag_event("output %u: mode %u, HD Rumble pad %s, poll %s", static_cast<unsigned>(out),
+                                  static_cast<unsigned>(state >> 2), pad_plays ? "yes" : "no", plays ? "on" : "off");
+        }
         if (plays && !bt_manager.hd_read_pending_[out].exchange(true))
         {
             bt_manager.i2c_driver_.read_hd_rumble(slave_addr(out), out, bt_manager.hd_rx_[out],

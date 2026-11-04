@@ -148,11 +148,6 @@ static_assert(FEEDBACK_TIME_MS == switch_rumble::kFeedbackPeriodMs, "keep Gamepa
 static constexpr uint32_t LED_CHECK_TIME_MS = 500;
 /** Idle pairing health check — restarts BR/LE scan if they died during long USB suspend (e.g. 360 standby). */
 static constexpr uint32_t PAIRING_WATCHDOG_MS = 45000;
-/** If no HID input report reaches us for this long while "connected", the BT link is zombie
- *  (L2CAP stops delivering; OG Xbox then holds last USB report). Force disconnect so user can reconnect. */
-static constexpr uint32_t BT_INPUT_STALL_DISCONNECT_MS = 8000;
-
-static uint32_t s_last_bt_input_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bt_pad::KeepaliveState s_ble_keepalive[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 /* Custom fix: the per-pad state arrays below are indexed both by OGX pad and by Bluetooth slot
  * (disconnect callback, feedback loop). They were sized MAX_GAMEPADS (1), so a pad in slot 1 (the
@@ -938,7 +933,6 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
 #if defined(CONFIG_TARGET_PICO_W) && defined(CONFIG_EN_USB_HOST)
     s_bt_any_connected_cached.store(any_other_connected, std::memory_order_release);
 #endif
-    s_last_bt_input_ms[idx] = 0;
     s_ble_keepalive[idx] = bt_pad::KeepaliveState{};
     s_disconnect_combo[idx].reset();
     s_ps4_rumble_ok_ms[idx] = 0;
@@ -1135,7 +1129,6 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     apply_scan_policy(-1, true);  // Custom: a pad is ready
     const uint32_t tnow = to_ms_since_boot(get_absolute_time());
     /* pad_idx already resolved above to avoid USB-owned OGX slots. */
-    s_last_bt_input_ms[pad_idx] = tnow;
     s_disconnect_combo[pad_idx].reset(tnow + bt_pad::kDisconnectComboGraceMs);
     if (device->controller_type == CONTROLLER_TYPE_PS4Controller)
         s_ps4_rumble_ok_ms[pad_idx] = tnow + bt_pad::host_rumble_grace_ms(device);
@@ -1204,9 +1197,6 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     {
         const uint32_t now_cb = to_ms_since_boot(get_absolute_time());
         idle_note_input(idx, uni_gp, now_cb);  // Custom: idle turn-off
-        s_last_bt_input_ms[static_cast<unsigned>(idx)] = now_cb;
-        if (bt_slot >= 0 && bt_slot < CONFIG_BLUEPAD32_MAX_DEVICES && bt_slot != idx)
-            s_last_bt_input_ms[static_cast<unsigned>(bt_slot)] = now_cb;
     }
 
     /* USB-owned OGX pad must not receive Bluetooth PadIn (MAX_GAMEPADS=1 collision). */
