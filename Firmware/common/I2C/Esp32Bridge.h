@@ -106,6 +106,8 @@ namespace Esp32Bridge
         static constexpr uint8_t JOYCON_RIGHT   = 0x08;  // motion from a right Joy-Con
         static constexpr uint8_t JOYCON_PAIRED  = 0x10;  // ... merged with its other half
         static constexpr uint8_t GYRO_SCALED    = 0x20;  // gyro divided by gyro_wire_div() (below)
+        static constexpr uint8_t BATTERY_CHARGING = 0x40;  // battery: on a charger (PadBattery.h for_host)
+        static constexpr uint8_t BATTERY_CRITICAL = 0x80;  // ... a half at critical, not charging: the LED alert
 
         uint8_t  packet_len{sizeof(PacketInExt)};
         PacketID packet_id{PacketID::SET_PAD_EXT};
@@ -115,7 +117,7 @@ namespace Esp32Bridge
         int16_t  gyro[3]{};         // with GYRO_SCALED: Bluepad32 units / gyro_wire_div(), saturated
         uint8_t  touch_raw[8]{};    // DS4 / DualSense touch points, as Bluepad32 reports them
         uint8_t  flags{0};
-        uint8_t  battery{0};        // Bluepad32 scale (0 = unknown, 1..255)
+        uint8_t  battery{0};        // Bluepad32 scale (0 = unknown, 1..255): for_host's level (lower Joy-Con half)
         uint8_t  reserved[6]{};
     };
     static_assert(sizeof(PacketInExt) == 32, "Esp32Bridge::PacketInExt must stay 32 bytes");

@@ -95,6 +95,7 @@ void BTManager::device_disconnected_cb(uni_hid_device_t* device)
     slot.host_rumble_ok_ms = 0;
     slot.battery_sent = 0;
     slot.battery_low_logged = false;
+    bt_pad::health_on_gone(idx);  // its battery and input watch go with it, as on the Pico W
     diag::slot_disconnected(static_cast<size_t>(idx), btstack_run_loop_get_time_ms());
     diag_event("slot %d disconnected", idx);
 
@@ -181,6 +182,7 @@ uni_error_t BTManager::device_ready_cb(uni_hid_device_t* device)
     apply_scan(false, true);  // a pad is ready
 
     bt_pad::setup_on_ready(device, static_cast<uint8_t>(output), motion_output_);
+    bt_pad::health_on_ready(device);  // a Switch pad must now stream its input, as on the Pico W
     schedule_mode_lightbar(device, idx);
     bt_pad::play_connection_rumble(device);
     return UNI_ERROR_SUCCESS;
@@ -246,15 +248,21 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
             ext.flags |= I2CDriver::PacketInExt::JOYCON_PAIRED;
         }
     }
-    ext.battery = bp_device->controller.battery;
-    if (ext.battery != slots_[idx].battery_sent && ext.battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
+    /* The battery for the host, charging and critical included, as on the Pico W (Bluepad32/BtPad.h
+     * host_battery: a Joy-Con pair gives its lower half). */
+    const pad_battery::ForHost host_bat = bt_pad::host_battery(bp_device);
+    ext.battery = host_bat.level;
+    if (host_bat.charging) ext.flags |= I2CDriver::PacketInExt::BATTERY_CHARGING;
+    if (host_bat.critical) ext.flags |= I2CDriver::PacketInExt::BATTERY_CRITICAL;
+    const uint8_t bp32_battery = bp_device->controller.battery;
+    if (bp32_battery != slots_[idx].battery_sent && bp32_battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
     {
-        slots_[idx].battery_sent = ext.battery;
-        diag::slot_battery(static_cast<size_t>(idx), ext.battery);
-        if (bt_pad::battery_low(ext.battery) && !slots_[idx].battery_low_logged)
+        slots_[idx].battery_sent = bp32_battery;
+        diag::slot_battery(static_cast<size_t>(idx), bp32_battery);
+        if (bt_pad::battery_low(bp32_battery) && !slots_[idx].battery_low_logged)
         {
             slots_[idx].battery_low_logged = true;
-            diag_event("slot %d battery low (%u/255)", idx, static_cast<unsigned>(ext.battery));
+            diag_event("slot %d battery low (%u/255)", idx, static_cast<unsigned>(bp32_battery));
         }
     }
 

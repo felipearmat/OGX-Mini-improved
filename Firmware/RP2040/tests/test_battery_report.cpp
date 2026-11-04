@@ -66,6 +66,26 @@ TEST(a_pair_gives_its_lower_half_and_critical_needs_no_charger) {
     CHECK(!pad_battery::for_pad(3, -1).known);
 }
 
+TEST(for_host_is_what_the_pico_w_and_the_esp32_send) {
+    // One function for both boards (Bluepad32/BtPad.h host_battery): level, charging, critical.
+    for (int i = 0; i < 8; ++i) pad_battery::clear(i);
+    pad_battery::ForHost h = pad_battery::for_host(0, 1, 200);
+    CHECK_EQ(h.level, 200);  // nothing from the reports yet: Bluepad32's level
+    CHECK(!h.charging && !h.critical);
+    CHECK(!pad_battery::any_critical());
+    pad_battery::set(0, 65, diag::BatteryState::CHARGING);
+    pad_battery::set(1, 10, diag::BatteryState::DISCHARGING);
+    h = pad_battery::for_host(0, 1, 200);
+    CHECK_EQ(h.level, pad_battery::to_255(10));  // the lower half
+    CHECK(!h.charging);                          // ... which is off its charger
+    CHECK(h.critical);
+    CHECK(pad_battery::for_host(0, -1, 0).charging);    // the left half alone
+    CHECK(!pad_battery::for_host(0, -1, 0).critical);
+    CHECK(pad_battery::any_critical());
+    pad_battery::clear(1);  // the critical half went
+    CHECK(!pad_battery::any_critical());
+}
+
 TEST(a_quiet_switch_pad_is_asked_again_then_dropped) {
     // 2026-11-04: a Joy-Con (R) finished its setup twice and stayed at 3-4 reports a second.
     namespace iw = input_watch;

@@ -19,7 +19,10 @@
 
 #include "Bluepad32/ComboHold.h"
 #include "Bluepad32/DropPolicy.h"
+#include "Bluepad32/InputWatch.h"
 #include "Bluepad32/JoyConSettings.h"
+#include "Bluepad32/PadBattery.h"
+#include "Diagnostics/Diagnostics.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
 #include "Gamepad/Ps5Core.h"
@@ -542,6 +545,61 @@ namespace bt_pad {
                 in.buttons |= map.MAP_BUTTON_MISC;
         }
         return in;
+    }
+
+    inline bool is_switch_pad(const uni_hid_device_t* d)
+    {
+        return d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft ||
+               d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+               d->controller_type == CONTROLLER_TYPE_SwitchProController;
+    }
+
+    /* Pad health, the same on every board that runs Bluepad32 (the Pico W / Pico 2 W and the
+     * hybrid's ESP32): the platform calls on_ready / on_gone from its callbacks and quiet_check
+     * from its feedback timer. A Switch pad that finished its setup must stream its input
+     * (Bluepad32/InputWatch.h); a pad that goes takes its battery with it (Bluepad32/PadBattery.h:
+     * the host's level, the status LED alert). Times: btstack_run_loop_get_time_ms(). */
+    inline void health_on_ready(uni_hid_device_t* d)
+    {
+        const int idx = uni_hid_device_get_idx_for_instance(d);
+        if (idx >= 0 && is_switch_pad(d))
+            input_watch::on_ready(idx, btstack_run_loop_get_time_ms());
+    }
+
+    inline void health_on_gone(int idx)
+    {
+        pad_battery::clear(idx);
+        input_watch::clear(idx);
+    }
+
+    /* A Switch pad ready but quiet: ask it again for its input, then drop its link to reconnect. */
+    inline void quiet_check(uint32_t now_ms)
+    {
+        for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
+            uint32_t reports = 0;
+            const input_watch::Action act = input_watch::check(i, now_ms, &reports);
+            if (act == input_watch::Action::NONE)
+                continue;
+            uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+            if (!d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
+                continue;
+            if (act == input_watch::Action::ASK_AGAIN) {
+                diag::event(now_ms, "slot %d: ready but %lu reports in %lu ms, asking for input again", i,
+                            static_cast<unsigned long>(reports), static_cast<unsigned long>(input_watch::kGraceMs));
+                uni_hid_parser_switch_set_standard_report_mode(d);
+            } else {
+                diag::event(now_ms, "slot %d: still quiet (%lu reports), dropping its link to reconnect", i,
+                            static_cast<unsigned long>(reports));
+                uni_hid_device_disconnect(d);
+            }
+        }
+    }
+
+    /* The battery for the host, charging included (Bluepad32/PadBattery.h for_host): a Joy-Con pair
+     * gives its lower half; else Bluepad32's level. */
+    inline pad_battery::ForHost host_battery(uni_hid_device_t* d)
+    {
+        return pad_battery::for_host(uni_hid_device_get_idx_for_instance(d), pair_partner_idx(d), d->controller.battery);
     }
 
 } // namespace bt_pad

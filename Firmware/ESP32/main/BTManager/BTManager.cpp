@@ -238,9 +238,25 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
         const status_led::Search search = !searching ? status_led::Search::NONE
                                         : reduced ? status_led::Search::REDUCED
                                         : status_led::Search::FULL;
-        bool on = false;
-        if (s_led.step(search, on, next_ms))
+        /* A controller's battery at critical, not charging: the quick blinks, in dim red on an
+         * RGB LED, as on the Pico W (Bluepad32/PadBattery.h, Board/StatusLed.h). */
+        static status_led::AlertColour s_alert_colour;
+        bool on = false, alert = false;
+        if (s_led.step(search, pad_battery::any_critical(), on, next_ms, alert))
         {
+            if (s_alert_colour.changed(alert))
+            {
+                if (alert)
+                {
+                    board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
+                }
+                else
+                {
+                    uint8_t r, g, b;
+                    mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
+                    board_api::set_led_color(r, g, b);
+                }
+            }
             board_api::set_led(on);
         }
     }
@@ -766,6 +782,7 @@ void BTManager::feedback_timer_cb(btstack_timer_source *ts)
             }
         }
     }
+    bt_pad::quiet_check(now_ms);  // a quiet Switch pad, as on the Pico W (Bluepad32/BtPad.h)
     bt_manager.apply_scan(false, false);  // also catches a Joy-Con pair completed after device_ready
     link_diag::query(now_ms, [](int slot)
         {

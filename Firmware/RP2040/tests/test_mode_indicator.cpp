@@ -229,3 +229,16 @@ TEST(status_led_battery_alert_five_quick_blinks_then_four_seconds_as_usual) {
         CHECK(!alert);
     }
 }
+
+TEST(status_led_alert_colour_stays_dim_and_is_written_once) {
+    // Red scaled by the brightness to at most kAlertLevel (the same on every board).
+    CHECK_EQ(status_led::alert_red(0), 255);
+    CHECK_EQ(status_led::alert_red(status_led::kAlertLevel), 255);
+    CHECK_EQ(status_led::alert_red(255), static_cast<uint8_t>(255u * status_led::kAlertLevel / 255));
+    CHECK(status_led::alert_red(255) * 255u / 255u <= status_led::kAlertLevel);
+    status_led::AlertColour c;
+    CHECK(!c.changed(false));
+    CHECK(c.changed(true));
+    CHECK(!c.changed(true));
+    CHECK(c.changed(false));
+}

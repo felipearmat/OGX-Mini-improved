@@ -187,29 +187,6 @@ static void idle_note_input(int idx, const uni_gamepad_t* gp, uint32_t now_ms) {
     s_idle[idx].note_input(gp, now_ms, FEEDBACK_TIME_MS + 100);
 }
 
-/* Custom: a Switch pad ready but quiet: ask it again for its input, then drop its link
- * (Bluepad32/InputWatch.h). From the feedback timer, with the idle check. */
-static void quiet_check(uint32_t now_ms) {
-    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
-        uint32_t reports = 0;
-        const input_watch::Action act = input_watch::check(i, now_ms, &reports);
-        if (act == input_watch::Action::NONE)
-            continue;
-        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-        if (!bt_devices_[i].connected || !d || d->conn.handle == UNI_BT_CONN_HANDLE_INVALID)
-            continue;
-        if (act == input_watch::Action::ASK_AGAIN) {
-            diag::event(now_ms, "slot %d: ready but %lu reports in %lu ms, asking for input again", i,
-                        static_cast<unsigned long>(reports), static_cast<unsigned long>(input_watch::kGraceMs));
-            uni_hid_parser_switch_set_standard_report_mode(d);
-        } else {
-            diag::event(now_ms, "slot %d: still quiet (%lu reports), dropping its link to reconnect", i,
-                        static_cast<unsigned long>(reports));
-            uni_hid_device_disconnect(d);
-        }
-    }
-}
-
 static void idle_check(uint32_t now_ms) {
     const uint8_t minutes = dongle_settings::get().idle_off_minutes;
     for (int idx = 0; idx < static_cast<int>(MAX_GAMEPADS); ++idx) {
@@ -531,7 +508,7 @@ static void send_feedback_cb(btstack_timer_source *ts)
     diag::tick(now_ms);
     link_diag::query(now_ms, bt_slot_connected);  // Bluepad32/LinkDiag, shared with the ESP32
     idle_check(now_ms);
-    quiet_check(now_ms);
+    bt_pad::quiet_check(now_ms);  // Custom: a quiet Switch pad (Bluepad32/BtPad.h, shared with the ESP32)
     apply_scan_policy(-1);  // Custom: also catches a Joy-Con pair completed after device_ready
     if (feedback_timer_set_)
 	{
@@ -582,21 +559,14 @@ static void check_led_cb(btstack_timer_source *ts)
                                     : status_led::Search::FULL;
     /* Custom: a connected controller's battery at "critical", not charging (Bluepad32/PadBattery.h):
      * the status LED adds its quick blinks, in dim red on an RGB LED. */
-    bool critical = false;
-    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
-        if (bt_devices_[i].connected && pad_battery::table(i) && pad_battery::critical(*pad_battery::table(i)))
-            critical = true;
-    static bool s_alerting = false;
+    const bool critical = pad_battery::any_critical();
+    static status_led::AlertColour s_alert_colour;
     bool on = false, alert = false;
     uint32_t next_ms = 0;
     if (s_led.step(search, critical, on, next_ms, alert)) {
-        if (alert != s_alerting) {
-            s_alerting = alert;
+        if (s_alert_colour.changed(alert)) {
             if (alert) {
-                /* Bright red at no more than a low brightness, whatever the LEDs' setting. */
-                const uint8_t level = options.status_led_brightness ? options.status_led_brightness : 1;
-                constexpr uint8_t kAlertLevel = 24;
-                board_api::set_led_color(static_cast<uint8_t>(level <= kAlertLevel ? 255 : 255 * kAlertLevel / level), 0, 0);
+                board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
             } else {
                 uint8_t r, g, b;
                 mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
@@ -957,8 +927,7 @@ static void device_disconnected_cb(uni_hid_device_t* device) {
     s_bt_slot_was_ready[idx] = false;
 
     bt_devices_[idx].connected = false;
-    pad_battery::clear(idx);  // Custom: its battery goes with it (status LED alert, the host)
-    input_watch::clear(idx);
+    bt_pad::health_on_gone(idx);  // Custom: its battery and input watch go with it (Bluepad32/BtPad.h)
     bool any_other_connected = false;
     for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
         if (bt_devices_[i].connected) {
@@ -1132,11 +1101,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
                     device->product_id, le ? "LE" : "Classic", device->name);
     }
     s_bt_slot_was_ready[idx] = true;
-    /* Custom: a Switch pad that finished its setup must now stream its input (Bluepad32/InputWatch.h). */
-    if (device->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft ||
-        device->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
-        device->controller_type == CONTROLLER_TYPE_SwitchProController)
-        input_watch::on_ready(idx, to_ms_since_boot(get_absolute_time()));
+    bt_pad::health_on_ready(device);  // Custom: a Switch pad must now stream its input (Bluepad32/BtPad.h)
     flydigi_apex4_bt_on_ready(device);
     gamesir_cyclone2_bt_on_ready(device);
 #if defined(CONFIG_OGXM_DEBUG)

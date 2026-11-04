@@ -40,10 +40,9 @@ namespace bt_pad {
         /* Custom: the battery for the host, charging included, from the pad's own reports when
          * known (Bluepad32/PadBattery.h): a Joy-Con pair gives the lower half. Else Bluepad32's
          * level. */
-        const pad_battery::State bat = pad_battery::for_pad(uni_hid_device_get_idx_for_instance(device),
-                                                            pair_partner_idx(device));
-        gp_in.battery = bat.known ? pad_battery::to_255(bat.percent) : device->controller.battery;
-        gp_in.battery_charging = bat.known && pad_battery::charging(bat.state) ? 1 : 0;
+        const pad_battery::ForHost bat = host_battery(device);  // the same on the hybrid's ESP32
+        gp_in.battery = bat.level;
+        gp_in.battery_charging = bat.charging ? 1 : 0;
         return gp_in;
     }
 

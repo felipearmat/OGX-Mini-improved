@@ -27,6 +27,31 @@ namespace status_led {
     static constexpr uint32_t kAlertOffMs = 110;
     static constexpr uint8_t kAlertBlinks = 5;
     static constexpr uint32_t kAlertEveryMs = 4000; // ...then this long as usual
+    static constexpr uint8_t kAlertLevel = 24;      // the alert's red at no more than this brightness
+
+    /* The alert's red on an RGB LED for the LEDs' brightness setting (0 read as 1): full red that
+     * the brightness scales down to at most kAlertLevel, so it stays dim whatever the setting. */
+    constexpr uint8_t alert_red(uint8_t brightness)
+    {
+        const uint8_t level = brightness ? brightness : 1;
+        return static_cast<uint8_t>(level <= kAlertLevel ? 255 : 255u * kAlertLevel / level);
+    }
+
+    /* When the alert starts or ends, so each board writes its colour once (alert_red, or back to
+     * the mode's colour). */
+    class AlertColour
+    {
+    public:
+        bool changed(bool alert)
+        {
+            if (alert == alerting_) return false;
+            alerting_ = alert;
+            return true;
+        }
+
+    private:
+        bool alerting_ = false;
+    };
 
     class Blinker
     {

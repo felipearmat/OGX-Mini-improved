@@ -140,6 +140,10 @@ static DeviceDriverType _current_driver = DeviceDriverType::NONE;
 /* Motion, touchpad and battery of the ESP32's pads (SET_PAD_EXT), applied with the next SET_PAD;
  * the Wiimote's pseudo gyro keeps state per output. */
 static PacketInExt _pad_ext[MAX_GAMEPADS];
+/* Until when each pad's last report said "battery critical" (SET_PAD_EXT BATTERY_CRITICAL): the
+ * status LED alert. A pad that goes sends no more reports, so its alert ends by itself. */
+static uint32_t _pad_critical_until_ms[MAX_GAMEPADS]{};
+static constexpr uint32_t kPadCriticalHoldMs = 2000;
 static MotionImu::WiiPseudoGyroState _wii_gyro[MAX_GAMEPADS];
 
 static Gamepad::Lightbar _gamepads_lightbar(uint8_t index);
@@ -290,6 +294,11 @@ static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
         pad_in.touchpad_valid = (ext.flags & PacketInExt::TOUCHPAD_VALID) ? 1 : 0;
         pad_in.touchpad_click = (ext.flags & PacketInExt::TOUCHPAD_CLICK) ? 1 : 0;
         pad_in.battery = ext.battery;
+        /* Charging and critical as the ESP32 worked them out (Bluepad32/PadBattery.h for_host, as
+         * on the Pico W). */
+        pad_in.battery_charging = (ext.flags & PacketInExt::BATTERY_CHARGING) ? 1 : 0;
+        _pad_critical_until_ms[packet.index] = (ext.flags & PacketInExt::BATTERY_CRITICAL)
+                                                   ? to_ms_since_boot(get_absolute_time()) + kPadCriticalHoldMs : 0;
     }
     return pad_in;
 }
@@ -716,9 +725,24 @@ static void status_led_tick() {
         s_brightness = options.status_led_brightness;
         s_led.invalidate();
     }
-    bool on = false;
+    /* A controller's battery at critical, not charging (the ESP32 reports it with the pad,
+     * SET_PAD_EXT BATTERY_CRITICAL): the quick blinks, in dim red on an RGB LED, as on the Pico W. */
+    bool critical = false;
+    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
+        critical |= _pad_critical_until_ms[i] && static_cast<int32_t>(_pad_critical_until_ms[i] - now) > 0;
+    static status_led::AlertColour s_alert_colour;
+    bool on = false, alert = false;
     uint32_t next_ms = 0;
-    if (s_led.step(search, on, next_ms)) {
+    if (s_led.step(search, critical, on, next_ms, alert)) {
+        if (s_alert_colour.changed(alert)) {
+            if (alert) {
+                board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
+            } else {
+                uint8_t r, g, b;
+                mode_indicator::shown_color(_current_driver, r, g, b);
+                board_api::set_led_color(r, g, b);
+            }
+        }
         board_api::set_led(on);
     }
     s_next_ms = now + next_ms;

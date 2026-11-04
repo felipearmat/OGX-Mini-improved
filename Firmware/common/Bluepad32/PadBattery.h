@@ -11,7 +11,7 @@
  * DS4 / DualSense status byte (Gamepad/SonyBattery.h). Filled from the raw reports
  * (Bluepad32/LinkDiag.cpp); read for the host (Bluepad32/BtPadIn.h): a merged Joy-Con pair gives
  * the lower of its two halves, so the host sees the one that runs out first. Header only: shared
- * by the Pico W firmware and the hybrid's ESP32. */
+ * by the Pico W firmware and the hybrid's ESP32 (for_host, any_critical). */
 namespace pad_battery {
 
     struct State {
@@ -83,6 +83,32 @@ namespace pad_battery {
     constexpr uint8_t to_255(uint8_t percent)
     {
         return static_cast<uint8_t>(percent == 0 ? 1 : (percent * 255u + 50u) / 100u);
+    }
+
+    /* What the host and the status LED get for one output pad: the level (Bluepad32 scale) and
+     * charging from for_pad (else `fallback_level`, Bluepad32's own), critical if either half is.
+     * The same on the Pico W (Bluepad32/BtPadIn.h) and on the hybrid's ESP32 (the SET_PAD_EXT
+     * packet carries it to the RP2040). */
+    struct ForHost {
+        uint8_t level;
+        bool charging;
+        bool critical;
+    };
+    inline ForHost for_host(int idx, int partner_idx, uint8_t fallback_level)
+    {
+        const State s = for_pad(idx, partner_idx);
+        const State* own = table(idx);
+        const State* other = table(partner_idx);
+        return ForHost{s.known ? to_255(s.percent) : fallback_level, s.known && charging(s.state),
+                       (own && critical(*own)) || (other && critical(*other))};
+    }
+
+    /* Any connected pad at critical (the table is cleared when a pad goes): the status LED alert. */
+    inline bool any_critical()
+    {
+        for (int i = 0; i < 8; ++i)
+            if (critical(*table(i))) return true;
+        return false;
     }
 
 } // namespace pad_battery
