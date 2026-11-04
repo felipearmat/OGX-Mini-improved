@@ -70,7 +70,11 @@ namespace pad_battery {
         const State* own = table(idx);
         const State* other = table(partner_idx);
         State s = own ? *own : State{};
-        if (other && other->known && (!s.known || other->percent < s.percent))
+        /* The lower half; on a tie the one not on a charger (it runs out first; else the pair's
+         * state would flip between "charging" and not with each half's report). */
+        if (other && other->known &&
+            (!s.known || other->percent < s.percent ||
+             (other->percent == s.percent && charging(s.state) && !charging(other->state))))
             s = *other;
         return s;
     }

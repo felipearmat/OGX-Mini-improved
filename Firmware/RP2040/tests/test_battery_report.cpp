@@ -55,6 +55,12 @@ TEST(a_pair_gives_its_lower_half_and_critical_needs_no_charger) {
     CHECK(!pad_battery::critical(s));
     CHECK(pad_battery::charging(s.state));
     CHECK_EQ(pad_battery::for_pad(0, -1).percent, 65);  // a lone pad: its own
+    // Both full, one off its charger: the pair is not charging, from either half.
+    pad_battery::set(0, 100, diag::BatteryState::FULL);
+    pad_battery::set(1, 100, diag::BatteryState::DISCHARGING);
+    CHECK(!pad_battery::charging(pad_battery::for_pad(0, 1).state));
+    CHECK(!pad_battery::charging(pad_battery::for_pad(1, 0).state));
+    pad_battery::set(0, 65, diag::BatteryState::DISCHARGING);
     pad_battery::clear(1);
     CHECK_EQ(pad_battery::for_pad(0, 1).percent, 65);   // the partner gone
     CHECK(!pad_battery::for_pad(3, -1).known);
