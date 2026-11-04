@@ -345,7 +345,9 @@ static void hd_rumble_send(int gp_idx, const uint8_t blocks[8])
     }
 }
 
-static void hd_rumble_cb(btstack_timer_source_t* ts)
+/* Sends what the Switch output queued; from the 8 ms timer also the adapter's own stop. BT core,
+ * under the BTstack run loop's lock (the timer and the worker below never run at once). */
+static void hd_rumble_service(bool from_timer)
 {
     const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     for (int g = 0; g < static_cast<int>(MAX_GAMEPADS); ++g) {
@@ -361,16 +363,43 @@ static void hd_rumble_cb(btstack_timer_source_t* ts)
         }
         if (s_hd_feed[g].playing())
             s_idle[g].note_rumble(now_ms);  // the idle turn-off ignores the shaking
-        if (!any && s_hd_feed[g].stop_due(now_ms)) {
+        if (from_timer && !any && s_hd_feed[g].stop_due(now_ms)) {
             const hd_rumble::Frame neutral = hd_rumble::neutral_frame();
             Gamepad::probe_hd_rumble(3, neutral.blocks, 0);  // the adapter's own stop, to the probe point
             hd_rumble_send(g, neutral.blocks);
         }
     }
+}
+
+static void hd_rumble_cb(btstack_timer_source_t* ts)
+{
+    hd_rumble_service(true);
     if (s_hd_rumble_timer_set) {
         btstack_run_loop_set_timer(ts, hd_rumble::kPeriodMs);
         btstack_run_loop_add_timer(ts);
     }
+}
+
+/* Custom: each HD Rumble report goes to the pad as soon as the Switch output queues it (Core0),
+ * not on the next 8 ms tick (a 4.7 ms wait on average, 10 ms at most, measured 2026-11-03 on the
+ * probe point). Core0 only marks this worker pending: async_context_set_work_pending is safe from
+ * the other core and takes no BTstack lock (btstack_run_loop_execute_on_main_thread does, and from
+ * Core0 it once never returned: see the mode change below). The worker runs on the BT core. */
+static async_when_pending_worker_t s_hd_rumble_worker{};
+static std::atomic<bool> s_hd_rumble_worker_ready{false};
+
+static void hd_rumble_worker_cb(async_context_t* context, async_when_pending_worker_t* worker)
+{
+    (void)context;
+    (void)worker;
+    if (s_hd_rumble_timer_set)
+        hd_rumble_service(false);
+}
+
+static void hd_rumble_kick()
+{
+    if (s_hd_rumble_worker_ready.load(std::memory_order_acquire))
+        async_context_set_work_pending(cyw43_arch_async_context(), &s_hd_rumble_worker);
 }
 
 static void hd_rumble_start()
@@ -383,6 +412,12 @@ static void hd_rumble_start()
         while (bt_devices_[g].gamepad != nullptr && bt_devices_[g].gamepad->pop_hd_rumble(stale)) {
             Gamepad::probe_hd_rumble(4, stale.blocks, 0xFF);  // taken (stage 2) only to be thrown away
         }
+    }
+    if (!s_hd_rumble_worker_ready.load(std::memory_order_relaxed)) {
+        s_hd_rumble_worker.do_work = hd_rumble_worker_cb;
+        async_context_add_when_pending_worker(cyw43_arch_async_context(), &s_hd_rumble_worker);
+        s_hd_rumble_worker_ready.store(true, std::memory_order_release);
+        Gamepad::set_hd_rumble_notify(hd_rumble_kick);
     }
     s_hd_rumble_timer.process = hd_rumble_cb;
     s_hd_rumble_timer.context = nullptr;

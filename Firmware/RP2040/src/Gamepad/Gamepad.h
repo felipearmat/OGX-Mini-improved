@@ -263,6 +263,11 @@ public:
         probe_record(PROBE_HD_RUMBLE, p, sizeof(p));
     }
 
+    /* Custom: called after each HD Rumble report is queued, from the core that queued it: on the
+     * Pico W the BT core then sends it at once (Bluepad32.cpp) instead of on its 8 ms timer. */
+    using HdRumbleNotify = void (*)();
+    static void set_hd_rumble_notify(HdRumbleNotify fn) { hd_rumble_notify().store(fn, std::memory_order_release); }
+
     inline void push_hd_rumble(const uint8_t blocks[8])
     {
         mutex_enter_blocking(&pad_out_mutex_);
@@ -275,6 +280,14 @@ public:
         hd_count_++;
         probe_hd_rumble(0, blocks, hd_count_);
         mutex_exit(&pad_out_mutex_);
+        if (HdRumbleNotify fn = hd_rumble_notify().load(std::memory_order_acquire))
+            fn();
+    }
+
+    static std::atomic<HdRumbleNotify>& hd_rumble_notify()
+    {
+        static std::atomic<HdRumbleNotify> fn{nullptr};
+        return fn;
     }
 
     inline bool pop_hd_rumble(hd_rumble::Frame& frame)
