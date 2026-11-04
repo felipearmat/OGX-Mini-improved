@@ -37,6 +37,10 @@ enum {
     PROBE_PAD_COMMAND = 0x09,  // a Switch subcommand: u8 slot, u8 subcommand ID, u8 0 sent / 1 reply
     PROBE_ACK = 0x0B,       // a command from the PC was carried out: u8 command, u8 a, u8 b (sent
                             // whatever the log options are)
+    PROBE_HD_RUMBLE = 0x0C, // a Switch HD Rumble report on its way: u8 stage (0 from the host, queued;
+                            // 1 the oldest dropped, queue full; 2 taken for the pad, or for the
+                            // hybrid's ESP32; 3 the adapter's own stop; 4 discarded, stale), u8 queue
+                            // depth after it (0xFF unknown), the 8 blocks (left 4, right 4)
     PROBE_LINK = 0x0A,      // a detailed link reading (detailed controller diagnostics): u8 slot (0xFF
                             // not a controller's yet), u8 what (1 RSSI, 2 channels, 3 failed contacts,
                             // 4 transmit power, 5 its maximum, 6 link mode), i16 value, u16 second value

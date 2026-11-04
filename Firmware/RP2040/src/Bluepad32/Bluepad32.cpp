@@ -363,6 +363,7 @@ static void hd_rumble_cb(btstack_timer_source_t* ts)
             s_idle[g].note_rumble(now_ms);  // the idle turn-off ignores the shaking
         if (!any && s_hd_feed[g].stop_due(now_ms)) {
             const hd_rumble::Frame neutral = hd_rumble::neutral_frame();
+            Gamepad::probe_hd_rumble(3, neutral.blocks, 0);  // the adapter's own stop, to the probe point
             hd_rumble_send(g, neutral.blocks);
         }
     }
@@ -380,6 +381,7 @@ static void hd_rumble_start()
     for (int g = 0; g < static_cast<int>(MAX_GAMEPADS); ++g) {  // reports queued with no pad: stale
         hd_rumble::Frame stale;
         while (bt_devices_[g].gamepad != nullptr && bt_devices_[g].gamepad->pop_hd_rumble(stale)) {
+            Gamepad::probe_hd_rumble(4, stale.blocks, 0xFF);  // taken (stage 2) only to be thrown away
         }
     }
     s_hd_rumble_timer.process = hd_rumble_cb;

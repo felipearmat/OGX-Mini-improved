@@ -255,15 +255,25 @@ public:
      * Kept apart from PadOut, like the host lightbar. Full (the BT core stalled): the oldest goes. */
     static constexpr unsigned HD_RUMBLE_QUEUE_SIZE = 16;
 
+    /* Custom: each HD Rumble report's way to the probe point (Board/DebugProbe.h, PROBE_HD_RUMBLE). */
+    static inline void probe_hd_rumble(uint8_t stage, const uint8_t blocks[8], unsigned depth)
+    {
+        uint8_t p[10] = {stage, static_cast<uint8_t>(depth > 0xFE ? 0xFF : depth)};
+        std::memcpy(p + 2, blocks, 8);
+        probe_record(PROBE_HD_RUMBLE, p, sizeof(p));
+    }
+
     inline void push_hd_rumble(const uint8_t blocks[8])
     {
         mutex_enter_blocking(&pad_out_mutex_);
         if (hd_count_ == HD_RUMBLE_QUEUE_SIZE) {
+            probe_hd_rumble(1, hd_queue_[hd_head_].blocks, hd_count_ - 1);
             hd_head_ = (hd_head_ + 1) % HD_RUMBLE_QUEUE_SIZE;
             hd_count_--;
         }
         std::memcpy(hd_queue_[(hd_head_ + hd_count_) % HD_RUMBLE_QUEUE_SIZE].blocks, blocks, 8);
         hd_count_++;
+        probe_hd_rumble(0, blocks, hd_count_);
         mutex_exit(&pad_out_mutex_);
     }
 
@@ -275,6 +285,7 @@ public:
             frame = hd_queue_[hd_head_];
             hd_head_ = (hd_head_ + 1) % HD_RUMBLE_QUEUE_SIZE;
             hd_count_--;
+            probe_hd_rumble(2, frame.blocks, hd_count_);
         }
         mutex_exit(&pad_out_mutex_);
         return any;

@@ -151,3 +151,22 @@ def test_command_bytes_and_their_acknowledgement(tmp_path):
     frames = [hello(1_000_000), frame(probe.ACK, 1_100_000, bytes([probe.CMD_OPTIONS, 2, 1]))]
     (log,) = run(tmp_path, frames)
     assert "command done: log options 2 1" in log
+
+
+def test_hd_rumble_on_its_way(tmp_path):
+    play = bytes([0x28, 0x88, 0x60, 0x61]) * 2
+    neutral = probe.HD_NEUTRAL
+    hd = lambda t, stage, blocks, depth=1: frame(probe.HD_RUMBLE, t, bytes([stage, depth]) + blocks)
+    frames = [hello(1_000_000)]
+    for i in range(10):  # every 15 ms from the host, taken 3 ms later
+        t = 1_100_000 + i * 15_000
+        frames += [hd(t, 0, play), hd(t + 3_000, 2, play, 0)]
+    frames += [hd(1_300_000, 0, play), hd(1_300_100, 1, play, 15), hd(1_330_000, 0, neutral),
+               hd(1_333_000, 2, neutral, 0), hd(1_400_000, 3, neutral, 0)]
+    frames += [hello(2_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "HD Rumble on (from the host)" in log and "HD Rumble off (from the host)" in log
+    assert "HD rumble in 12/s to pad 11/s" in log and "1 dropped (queue full)" in log
+    assert "# HD Rumble: 12 reports from the host, 11 to the pad, 1 dropped (queue full), 0 stale, 1 stops" in log
+    assert "queue wait median 3.0 ms" in log and "deepest queue 15" in log
+    assert "longest host pause while playing 65.0 ms" in log

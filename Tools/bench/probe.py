@@ -15,6 +15,7 @@ stops for --idle seconds or the adapter restarts (its clock goes back).
 """
 import argparse
 import datetime as dt
+import collections
 import os
 import re
 import struct
@@ -26,7 +27,9 @@ from serial.tools import list_ports
 
 BAUD = 921600
 SYNC = 0xA5
-HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND, LINK, ACK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+HELLO, TEXT, REPORT, USB_SENT, LATENCY, RUMBLE, COST, PAD_CLOCK, PAD_COMMAND, LINK, ACK, HD_RUMBLE = (
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+HD_NEUTRAL = bytes([0x00, 0x01, 0x40, 0x40]) * 2  # Gamepad/HdRumbleFeed.h kNeutralBlock, both sides
 # Commands to the adapter (Board/DebugProbe.h), on the reader's TX wired to the probe's RX pin.
 CMD_OPTIONS, CMD_MODE = ord("O"), ord("M")
 
@@ -163,6 +166,15 @@ class Session:
         self.log_cost_max = [0.0, 0.0]
         self.linkinfo = {}  # slot -> {what: (a, b)} from the detailed link readings
         self.rssi = {}      # slot -> RSSI readings over the session
+        # Switch HD Rumble on its way: host -> queue -> pad (stages of PROBE_HD_RUMBLE)
+        self.hd_queue = collections.deque()  # arrival times (µs) of the reports waiting
+        self.hd = {"in": 0, "out": 0, "dropped": 0, "stale": 0, "stops": 0}  # this second
+        self.hd_total = {"in": 0, "out": 0, "dropped": 0, "stale": 0, "stops": 0}
+        self.hd_wait, self.hd_wait_all = [], []  # µs from the host to the pad's side
+        self.hd_depth = 0
+        self.hd_last_in = None
+        self.hd_gap, self.hd_gap_max = 0, 0  # longest pause between host reports while playing
+        self.hd_playing = False
         self.clocks = {}  # slot -> PadClock
         self.link = {}    # slot -> excess delays (ms) this second
         self.commands = {}  # (slot, subcommand) -> times sent (µs)
@@ -213,6 +225,14 @@ class Session:
         if self.log_cost:
             self.out(f"# activity log hooks (their probe frames included): at most {self.log_cost_max[0]:.3f}% "
                      f"of a core in a second, longest call {self.log_cost_max[1]:.1f} us")
+        if self.hd_total["in"]:
+            w = sorted(self.hd_wait_all + self.hd_wait)
+            q = (lambda p: w[min(len(w) - 1, int(p * len(w)))] / 1000) if w else (lambda p: 0)
+            self.out(f"# HD Rumble: {self.hd_total['in']} reports from the host, {self.hd_total['out']} to the pad, "
+                     f"{self.hd_total['dropped']} dropped (queue full), {self.hd_total['stale']} stale, "
+                     f"{self.hd_total['stops']} stops by the adapter; queue wait median {q(0.5):.1f} ms, "
+                     f"99% {q(0.99):.1f} ms, max {q(1.0):.1f} ms; deepest queue {self.hd_depth}; "
+                     f"longest host pause while playing {self.hd_gap_max / 1000:.1f} ms")
         for slot, xs in sorted(self.rssi.items()):
             self.out(f"# slot {slot} rssi: min {min(xs):+d}, median {sorted(xs)[len(xs) // 2]:+d}, "
                      f"max {max(xs):+d} ({len(xs)} readings)")
@@ -335,6 +355,36 @@ class Session:
                     self.log_cost = (log_cycles * 100 / hz, log_most * 1e6 / hz)
                     self.log_cost_max[0] = max(self.log_cost_max[0], self.log_cost[0])
                     self.log_cost_max[1] = max(self.log_cost_max[1], self.log_cost[1])
+        elif ftype == HD_RUMBLE and len(payload) >= 10:
+            stage, depth, blocks = payload[0], payload[1], payload[2:10]
+            if depth != 0xFF:
+                self.hd_depth = max(self.hd_depth, depth)
+            if stage == 0:
+                self.hd_queue.append(t_us)
+                playing = blocks != HD_NEUTRAL
+                if self.hd_playing and self.hd_last_in is not None:
+                    gap = t_us - self.hd_last_in
+                    self.hd_gap = max(self.hd_gap, gap)
+                    self.hd_gap_max = max(self.hd_gap_max, gap)
+                if playing != self.hd_playing:
+                    self.out(f"{self.stamp(t_us)} HD Rumble {'on' if playing else 'off'} (from the host)")
+                self.hd_playing = playing
+                self.hd_last_in = t_us
+                key = "in"
+            elif stage in (1, 2):
+                if self.hd_queue:
+                    t0 = self.hd_queue.popleft()
+                    if stage == 2:
+                        self.hd_wait.append(t_us - t0)
+                key = "dropped" if stage == 1 else "out"
+            elif stage == 3:
+                key = "stops"
+            else:
+                key = "stale"
+                self.hd["out"] -= 1
+                self.hd_total["out"] -= 1
+            self.hd[key] += 1
+            self.hd_total[key] += 1
         elif ftype == ACK and len(payload) >= 3:
             what = {CMD_OPTIONS: "log options", CMD_MODE: "mode"}.get(payload[0], chr(payload[0]))
             self.out(f"{self.stamp(t_us)} command done: {what} {payload[1]} {payload[2]}")
@@ -384,6 +434,20 @@ class Session:
                 parts.append(f"latency avg {sum(self.lat) // len(self.lat)} max {max(self.lat)} us")
             if self.rumble_max:
                 parts.append(f"rumble max {self.rumble_max}")
+            if self.hd["in"] or self.hd["out"]:
+                w = self.hd_wait
+                part = f"HD rumble in {self.hd['in']}/s to pad {self.hd['out']}/s"
+                if w:
+                    part += f", queue wait max {max(w) / 1000:.1f} ms"
+                if self.hd_gap:
+                    part += f", host pause max {self.hd_gap / 1000:.1f} ms"
+                if self.hd["dropped"]:
+                    part += f", {self.hd['dropped']} dropped (queue full)"
+                parts.append(part)
+            self.hd_wait_all += self.hd_wait
+            self.hd = dict.fromkeys(self.hd, 0)
+            self.hd_wait = []
+            self.hd_gap = 0
             if self.cost:
                 parts.append(f"probe {self.cost[0]:.0f} us/s ({self.cost[1]:.3f}% of a core), "
                              f"longest frame {self.cost[2]:.1f} us")

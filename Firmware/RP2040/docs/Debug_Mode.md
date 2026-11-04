@@ -97,6 +97,10 @@ of a few seconds starts a new one. A shortened example:
   DualSense, Joy-Con, Pro Controller) says the report was held back between the controller and the
   adapter (radio retransmissions, interference, the Bluetooth stack). The best case of the session
   is the zero, so this is the delay the link added, not the whole delay.
+- `HD Rumble on / off (from the host)` and, in the `rate` line, `HD rumble in N/s to pad N/s`
+  (Switch mode with a Joy-Con or Pro Controller): the Switch's HD Rumble reports as they arrive and
+  as they leave for the controller, how long one waited in the adapter's queue, the longest pause
+  of the host while playing, and reports dropped because the queue was full.
 - `subcommand 0x.. answered in X ms` (Joy-Con, Pro Controller): a command the adapter sent (at
   connection, LEDs, rumble setup) and the controller's answer, the round trip over the radio.
 - The end of the file: the session's latency, each controller's link delay (median, 95 %, 99 %,
