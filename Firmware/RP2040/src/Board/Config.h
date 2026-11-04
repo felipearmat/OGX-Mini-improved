@@ -128,6 +128,10 @@
     #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
     #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
     #define RGB_PXL_PIO         pio2
+    #elif defined(OGXM_YD_RP2040_RGB)
+    // Custom: the YD-RP2040's own WS2812B on GP23 (the RGB solder pad must be bridged). The USB
+    // host port uses only pio0, so the driver's default pio1 is free.
+    #define RGB_PXL_PIN         23
     #endif
 
     #if MAX_GAMEPADS > 1

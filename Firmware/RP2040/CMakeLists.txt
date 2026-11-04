@@ -403,6 +403,14 @@ elseif(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_B
         set(PICO_PLATFORM rp2350)
         set(FLASH_SIZE_MB 4)
         ogxm_ext_rgb_options()  # Custom: external WS2812 status LED (PIO block 2 is free here)
+    else()
+        # Custom: the YD-RP2040's WS2812B on GP23 (needs its RGB solder pad bridged). Opt-in: on a
+        # Raspberry Pi Pico GP23 drives the power supply mode pin.
+        option(OGXM_YD_RP2040_RGB "Hybrid: drive the YD-RP2040 onboard WS2812B on GP23" OFF)
+        if(OGXM_YD_RP2040_RGB)
+            add_compile_definitions(OGXM_YD_RP2040_RGB=1)
+            set(EN_RGB TRUE)
+        endif()
     endif()
     ogxm_hybrid_pin_check()
 
