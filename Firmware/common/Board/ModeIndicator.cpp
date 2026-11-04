@@ -34,7 +34,8 @@ uint8_t blink_count(DeviceDriverType driver)
  * white (never dimmed: a dim LED loses its hue), chosen so the closest pair stays clearly apart on
  * the LED (CIEDE2000 >= 19.5 with the LED's linear brightness). Grouped by console family, so the
  * colour tells the family and the blink count the mode: Nintendo from magenta to orange, Xbox
- * greens, PlayStation from cyan to lilac. */
+ * greens, PlayStation from cyan to purple. STEAM is the 2026-10-15 table's purple (A0 00 FF): the
+ * lilac (C0 80 FF) the 2026-10-16 table gave it looked white on the LED. */
 void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
 {
     switch (driver)
@@ -55,7 +56,7 @@ void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b)
         case DeviceDriverType::PS1PS2:
         case DeviceDriverType::PSCLASSIC: r = 0x40; g = 0xA0; b = 0xFF; break; // light azure
         case DeviceDriverType::PS4:       r = 0x00; g = 0x00; b = 0xFF; break; // blue
-        case DeviceDriverType::STEAM:     r = 0xC0; g = 0x80; b = 0xFF; break; // lilac
+        case DeviceDriverType::STEAM:     r = 0xA0; g = 0x00; b = 0xFF; break; // purple (the 2026-10-15 table)
         // Others
         case DeviceDriverType::KBM:       r = 0xFF; g = 0xFF; b = 0x00; break; // yellow
         case DeviceDriverType::DREAMCAST: r = 0x40; g = 0x40; b = 0xFF; break; // light blue-violet

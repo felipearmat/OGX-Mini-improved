@@ -418,6 +418,11 @@ void BTManager::adopt_driver(DeviceDriverType driver, bool mode_change)
     }
     apply_profiles();
     begin_mode_indicator(driver);
+    {
+        uint8_t r, g, b;
+        mode_indicator::shown_color(driver, r, g, b);
+        diag_event("mode %u from the RP2040, colour %02x%02x%02x", static_cast<unsigned>(driver), r, g, b);
+    }
     for (uint8_t i = 0; i < slots_.size(); ++i)
     {
         uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;

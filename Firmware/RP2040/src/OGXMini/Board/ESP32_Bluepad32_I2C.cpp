@@ -716,6 +716,7 @@ static void status_led_tick() {
         uint8_t r, g, b;
         mode_indicator::shown_color(_current_driver, r, g, b);
         board_api::set_led_color(r, g, b);
+        diag::event(now, "status LED colour %02x%02x%02x (mode %u)", r, g, b, static_cast<unsigned>(_current_driver));
         s_led.invalidate();
     }
     if (options.status_led_pico != s_pico || options.status_led_pico_ext != s_external ||
