@@ -667,52 +667,87 @@ void BTManager::hd_send(uint8_t output, const uint8_t blocks[8])
     }
 }
 
+/* The queued reports of one output to its pads, in order (BTstack run loop); true if any. */
+bool BTManager::hd_play_queue(uint8_t out, uint32_t now_ms)
+{
+    bool any = false;
+    for (;;)
+    {
+        hd_rumble::Frame frame;
+        {
+            std::lock_guard<std::mutex> lock(hd_mutex_);
+            HdQueue& q = hd_queue_[out];
+            if (q.count == 0)
+            {
+                break;
+            }
+            frame = q.frames[q.head];
+            q.head = (q.head + 1) % HD_QUEUE_SIZE;
+            q.count--;
+        }
+        any = true;
+        hd_feed_[out].on_frame(frame, now_ms);
+        hd_send(out, frame.blocks);
+    }
+    if (any)
+    {
+        outputs_[out].idle.note_rumble(now_ms);  // the idle turn-off ignores the shaking
+    }
+    return any;
+}
+
+void BTManager::hd_play_cb(void* context)
+{
+    (void)context;
+    BTManager& bt_manager = get_instance();
+    bt_manager.hd_play_scheduled_.store(false);
+    const uint32_t now_ms = btstack_run_loop_get_time_ms();
+    for (uint8_t out = 0; out < MAX_GAMEPADS; ++out)
+    {
+        bt_manager.hd_play_queue(out, now_ms);
+    }
+}
+
 void BTManager::hd_timer_cb(btstack_timer_source *ts)
 {
     BTManager& bt_manager = get_instance();
     const uint32_t now_ms = btstack_run_loop_get_time_ms();
     const bool switch_mode = UserSettings::get_instance().get_current_driver() == DeviceDriverType::SWITCH;
+    bool polling = false;
     for (uint8_t out = 0; out < MAX_GAMEPADS; ++out)
     {
         const bool plays = switch_mode && bt_manager.output_plays_hd_rumble(out);
-        if (plays)
+        polling |= plays;
+        if (plays && !bt_manager.hd_read_pending_[out].exchange(true))
         {
             bt_manager.i2c_driver_.read_hd_rumble(slave_addr(out), out, bt_manager.hd_rx_[out],
                 [&bt_manager, out](const hd_rumble::Frame& frame)
                 {
-                    std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
-                    HdQueue& q = bt_manager.hd_queue_[out];
-                    if (q.count == HD_QUEUE_SIZE)
                     {
-                        q.head = (q.head + 1) % HD_QUEUE_SIZE;  // the run loop stalled: the oldest go
-                        q.count--;
+                        std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
+                        HdQueue& q = bt_manager.hd_queue_[out];
+                        if (q.count == HD_QUEUE_SIZE)
+                        {
+                            q.head = (q.head + 1) % HD_QUEUE_SIZE;  // the run loop stalled: the oldest go
+                            q.count--;
+                        }
+                        q.frames[(q.head + q.count) % HD_QUEUE_SIZE] = frame;
+                        q.count++;
                     }
-                    q.frames[(q.head + q.count) % HD_QUEUE_SIZE] = frame;
-                    q.count++;
-                });
+                    /* To the pad now, from the run loop (once until it ran). */
+                    if (!bt_manager.hd_play_scheduled_.exchange(true))
+                    {
+                        bt_manager.hd_play_reg_.callback = hd_play_cb;
+                        bt_manager.hd_play_reg_.context = nullptr;
+                        btstack_run_loop_execute_on_main_thread(&bt_manager.hd_play_reg_);
+                    }
+                },
+                [&bt_manager, out]() { bt_manager.hd_read_pending_[out].store(false); });
         }
-        bool any = false;
-        for (;;)
-        {
-            hd_rumble::Frame frame;
-            {
-                std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
-                HdQueue& q = bt_manager.hd_queue_[out];
-                if (q.count == 0)
-                {
-                    break;
-                }
-                frame = q.frames[q.head];
-                q.head = (q.head + 1) % HD_QUEUE_SIZE;
-                q.count--;
-            }
-            any = true;
-            bt_manager.hd_feed_[out].on_frame(frame, now_ms);
-            bt_manager.hd_send(out, frame.blocks);
-        }
+        const bool any = bt_manager.hd_play_queue(out, now_ms);
         if (bt_manager.hd_feed_[out].playing())
         {
-            bt_manager.outputs_[out].idle.note_rumble(now_ms);  // the idle turn-off ignores the shaking
+            bt_manager.outputs_[out].idle.note_rumble(now_ms);
         }
         if (!any && bt_manager.hd_feed_[out].stop_due(now_ms))
         {
@@ -720,7 +755,7 @@ void BTManager::hd_timer_cb(btstack_timer_source *ts)
             bt_manager.hd_send(out, neutral.blocks);
         }
     }
-    btstack_run_loop_set_timer(ts, hd_rumble::kPeriodMs);
+    btstack_run_loop_set_timer(ts, polling ? kHdPollMs : hd_rumble::kPeriodMs);
     btstack_run_loop_add_timer(ts);
 }
 

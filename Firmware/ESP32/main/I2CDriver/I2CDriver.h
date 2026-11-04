@@ -60,7 +60,8 @@ public:
     /* Switch mode HD Rumble (GET_HD_RUMBLE): ask with the last report `rx` took, call `callback` with
      * a new one. `rx` lives with the caller and is used on this task only. */
     void read_hd_rumble(uint8_t address, uint8_t index, hd_rumble::LinkReceiver& rx,
-                        std::function<void(const hd_rumble::Frame&)> callback);
+                        std::function<void(const hd_rumble::Frame&)> callback,
+                        std::function<void()> done = nullptr);
     /* Every profile the RP2040 keeps (GET_PROFILE, chunk by chunk, in one go). */
     void read_profiles(uint8_t address, std::function<void(const Profiles&)> callback);
     /* A profile saved over BLE, to the RP2040 (SET_PROFILE chunks). */
@@ -114,12 +115,14 @@ private:
         }
     }
 
-    void push(std::function<void()> task)
+    bool push(std::function<void()> task)
     {
         if (!task_queue_.push(task))
         {
             ++queue_drops_;
+            return false;
         }
+        return true;
     }
     esp_err_t write(uint8_t address, const void* data, size_t len)
     {

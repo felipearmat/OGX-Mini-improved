@@ -141,8 +141,17 @@ private:
     std::array<hd_rumble::Feed, MAX_GAMEPADS> hd_feed_{};
     std::mutex hd_mutex_;
     btstack_timer_source_t hd_timer_;
+    /* Each report goes to the pad as soon as it is read (as the Pico W sends it at once): the read
+     * callback (I2C task) asks the run loop to play the queue; one read per output at a time,
+     * kHdPollMs apart while a pad plays HD Rumble. */
+    static constexpr uint32_t kHdPollMs = 2;
+    std::array<std::atomic<bool>, MAX_GAMEPADS> hd_read_pending_{};
+    std::atomic<bool> hd_play_scheduled_{false};
+    btstack_context_callback_registration_t hd_play_reg_{};
     bool output_plays_hd_rumble(uint8_t output);
     void hd_send(uint8_t output, const uint8_t blocks[8]);
+    bool hd_play_queue(uint8_t output, uint32_t now_ms);
+    static void hd_play_cb(void* context);
     static void hd_timer_cb(btstack_timer_source *ts);
     btstack_timer_source_t led_timer_;
     btstack_timer_source_t disconnect_combo_timer_;

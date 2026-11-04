@@ -167,10 +167,12 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
 }
 
 void I2CDriver::read_hd_rumble(uint8_t address, uint8_t index, hd_rumble::LinkReceiver& rx,
-                               std::function<void(const hd_rumble::Frame&)> callback)
+                               std::function<void(const hd_rumble::Frame&)> callback,
+                               std::function<void()> done)
 {
-    push([this, address, index, &rx, callback]()
+    const bool queued = push([this, address, index, &rx, callback, done]()
     {
+        struct Done { std::function<void()> f; ~Done() { if (f) f(); } } finished{done};  // however it ends
         PacketHdRumble request;
         request.index = index;
         request.ack_seq = rx.ack();
@@ -195,6 +197,10 @@ void I2CDriver::read_hd_rumble(uint8_t address, uint8_t index, hd_rumble::LinkRe
             callback(frame);
         }
     });
+    if (!queued && done)
+    {
+        done();  // dropped (queue full): the next poll asks again
+    }
 }
 
 void I2CDriver::read_profiles(uint8_t address, std::function<void(const Profiles&)> callback)
