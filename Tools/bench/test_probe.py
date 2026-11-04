@@ -227,3 +227,11 @@ def test_the_raw_stream_replays_into_the_same_session(tmp_path):
     probe.replay([str(raw)], str(out), True)
     (log,) = [p.read_text() for p in out.iterdir()]
     assert "[rp] 1.100 boot STEAM" in log
+
+
+def test_boot_events_kept_while_the_header_is_late(tmp_path):
+    frames = [text(100_000, b"0.100 boot SWITCH\n")]
+    frames += [frame(probe.USB_SENT, 200_000 + i * 8_000) for i in range(8000)]  # a minute of reads
+    frames += [hello(70_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "[rp] 0.100 boot SWITCH" in log

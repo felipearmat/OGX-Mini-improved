@@ -58,21 +58,15 @@ public:
 
         mutex_enter_blocking(&nvs_mutex_);
 
-        for (uint32_t i = 1; i < MAX_ENTRIES; ++i) 
-        {
-            Entry* read_entry = get_entry(i);
-
-            if (!is_valid_entry(read_entry) || std::strcmp(read_entry->key, key.c_str()) == 0)
-            {
-                const bool ok = update_entry(i, key, value, len);
-
-                mutex_exit(&nvs_mutex_);
-                return ok;
-            }
-        }
+        /* Custom fix: the key's own entry wherever it is, else the first free one. Taking the first
+         * free entry before looking further wrote a second copy of a key into a hole (16 entries
+         * erased by a sector rewrite cut short) in front of the old one. */
+        const int at = find(key);
+        const int slot = at >= 0 ? at : first_free();
+        const bool ok = slot >= 0 && update_entry(static_cast<uint32_t>(slot), key, value, len);
 
         mutex_exit(&nvs_mutex_);
-        return false; // No space for new entry
+        return ok; // false: no space for a new entry
     }
 
     bool read(const std::string& key, void* value, size_t len)
@@ -84,26 +78,37 @@ public:
 
         mutex_enter_blocking(&nvs_mutex_);
 
-        for (uint32_t i = 1; i < MAX_ENTRIES; ++i) 
-        {
-            Entry* read_entry = get_entry(i);
-
-            if (std::strcmp(read_entry->key, key.c_str()) == 0)
-            {
-                std::memcpy(value, read_entry->value, len);
-
-                mutex_exit(&nvs_mutex_);
-                return true;
-            }
-            else if (!is_valid_entry(read_entry))
-            {
-                // Key not found
-                break;
-            }
-        }
+        /* Custom fix: every entry is looked at. Stopping at the first free one hid what came after
+         * a hole (a sector rewrite cut short): those settings read as the defaults, though still in
+         * flash (2026-11: the dongle options back to the defaults after flashing a new image). */
+        const int at = find(key);
+        if (at >= 0)
+            std::memcpy(value, get_entry(static_cast<uint32_t>(at))->value, len);
 
         mutex_exit(&nvs_mutex_);
-        return false;
+        return at >= 0;
+    }
+
+    /* Custom: the table's state, for the diagnostics report: entries in use, the first free one,
+     * and how many in use come after it (more than 0: there is a hole). */
+    struct Scan
+    {
+        uint32_t used, first_free, used_after_free;
+    };
+    Scan scan()
+    {
+        mutex_enter_blocking(&nvs_mutex_);
+        Scan s{0, 0, 0};
+        for (uint32_t i = 1; i < MAX_ENTRIES; ++i) {
+            if (is_valid_entry(get_entry(i))) {
+                ++s.used;
+                if (s.first_free) ++s.used_after_free;
+            } else if (!s.first_free) {
+                s.first_free = i;
+            }
+        }
+        mutex_exit(&nvs_mutex_);
+        return s;
     }
 
     bool erase_all()
@@ -212,6 +217,26 @@ private:
     inline bool is_valid_entry(const Entry* entry) 
     {
         return static_cast<uint8_t>(entry->key[0]) != 0xFF && std::strcmp(entry->key, INVALID_KEY) != 0;
+    }
+
+    /* The entry holding the key, or -1. Under nvs_mutex_. */
+    int find(const std::string& key)
+    {
+        for (uint32_t i = 1; i < MAX_ENTRIES; ++i) {
+            const Entry* e = get_entry(i);
+            if (is_valid_entry(e) && std::strcmp(e->key, key.c_str()) == 0)
+                return static_cast<int>(i);
+        }
+        return -1;
+    }
+
+    /* The first free entry, or -1 (full). Under nvs_mutex_. */
+    int first_free()
+    {
+        for (uint32_t i = 1; i < MAX_ENTRIES; ++i)
+            if (!is_valid_entry(get_entry(i)))
+                return static_cast<int>(i);
+        return -1;
     }
 
     inline bool valid_args(const std::string& key, size_t len)

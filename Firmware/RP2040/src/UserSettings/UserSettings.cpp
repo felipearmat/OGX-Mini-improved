@@ -573,9 +573,12 @@ void UserSettings::load_dongle_settings()
 {
     dongle_settings::Settings settings = dongle_settings::defaults();
     uint8_t stored[sizeof(dongle_settings::Settings)]{};
-    if (nvs_tool_.read(DONGLE_SETTINGS_KEY, stored, sizeof(stored)))
-        dongle_settings::decode(stored, sizeof(stored), settings);
+    const bool found = nvs_tool_.read(DONGLE_SETTINGS_KEY, stored, sizeof(stored)) &&
+                       dongle_settings::decode(stored, sizeof(stored), settings);
     dongle_settings::set(settings);
+    /* Custom: for the diagnostics report: whether they were found, and the table's state. */
+    const NVSTool::Scan scan = nvs_tool_.scan();
+    diag::settings_state(found, scan.used, scan.first_free, scan.used_after_free);
 }
 
 /* Custom: stop the search for new controllers until a pad goes away (Bluepad32/ScanPolicy.h); one

@@ -174,7 +174,12 @@ void slot_disconnected(size_t slot, uint32_t now_ms)
     Writer(PacketDiag::SLOT_GONE, slot).send();
 }
 
-/* The probe point is the RP2040's; nothing to forward. */
+/* The probe point and the flash settings table are the RP2040's; nothing to forward. */
+void settings_state(bool found, uint32_t used, uint32_t first_free, uint32_t used_after_free)
+{
+    (void)found; (void)used; (void)first_free; (void)used_after_free;
+}
+
 void slot_clock(size_t slot, uint8_t kind, uint32_t value) { (void)slot; (void)kind; (void)value; }
 void slot_command(size_t slot, uint8_t subcommand, bool reply) { (void)slot; (void)subcommand; (void)reply; }
 

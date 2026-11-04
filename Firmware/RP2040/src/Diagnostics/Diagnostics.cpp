@@ -636,6 +636,19 @@ void slot_report(size_t slot, uint32_t now_ms)
     }
 }
 
+namespace {
+struct SettingsState {
+    bool known, found;
+    uint32_t used, first_free, used_after_free;
+} s_settings{};
+} // namespace
+
+void settings_state(bool found, uint32_t used, uint32_t first_free, uint32_t used_after_free)
+{
+    Lock l;
+    s_settings = SettingsState{true, found, used, first_free, used_after_free};
+}
+
 void slot_clock(size_t slot, uint8_t kind, uint32_t value)
 {
     const uint8_t p[6] = {static_cast<uint8_t>(slot), kind, static_cast<uint8_t>(value), static_cast<uint8_t>(value >> 8),
@@ -1318,6 +1331,10 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
     w.key_str("output_mode", s_info.output_mode);
     w.raw(",\"max_gamepads\":%u,\"uptime_ms\":%lu", s_info.max_gamepads, static_cast<unsigned long>(now_ms));
     w.key_str("last_reset", s_info.reset_reason);
+    if (s_settings.known)
+        w.raw(",\"settings\":{\"found\":%s,\"flash_entries\":%lu,\"first_free\":%lu,\"entries_after_free\":%lu}",
+              s_settings.found ? "true" : "false", static_cast<unsigned long>(s_settings.used),
+              static_cast<unsigned long>(s_settings.first_free), static_cast<unsigned long>(s_settings.used_after_free));
     w.raw(",\"bluetooth\":{\"bredr_inquiry_running\":%s,\"bredr_inquiries\":%lu",
           s_inquiry_seen && now_ms - s_last_inquiry_ms < kInquiryRecentMs ? "true" : "false",
           static_cast<unsigned long>(s_inquiries));

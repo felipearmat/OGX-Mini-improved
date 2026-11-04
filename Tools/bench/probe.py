@@ -295,8 +295,13 @@ class Session:
                 self.drops = dropped
             self.per_second(t_us)
         elif self.file is None:
-            self.pending.append((ftype, t, payload))  # before the first header: kept for the file
-            del self.pending[:-4000]
+            # Before the first header: kept for the file. Only the last 4000 frames, but the text
+            # (the boot events) stays.
+            self.pending.append((ftype, t, payload))
+            if len(self.pending) > 6000:
+                text = [f for f in self.pending if f[0] == TEXT]
+                rest = [f for f in self.pending if f[0] != TEXT][-4000:]
+                self.pending = sorted(text[-2000:] + rest, key=lambda f: f[1])
         elif ftype == TEXT and payload:
             src = chr(payload[0])
             text = self.text.get(src, "") + payload[1:].decode("utf-8", "replace").replace("\r", "")

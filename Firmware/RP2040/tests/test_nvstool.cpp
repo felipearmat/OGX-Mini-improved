@@ -155,3 +155,36 @@ TEST(an_erased_sector_counts_as_free_entries) {
 }
 
 TEST_MAIN()
+
+TEST(a_hole_left_by_a_cut_sector_rewrite_hides_nothing) {
+    // 2026-11: the dongle options came back as the defaults after flashing a new image, though
+    // still in flash. A sector rewrite cut between its erase and its program leaves 16 entries
+    // erased (0xFF); reading stopped at the first one and missed every key after it, and the
+    // next write of such a key put a second copy into the hole.
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    for (int i = 0; i < 20; ++i) {  // entries 1..20: the second sector starts at entry 16
+        const uint32_t v = 0xC0DE0000u | static_cast<uint32_t>(i);
+        CHECK(nvs.write(key_for(i), &v, sizeof(v)));
+    }
+    const uint32_t nvs_start = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * NVS_SECTORS;
+    for (uint32_t b = 0; b < FLASH_PAGE_SIZE * 3; ++b)  // entries 4, 5, 6 erased: key_3..key_5
+        mock_flash::memory()[nvs_start + 4 * FLASH_PAGE_SIZE + b] = 0xFF;
+    uint32_t v = 0;
+    CHECK(nvs.read(key_for(10), &v, sizeof(v)));  // past the hole
+    CHECK_EQ(v, 0xC0DE000Au);
+    CHECK(!nvs.read(key_for(4), &v, sizeof(v)));  // in it: gone
+    NVSTool::Scan s = nvs.scan();
+    CHECK_EQ(s.first_free, 4u);
+    CHECK_EQ(s.used_after_free, 14u);  // key_6..key_19
+    // Writing a key that sits past the hole updates it in place, no second copy.
+    const uint32_t nv = 0xBEEF;
+    CHECK(nvs.write(key_for(10), &nv, sizeof(nv)));
+    CHECK(nvs.read(key_for(10), &v, sizeof(v)));
+    CHECK_EQ(v, 0xBEEFu);
+    CHECK_EQ(nvs.scan().used, s.used);
+    // A new key fills the hole.
+    CHECK(nvs.write("new_key", &nv, sizeof(nv)));
+    CHECK_EQ(nvs.scan().first_free, 5u);
+    nvs.erase_all();
+}

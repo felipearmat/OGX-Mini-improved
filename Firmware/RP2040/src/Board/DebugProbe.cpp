@@ -194,12 +194,59 @@ void put_u32(uint8_t* p, uint32_t v)
     p[3] = static_cast<uint8_t>(v >> 24);
 }
 
+/* The header and the cost frame, once a second (the first one at once: a reader opens its file
+ * on it). From probe_tick() and, when that is late, from any record: probe_tick() runs from the
+ * boards' loops, and the Pico W's Bluetooth loop does not tick without a controller (2026-11-04:
+ * Switch mode with no pad sent no header, so no session file and the boot events were lost). */
+void send_hello()
+{
+    static const char kId[] = OGXM_VERSION " " OGXM_BUILD_ID " " OGXM_BOARD_NAME;
+    uint8_t counts[12];
+    put_u32(counts, s_frames);
+    put_u32(counts + 4, s_dropped);
+    put_u32(counts + 8, kSize);
+    frame(PROBE_HELLO, counts, sizeof(counts), reinterpret_cast<const uint8_t*>(kId), sizeof(kId) - 1);
+    uint8_t cost[24];
+    {
+        Guard g;
+        put_u32(cost, s_cost_cycles);
+        put_u32(cost + 4, s_cost_max);
+        put_u32(cost + 8, s_cost_frames);
+        put_u32(cost + 16, s_log_cycles);
+        put_u32(cost + 20, s_log_max);
+        s_cost_cycles = s_cost_max = s_cost_frames = 0;
+        s_log_cycles = s_log_max = 0;
+    }
+    put_u32(cost + 12, clock_get_hz(clk_sys));
+    frame(PROBE_COST, cost, sizeof(cost), nullptr, 0);
+}
+
+bool hello_due(uint32_t now)
+{
+    return !s_hello_sent || now - s_hello_us >= kHelloEveryUs;
+}
+
+/* Claims the header (one core wins), then sends it. */
+bool hello_if_due(uint32_t now)
+{
+    {
+        Guard g;
+        if (!hello_due(now)) return false;
+        s_hello_sent = true;
+        s_hello_us = now;
+    }
+    send_hello();
+    return true;
+}
+
 } // namespace
 
 extern "C" void __not_in_flash_func(probe_record)(uint8_t type, const void* payload, size_t len)
 {
     if (!on()) return;
     frame(type, static_cast<const uint8_t*>(payload), len, nullptr, 0);
+    const uint32_t now = time_us_32();
+    if (!s_hello_sent || now - s_hello_us >= 2 * kHelloEveryUs) hello_if_due(now);  // none yet, or the tick is late
 }
 
 extern "C" void probe_text(const char* source, const char* text, size_t len)
@@ -213,6 +260,8 @@ extern "C" void probe_text(const char* source, const char* text, size_t len)
         p += n;
         len -= n;
     }
+    const uint32_t now = time_us_32();
+    if (!s_hello_sent || now - s_hello_us >= 2 * kHelloEveryUs) hello_if_due(now);
 }
 
 extern "C" uint32_t __not_in_flash_func(probe_cycles)(void)
@@ -251,31 +300,8 @@ extern "C" void probe_tick(void)
         poll_rx();  // also with the log turned off since: the channel stays
     }
     if (!on()) return;
-    const uint32_t now = time_us_32();
-    if (!s_hello_sent || now - s_hello_us >= kHelloEveryUs) {  // the first one at once: a reader opens its file on it
-        s_hello_sent = true;
-        s_hello_us = now;
-        static const char kId[] = OGXM_VERSION " " OGXM_BUILD_ID " " OGXM_BOARD_NAME;
-        uint8_t counts[12];
-        put_u32(counts, s_frames);
-        put_u32(counts + 4, s_dropped);
-        put_u32(counts + 8, kSize);
-        frame(PROBE_HELLO, counts, sizeof(counts), reinterpret_cast<const uint8_t*>(kId), sizeof(kId) - 1);
-        uint8_t cost[24];
-        {
-            Guard g;
-            put_u32(cost, s_cost_cycles);
-            put_u32(cost + 4, s_cost_max);
-            put_u32(cost + 8, s_cost_frames);
-            put_u32(cost + 16, s_log_cycles);
-            put_u32(cost + 20, s_log_max);
-            s_cost_cycles = s_cost_max = s_cost_frames = 0;
-            s_log_cycles = s_log_max = 0;
-        }
-        put_u32(cost + 12, clock_get_hz(clk_sys));
-        frame(PROBE_COST, cost, sizeof(cost), nullptr, 0);
+    if (hello_if_due(time_us_32()))
         return;  // frame() pumped
-    }
     Guard g;
     if (ready()) pump();
 }

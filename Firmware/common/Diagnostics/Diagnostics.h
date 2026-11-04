@@ -80,6 +80,10 @@ namespace diag {
     size_t new_crash(uint8_t* out, size_t out_len);
     // At boot, when there is no new one: the crash stored in flash, for the report.
     void set_stored_crash(const uint8_t* data, size_t len);
+    /* Custom: how the saved dongle options were found at boot (RP2040; the ESP32 ignores it): read
+     * and decoded, or the defaults; and the flash table's state (entries in use, the first free
+     * one, entries in use after it: more than 0 is a hole). In the report, "settings". */
+    void settings_state(bool found, uint32_t used, uint32_t first_free, uint32_t used_after_free);
 
     // Recent events ring (oldest dropped). printf-style, truncated to kEventText.
     void event(uint32_t now_ms, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
