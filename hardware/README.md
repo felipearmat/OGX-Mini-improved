@@ -49,7 +49,8 @@ Both firmwares drive their pin whether or not an LED is there, so one LED on eit
   more LEDs can be chained, DOUT to the next DIN, for later use: the status is on the first one),
   `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`; the web app's brightness replaces it). GP6 is free in every mode (debug UART is
   GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
-  use GP8, GP16 to GP21 and GP28). The LED uses PIO block 2, which the RP2040 does not have.
+  use GP1 to GP5, GP8, GP9, GP11, GP12, GP21 and GP27 by default, GP0, GP1, GP4, GP5, GP8, GP16 to
+  GP21 and GP28 on the `ORIGINAL` wiring). The LED uses PIO block 2, which the RP2040 does not have.
 - ESP32 options (`idf.py menuconfig`, *OGXMini Options*): `ENABLE_EXT_RGB` (on), `EXT_RGB_PIN`
   (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral. On the
   hybrid the RP2040 keeps the settings: the ESP32 gets the web app's on / off, brightness and the
@@ -67,7 +68,7 @@ session.
 | Board | Probe pin |
 |---|---|
 | Pico W, Pico 2 W | GP4 (pin 6) |
-| [ESP32 hybrid](#pi-pico--esp32) (RP2040 or Pico 2 / Pico 2 W) | GP4 (pin 6) |
+| [ESP32 hybrid](#pi-pico--esp32) (RP2040 or Pico 2 / Pico 2 W) | GP8 (pin 11); GP4 (pin 6) on the `ORIGINAL` wiring |
 | Other boards | none by default (set `OGXM_DEBUG_UART_TX_PIN` after checking the board's pins) |
 
 The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
@@ -78,8 +79,8 @@ The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
 | A spare ESP32 board (its USB chip reads its TX0 pin) | **TX** / **TX0** / GPIO1 | GND to GND; a wire from **EN to GND** keeps the ESP32 in reset, so its TX0 does not drive the line |
 
 Optional, for automated tests: a second wire from the reader's **TX** (USB-UART adapter) or the
-ESP32 board's **RX0** / GPIO3 (its USB chip's TX, free while the ESP32 is held in reset) to **GP5**
-(pin 7) lets the PC send the adapter short commands in any output mode: the log options live, a
+ESP32 board's **RX0** / GPIO3 (its USB chip's TX, free while the ESP32 is held in reset) to the pin
+after the probe pin (**GP5**, pin 7; **GP9**, pin 12, on the hybrid's default wiring) lets the PC send the adapter short commands in any output mode: the log options live, a
 mode change (`OGXM_DEBUG_UART_RX_PIN`, `AUTO` = the pin after the probe pin, `-1` = none).
 
 No 5 V or 3V3 between the boards: each takes power from its own USB. Tested with a Pico 2 W and an
@@ -88,8 +89,8 @@ ESP32 board with an FT232R, in D-Input/Debug and STEAM mode, the adapter restart
 - Build option: `OGXM_DEBUG_UART_TX_PIN` (`AUTO` = the table above, `-1` = none, or a UART TX pin:
   0, 4, 8, 12, 16, 20, 24, 28; on the hybrid a UART1 one, 4, 8, 20 or 24, since UART0 talks to the
   ESP32). The build stops on a pin another job uses.
-- A Debug build (`CMAKE_BUILD_TYPE=Debug`) prints its text log on GP4 at 115200 instead, and has no
-  probe point.
+- A Debug build (`CMAKE_BUILD_TYPE=Debug`) prints its text log on the probe pin at 115200 instead,
+  and has no probe point.
 
 # Pi Pico + ESP32
 The RP2040 + ESP32 hybrid: the Pico handles USB, an **original ESP32** (ESP32-WROOM-32 / -32U;
@@ -112,29 +113,56 @@ never needed: its ROM bootloader is reached through the Pico, even on a blank ES
 
 | Pico / Pico 2 / Pico 2 W | ESP32 | | CMake option |
 |---|---|---|---|
-| GP18 (pin 24) | GPIO21 | I2C SDA: controllers, settings, diagnostics | `OGXM_HYBRID_I2C_SDA_PIN` |
-| GP19 (pin 25) | GPIO22 | I2C SCL | `OGXM_HYBRID_I2C_SCL_PIN` |
-| GP8 (pin 11) | EN | restarts the ESP32 | `OGXM_HYBRID_ESP32_EN_PIN` |
-| GP20 (pin 26) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing | `OGXM_HYBRID_ESP32_IO0_PIN` |
-| GP28 (pin 34, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32. GP16 (pin 21) carries the same signal, for hybrids wired before (the diagram still shows GP16); pin 21 is a corner pad, often the one damaged by a poor soldering iron | `OGXM_HYBRID_UART_TX_PIN`, `OGXM_HYBRID_UART_TX_ALT_PIN` (`-1` = none) |
-| GP17 (pin 22, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log | `OGXM_HYBRID_UART_RX_PIN` |
+**Default wiring** (since 2026-11; built and tested on a YD-RP2040 with a 38-pin ESP32 DevKit). The
+diagram below still shows upstream OGX-Mini's wiring, kept as the `ORIGINAL` preset (next table).
+
+| Pico / Pico 2 / Pico 2 W | ESP32 | | CMake option |
+|---|---|---|---|
+| GP4 (pin 6) | GPIO21 | I2C SDA: controllers, settings, diagnostics | `OGXM_HYBRID_I2C_SDA_PIN` |
+| GP5 (pin 7) | GPIO22 | I2C SCL | `OGXM_HYBRID_I2C_SCL_PIN` |
+| GP27 (pin 32) | EN | restarts the ESP32 | `OGXM_HYBRID_ESP32_EN_PIN` |
+| GP11 (pin 15) | GPIO0 (IO0 / BOOT) | puts the ESP32 in its bootloader for flashing | `OGXM_HYBRID_ESP32_IO0_PIN` |
+| GP12 (pin 16, UART0 TX) | GPIO3 (RX0) | flashing data to the ESP32 | `OGXM_HYBRID_UART_TX_PIN`, `OGXM_HYBRID_UART_TX_ALT_PIN` (a second pin with the same signal, `-1` = none, the default) |
+| GP1 (pin 2, UART0 RX) | GPIO1 (TX0) | flashing replies and the ESP32's log | `OGXM_HYBRID_UART_RX_PIN` |
 | VBUS (pin 40) | VIN / 5V | one USB cable powers both boards (see below) | |
 | GND | GND | required | |
 | — | 2.2 kΩ from GPIO21 to 3V3, 2.2 kΩ from GPIO22 to 3V3 | I2C pull-ups (4.7 kΩ also works with short wires); the internal ones are too weak for the link (the ESP32 writes at 1 MHz and reads at 400 kHz). With longer jumpers use 1 kΩ (or a second 2.2 kΩ in parallel): slow edges show up as `i2c_read_errors` and `settings_replies_cut` in the diagnostics report | |
+
+**Upstream OGX-Mini's wiring** (`-DOGXM_HYBRID_PINOUT=ORIGINAL`; the releases' `-ORIGINAL_PINS`
+UF2 files), for hybrids wired before 2026-11 and as in the diagram:
+
+| Pico / Pico 2 / Pico 2 W | ESP32 |
+|---|---|
+| GP18 (pin 24) | GPIO21 (SDA) |
+| GP19 (pin 25) | GPIO22 (SCL) |
+| GP8 (pin 11) | EN |
+| GP20 (pin 26) | GPIO0 (IO0) |
+| GP28 (pin 34, UART0 TX); GP16 (pin 21) carries the same signal, for hybrids wired as the diagram shows (pin 21 is a corner pad, often the one damaged by a poor soldering iron) | GPIO3 (RX0) |
+| GP17 (pin 22, UART0 RX) | GPIO1 (TX0) |
+
+With it the USB host port is on GP0 / GP1 and the probe point on GP4 / GP5, as before.
 
 **Other pins:** every Pico-side wire above, the USB host port's D+ (`OGXM_HYBRID_USB_DP_PIN`, D- is
 the next GPIO) and the UART-bridge jumper (`OGXM_HYBRID_BRIDGE_JUMPER_PIN`) can be moved when you
 build the firmware yourself, e.g. for a damaged pad or a board layout with fewer crossing wires:
 
 ```bash
-cmake ... -DOGXM_BOARD=ESP32_BLUEPAD32_I2C_PICO2 -DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27
+cmake ... -DOGXM_BOARD=ESP32_BLUEPAD32_I2C_PICO2 -DOGXM_HYBRID_PINOUT=ORIGINAL -DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27
 ```
 
 The configure step stops on a pin that cannot do the job or is taken twice: SDA / SCL must be an
 SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / RX must be UART0
 (TX GP0, 12, 16 or 28; RX GP1, 13, 17 or 29), and GP23, 24, 25 and 29 (the Pico W radio, a Pico's
-power and LED pins), the external LED's pin and, in Debug builds, GP4 / GP5 are taken. Tested on hardware with I2C on GP26 / GP27 and IO0 on GP22. The release
-UF2s use the defaults above. The ESP32 side does not move.
+power and LED pins), the external LED's pin and the probe point's pins (GP8 / GP9 on the default
+wiring, GP4 / GP5 on the `ORIGINAL` one; in Debug builds the text log's) are taken. Tested on
+hardware: the default wiring, and the `ORIGINAL` one with I2C on GP26 / GP27 and IO0 on GP22. The
+release UF2s use the default wiring, the `-ORIGINAL_PINS` ones upstream's. The ESP32 side does not
+move.
+
+**Checking the wires:** a wire on the wrong pad shows up as a hybrid that cannot flash its ESP32
+("No serial data received") or has no link. The flash and the boot log through the Pico check EN,
+IO0 and both UART wires; the diagnostics report's `companion` block (firmware, I2C counters) checks
+the I2C.
 
 On a **Pico W / Pico 2 W**, build with `-DOGXM_HYBRID_PICO_W=ON`: GP25 is the radio chip's line there
 (the hybrid keeps the radio off), so there is no onboard status LED and GP25 is left alone.
@@ -143,7 +171,7 @@ On a **Pico W / Pico 2 W**, build with `-DOGXM_HYBRID_PICO_W=ON`: GP25 is the ra
 of a double-sided perfboard, USB ports at opposite ends): the ESP32's signal column (from the
 antenna end: 22, TX0, RX0, 21, GND, ..., 0) then faces the Pico's GP0-GP15 column in the order
 below, and EN / 5V / GND, on the ESP32's other column, go on the other face. Build with
-`-DOGXM_HYBRID_ESP32_IO0_PIN=9 -DOGXM_HYBRID_I2C_SDA_PIN=10 -DOGXM_HYBRID_I2C_SCL_PIN=11
+`-DOGXM_HYBRID_PINOUT=ORIGINAL -DOGXM_HYBRID_ESP32_IO0_PIN=9 -DOGXM_HYBRID_I2C_SDA_PIN=10 -DOGXM_HYBRID_I2C_SCL_PIN=11
 -DOGXM_HYBRID_UART_TX_PIN=12 -DOGXM_HYBRID_UART_RX_PIN=13`:
 
 | Pico | ESP32 |
@@ -162,8 +190,8 @@ Optional, on the Pico:
 
 | Pico | | |
 |---|---|---|
-| GP0 (pin 1) / GP1 (pin 2) | USB-A socket D+ / D- (5 V from VBUS, GND) | USB host port: wired controllers, and a DualShock 3 plugged in once to pair it with the ESP32 |
-| GP4 (pin 6) / GP5 (pin 7) | USB-serial adapter RX / TX | the RP2040's log in Debug builds (also kept in RAM and read over USB) |
+| GP2 (pin 4) / GP3 (pin 5) | USB-A socket D+ / D- (5 V from VBUS, GND) | USB host port: wired controllers, and a DualShock 3 plugged in once to pair it with the ESP32 (GP0 / GP1 on the `ORIGINAL` wiring) |
+| GP8 (pin 11) / GP9 (pin 12) | USB-serial adapter RX / TX | the [probe point](#debug-probe-point), and the RP2040's log in Debug builds (also kept in RAM and read over USB); GP4 / GP5 on the `ORIGINAL` wiring |
 | GP21 (pin 27) | jumper to GND at boot | UART-bridge mode by hand, if the USB command can't be used |
 
 The diagram shows a 38-pin ESP32 board; a 30-pin board has the same GPIO21, GPIO22, GPIO0, RX0,
@@ -176,8 +204,7 @@ connect VBUS.
 
 **Flashing and logs through the Pico** ([Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md)),
 with the adapter in D-Input/Debug mode: `bootsel --uf2 FILE` updates the Pico (a blank Pico starts in its
-USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through GP28 (or GP16) / GP17 / GP20 /
-GP8, `monitor` shows the log both boards kept from the last session, then the ESP32's live
+USB bootloader by itself), `flash-esp32 BUILD_DIR` flashes the ESP32 through the UART, IO0 and EN wires, `monitor` shows the log both boards kept from the last session, then the ESP32's live
 output.
 
 # RP2040-Zero

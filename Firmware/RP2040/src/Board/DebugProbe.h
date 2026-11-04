@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 /* Custom: the debug probe point, a UART TX pin (OGXM_DEBUG_UART_TX_PIN, GP4 by default where it is
- * free) that streams the activity log while it is on (the web app's "Activity log" option).
+ * free, GP8 on the hybrid's default wiring) that streams the activity log while it is on (the web app's "Activity log" option).
  *
  * The adapter only copies small binary records into a RAM ring; a DMA channel sends them on the
  * UART, so no CPU time goes per byte and nothing waits for the wire. A full ring drops the record
@@ -46,7 +46,7 @@ enum {
                             // 4 transmit power, 5 its maximum, 6 link mode), i16 value, u16 second value
 };
 
-/* The command channel: the same UART's RX pin (OGXM_DEBUG_UART_RX_PIN, GP5 beside GP4) takes short
+/* The command channel: the same UART's RX pin (OGXM_DEBUG_UART_RX_PIN, the pin after the TX pin) takes short
  * commands from the PC (Tools/bench/probe.py), in every output mode, once the UART is up (the
  * activity log was on at some point since the adapter started). A command is 8 bytes: "OGX!",
  * command, a, b, check (the sum of the last four bytes a multiple of 256). Anything else is

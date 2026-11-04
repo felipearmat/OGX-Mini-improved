@@ -252,6 +252,7 @@ later fixes reach every board in one PR.
 
 ## Fork only (not for upstream)
 
+- The hybrid's default wiring (2026-11-04, `OGXM_HYBRID_PINOUT=IMPROVED`: I2C GP4 / GP5, UART GP12 / GP1, EN GP27, IO0 GP11, USB host GP2 / GP3, probe GP8 / GP9) and the `-ORIGINAL_PINS` release UF2s: upstream's users are wired as its diagram, so upstream keeps its pins. What upstream could take is the preset mechanism with `ORIGINAL` as its default, together with the movable pins (row 43fc128 above).
 - `docs/TODO.md`, `docs/ROADMAP.md`, `docs/UPSTREAM.md`, `.github/workflows/improved-ci.yml`, the fork's `README.md` (rewritten: use cases, hardware, generated mode table) and fork notes in the docs.
 - CI checks `.github/scripts/check_shared_sources.py`, `gen_docs_tables.py` and `check_doc_links.py` (could be offered with `Firmware/common` and a README that uses the generated table).
 - Removal of the `WebApp` submodule (points to the unmaintained wiredopposite web app; this fork uses OGX-Mini-improved-WebApp).

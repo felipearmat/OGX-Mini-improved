@@ -346,7 +346,7 @@ of freezing). Full guide, including what each Diagnostics column means:
 
 To record a whole play session in any output mode, also with the adapter on a console: turn on
 the **Activity log** in the web app and attach a 3.3 V USB-UART adapter (or a spare ESP32 board) to
-the adapter's probe pin (GP4 on the Pico W, Pico 2 W and the hybrid). The adapter streams its events
+the adapter's probe pin (GP4 on the Pico W and Pico 2 W, GP8 on the hybrid's default wiring). The adapter streams its events
 and the time of every report on that pin at about 0.1% of one core; a reader service on the PC
 (`Tools/debug/install.sh`, `Tools\debug\install.ps1`) writes one file per session. Guide:
 [Debug mode](Firmware/RP2040/docs/Debug_Mode.md).
@@ -442,6 +442,9 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
   host port takes wired controllers and pairs a DualShock 3, and both boards are flashed and their
   logs read through the adapter's own USB port ([Tools/hybrid](Tools/hybrid/README.md)). Switch 2
   and Steam Controller 2026 pads are untested on the original ESP32's Bluetooth LE 4.2.
+  **Wiring changed in 2026-11:** the default is now I2C GP4 / GP5, UART GP12 / GP1, EN GP27, IO0
+  GP11 ([hardware/README.md](hardware/README.md#pi-pico--esp32)); a hybrid wired as upstream's
+  diagram takes the release's `-ORIGINAL_PINS` UF2 (or `-DOGXM_HYBRID_PINOUT=ORIGINAL`).
   Plan: [roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid).
 - **Wii mode** takes a wired (USB) controller only; the radio is busy talking to the console.
 - **Bluetooth on the Pico W / Pico 2 W** uses the on-module antenna, which has little margin with
@@ -486,7 +489,7 @@ cmake --build build
 `ADAFRUIT_FEATHER` (controller on the board's USB-A port; plug it in after boot if it isn't
 detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
 hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
-is not used), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
+is not used; both take `-DOGXM_HYBRID_PINOUT=ORIGINAL` for upstream's wiring), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
 outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W and the hybrid on a Pico 2 W (`ESP32_BLUEPAD32_I2C_PICO2`) (this fork); Feather USB Host, Pico W,
 Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 

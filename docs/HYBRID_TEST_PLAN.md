@@ -12,10 +12,13 @@ Save a diagnostics report (web app, D-Input/Debug mode) after any failure.
 
 - **Boards:** Pi Pico 2 W running `ESP32_BLUEPAD32_I2C_PICO2` (or an RP2040 board running
   `ESP32_BLUEPAD32_I2C`) + an original ESP32 (WROOM / WROVER) running the companion firmware.
-  Wiring: [hardware/README.md](../hardware/README.md#pi-pico--esp32) (GP18 → 21, GP19 → 22, GND,
-  GP8 → EN, 2.2 kΩ pull-ups to 3V3; GP21 not connected). One USB cable to the Pico.
-- **Wiring:** the final pinout, including GP28 (or GP16) → RX0, GP17 ← TX0 and GP20 → IO0, so flashing and
-  logs go through the Pico; the USB host port (GP0 / GP1) for groups 12 and 13.
+  Wiring: [hardware/README.md](../hardware/README.md#pi-pico--esp32). Default since 2026-11: GP4 → 21,
+  GP5 → 22, GND, GP27 → EN, 2.2 kΩ pull-ups to 3V3, GP21 not connected; one USB cable to the Pico.
+  The results below up to 2026-11-03 are from the bench hybrid on upstream's wiring
+  (`OGXM_HYBRID_PINOUT=ORIGINAL`, I2C moved to GP26 / GP27 and IO0 to GP22).
+- **Wiring:** the final pinout, including GP12 → RX0, GP1 ← TX0 and GP11 → IO0 (default; GP28 / GP17
+  / GP20 on the `ORIGINAL` wiring), so flashing and logs go through the Pico; the USB host port
+  (GP2 / GP3, GP0 / GP1 on the `ORIGINAL` wiring) for groups 12 and 13.
 - **Firmware:** both sides from the same commit. The very first time, the ESP32 is flashed through
   its own USB port (or through a Pico that already runs this firmware: group 11), then the Pico.
   [Tools/hybrid/ogxm_hybrid.py](../Tools/hybrid/README.md) needs `pip install pyserial esptool`.

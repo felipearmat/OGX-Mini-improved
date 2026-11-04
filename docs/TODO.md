@@ -126,6 +126,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
 - **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.
+- **Soldered hybrid (YD-RP2040 + 38-pin ESP32, default wiring): test it** — built 2026-11-04 on the new default pins; checked so far: every wire (pin scan), the ESP32 flashed through the RP2040, the I2C link up (266 replies in the first 30 s, with 8 ESP32 read errors, 10 cut replies and 4 rejected packets, all from the boot; see whether they grow with a controller, as in the jumper item above). Still to do: the hybrid test plan with a controller on it (pairing, every mode, rumble, the combos), the ESP32's I2C errors under traffic against the jumper bench, the probe point on GP8 / GP9 (not wired yet), the RGB LED on GP23 (solder pad, `OGXM_YD_RP2040_RGB`).
 
 ## Output modes
 

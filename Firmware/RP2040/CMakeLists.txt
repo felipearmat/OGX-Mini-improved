@@ -159,9 +159,30 @@ set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in s
 # Custom: the debug probe point (src/Board/DebugProbe.h), a UART TX pin that streams the activity
 # log: GP4 on the boards where it is free (Pico W, Pico 2 W, the RP2040 + ESP32 hybrids), off
 # elsewhere until a board's pins are checked. -1 = none; any UART TX pin otherwise.
-set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP4 where free")
+# Custom: the RP2040 + ESP32 hybrid's wiring preset (hardware/README.md#pi-pico--esp32).
+#   IMPROVED (default since 2026-11): I2C GP4 / GP5, UART TX GP12 / RX GP1, EN GP27, IO0 GP11, USB
+#     host port GP2 / GP3; the probe point (and a Debug build's log) on GP8 / GP9.
+#   ORIGINAL: upstream OGX-Mini's pins (I2C GP18 / GP19, UART TX GP28 with GP16 / RX GP17, EN GP8,
+#     IO0 GP20, USB host port GP0 / GP1); the probe point on GP4 / GP5.
+# Each wire can still be moved on its own (OGXM_HYBRID_*_PIN below).
+set(OGXM_HYBRID_PINOUT "IMPROVED" CACHE STRING "Hybrid wiring preset: IMPROVED (default) or ORIGINAL (upstream OGX-Mini's pins)")
+set_property(CACHE OGXM_HYBRID_PINOUT PROPERTY STRINGS IMPROVED ORIGINAL)
+if(NOT OGXM_HYBRID_PINOUT MATCHES "^(IMPROVED|ORIGINAL)$")
+    message(FATAL_ERROR "OGXM_HYBRID_PINOUT=${OGXM_HYBRID_PINOUT}: expected IMPROVED or ORIGINAL")
+endif()
+# The hybrid's free UART1 pair for the probe point and a Debug build's log.
+if(OGXM_HYBRID_PINOUT STREQUAL "IMPROVED")
+    set(_ogxm_hybrid_log_tx 8)
+else()
+    set(_ogxm_hybrid_log_tx 4)
+endif()
+math(EXPR _ogxm_hybrid_log_rx "${_ogxm_hybrid_log_tx} + 1")
+
+set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP4 where free (GP8 on the hybrid's default wiring)")
 if(OGXM_DEBUG_UART_TX_PIN STREQUAL "AUTO")
-    if(OGXM_BOARD MATCHES "^(PI_PICOW|PI_PICO2W|ESP32_BLUEPAD32_I2C|ESP32_BLUEPAD32_I2C_PICO2)$")
+    if(OGXM_BOARD MATCHES "^(ESP32_BLUEPAD32_I2C|ESP32_BLUEPAD32_I2C_PICO2)$")
+        set(_ogxm_probe_pin ${_ogxm_hybrid_log_tx})
+    elseif(OGXM_BOARD MATCHES "^(PI_PICOW|PI_PICO2W)$")
         set(_ogxm_probe_pin 4)
     else()
         set(_ogxm_probe_pin -1)
@@ -184,18 +205,36 @@ set(FLASH_SIZE_MB 2)
 set(PICO_BOARD none)
 
 # Custom: the RP2040 + ESP32 hybrid's wires, movable at build time (hardware/README.md#pi-pico--esp32).
-# Defaults: upstream's pinout, the USB host port on GP0 / GP1, and UART TX on GP28 with GP16 still
-# carrying it. Stops on a pin that cannot do the job or is taken twice.
+# Defaults from OGXM_HYBRID_PINOUT (above). Stops on a pin that cannot do the job or is taken twice.
 macro(ogxm_hybrid_pin_options)
-    set(OGXM_HYBRID_I2C_SDA_PIN 18 CACHE STRING "Hybrid: I2C SDA (ESP32 GPIO21)")
-    set(OGXM_HYBRID_I2C_SCL_PIN 19 CACHE STRING "Hybrid: I2C SCL (ESP32 GPIO22), same I2C as SDA")
-    set(OGXM_HYBRID_UART_TX_PIN 28 CACHE STRING "Hybrid: UART0 TX (ESP32 RX0): 0, 12, 16 or 28")
-    set(OGXM_HYBRID_UART_TX_ALT_PIN 16 CACHE STRING "Hybrid: second UART0 TX pin with the same signal, -1 = none")
-    set(OGXM_HYBRID_UART_RX_PIN 17 CACHE STRING "Hybrid: UART0 RX (ESP32 TX0): 1, 13, 17 or 29")
-    set(OGXM_HYBRID_ESP32_EN_PIN 8 CACHE STRING "Hybrid: ESP32 EN (restart)")
-    set(OGXM_HYBRID_ESP32_IO0_PIN 20 CACHE STRING "Hybrid: ESP32 IO0 (bootloader)")
+    if(OGXM_HYBRID_PINOUT STREQUAL "IMPROVED")
+        set(_d_sda 4)
+        set(_d_scl 5)
+        set(_d_tx 12)
+        set(_d_tx_alt -1)
+        set(_d_rx 1)
+        set(_d_en 27)
+        set(_d_io0 11)
+        set(_d_usb_dp 2)
+    else()
+        set(_d_sda 18)
+        set(_d_scl 19)
+        set(_d_tx 28)
+        set(_d_tx_alt 16)
+        set(_d_rx 17)
+        set(_d_en 8)
+        set(_d_io0 20)
+        set(_d_usb_dp 0)
+    endif()
+    set(OGXM_HYBRID_I2C_SDA_PIN ${_d_sda} CACHE STRING "Hybrid: I2C SDA (ESP32 GPIO21)")
+    set(OGXM_HYBRID_I2C_SCL_PIN ${_d_scl} CACHE STRING "Hybrid: I2C SCL (ESP32 GPIO22), same I2C as SDA")
+    set(OGXM_HYBRID_UART_TX_PIN ${_d_tx} CACHE STRING "Hybrid: UART0 TX (ESP32 RX0): 0, 12, 16 or 28")
+    set(OGXM_HYBRID_UART_TX_ALT_PIN ${_d_tx_alt} CACHE STRING "Hybrid: second UART0 TX pin with the same signal, -1 = none")
+    set(OGXM_HYBRID_UART_RX_PIN ${_d_rx} CACHE STRING "Hybrid: UART0 RX (ESP32 TX0): 1, 13, 17 or 29")
+    set(OGXM_HYBRID_ESP32_EN_PIN ${_d_en} CACHE STRING "Hybrid: ESP32 EN (restart)")
+    set(OGXM_HYBRID_ESP32_IO0_PIN ${_d_io0} CACHE STRING "Hybrid: ESP32 IO0 (bootloader)")
     set(OGXM_HYBRID_BRIDGE_JUMPER_PIN 21 CACHE STRING "Hybrid: jumper to GND at boot for the UART bridge")
-    set(OGXM_HYBRID_USB_DP_PIN 0 CACHE STRING "Hybrid: USB host port D+ (D- is the next GPIO)")
+    set(OGXM_HYBRID_USB_DP_PIN ${_d_usb_dp} CACHE STRING "Hybrid: USB host port D+ (D- is the next GPIO)")
     # A Pico W / Pico 2 W: GP25 is the radio chip's line (the hybrid keeps the radio off), not a LED.
     option(OGXM_HYBRID_PICO_W "Hybrid on a Pico W / Pico 2 W: no onboard status LED (GP25 left alone)" OFF)
 endmacro()
@@ -219,7 +258,7 @@ function(ogxm_hybrid_pin_check)
         list(APPEND pins "${OGXM_EXT_RGB_PIN}:EXT_RGB")
     endif()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        list(APPEND pins "4:DEBUG_UART_TX" "5:DEBUG_UART_RX")
+        list(APPEND pins "${_ogxm_hybrid_log_tx}:DEBUG_UART_TX" "${_ogxm_hybrid_log_rx}:DEBUG_UART_RX")
     elseif(NOT _ogxm_probe_pin EQUAL -1)
         list(APPEND pins "${_ogxm_probe_pin}:DEBUG_UART_TX (probe point)")
         if(NOT _ogxm_probe_rx_pin EQUAL -1)
@@ -279,7 +318,7 @@ function(ogxm_hybrid_pin_check)
     if(OGXM_HYBRID_PICO_W)
         add_compile_definitions(OGXM_HYBRID_PICO_W=1)
     endif()
-    message(STATUS "Hybrid pins: I2C ${OGXM_HYBRID_I2C_SDA_PIN}/${OGXM_HYBRID_I2C_SCL_PIN}, UART TX ${OGXM_HYBRID_UART_TX_PIN} (also ${OGXM_HYBRID_UART_TX_ALT_PIN}) RX ${OGXM_HYBRID_UART_RX_PIN}, EN ${OGXM_HYBRID_ESP32_EN_PIN}, IO0 ${OGXM_HYBRID_ESP32_IO0_PIN}, bridge jumper ${OGXM_HYBRID_BRIDGE_JUMPER_PIN}, USB host ${OGXM_HYBRID_USB_DP_PIN}/${usb_dm}")
+    message(STATUS "Hybrid pins (${OGXM_HYBRID_PINOUT} preset): I2C ${OGXM_HYBRID_I2C_SDA_PIN}/${OGXM_HYBRID_I2C_SCL_PIN}, UART TX ${OGXM_HYBRID_UART_TX_PIN} (also ${OGXM_HYBRID_UART_TX_ALT_PIN}) RX ${OGXM_HYBRID_UART_RX_PIN}, EN ${OGXM_HYBRID_ESP32_EN_PIN}, IO0 ${OGXM_HYBRID_ESP32_IO0_PIN}, bridge jumper ${OGXM_HYBRID_BRIDGE_JUMPER_PIN}, USB host ${OGXM_HYBRID_USB_DP_PIN}/${usb_dm}")
 endfunction()
 
 # Custom: external WS2812 status LED on a Pico 2 / Pico 2 W board (see hardware/README.md).
@@ -824,9 +863,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
     # Pico W/2W: use UART1 on GP4 (TX) / GP5 (RX) - valid UART pins, avoids PIO USB (GP0/1) in Wii mode
     # Note: GP10/11 are not valid UART pins on RP2040/RP2350
-    # The RP2040 + ESP32 hybrid too: GP0 / GP1 are its USB host port (wired controllers)
-    if(OGXM_BOARD STREQUAL "PI_PICOW" OR OGXM_BOARD STREQUAL "PI_PICO2W" OR OGXM_BOARD STREQUAL "RP2354" OR
-       OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
+    # The RP2040 + ESP32 hybrid: its free UART1 pair (GP8 / GP9 on the default wiring, where GP4 / GP5
+    # carry the I2C; GP4 / GP5 on the ORIGINAL one, where GP0 / GP1 are the USB host port)
+    if(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
+        set(TX_PIN ${_ogxm_hybrid_log_tx})
+        set(RX_PIN ${_ogxm_hybrid_log_rx})
+    elseif(OGXM_BOARD STREQUAL "PI_PICOW" OR OGXM_BOARD STREQUAL "PI_PICO2W" OR OGXM_BOARD STREQUAL "RP2354")
         set(TX_PIN 4)
         set(RX_PIN 5)
     else()

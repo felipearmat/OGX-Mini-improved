@@ -82,6 +82,10 @@ jobs:
           - EXTERNAL_4CH_I2C
           - ESP32_BLUEPAD32_I2C
           - ESP32_BLUEPAD32_I2C_PICO2
+          # The hybrid on upstream OGX-Mini's wiring (OGXM_HYBRID_PINOUT=ORIGINAL), for boards wired
+          # before the default changed in 2026-11
+          - ESP32_BLUEPAD32_I2C-ORIGINAL_PINS
+          - ESP32_BLUEPAD32_I2C_PICO2-ORIGINAL_PINS
           - ESP32_BLUERETRO_I2C
     steps:
       - uses: actions/checkout@v4
@@ -127,10 +131,15 @@ jobs:
       - name: Build ${{ matrix.board }}
         run: |
           set -euo pipefail
+          # A "-ORIGINAL_PINS" entry: the same board on upstream's hybrid wiring
+          ENTRY="${{ matrix.board }}"
+          BOARD="${ENTRY%-ORIGINAL_PINS}"
+          EXTRA=""
+          if [ "$BOARD" != "$ENTRY" ]; then EXTRA="-DOGXM_HYBRID_PINOUT=ORIGINAL"; fi
           .github/scripts/retry.sh 5 15m -- bash -c "
             cmake -S Firmware/RP2040 -B build -G Ninja \
               -DPICO_SDK_PATH=$PWD/Firmware/external/pico-sdk \
-              -DCMAKE_BUILD_TYPE=Release -DOGXM_BOARD=${{ matrix.board }} -DMAX_GAMEPADS=1 \
+              -DCMAKE_BUILD_TYPE=Release -DOGXM_BOARD=${BOARD} -DMAX_GAMEPADS=1 ${EXTRA} \
               -DOGXM_VERSION=${RELEASE_TAG} &&
             cmake --build build"
           UF2=$(find build -maxdepth 1 -name '*.uf2' | head -n 1)
@@ -223,6 +232,7 @@ jobs:
             echo "Bluetooth features (Joy-Cons, DS4 / DualSense, Mouse + Keyboard over Bluetooth pads...) need a Pico W, a Pico 2 W or the RP2040 + ESP32 hybrid."
             echo "The ESP32 boards' UF2 files are the RP2040 side; the hybrid's ESP32 (ESP32_BLUEPAD32_I2C*) takes the \`ESP32_COMPANION\` zip:"
             echo "\`python3 Tools/hybrid/ogxm_hybrid.py flash-esp32 <unzipped folder>\` with the adapter in D-Input/Debug mode (Start + RB + D-pad Left; through its own USB port)."
+            echo "Hybrid wiring: the plain ESP32_BLUEPAD32_I2C* files use the default wiring since 2026-11 (I2C GP4 / GP5, UART TX GP12 / RX GP1, EN GP27, IO0 GP11, USB host port GP2 / GP3); the \`-ORIGINAL_PINS\` files keep upstream OGX-Mini's (I2C GP18 / GP19, TX GP28 / RX GP17, EN GP8, IO0 GP20). See hardware/README.md."
             echo
             echo "| Board | File |"
             echo "|---|---|"

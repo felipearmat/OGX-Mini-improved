@@ -92,9 +92,10 @@
 #elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
     /* CMake boards ESP32_BLUEPAD32_I2C (RP2040) and ESP32_BLUEPAD32_I2C_PICO2 (Pico 2 / Pico 2 W,
      * RP2350), same pins on both. Custom: the wires to the ESP32 come from CMake (OGXM_HYBRID_*_PIN,
-     * checked there; hardware/README.md). Defaults: upstream's pinout (I2C GP18 / GP19, RX GP17,
-     * IO0 GP20, EN GP8, bridge jumper GP21), UART TX on GP28 (pin 34) with GP16 (pin 21, a corner
-     * pad, often the one damaged by a poor soldering iron) still carrying it. */
+     * checked there; hardware/README.md). Defaults (OGXM_HYBRID_PINOUT=IMPROVED): I2C GP4 / GP5, UART
+     * TX GP12 / RX GP1, EN GP27, IO0 GP11, bridge jumper GP21, USB host port GP2 / GP3.
+     * OGXM_HYBRID_PINOUT=ORIGINAL: upstream's pinout (I2C GP18 / GP19, RX GP17, IO0 GP20, EN GP8,
+     * USB host port GP0 / GP1), UART TX on GP28 with GP16 (a corner pad) still carrying it. */
     #if !defined(OGXM_HYBRID_I2C_SDA_PIN)
         #error "Hybrid pins come from Firmware/RP2040/CMakeLists.txt (ogxm_hybrid_pin_check)"
     #endif
@@ -115,8 +116,8 @@
     #if !defined(OGXM_HYBRID_PICO_W)
     #define LED_INDICATOR_PIN   25
     #endif
-    /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP0,
-     * D- GP1 by default, 5 V from VBUS), as on the Pico W. */
+    /* Custom: USB host port for wired controllers and DualShock 3 pairing (USB-A: D+ GP2,
+     * D- GP3 by default, GP0 / GP1 on the ORIGINAL wiring, 5 V from VBUS), as on the Pico W. */
     #define PIO_USB_DP_PIN      OGXM_HYBRID_USB_DP_PIN
     #ifndef PIO_USB_SWAP_DP_DM
     #define PIO_USB_SWAP_DP_DM  0

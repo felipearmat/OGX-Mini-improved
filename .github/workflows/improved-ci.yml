@@ -211,12 +211,18 @@ jobs:
             flags: ""
             max_warnings: 0
             elf: true  # to match a crash record's build ID
-          # The same hybrid with its wires moved (OGXM_HYBRID_*_PIN): the pin options keep building.
+          # The same hybrid on upstream's wiring with some wires moved (OGXM_HYBRID_PINOUT=ORIGINAL and
+          # OGXM_HYBRID_*_PIN, the bench hybrid's layout): the preset and the pin options keep building.
           - name: ESP32_BLUEPAD32_I2C_PICO2-moved-pins
             board: ESP32_BLUEPAD32_I2C_PICO2
             build_type: Release
-            flags: "-DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27 -DOGXM_HYBRID_ESP32_IO0_PIN=22"
+            flags: "-DOGXM_HYBRID_PINOUT=ORIGINAL -DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27 -DOGXM_HYBRID_ESP32_IO0_PIN=22"
             max_warnings: 0
+          # A Debug build of the default wiring: its log UART (GP8 / GP9) clears the I2C on GP4 / GP5.
+          - name: ESP32_BLUEPAD32_I2C_PICO2-Debug
+            board: ESP32_BLUEPAD32_I2C_PICO2
+            build_type: Debug
+            flags: ""
     steps:
       - uses: actions/checkout@v4
 
