@@ -1,0 +1,39 @@
+--- a/src/components/bluepad32/include/uni_diag_hooks.h
++++ b/src/components/bluepad32/include/uni_diag_hooks.h
+@@ -20,6 +20,10 @@
+ // transaction byte, report[1] the report ID), when it is queued.
+ void uni_diag_on_output_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t report_len);
+ 
++// An output report the controller's buffers could not take at once: queued to go later (dropped
++// 0), or lost because that queue was full too (dropped 1).
++void uni_diag_on_output_queued(struct uni_hid_device_s* d, uint8_t dropped);
++
+ // Every GATT service event of the BLE Device Information query (HCI_EVENT_GATTSERVICE_META).
+ void uni_diag_on_device_information(const uint8_t* packet, uint16_t size);
+ 
+--- a/src/components/bluepad32/parser/uni_hid_parser.c
++++ b/src/components/bluepad32/parser/uni_hid_parser.c
+@@ -37,6 +37,11 @@
+     (void)report_len;
+ }
+ 
++__attribute__((weak)) void uni_diag_on_output_queued(struct uni_hid_device_s* d, uint8_t dropped) {
++    (void)d;
++    (void)dropped;
++}
++
+ __attribute__((weak)) void uni_diag_on_device_information(const uint8_t* packet, uint16_t size) {
+     (void)packet;
+     (void)size;
+--- a/src/components/bluepad32/uni_hid_device.c
++++ b/src/components/bluepad32/uni_hid_device.c
+@@ -947,6 +947,9 @@
+         }
+         if (uni_circular_buffer_put(&d->outgoing_buffer, cid, report, len) != 0) {
+             loge("ERROR: circular buffer full. Cannot queue report\n");
++            uni_diag_on_output_queued(d, 1);  // OGX-Mini-improved: diagnostics
++        } else {
++            uni_diag_on_output_queued(d, 0);  // OGX-Mini-improved: diagnostics
+         }
+     }
+     // Even, if it can send the report, trigger a "can send now event" in case a report was queued.

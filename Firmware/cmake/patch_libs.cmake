@@ -108,7 +108,8 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_full_scale_triggers.diff"
         "${_p}/bluepad32_switch_raw_rumble.diff"
         "${_p}/bluepad32_diag_output_hook.diff"
-        "${_p}/bluepad32_switch_set_report_mode.diff")
+        "${_p}/bluepad32_switch_set_report_mode.diff"
+        "${_p}/bluepad32_diag_output_queued.diff")
 endfunction()
 
 # Bluepad32's BTstack: BTstack v1.8 queues the HID Control Point command through the GATT query

@@ -393,6 +393,31 @@ void set_poll_latency_us(uint32_t us)
 /* Every output report to a Classic pad, when queued (bluepad32_diag_output_hook.diff): a Switch
  * subcommand (report ID 0x01, its ID in byte 11 after the transaction byte) for the probe point's
  * round trip. */
+/* An output report the radio could not take at once (bluepad32_diag_output_queued.diff): queued,
+ * or lost with the queue full. Summed and logged at most once a second, per slot, whatever the log
+ * options: a lost HD Rumble report is felt as a gap. */
+extern "C" void uni_diag_on_output_queued(struct uni_hid_device_s* d, uint8_t dropped)
+{
+    const int slot = uni_hid_device_get_idx_for_instance(d);
+    if (slot < 0 || slot >= CONFIG_BLUEPAD32_MAX_DEVICES)
+        return;
+    static uint16_t s_queued[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+    static uint16_t s_lost[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+    static uint32_t s_last_ms[CONFIG_BLUEPAD32_MAX_DEVICES]{};
+    if (dropped)
+        ++s_lost[slot];
+    else
+        ++s_queued[slot];
+    const uint32_t now_ms = btstack_run_loop_get_time_ms();
+    if (now_ms - s_last_ms[slot] >= 1000) {
+        diag::event(now_ms, "slot %d: %u output reports waited for the radio, %u lost (queue full)", slot,
+                    static_cast<unsigned>(s_queued[slot]), static_cast<unsigned>(s_lost[slot]));
+        s_queued[slot] = 0;
+        s_lost[slot] = 0;
+        s_last_ms[slot] = now_ms;
+    }
+}
+
 extern "C" void uni_diag_on_output_report(struct uni_hid_device_s* d, const uint8_t* report, uint16_t len)
 {
     if (!report || len < 12 || report[1] != 0x01) return;
