@@ -1187,11 +1187,12 @@ static void controller_data_cb(uni_hid_device_t* device, uni_controller_t* contr
     if (bt_slot >= 0) {  /* Custom: battery for the web app's diagnostics (timing: uni_diag_on_input_report) */
         if (controller->battery != UNI_CONTROLLER_BATTERY_NOT_AVAILABLE)
             diag::slot_battery(static_cast<size_t>(bt_slot), controller->battery);
-        if (bt_slot < CONFIG_BLUEPAD32_MAX_DEVICES && bt_pad::battery_low(controller->battery) &&
-            !s_bt_slot_battery_low_logged[bt_slot]) {
+        uint8_t low_level = 0;
+        if (bt_slot < CONFIG_BLUEPAD32_MAX_DEVICES && !s_bt_slot_battery_low_logged[bt_slot] &&
+            bt_pad::battery_low_now(device, low_level)) {  // the same on the ESP32 (Bluepad32/BtPad.h)
             s_bt_slot_battery_low_logged[bt_slot] = true;
             diag::event(to_ms_since_boot(get_absolute_time()), "slot %d battery low (%u/255)", bt_slot,
-                        static_cast<unsigned>(controller->battery));
+                        static_cast<unsigned>(low_level));
         }
     }
     int idx = bt_pad::output_idx(device);

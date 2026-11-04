@@ -117,7 +117,7 @@ namespace sony_reports {
     /* Battery 1..255 (Bluepad32 scale, 0 = unknown) -> 0..10. */
     inline uint8_t battery_level_0_10(uint8_t battery)
     {
-        return static_cast<uint8_t>((battery * 10u + 127u) / 255u);
+        return battery_report::level_0_10(battery);  // one conversion (Gamepad/BatteryReport.h)
     }
 
     /* DS4 status byte: level in the low nibble, bit 4 = cable (charging). Unknown: cabled and full

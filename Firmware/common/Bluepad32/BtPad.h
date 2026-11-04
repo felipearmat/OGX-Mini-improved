@@ -602,6 +602,20 @@ namespace bt_pad {
         return pad_battery::for_host(uni_hid_device_get_idx_for_instance(d), pair_partner_idx(d), d->controller.battery);
     }
 
+    /* "Battery low" for the log, once per connection: from the pad's own reading when there is one
+     * (Bluepad32's level read 20/255 for a full DS4 on its cable, 2026-11-04), not on a charger;
+     * else Bluepad32's level (DropPolicy.h battery_low). `level` gets the level logged. */
+    inline bool battery_low_now(uni_hid_device_t* d, uint8_t& level)
+    {
+        const pad_battery::State* own = pad_battery::table(uni_hid_device_get_idx_for_instance(d));
+        if (own && own->known) {
+            level = pad_battery::to_255(own->percent);
+            return !pad_battery::charging(own->state) && battery_low(level);
+        }
+        level = d->controller.battery;
+        return battery_low(level);
+    }
+
 } // namespace bt_pad
 
 #endif // _OGXM_BT_PAD_H_

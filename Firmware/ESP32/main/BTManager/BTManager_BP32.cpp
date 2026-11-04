@@ -259,11 +259,12 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
     {
         slots_[idx].battery_sent = bp32_battery;
         diag::slot_battery(static_cast<size_t>(idx), bp32_battery);
-        if (bt_pad::battery_low(bp32_battery) && !slots_[idx].battery_low_logged)
-        {
-            slots_[idx].battery_low_logged = true;
-            diag_event("slot %d battery low (%u/255)", idx, static_cast<unsigned>(bp32_battery));
-        }
+    }
+    uint8_t low_level = 0;
+    if (!slots_[idx].battery_low_logged && bt_pad::battery_low_now(bp_device, low_level))  // as on the Pico W
+    {
+        slots_[idx].battery_low_logged = true;
+        diag_event("slot %d battery low (%u/255)", idx, static_cast<unsigned>(low_level));
     }
 
     I2CDriver::PacketIn packet_in = I2CDriver::PacketIn();

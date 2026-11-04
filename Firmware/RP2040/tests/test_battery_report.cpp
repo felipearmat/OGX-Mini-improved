@@ -22,6 +22,12 @@ TEST(levels_and_charging_in_each_mode) {
     CHECK_EQ(br::ds5(128, false), 5);
     CHECK_EQ(br::ds5(128, true), 0x15);          // charging
     CHECK_EQ(br::ds5(255, true), 0x2A);          // full
+    // A pad's own reading (level n -> n * 10 + 5 %) comes back as the same level: 85 % stays 85 %.
+    for (uint8_t level = 0; level <= 9; ++level) {
+        const uint8_t pct = static_cast<uint8_t>(level * 10 + 5);
+        CHECK_EQ(br::level_0_10(pad_battery::to_255(pct)), level);
+    }
+    CHECK_EQ(br::level_0_10(255), 10);
     CHECK_EQ(br::switch_pro(255, false), 0x81);  // full
     CHECK_EQ(br::switch_pro(26, false), 0x21);   // critical
     CHECK_EQ(br::switch_pro(26, true), 0x31);    // critical, charging

@@ -79,10 +79,14 @@ namespace pad_battery {
         return s;
     }
 
-    /* Bluepad32's battery scale (1-255, 0 = unknown) from a percent. */
+    /* Bluepad32's battery scale (1-255, 0 = unknown) from a percent, on the steps Bluepad32 itself
+     * uses for a level n of 0-10 (n * 25 + 1), plus at most half a step for the units: the outputs
+     * round the scale back to 0-10 (Gamepad/BatteryReport.h), so a DS4 at level 8 (85 %) reads as
+     * level 8 again, not 9 (seen 2026-11-04: 85 % on the pad, 95 % on Linux). */
     constexpr uint8_t to_255(uint8_t percent)
     {
-        return static_cast<uint8_t>(percent == 0 ? 1 : (percent * 255u + 50u) / 100u);
+        if (percent >= 100) return 255;
+        return static_cast<uint8_t>((percent / 10u) * 25u + 1u + (percent % 10u) * 12u / 10u);
     }
 
     /* What the host and the status LED get for one output pad: the level (Bluepad32 scale) and
