@@ -934,6 +934,16 @@ void esp32_bp32_i2c::run() {
 #endif
         boot_stage::set(boot_stage::Stage::LOOP_LED);
         status_led_tick();
+        /* The probe's commands (Board/DebugProbe.h): its combos come from the ESP32, so the other
+         * boards' check_for_driver_change does not run here. A mode change goes as SET_DRIVER's. */
+        {
+            DeviceDriverType probe_driver;
+            if (UserSettings::get_instance().take_probe_command(probe_driver)) {
+                const Gamepad::LatencyStats lat = _gamepads[0].latency_stats();
+                diag::pipeline_latency(lat.samples, lat.avg_us, lat.max_us);
+                UserSettings::get_instance().store_driver_type(probe_driver);
+            }
+        }
         sleep_ms(1);
     }
 }

@@ -45,6 +45,7 @@ public:
 
     DeviceDriverType get_current_driver();
     bool check_for_driver_change(Gamepad& gamepad);
+    bool take_probe_command(DeviceDriverType& driver);  // Custom: the probe's commands (also the hybrid)
 
     HostInputSource get_input_source();
     void store_input_source(HostInputSource source);

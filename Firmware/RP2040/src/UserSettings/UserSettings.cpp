@@ -140,11 +140,11 @@ DeviceDriverType UserSettings::DEFAULT_DRIVER()
 #endif
 }
 
-//Checks if button combo has been held for 3 seconds, returns true if mode has been changed
-bool UserSettings::check_for_driver_change(Gamepad& gamepad)
+/* Custom: a command from the PC through the debug probe point (Board/DebugProbe.h), on every
+ * board (the hybrid's main loop calls it too, as its combos come from the ESP32): the log options
+ * live in RAM; a mode to change to in `driver` (true then: the caller stores it and restarts). */
+bool UserSettings::take_probe_command(DeviceDriverType& driver_out)
 {
-    /* Custom: a command from the PC through the debug probe point (Board/DebugProbe.h): the log
-     * options live in RAM, or a mode change as a combo would make it. */
     probe_command_t command;
     if (probe_take_command(&command)) {
         if (command.cmd == PROBE_CMD_OPTIONS) {
@@ -157,10 +157,21 @@ bool UserSettings::check_for_driver_change(Gamepad& gamepad)
             const DeviceDriverType driver = normalized(static_cast<DeviceDriverType>(command.a));
             if (is_valid_driver(driver) && driver != current_driver_) {
                 probe_ack(&command);
-                current_driver_ = driver;
+                driver_out = driver;
                 return true;
             }
         }
+    }
+    return false;
+}
+
+//Checks if button combo has been held for 3 seconds, returns true if mode has been changed
+bool UserSettings::check_for_driver_change(Gamepad& gamepad)
+{
+    DeviceDriverType probe_driver;
+    if (take_probe_command(probe_driver)) {
+        current_driver_ = probe_driver;
+        return true;
     }
 
 #if defined(CONFIG_OGXM_FIXED_DRIVER) && !defined(CONFIG_OGXM_FIXED_DRIVER_ALLOW_COMBOS)
