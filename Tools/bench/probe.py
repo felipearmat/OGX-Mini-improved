@@ -9,13 +9,17 @@ must be on (web app, Diagnostics).
   probe.py                                     the one USB-UART reader found; files in ./logs
   probe.py --port /dev/ttyUSB0                 live: events and a line per second; files in --dir
   probe.py --port COM5 --dir logs --quiet      only the files (as the service runs it)
+  probe.py --replay logs/raw/probe-raw-*.bin.gz   the session files again from the raw stream
 
 A session file starts when the adapter's header (once a second) appears and ends when the stream
-stops for --idle seconds or the adapter restarts (its clock goes back).
+stops for --idle seconds or the adapter restarts (its clock goes back). The raw stream is kept too
+(<dir>/raw, gzip, one file an hour, 14 days), so a session can be decoded again by a newer version.
 """
 import argparse
 import datetime as dt
 import collections
+import glob
+import gzip
 import os
 import re
 import struct
@@ -40,7 +44,8 @@ def command(cmd, a=0, b=0):
 # The controllers' own clocks (diag::PadClock): nominal µs per count, counter size, and the longest
 # pause the counter still bridges (half a wrap); the real rate is fitted per session.
 CLOCKS = {1: ("Switch timer", 5000.0, 1 << 8), 2: ("DS4", 16 / 3, 1 << 16), 3: ("DualSense", 1 / 3, 1 << 32)}
-LINK_LATE_MS = 20  # a report this much later than the controller's best case is logged
+LINK_LATE_MS = 20  # a report this much later than the controller's best case is logged (one line a second)
+FIT_WINDOW_S = 60  # the controller clock's rate and best case, from the last minute only
 GAP_MS = 50  # a controller report later than this is a gap (as the adapter's "no input" event)
 
 
@@ -89,8 +94,11 @@ class Decoder:
 class PadClock:
     """One controller's delay to the adapter beyond its best case: arrival time against the clock
     the controller writes in each report. The controller's clock rate is fitted (least squares)
-    over the fastest report of each second, so the line follows the best case and the rest is
-    delay added between the controller and the adapter (radio, retransmissions, the stack)."""
+    over the fastest report of each second of the last FIT_WINDOW_S, so the line follows the best
+    case and the rest is delay added between the controller and the adapter (radio,
+    retransmissions, the stack). Over the last minute only: a controller's clock rate moves with
+    its temperature, and one line over an hour drifted tens of ms off (2026-11-04: nearly every
+    report of a steady Joy-Con counted late)."""
 
     def __init__(self, kind):
         self.name, self.nominal, self.mod = CLOCKS[kind]
@@ -121,6 +129,8 @@ class PadClock:
         best = self.bins.get(key)
         if best is None or resid < best[0]:
             self.bins[key] = (resid, self.count, t_us)
+        for old in [k for k in self.bins if k < key - FIT_WINDOW_S]:
+            del self.bins[old]
         if self.fit is None or t_us - self.start < 10_000_000:
             return None
         off, rate = self.fit
@@ -175,8 +185,11 @@ class Session:
         self.hd_last_in = None
         self.hd_gap, self.hd_gap_max = 0, 0  # longest pause between host reports while playing
         self.hd_playing = False
+        self.hd_last_wait = False
         self.clocks = {}  # slot -> PadClock
         self.link = {}    # slot -> excess delays (ms) this second
+        self.late_line = {}  # slot -> second of its last "later than" line
+        self.late_more = {}  # slot -> late reports this second not given a line
         self.commands = {}  # (slot, subcommand) -> times sent (µs)
         self.rtt = {}     # slot -> round trips (ms)
         self.second = None
@@ -331,7 +344,12 @@ class Session:
                 clk.hist.append(excess)
                 self.link.setdefault(slot, []).append(excess)
                 if excess >= LINK_LATE_MS:
-                    self.out(f"{self.stamp(t_us)} slot {slot}: report {excess:.1f} ms later than the controller's best case")
+                    sec = int(t_us // 1_000_000)
+                    if self.late_line.get(slot) != sec:
+                        self.late_line[slot] = sec
+                        self.out(f"{self.stamp(t_us)} slot {slot}: report {excess:.1f} ms later than the controller's best case")
+                    else:
+                        self.late_more[slot] = self.late_more.get(slot, 0) + 1
         elif ftype == PAD_COMMAND and len(payload) >= 3:
             slot, sub, reply = payload[0], payload[1], payload[2]
             key = (slot, sub)
@@ -376,13 +394,18 @@ class Session:
                     t0 = self.hd_queue.popleft()
                     if stage == 2:
                         self.hd_wait.append(t_us - t0)
+                        self.hd_last_wait = True
                 key = "dropped" if stage == 1 else "out"
             elif stage == 3:
                 key = "stops"
             else:
-                key = "stale"
+                key = "stale"  # the frame just taken (stage 2) was thrown away: not a wait
                 self.hd["out"] -= 1
                 self.hd_total["out"] -= 1
+                if self.hd_last_wait and self.hd_wait:
+                    self.hd_wait.pop()
+            if stage != 2:
+                self.hd_last_wait = False
             self.hd[key] += 1
             self.hd_total[key] += 1
         elif ftype == ACK and len(payload) >= 3:
@@ -414,8 +437,10 @@ class Session:
                 parts.append(f"slot {slot} {s[0]}/s")
                 s[0] = 0
             for slot, xs in sorted(self.link.items()):
-                parts.append(f"slot {slot} link +{max(xs):.1f} ms max")
+                more = self.late_more.get(slot)
+                parts.append(f"slot {slot} link +{max(xs):.1f} ms max" + (f" ({more} more late)" if more else ""))
             self.link = {}
+            self.late_more = {}
             for clk in self.clocks.values():
                 clk.refit()
             for slot, info in sorted(self.linkinfo.items()):
@@ -489,6 +514,46 @@ def open_port(path):
     return port
 
 
+class RawKeeper:
+    """The raw stream, gzipped, one file an hour, kept RAW_DAYS days."""
+
+    RAW_DAYS = 14
+
+    def __init__(self, directory):
+        self.dir = os.path.join(directory, "raw")
+        self.file = None
+        self.hour = None
+
+    def write(self, data):
+        hour = dt.datetime.now().strftime("%Y-%m-%d_%H")
+        if hour != self.hour:
+            self.close()
+            os.makedirs(self.dir, exist_ok=True)
+            self.file = gzip.open(os.path.join(self.dir, f"probe-raw-{hour}.bin.gz"), "ab")
+            self.hour = hour
+            cutoff = time.time() - self.RAW_DAYS * 86400
+            for old in glob.glob(os.path.join(self.dir, "probe-raw-*.bin.gz")):
+                if os.path.getmtime(old) < cutoff:
+                    os.remove(old)
+        self.file.write(data)
+
+    def close(self):
+        if self.file:
+            self.file.close()
+            self.file = None
+
+
+def replay(paths, directory, quiet):
+    dec = Decoder()
+    ses = Session(directory, quiet)
+    for path in sorted(paths):
+        with gzip.open(path, "rb") as f:
+            while chunk := f.read(65536):
+                for fr in dec.feed(chunk):
+                    ses.frame(*fr)
+    ses.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", default="auto",
@@ -498,12 +563,18 @@ def main():
     ap.add_argument("--idle", type=float, default=5.0, help="seconds without data that end a session")
     ap.add_argument("--quiet", action="store_true", help="no output on the terminal")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = run until stopped)")
+    ap.add_argument("--no-raw", action="store_true", help="do not keep the raw stream (<dir>/raw)")
+    ap.add_argument("--replay", nargs="+", metavar="RAW", help="decode kept raw files (.bin.gz) into session files")
     ap.add_argument("--send", nargs=3, metavar=("CMD", "A", "B"),
                     help="send one command first (needs the reader's TX on the probe's RX pin): "
                          "O LEVEL DETAILED sets the log options live, M MODE changes the output mode")
     args = ap.parse_args()
+    if args.replay:
+        replay(args.replay, args.dir, args.quiet)
+        return
 
     dec = Decoder()
+    raw = None if args.no_raw else RawKeeper(args.dir)
     ses = Session(args.dir, args.quiet)
     start = time.monotonic()
     port = None
@@ -540,6 +611,11 @@ def main():
             now = time.monotonic()
             if data:
                 last_data = now
+                if raw:
+                    try:
+                        raw.write(data)
+                    except OSError:
+                        raw = None  # a full disk: the session files go on
                 for f in dec.feed(data):
                     ses.frame(*f)
             elif ses.file and now - last_data > args.idle:
@@ -549,6 +625,8 @@ def main():
         pass
     finally:
         ses.close()
+        if raw:
+            raw.close()
         if dec.bad and not args.quiet:
             say(f"{dec.bad} bad frames skipped", file=sys.stderr)
 

@@ -170,3 +170,60 @@ def test_hd_rumble_on_its_way(tmp_path):
     assert "# HD Rumble: 12 reports from the host, 11 to the pad, 1 dropped (queue full), 0 stale, 1 stops" in log
     assert "queue wait median 3.0 ms" in log and "deepest queue 15" in log
     assert "longest host pause while playing 65.0 ms" in log
+
+
+def test_a_long_session_whose_controller_clock_drifts(tmp_path):
+    """The Joy-Con's clock rate moving by 100 ppm over 20 minutes: the fit over the last minute
+    follows it, so a steady link shows no late reports (one line over the session gave tens)."""
+    frames = [hello(1_000_000), text(1_500_000, b"1.500 slot 0 ready 057e:2006 Classic: Joy-Con (L)\n")]
+    t, count, last = 2_000_000.0, 0, 0
+    for i in range(80_000):  # 20 min at 15 ms
+        tick = 5000.0 * (1 + 100e-6 * i / 80_000)  # the rate drifts
+        t += 3 * tick
+        count += 3
+        at = int(t + 1500)
+        frames.append(clock(at, 0, 1, count % 256))
+        if i % 66 == 0:
+            frames.append(hello(at + 1))
+        last = at
+    (log,) = run(tmp_path, frames)
+    assert "later than the controller's best case" not in log
+    summary = [line for line in log.splitlines() if line.startswith("# slot 0 link delay")][0]
+    assert "0 reports 10 ms or more" in summary
+
+
+def test_late_reports_get_one_line_a_second(tmp_path):
+    frames = [hello(1_000_000), text(1_500_000, b"1.500 slot 0 ready 057e:2006 Classic: Joy-Con (L)\n")]
+    last = 0
+    for i in range(1500):  # 22 s; ten reports in a row 25 ms late (a burst)
+        late = 25_000 if 1000 <= i < 1010 else 0
+        t = last = max(2_000_000 + i * 15_000 + late, last + 200)  # arrival order
+        frames.append(clock(t, 0, 1, (3 * i) % 256))
+        if i % 66 == 0:
+            frames.append(hello(t + 1))
+    (log,) = run(tmp_path, frames)
+    lines = [line for line in log.splitlines() if "later than the controller" in line]
+    assert 1 <= len(lines) <= 2  # the burst falls in one or two seconds
+    assert "more late)" in log
+
+
+def test_a_stale_hd_report_is_not_a_queue_wait(tmp_path):
+    play = bytes([0x28, 0x88, 0x60, 0x61]) * 2
+    hd = lambda t, stage, depth=1: frame(probe.HD_RUMBLE, t, bytes([stage, depth]) + play)
+    frames = [hello(1_000_000), hd(1_100_000, 0), hd(4_100_000, 2, 0), hd(4_100_010, 4, 0xFF),
+              hd(4_200_000, 0), hd(4_201_000, 2, 0), hello(5_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "1 stale" in log and "queue wait median 1.0 ms" in log and "max 1.0 ms" in log
+
+
+def test_the_raw_stream_replays_into_the_same_session(tmp_path):
+    import gzip
+    raw = tmp_path / "raw.bin.gz"
+    stream = hello(1_000_000) + text(1_100_000, b"1.100 boot STEAM\n") + hello(2_000_000)
+    with gzip.open(raw, "wb") as f:
+        f.write(stream[:7])
+        f.write(stream[7:])
+    out = tmp_path / "out"
+    probe.replay([str(raw)], str(out), True)
+    (log,) = [p.read_text() for p in out.iterdir()]
+    assert "[rp] 1.100 boot STEAM" in log

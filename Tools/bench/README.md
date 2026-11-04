@@ -62,7 +62,9 @@ the adapter's events (`[rp]`, the hybrid's `[esp]`), a line per second with the 
 by the host, each controller's reports), each controller report later than 50 ms (not while it
 connects again), rumble on / off, and at the end each controller's longest gap, the input-to-output
 latency and the probe's own cost (the adapter measures it: about 0.1% of a core on a Pico 2 W). The adapter sends only raw records
-(Board/DebugProbe.h); the figures are worked out here. It holds RTS on and DTR off, which keeps an
+(Board/DebugProbe.h); the figures are worked out here. The raw stream is kept as well (`<dir>/raw`, gzip, one file an hour, 14 days; `--no-raw` to
+skip): `probe.py --replay <dir>/raw/probe-raw-*.bin.gz --dir out` decodes it again, for example
+with a newer `probe.py`. It holds RTS on and DTR off, which keeps an
 ESP32 board used as the reader in reset. With the reader's TX wired to GP5, `--send O LEVEL DETAILED`
 sets the log options live and `--send M MODE` changes the output mode, in any mode (commands for
 automated tests, [Debug mode](../../Firmware/RP2040/docs/Debug_Mode.md#commands-to-the-adapter-automated-tests)).

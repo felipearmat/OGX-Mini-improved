@@ -93,7 +93,8 @@ of a few seconds starts a new one. A shortened example:
 - `rate` once a second: reports the host read (`usb`), each controller's reports, the wait from a
   controller's input to the output driver, the strongest rumble, the probe's cost.
 - `slot N: report after X ms`: a controller report later than 50 ms (not while it connects).
-- `slot N: report X ms later than the controller's best case`: the controller's own clock (DS4,
+- `slot N: report X ms later than the controller's best case` (at most one line a second per
+  controller; the `rate` line counts the others): the controller's own clock (DS4,
   DualSense, Joy-Con, Pro Controller) says the report was held back between the controller and the
   adapter (radio retransmissions, interference, the Bluetooth stack). The best case of the session
   is the zero, so this is the delay the link added, not the whole delay.
