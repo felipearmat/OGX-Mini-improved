@@ -240,6 +240,7 @@ later fixes reach every board in one PR.
 | 9f6deb1 | `Firmware/common`: one copy of the code both firmwares build (I2C bridge format, mode IDs, button bits, profile / stick / trigger settings) | todo | Sent as a fix (item 11 above): the ESP32 copies had drifted (no newer modes, analog buttons off by default). After 87431fb. |
 | 726687a | Log levels (activity log, log in flash, detailed diagnostics; Adapter Options v9 byte 23) and no -dev build | todo | Only with the dongle options and the diagnostics they gate; goes with them. |
 | 647e8a1 | Debug probe point: the activity log as binary frames on a UART TX pin (GP4) by DMA, `Tools/bench/probe.py` | todo | Needs the log levels (726687a) and the diagnostics; upstream has no Pico W debug pin of its own besides the Debug build's UART on the same pin. |
+| 0f39d01 | Switch mode HD Rumble sent to the pad as soon as it is queued (Pico W), not on the next 8 ms tick | todo | Needs the HD Rumble passthrough (9f9ee9a); measured with the probe point (4.7 → 0.1 ms queue wait). |
 
 ## Other projects
 
