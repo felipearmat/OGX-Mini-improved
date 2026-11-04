@@ -242,6 +242,7 @@ later fixes reach every board in one PR.
 | 647e8a1 | Debug probe point: the activity log as binary frames on a UART TX pin (GP4) by DMA, `Tools/bench/probe.py` | todo | Needs the log levels (726687a) and the diagnostics; upstream has no Pico W debug pin of its own besides the Debug build's UART on the same pin. |
 | 0f39d01 | Switch mode HD Rumble sent to the pad as soon as it is queued (Pico W), not on the next 8 ms tick | todo | Needs the HD Rumble passthrough (9f9ee9a); measured with the probe point (4.7 → 0.1 ms queue wait). |
 | c9aec53 | The controller battery on the host with charging (PS4 / STEAM / Switch / PS3), a pair's lower half, the LED battery alert; a quiet Switch pad asked again then reconnected | todo | Builds on the diagnostics battery reading (96862ec); the report-mode patch could go to Bluepad32. |
+| 411b0b9, 1d8f0a1 | The same on the hybrid, from one shared implementation (`bt_pad::host_battery`, `health_on_ready` / `health_on_gone` / `quiet_check`, `status_led::alert_red`; `SET_PAD_EXT` charging / critical flags); a pair on a battery tie shows the half off its charger | todo | Send with c9aec53. Built for every Bluetooth board; the hybrid not tested on hardware yet. |
 | 2776e51 | Settings read past a hole in the NVS table (a sector rewrite cut short) | todo | A fix upstream has too: their NVSTool stops at the first free entry. |
 
 ## Other projects
