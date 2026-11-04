@@ -46,6 +46,7 @@ void add_synth_fields(std::array<uint8_t, SteamPassthrough::USB_REPORT_SIZE>& re
 	in.touch_valid = gp_in.touchpad_valid != 0;
 	in.touch_click = gp_in.touchpad_click != 0;
 	in.battery = gp_in.battery;
+	in.battery_charging = gp_in.battery_charging != 0;
 	sony_reports::ds5_fill_synth(rep.data(), in);
 }
 

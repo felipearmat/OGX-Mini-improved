@@ -1,3 +1,4 @@
+#include "Gamepad/BatteryReport.h"
 #include <cstring>
 
 #include "pico/time.h"
@@ -68,7 +69,8 @@ void SwitchDevice::set_timer()
 
 void SwitchDevice::gamepad_to_switch_report(const Gamepad::PadIn& gp_in, SwitchPro::SwitchReport& out, const Gamepad& gamepad)
 {
-	out.batteryConnection = 0x81;
+	/* Custom: the pad's battery, charging included (Gamepad/BatteryReport.h); was always full. */
+	out.batteryConnection = battery_report::switch_pro(gp_in.battery, gp_in.battery_charging != 0);
 	out.buttons[0] = 0;
 	out.buttons[1] = 0;
 	out.buttons[2] = 0;

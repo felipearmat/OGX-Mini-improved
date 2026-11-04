@@ -198,3 +198,34 @@ TEST(mode_colours_record_is_checked) {
 }
 
 TEST_MAIN()
+
+TEST(status_led_battery_alert_five_quick_blinks_then_four_seconds_as_usual) {
+    // 2026-11: a Joy-Con ran out of battery mid-session with no warning on the adapter.
+    using status_led::Search;
+    status_led::Blinker led;
+    bool on = false, alert = false;
+    uint32_t ms = 0;
+    int ons = 0;
+    for (int i = 0; i < 2 * status_led::kAlertBlinks; ++i) {
+        CHECK(led.step(Search::NONE, true, on, ms, alert));
+        CHECK(alert);
+        if (on) ++ons;
+        CHECK_EQ(ms, on ? status_led::kAlertOnMs : status_led::kAlertOffMs);
+    }
+    CHECK_EQ(ons, static_cast<int>(status_led::kAlertBlinks));
+    // Then as usual (solid, no search) for kAlertEveryMs, then the blinks again.
+    uint32_t usual = 0;
+    while (true) {
+        led.step(Search::NONE, true, on, ms, alert);
+        if (alert) break;
+        CHECK(on);
+        usual += ms;
+        CHECK(usual <= status_led::kAlertEveryMs + status_led::kFastBlinkMs);
+    }
+    CHECK(usual >= status_led::kAlertEveryMs);
+    // Charged: no more alerts.
+    for (int i = 0; i < 40; ++i) {
+        led.step(Search::NONE, false, on, ms, alert);
+        CHECK(!alert);
+    }
+}

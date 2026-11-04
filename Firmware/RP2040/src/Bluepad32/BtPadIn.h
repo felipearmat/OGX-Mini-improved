@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "Bluepad32/BtPad.h"
+#include "Bluepad32/PadBattery.h"
 #include "Gamepad/Gamepad.h"
 #include "Gamepad/MotionImu.h"
 
@@ -36,7 +37,13 @@ namespace bt_pad {
                                    joycon && device->controller_type == CONTROLLER_TYPE_SwitchJoyConRight,
                                    joycon && pair_partner_idx(device) >= 0, wii_gyro, now_ms);
 
-        gp_in.battery = device->controller.battery;  // every output mode (PS4 mode passes it on)
+        /* Custom: the battery for the host, charging included, from the pad's own reports when
+         * known (Bluepad32/PadBattery.h): a Joy-Con pair gives the lower half. Else Bluepad32's
+         * level. */
+        const pad_battery::State bat = pad_battery::for_pad(uni_hid_device_get_idx_for_instance(device),
+                                                            pair_partner_idx(device));
+        gp_in.battery = bat.known ? pad_battery::to_255(bat.percent) : device->controller.battery;
+        gp_in.battery_charging = bat.known && pad_battery::charging(bat.state) ? 1 : 0;
         return gp_in;
     }
 

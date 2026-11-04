@@ -251,7 +251,7 @@ void PS4Device::process(const uint8_t idx, Gamepad& gamepad)
 	/* Custom: battery and touchpad (USBDevice/DeviceDriver/Sony/SonyReports: status byte, idle touch points).
 	 * DS4 and DualSense touch points share this format, so theirs are passed through. */
 	namespace ds4 = sony_reports::ds4;
-	report_in_[ds4::kStatus] = sony_reports::ds4_status(gp_in.battery);
+	report_in_[ds4::kStatus] = sony_reports::ds4_status(gp_in.battery, gp_in.battery_charging != 0);
 	report_in_[ds4::kTouchCount] = 1;
 	report_in_[ds4::kTouchTimestamp] = static_cast<uint8_t>(frame_seq_);
 	sony_reports::put_touch_points(&report_in_[ds4::kTouchPoints], gp_in.touch_raw, gp_in.touchpad_valid != 0);

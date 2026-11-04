@@ -177,6 +177,7 @@ constexpr uint8_t kSessionVersion = 3;
 
 critical_section_t s_lock;
 bool s_lock_ready = false;
+uint32_t s_last_now_ms = 0;  // the latest time a hook was given (for hooks called without one)
 BoardInfo s_info{};
 /* Kept across reboots that keep the RAM (see init()). On the device it sits in the SDK's
  * .uninitialized_data section, which the C runtime never clears. */
@@ -607,6 +608,7 @@ void slot_report(size_t slot, uint32_t now_ms)
     if (!on()) return;
     Cost cost;
     if (slot >= kSlots) return;
+    s_last_now_ms = now_ms;
     const uint8_t probe_slot = static_cast<uint8_t>(slot);
     probe_record(PROBE_REPORT, &probe_slot, 1);  // every report's time, to the probe point
     uint32_t gap = 0, unlogged = 0;
@@ -843,10 +845,24 @@ void slot_battery(size_t slot, uint8_t level)
 void slot_battery_state(size_t slot, uint8_t percent, BatteryState state)
 {
     if (slot >= kSlots) return;
-    Lock l;
-    if (!s_slots[slot].active) return;
-    s_slots[slot].battery_pct = percent > 100 ? 100 : percent;
-    s_slots[slot].battery_state = static_cast<uint8_t>(state);
+    if (percent > 100) percent = 100;
+    bool changed = false;
+    {
+        Lock l;
+        if (!s_slots[slot].active) return;
+        changed = s_slots[slot].battery_pct != percent || s_slots[slot].battery_state != static_cast<uint8_t>(state);
+        s_slots[slot].battery_pct = percent;
+        s_slots[slot].battery_state = static_cast<uint8_t>(state);
+    }
+    /* Custom: each change in the log too (the probe point, the log in flash): when a pad ran low,
+     * when it went on a charger. */
+    if (changed) {
+        static const char* const kNames[] = {"unknown", "discharging", "charging", "full", "not charging"};
+        const uint8_t i = static_cast<uint8_t>(state);
+        const bool critical = percent <= 10 && state != BatteryState::CHARGING && state != BatteryState::FULL;
+        event(s_last_now_ms, "slot %u battery %u%% %s%s", static_cast<unsigned>(slot), percent,
+              i < 5 ? kNames[i] : "?", critical ? " (critical)" : "");
+    }
 }
 
 void slot_switch_firmware(size_t slot, uint8_t major, uint8_t minor)
@@ -1121,6 +1137,7 @@ bool quiet(uint32_t now_ms)
 
 void tick(uint32_t now_ms)
 {
+    s_last_now_ms = now_ms;
     probe_tick();  // its own lock: sends what waits, and the header once a second
     Lock l;
     if (now_ms - s_second_start >= 1000) {

@@ -79,6 +79,8 @@ public:
         uint8_t touchpad_valid;
         /** Custom: pad battery, Bluepad32 scale (0 = unknown, 1..255). */
         uint8_t battery;
+        /** Custom: the pad is on a charger (or full on it); 0 when not known. */
+        uint8_t battery_charging;
 
         PadIn()
         {

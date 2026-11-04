@@ -87,6 +87,8 @@ endfunction()
 #   mode, Firmware/RP2040/docs/HD_Rumble.md).
 # - diagnostics output hook: every output report to a Classic controller as it is queued (the
 #   probe point's Switch subcommand round trip, Firmware/RP2040/docs/Debug_Mode.md).
+# - Switch parser: set the standard report mode again on request (a Joy-Con that finished its
+#   setup but stays quiet, Bluepad32/InputWatch.h).
 # Shared by the firmware builds and the host tests (Firmware/RP2040/tests), so all use one stamp.
 function(ogxm_patch_bluepad32 EXTERNAL_DIR)
     set(_p "${EXTERNAL_DIR}/patches")
@@ -105,7 +107,8 @@ function(ogxm_patch_bluepad32 EXTERNAL_DIR)
         "${_p}/bluepad32_no_deprecated_scan_calls.diff"
         "${_p}/bluepad32_full_scale_triggers.diff"
         "${_p}/bluepad32_switch_raw_rumble.diff"
-        "${_p}/bluepad32_diag_output_hook.diff")
+        "${_p}/bluepad32_diag_output_hook.diff"
+        "${_p}/bluepad32_switch_set_report_mode.diff")
 endfunction()
 
 # Bluepad32's BTstack: BTstack v1.8 queues the HID Control Point command through the GATT query

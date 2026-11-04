@@ -1,6 +1,7 @@
 #ifndef _OGXM_CUSTOM_SONY_REPORTS_H_
 #define _OGXM_CUSTOM_SONY_REPORTS_H_
 
+#include "Gamepad/BatteryReport.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -119,17 +120,18 @@ namespace sony_reports {
         return static_cast<uint8_t>((battery * 10u + 127u) / 255u);
     }
 
-    /* DS4 status byte: level in the low nibble, bit 4 = cable. Unknown: cabled and full (11). */
-    inline uint8_t ds4_status(uint8_t battery)
+    /* DS4 status byte: level in the low nibble, bit 4 = cable (charging). Unknown: cabled and full
+     * (11). Gamepad/BatteryReport.h. */
+    inline uint8_t ds4_status(uint8_t battery, bool charging = false)
     {
-        return battery == 0 ? 0x1B : battery_level_0_10(battery);
+        return battery_report::ds4(battery, charging);
     }
 
-    /* DualSense status byte: level in the low nibble, charging state in the high one (2 = full).
-     * Unknown: full. */
-    inline uint8_t ds5_status(uint8_t battery)
+    /* DualSense status byte: level in the low nibble, charging state in the high one (1 charging,
+     * 2 full). Unknown: full. */
+    inline uint8_t ds5_status(uint8_t battery, bool charging = false)
     {
-        return battery == 0 ? 0x2A : battery_level_0_10(battery);
+        return battery_report::ds5(battery, charging);
     }
 
     /* Motion sensor clocks: DS4 in units of 16/3 us (16 bits), DualSense in 1/3 us (32 bits).
@@ -190,6 +192,7 @@ namespace sony_reports {
         bool touch_valid;
         bool touch_click;
         uint8_t battery;
+        bool battery_charging{false};
     };
 
     inline void ds5_fill_synth(uint8_t* report, const Ds5SynthInput& in)
@@ -203,7 +206,7 @@ namespace sony_reports {
         put_touch_points(&report[ds5::kTouchPoints], in.touch_raw, touch);
         if (touch && in.touch_click)
             report[ds5::kButtons2] |= kTouchpadClick;
-        report[ds5::kStatus] = ds5_status(in.battery);
+        report[ds5::kStatus] = ds5_status(in.battery, in.battery_charging);
     }
 
 } // namespace sony_reports

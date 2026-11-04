@@ -10,6 +10,8 @@
 #include "Diagnostics/Diagnostics.h"
 #include "UserSettings/DongleSettings.h"
 #include "Gamepad/SonyBattery.h"
+#include "Bluepad32/PadBattery.h"
+#include "Bluepad32/InputWatch.h"
 
 namespace link_diag {
 
@@ -371,8 +373,10 @@ void init()
 
 void on_slot_ready(int slot)
 {
-    if (slot >= 0 && slot < CONFIG_BLUEPAD32_MAX_DEVICES)
+    if (slot >= 0 && slot < CONFIG_BLUEPAD32_MAX_DEVICES) {
         s_battery_sent[slot] = 0;  // the report's slot starts over: send the battery again
+        pad_battery::clear(slot);  // not the previous pad's
+    }
     if (slot < 0 || slot >= CONFIG_BLUEPAD32_MAX_DEVICES)
         return;
     s_tx_max_pending[slot] = true;
@@ -412,8 +416,10 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
     /* Input timing per physical device (each half of a merged Joy-Con pair on its own); Switch
      * subcommand replies (0x21) are not input. */
     if (!(d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft || d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
-          d->controller_type == CONTROLLER_TYPE_SwitchProController) || report[0] != 0x21)
+          d->controller_type == CONTROLLER_TYPE_SwitchProController) || report[0] != 0x21) {
         diag::slot_report(static_cast<size_t>(slot), btstack_run_loop_get_time_ms());
+        input_watch::on_report(slot);  // whatever the log options (Bluepad32/InputWatch.h)
+    }
     /* The pads' own clocks, for the probe point (the delay from the pad to here, worked out on the
      * PC): DS4 report 0x11 bytes 12-13 (5.33 us units, checked against the recorded ds4 fixture),
      * DualSense 0x31 bytes 29-32 (1/3 us units, Linux hid-playstation's sensor_timestamp), the
@@ -457,8 +463,16 @@ extern "C" void uni_diag_on_input_report(struct uni_hid_device_s* d, const uint8
         } else if (d->controller_type == CONTROLLER_TYPE_PS5Controller && report[0] == 0x31 && len > sony_battery::kDs5StatusBt31) {
             b = sony_battery::ds5(report[sony_battery::kDs5StatusBt31]);
             have = true;
+        } else if ((d->controller_type == CONTROLLER_TYPE_SwitchJoyConLeft ||
+                    d->controller_type == CONTROLLER_TYPE_SwitchJoyConRight ||
+                    d->controller_type == CONTROLLER_TYPE_SwitchProController) &&
+                   (report[0] == 0x30 || report[0] == 0x21) && len >= 3) {
+            const pad_battery::SwitchReading r = pad_battery::from_switch(report[2]);  // charging too
+            b = sony_battery::Reading{r.percent, r.state};
+            have = r.state != diag::BatteryState::UNKNOWN;
         }
         if (have && slot < CONFIG_BLUEPAD32_MAX_DEVICES) {
+            pad_battery::set(slot, b.percent, b.state);  // for the host (Bluepad32/BtPadIn.h)
             const uint16_t key = static_cast<uint16_t>((b.percent << 8 | static_cast<uint8_t>(b.state)) + 1);
             if (s_sent[slot] != key) {
                 s_sent[slot] = key;

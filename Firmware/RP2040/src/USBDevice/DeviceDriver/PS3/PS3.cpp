@@ -1,3 +1,4 @@
+#include "Gamepad/BatteryReport.h"
 #include <cstring>
 #include <algorithm>
 
@@ -155,6 +156,10 @@ void PS3Device::process(const uint8_t idx, Gamepad& gamepad)
     {
         Gamepad::PadIn gp_in = gamepad.get_pad_in();
         report_in_ = PS3::InReport();
+        /* Custom: the pad's battery, charging included (Gamepad/BatteryReport.h). */
+        const battery_report::Ds3 power = battery_report::ds3(gp_in.battery, gp_in.battery_charging != 0);
+        report_in_.power_status = power.power_status;
+        report_in_.plugged = power.plugged;
 
         switch (gp_in.dpad)
         {

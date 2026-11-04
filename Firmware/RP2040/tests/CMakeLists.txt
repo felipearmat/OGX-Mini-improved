@@ -103,6 +103,8 @@ target_compile_definitions(test_motion_units PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W
 target_link_libraries(test_motion_units PRIVATE fixmath)
 
 ogxm_add_test(test_sony_reports test_sony_reports.cpp)
+# Custom: the pad battery in each output mode and from the pads' own reports (2026-11).
+ogxm_add_test(test_battery_report test_battery_report.cpp)
 
 ogxm_add_test(test_gamepad_out test_gamepad_out.cpp
     ${FW_COMMON}/UserSettings/UserProfile.cpp
