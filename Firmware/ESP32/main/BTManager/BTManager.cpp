@@ -8,6 +8,7 @@
 #include <esp_bt.h>
 #include <esp_system.h>
 #include <esp_timer.h>
+#include <driver/uart.h>
 
 #include "sdkconfig.h"
 #include "Board/ogxm_log.h"
@@ -19,6 +20,7 @@
 #include "Bluepad32/ScanControl.h"
 #include "UserSettings/DongleSettings.h"
 #include "Bluepad32/LinkDiag.h"
+#include "I2C/HdRumbleUart.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Diagnostics/DiagForward.h"
 #include "I2C/ModeSync.h"
@@ -59,6 +61,8 @@ void BTManager::run_task()
         nullptr,
         1
     );
+    /* HD Rumble from the RP2040 over the UART (I2C/HdRumbleUart.h), above the I2C task. */
+    xTaskCreatePinnedToCore(hd_uart_task, "hd_uart", 2048 * 2, nullptr, configMAX_PRIORITIES - 7, nullptr, 1);
 
     btstack_init();
 
@@ -708,6 +712,73 @@ void BTManager::hd_play_cb(void* context)
     }
 }
 
+/* A report for an output's pads: queued, then played from the run loop at once (any task). */
+void BTManager::hd_queue_frame(uint8_t out, const hd_rumble::Frame& frame)
+{
+    if (out >= MAX_GAMEPADS)
+    {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(hd_mutex_);
+        HdQueue& q = hd_queue_[out];
+        if (q.count == HD_QUEUE_SIZE)
+        {
+            q.head = (q.head + 1) % HD_QUEUE_SIZE;  // the run loop stalled: the oldest go
+            q.count--;
+        }
+        q.frames[(q.head + q.count) % HD_QUEUE_SIZE] = frame;
+        q.count++;
+    }
+    if (!hd_play_scheduled_.exchange(true))
+    {
+        hd_play_reg_.callback = hd_play_cb;
+        hd_play_reg_.context = nullptr;
+        btstack_run_loop_execute_on_main_thread(&hd_play_reg_);
+    }
+}
+
+/* One GET_HD_RUMBLE read over I2C (an RP2040 without the UART path). */
+void BTManager::hd_start_read(uint8_t out)
+{
+    BTManager& bt_manager = *this;
+    i2c_driver_.read_hd_rumble(slave_addr(out), out, hd_rx_[out],
+        [&bt_manager, out](const hd_rumble::Frame& frame) { bt_manager.hd_queue_frame(out, frame); },
+        [&bt_manager, out]() { bt_manager.hd_read_pending_[out].store(false); });
+}
+
+/* The RP2040's HD Rumble reports on RX0 (I2C/HdRumbleUart.h). The console's UART: TX keeps the
+ * log, nothing else reads RX (no console input in this build). */
+void BTManager::hd_uart_task(void* param)
+{
+    (void)param;
+    BTManager& bt_manager = get_instance();
+    if (uart_driver_install(UART_NUM_0, 512, 0, 0, nullptr, 0) != ESP_OK)
+    {
+        vTaskDelete(nullptr);
+        return;
+    }
+    hd_rumble_uart::Decoder decoder;
+    uint8_t buf[64];
+    for (;;)
+    {
+        const int n = uart_read_bytes(UART_NUM_0, buf, sizeof(buf), pdMS_TO_TICKS(50));
+        for (int i = 0; i < n; ++i)
+        {
+            if (decoder.feed(buf[i]))
+            {
+                if (!bt_manager.hd_uart_seen_.exchange(true))
+                {
+                    bt_manager.diag_event("HD Rumble over the UART");
+                }
+                hd_rumble::Frame frame;
+                std::memcpy(frame.blocks, decoder.blocks, sizeof(frame.blocks));
+                bt_manager.hd_queue_frame(decoder.index, frame);
+            }
+        }
+    }
+}
+
 void BTManager::hd_timer_cb(btstack_timer_source *ts)
 {
     BTManager& bt_manager = get_instance();
@@ -729,31 +800,9 @@ void BTManager::hd_timer_cb(btstack_timer_source *ts)
             bt_manager.diag_event("output %u: mode %u, HD Rumble pad %s, poll %s", static_cast<unsigned>(out),
                                   static_cast<unsigned>(state >> 2), pad_plays ? "yes" : "no", plays ? "on" : "off");
         }
-        if (plays && !bt_manager.hd_read_pending_[out].exchange(true))
+        if (plays && !bt_manager.hd_uart_seen_.load() && !bt_manager.hd_read_pending_[out].exchange(true))
         {
-            bt_manager.i2c_driver_.read_hd_rumble(slave_addr(out), out, bt_manager.hd_rx_[out],
-                [&bt_manager, out](const hd_rumble::Frame& frame)
-                {
-                    {
-                        std::lock_guard<std::mutex> lock(bt_manager.hd_mutex_);
-                        HdQueue& q = bt_manager.hd_queue_[out];
-                        if (q.count == HD_QUEUE_SIZE)
-                        {
-                            q.head = (q.head + 1) % HD_QUEUE_SIZE;  // the run loop stalled: the oldest go
-                            q.count--;
-                        }
-                        q.frames[(q.head + q.count) % HD_QUEUE_SIZE] = frame;
-                        q.count++;
-                    }
-                    /* To the pad now, from the run loop (once until it ran). */
-                    if (!bt_manager.hd_play_scheduled_.exchange(true))
-                    {
-                        bt_manager.hd_play_reg_.callback = hd_play_cb;
-                        bt_manager.hd_play_reg_.context = nullptr;
-                        btstack_run_loop_execute_on_main_thread(&bt_manager.hd_play_reg_);
-                    }
-                },
-                [&bt_manager, out]() { bt_manager.hd_read_pending_[out].store(false); });
+            bt_manager.hd_start_read(out);
         }
         const bool any = bt_manager.hd_play_queue(out, now_ms);
         if (bt_manager.hd_feed_[out].playing())
@@ -766,7 +815,8 @@ void BTManager::hd_timer_cb(btstack_timer_source *ts)
             bt_manager.hd_send(out, neutral.blocks);
         }
     }
-    btstack_run_loop_set_timer(ts, polling ? kHdPollMs : hd_rumble::kPeriodMs);
+    (void)polling;
+    btstack_run_loop_set_timer(ts, hd_rumble::kPeriodMs);
     btstack_run_loop_add_timer(ts);
 }
 

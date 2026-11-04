@@ -50,6 +50,7 @@
 #include "USBHost/PioHostPort.h"
 #include "USBHost/HostManager.h"
 #include "Input/InputSlot.h"
+#include "I2C/HdRumbleUart.h"
 #endif
 
 // Wire format shared with the ESP32 companion firmware: I2C/Esp32Bridge.h
@@ -690,6 +691,21 @@ static void usb_host_tick() {
 /* Custom: the status LED (the Pico's own on GP25, an external RGB LED on GP6 in the output mode
  * colour, hardware/README.md): the shared status LED (Board/StatusLed.h) with the search state the
  * ESP32 reports; a wired controller on the USB host port counts as no search. */
+/* From the Switch output (Core0), after each HD Rumble report is queued: every queued report to
+ * the ESP32 now, over UART0 TX (I2C/HdRumbleUart.h). The TX FIFO (32 bytes) takes a frame (13)
+ * at once; a full one waits its 1.1 ms at 115200 baud. */
+static void hd_uart_send() {
+    static uint8_t s_seq = 0;
+    for (uint8_t i = 0; i < MAX_GAMEPADS; ++i) {
+        hd_rumble::Frame frame;
+        while (_gamepads[i].pop_hd_rumble(frame)) {
+            uint8_t out[hd_rumble_uart::kFrameLen];
+            hd_rumble_uart::encode(i, s_seq++, frame.blocks, out);
+            uart_write_blocking(uart0, out, sizeof(out));
+        }
+    }
+}
+
 static void status_led_tick() {
     static status_led::Blinker s_led;
     static uint32_t s_next_ms = 0;
@@ -857,6 +873,9 @@ void esp32_bp32_i2c::run() {
 #endif
     gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
     esp_rx_start();
+    /* Switch HD Rumble to the ESP32 over the UART's TX the moment the host's report is queued
+     * (I2C/HdRumbleUart.h), instead of waiting for the ESP32's next I2C read. */
+    Gamepad::set_hd_rumble_notify(hd_uart_send);
 
     boot_stage::set(boot_stage::Stage::ESP32_RESET);
     esp32_api::reset();

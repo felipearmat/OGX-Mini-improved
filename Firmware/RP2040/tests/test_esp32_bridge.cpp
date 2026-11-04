@@ -4,10 +4,12 @@
 // that would break a dongle flashed from an older tree fails here instead of on hardware.
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "I2C/Esp32Bridge.h"
 #include "I2C/ModeSync.h"
+#include "I2C/HdRumbleUart.h"
 #include "Gamepad/HdRumbleFeed.h"
 #include "Gamepad/GamepadBits.h"
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
@@ -449,6 +451,38 @@ TEST(gyro_crosses_the_link_without_saturating) {
     CHECK_EQ(Esp32Bridge::gyro_from_wire(1234, motion_source::SWITCH_PRO, false), 1234);
     // Sources whose gyro already fits: unchanged.
     CHECK_EQ(Esp32Bridge::gyro_to_wire(77, motion_source::WII_BT), 77);
+}
+
+TEST(hd_rumble_uart_frames_survive_noise_and_corruption) {
+    // The RP2040 -> ESP32 HD Rumble frames (I2C/HdRumbleUart.h): round trip, garbage before and
+    // between frames, a corrupted byte drops only its frame, a false sync byte resyncs.
+    namespace hu = hd_rumble_uart;
+    const uint8_t a[8] = {0x00, 0x01, 0x40, 0x40, 0x12, 0x34, 0x56, 0x78};
+    const uint8_t b[8] = {0xA5, 0x5A, 0xA5, 0x5A, 0xFF, 0x00, 0x80, 0x01};  // sync bytes inside
+    uint8_t fa[hu::kFrameLen], fb[hu::kFrameLen];
+    hu::encode(0, 7, a, fa);
+    hu::encode(1, 8, b, fb);
+    std::vector<uint8_t> stream = {0x00, 0xA5, 0x13, 0xA5};  // garbage, a false start
+    stream.insert(stream.end(), fa, fa + hu::kFrameLen);
+    std::vector<uint8_t> bad(fb, fb + hu::kFrameLen);
+    bad[6] ^= 0x10;  // corrupted: dropped
+    stream.insert(stream.end(), bad.begin(), bad.end());
+    stream.insert(stream.end(), fb, fb + hu::kFrameLen);
+    hu::Decoder d;
+    int got = 0;
+    for (uint8_t byte : stream) {
+        if (!d.feed(byte)) continue;
+        ++got;
+        if (got == 1) {
+            CHECK_EQ(d.index, 0); CHECK_EQ(d.seq, 7);
+            CHECK(std::memcmp(d.blocks, a, 8) == 0);
+        } else {
+            CHECK_EQ(d.index, 1); CHECK_EQ(d.seq, 8);
+            CHECK(std::memcmp(d.blocks, b, 8) == 0);
+        }
+    }
+    CHECK_EQ(got, 2);
+    CHECK_EQ(d.bad_frames(), 1u);
 }
 
 TEST_MAIN()
