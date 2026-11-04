@@ -82,7 +82,7 @@ TEST(led_colour_scales_and_keeps_lit_channels_visible) {
     CHECK_EQ(r, 0);
     CHECK_EQ(g, 51);
     CHECK_EQ(b, 0);
-    // The light lime's 0xC0 / 0x80 channels would round to 0 at the lowest brightness.
+    // The light green's 0xA0 channels would round to 0 at the lowest brightness.
     mode_indicator::led_color(DeviceDriverType::XBOXOG, 1, r, g, b);
     CHECK_EQ(r, 1);
     CHECK_EQ(g, 1);
