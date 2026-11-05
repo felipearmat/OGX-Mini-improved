@@ -27,6 +27,7 @@ static hci_con_handle_t s_version_handles[4] = {HCI_CON_HANDLE_INVALID, HCI_CON_
 static bool s_tx_max_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_qos_pending[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static uint32_t s_poll_latency_us = 0;  // set_poll_latency_us(); 0 = the controller's own polling
+static uint16_t s_sniff_slots = 0;      // set_sniff_slots(); 0 = as the pad and the controller agree
 /* Last battery reading sent per slot ((percent << 8 | state) + 1); 0 = none since the pad connected. */
 uint16_t s_battery_sent[CONFIG_BLUEPAD32_MAX_DEVICES]{};
 static bool s_tx_asked_max = false;  // which level the last Read Transmit Power Level asked for
@@ -101,6 +102,11 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
         uint8_t major = 0, minor = 0;
         if (uni_hid_parser_switch_get_firmware_version(d, &major, &minor))
             diag::slot_switch_firmware(i, major, minor);
+        if (!le && s_qos_pending[i] && s_sniff_slots) {  // sniff at a fixed interval, as the Pico W's links run
+            s_qos_pending[i] = false;
+            gap_sniff_mode_enter(h, s_sniff_slots, s_sniff_slots, 1, 0);
+            return;
+        }
         if (!le && s_qos_pending[i] && s_poll_latency_us) {  // QoS Setup: guaranteed service
             s_qos_pending[i] = false;
             hci_send_cmd(&hci_qos_setup, h, 0, 2, 12000, 0, s_poll_latency_us, 0xFFFFFFFF);
@@ -386,6 +392,11 @@ void on_slot_ready(int slot)
 void set_poll_latency_us(uint32_t us)
 {
     s_poll_latency_us = us;
+}
+
+void set_sniff_slots(uint16_t slots)
+{
+    s_sniff_slots = slots;
 }
 
 } // namespace link_diag

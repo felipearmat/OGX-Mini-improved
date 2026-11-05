@@ -16,6 +16,9 @@ namespace link_diag {
      * service), once per pad; 0 (default) leaves it to the controller. The ESP32's controller
      * otherwise leaves gaps of up to about 90 ms on a Joy-Con pair; the Pico W's links are in sniff. */
     void set_poll_latency_us(uint32_t us);
+    /* Ask each Classic pad's link into sniff at this interval (0.625 ms slots; 24 = 15 ms, what the
+     * Pico W's Joy-Con links run at), once per pad, before any QoS; 0 (default) asks nothing. */
+    void set_sniff_slots(uint16_t slots);
     /* Every feedback tick: one HCI query per 700 ms, rotating over the connected slots. */
     void query(uint32_t now_ms, bool (*slot_connected)(int slot));
 
