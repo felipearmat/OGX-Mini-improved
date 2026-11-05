@@ -40,6 +40,14 @@ void I2CDriver::initialize_i2c(i2c_port_t i2c_port, gpio_num_t sda, gpio_num_t s
     conf.master.clk_speed = clk_speed;
     i2c_param_config(i2c_port_, &conf);
     write_timing_ = get_timing();
+    /* Custom fix: wait up to 1 ms (APB cycles) for the RP2040 holding SCL low. Its slave tops its
+     * 16-byte TX FIFO up from an interrupt; the driver's own limit (tens of us at 400 kHz) cut
+     * every longer reply at byte 16 whenever that interrupt came late: 2026-11-05, YD-RP2040 in
+     * D-Input/Debug, 127 of 128 settings replies (37 bytes) cut in 30 s, all at byte 16. */
+    constexpr int kStretchTimeout = 80000;
+    read_timing_.timeout = std::max(read_timing_.timeout, kStretchTimeout);
+    write_timing_.timeout = std::max(write_timing_.timeout, kStretchTimeout);
+    i2c_set_timeout(i2c_port_, write_timing_.timeout);
     reading_ = false;
 
     i2c_driver_install(i2c_port_, conf.mode, 0, 0, 0);

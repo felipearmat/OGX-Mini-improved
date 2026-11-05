@@ -52,17 +52,32 @@ namespace Esp32Bridge
     static constexpr size_t kPacketLen = 32;
     static constexpr size_t kTrailerLen = 3;
 
-    // CRC-8, polynomial 0x07, initial value 0 (CRC-8/SMBUS).
+    // CRC-8, polynomial 0x07, initial value 0 (CRC-8/SMBUS), by table: the RP2040 checks it in
+    // its I2C interrupt, right before the ESP32 may start reading the reply.
+    struct Crc8Table
+    {
+        uint8_t v[256]{};
+        constexpr Crc8Table()
+        {
+            for (int i = 0; i < 256; ++i)
+            {
+                uint8_t c = static_cast<uint8_t>(i);
+                for (int b = 0; b < 8; ++b)
+                {
+                    c = static_cast<uint8_t>((c & 0x80) ? (c << 1) ^ 0x07 : c << 1);
+                }
+                v[i] = c;
+            }
+        }
+    };
+    inline constexpr Crc8Table kCrc8Table{};
+
     inline uint8_t crc8(const uint8_t* data, size_t len)
     {
         uint8_t crc = 0;
         for (size_t i = 0; i < len; ++i)
         {
-            crc ^= data[i];
-            for (int b = 0; b < 8; ++b)
-            {
-                crc = static_cast<uint8_t>((crc & 0x80) ? (crc << 1) ^ 0x07 : crc << 1);
-            }
+            crc = kCrc8Table.v[crc ^ data[i]];
         }
         return crc;
     }

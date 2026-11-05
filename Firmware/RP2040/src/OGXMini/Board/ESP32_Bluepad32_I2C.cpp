@@ -313,6 +313,10 @@ static volatile bool _sleep_pads = false;  // esp32_bp32_i2c::sleep_pads_before_
 /* A write with its trailer came (Esp32Bridge::Trailer): from then on one without it is cut. Cleared
  * when the ESP32 is reset, whose first writes go out bare until it reads our PacketOutExt. */
 static volatile bool _trailer_seen = false;
+/* Where the ESP32 stopped reading settings replies (PacketOutExt) since the last log line: byte 16
+ * is the RP2040's TX FIFO running dry (I2C interrupt only; read by i2c_check_tick). */
+static constexpr size_t kCutAtSlots = 40;
+static volatile uint32_t _cut_at[kCutAtSlots] = {};
 static void reset_esp32() {
     _trailer_seen = false;
     esp32_api::reset();
@@ -339,7 +343,9 @@ static PacketOutExt ext_reply(uint8_t index) {
     if (_sleep_pads) {
         reply.flags |= PacketOutExt::SLEEP_PADS;
     }
+#ifndef OGXM_AB_NO_TRAILER
     reply.flags |= PacketOutExt::TRAILER;  // check every write (Esp32Bridge::Trailer)
+#endif
     dongle_settings::encode_v6(dongle_settings::get(), reply.settings);
     reply.driver = _current_driver;
     reply.active_profile = index < MAX_GAMEPADS ? _active_profile[index] : 1;
@@ -417,6 +423,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
         case I2C_SLAVE_FINISH:
             if (reply_active) {
                 diag::i2c_reply(reply_pos < reply_len, reply_is_settings);  // a cut reply's rest is dropped here
+                if (reply_is_settings && reply_pos < reply_len) {
+                    ++_cut_at[std::min<uint8_t>(reply_pos, kCutAtSlots - 1)];
+                }
                 reply_active = false;
             }
             if (count == 0) {
@@ -795,6 +804,22 @@ static void i2c_check_tick() {
     }
     if (now - last_ms < 10000) {
         return;
+    }
+    {
+        static uint32_t seen[kCutAtSlots] = {};
+        char line[160];
+        int n = 0;
+        for (size_t i = 0; i < kCutAtSlots && n < 140; ++i) {
+            const uint32_t c = _cut_at[i];
+            if (c != seen[i]) {
+                n += snprintf(line + n, sizeof(line) - n, " %u x%lu", static_cast<unsigned>(i),
+                              static_cast<unsigned long>(c - seen[i]));
+                seen[i] = c;
+            }
+        }
+        if (n > 0) {
+            diag::event(now, "I2C: settings replies cut in 10 s, at byte:%s", line);
+        }
     }
     if (failed != last_failed) {
         diag::event(now, "I2C: %lu writes dropped by their check in 10 s, %lu passed",
