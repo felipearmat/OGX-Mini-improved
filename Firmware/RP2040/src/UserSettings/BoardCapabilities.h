@@ -22,8 +22,8 @@ namespace capabilities {
 #if defined(LED_INDICATOR_PIN)
         caps |= STATUS_LED_PICO;
 #endif
-#if defined(CONFIG_EN_RGB) && defined(OGXM_EXT_RGB_PIN)
-        caps |= STATUS_LED_PICO_EXT;  // an external WS2812B on GP6
+#if defined(CONFIG_EN_RGB) && (defined(OGXM_EXT_RGB_PIN) || defined(OGXM_YD_RP2040_RGB))
+        caps |= STATUS_LED_PICO_EXT;  // an external WS2812B on GP6, or the YD-RP2040's own (its own option)
 #elif defined(CONFIG_EN_RGB)
         caps |= STATUS_LED_PICO;      // the board's own RGB LED is its status LED
 #endif

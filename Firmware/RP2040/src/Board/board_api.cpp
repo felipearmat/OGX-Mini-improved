@@ -131,8 +131,10 @@ void set_led(bool state) {
             /* Custom: the mode colour at the brightness set in the web app. */
             uint8_t r = rgb_color_[0], g = rgb_color_[1], b = rgb_color_[2];
             mode_indicator::scale_color(options.status_led_brightness, r, g, b);
-#if defined(OGXM_EXT_RGB_PIN)
-            const bool rgb_on = state && options.status_led_pico_ext;  // an external LED on GP6
+#if defined(OGXM_EXT_RGB_PIN) || defined(OGXM_YD_RP2040_RGB)
+            /* An external LED on GP6, or the YD-RP2040's own RGB LED: its own option, apart from
+             * the board's plain LED (GP25 on the YD), so either can stay on alone. */
+            const bool rgb_on = state && options.status_led_pico_ext;
 #else
             const bool rgb_on = board_on;                             // the board's own RGB LED
 #endif
