@@ -205,67 +205,43 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     const bool reduced = searching && scan_control::reduced();
     diag::searching(searching, reduced);
 
-    /* A colour saved or previewed in the web app, or other status LED options: show them now, on
-     * the RGB LED and on a connected DS4 / DualSense lightbar. */
-    static uint32_t s_generation = UINT32_MAX;
-    static dongle_settings::Settings s_options{};
-    static bool s_refresh = false;
     const dongle_settings::Settings& options = dongle_settings::get();
-    if (s_generation != mode_indicator::color_generation())
-    {
-        s_generation = mode_indicator::color_generation();
-        uint8_t r, g, b;
-        mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
-        board_api::set_led_color(r, g, b);
-        for (int i = 0; i < static_cast<int>(get_instance().slots_.size()); ++i)
-        {
-            apply_mode_lightbar(i);
-        }
-        s_refresh = true;
-    }
-    if (options.status_led_esp32 != s_options.status_led_esp32 ||
-        options.status_led_esp32_ext != s_options.status_led_esp32_ext ||
-        options.status_led_brightness != s_options.status_led_brightness)
-    {
-        s_options = options;
-        s_refresh = true;
-    }
-
     if constexpr (board_api::NUM_LEDS <= 1)
     {
-        static status_led::Blinker s_led;
-        if (s_refresh)
-        {
-            s_led.invalidate();
-            s_refresh = false;
-        }
+        /* Shared with the Pico W and the hybrid's RP2040 (Board/StatusLed.h): a colour saved or
+         * previewed in the web app shows on a connected DS4 / DualSense lightbar too; a
+         * controller's battery at critical, not charging, adds the quick blinks in dim red. */
+        static status_led::Indicator s_led;
         const status_led::Search search = !searching ? status_led::Search::NONE
                                         : reduced ? status_led::Search::REDUCED
                                         : status_led::Search::FULL;
-        /* A controller's battery at critical, not charging: the quick blinks, in dim red on an
-         * RGB LED, as on the Pico W (Bluepad32/PadBattery.h, Board/StatusLed.h). */
-        static status_led::AlertColour s_alert_colour;
-        bool on = false, alert = false;
-        if (s_led.step(search, pad_battery::any_critical(), on, next_ms, alert))
-        {
-            if (s_alert_colour.changed(alert))
-            {
-                if (alert)
+        uint8_t rgb[3];
+        mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), rgb[0], rgb[1], rgb[2]);
+        next_ms = s_led.tick(
+            search, pad_battery::any_critical(), rgb, mode_indicator::color_generation(),
+            status_led::Indicator::pack_options(options.status_led_esp32, options.status_led_esp32_ext,
+                                                options.status_led_brightness),
+            options.status_led_brightness,
+            [](uint8_t r, uint8_t g, uint8_t b) { board_api::set_led_color(r, g, b); },
+            [](bool on) { board_api::set_led(on); },
+            []() {
+                for (int i = 0; i < static_cast<int>(get_instance().slots_.size()); ++i)
                 {
-                    board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
+                    apply_mode_lightbar(i);
                 }
-                else
-                {
-                    uint8_t r, g, b;
-                    mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
-                    board_api::set_led_color(r, g, b);
-                }
-            }
-            board_api::set_led(on);
-        }
+            });
     }
     else
     {
+        static uint32_t s_generation = UINT32_MAX;  // the lightbars follow a colour change here too
+        if (s_generation != mode_indicator::color_generation())
+        {
+            s_generation = mode_indicator::color_generation();
+            for (int i = 0; i < static_cast<int>(get_instance().slots_.size()); ++i)
+            {
+                apply_mode_lightbar(i);
+            }
+        }
         led_state = !led_state;
         for (uint8_t i = 0; i < board_api::NUM_LEDS; ++i)
         {

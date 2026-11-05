@@ -1,4 +1,6 @@
 // Boot blink code and lightbar colour per output mode; the shared status LED.
+#include <vector>
+
 #include "Board/ModeIndicator.h"
 #include "Board/StatusLed.h"
 #include "test.h"
@@ -241,4 +243,47 @@ TEST(status_led_alert_colour_stays_dim_and_is_written_once) {
     CHECK(c.changed(true));
     CHECK(!c.changed(true));
     CHECK(c.changed(false));
+}
+
+TEST(status_led_indicator_shared_by_every_board) {
+    // Board/StatusLed.h Indicator: the one LED tick of the Pico W, the hybrid's RP2040 and its ESP32.
+    using status_led::Search;
+    status_led::Indicator ind;
+    std::vector<uint32_t> colours;  // 0xRRGGBB written
+    int led_writes = 0, colour_events = 0;
+    bool led_on = false;
+    auto set_colour = [&](uint8_t r, uint8_t g, uint8_t b) { colours.push_back(uint32_t(r) << 16 | g << 8 | b); };
+    auto set_led = [&](bool on) { ++led_writes; led_on = on; };
+    auto on_colour = [&]() { ++colour_events; };
+    const uint8_t white[3] = {255, 255, 255};
+    const uint8_t red[3] = {255, 0, 0};
+    const uint32_t opts = status_led::Indicator::pack_options(1, 1, 48);
+    // First tick: the mode colour written once, the colour event, the LED written.
+    for (int i = 0; i < 40; ++i)  // past the mode's blink code
+        ind.tick(Search::NONE, false, white, 1, opts, 48, set_colour, set_led, on_colour);
+    CHECK_EQ(colours.size(), 1u);
+    CHECK_EQ(colours[0], 0xFFFFFFu);
+    CHECK_EQ(colour_events, 1);
+    CHECK(led_on);
+    // Solid with nothing new: no more writes.
+    const int writes = led_writes;
+    ind.tick(Search::NONE, false, white, 1, opts, 48, set_colour, set_led, on_colour);
+    CHECK_EQ(led_writes, writes);
+    // A mode change (new generation): the new colour once, and the LED written again.
+    ind.tick(Search::NONE, false, red, 2, opts, 48, set_colour, set_led, on_colour);
+    CHECK_EQ(colours.back(), 0xFF0000u);
+    CHECK_EQ(colour_events, 2);
+    CHECK(led_writes > writes);
+    // An LED option change: written again, no colour event.
+    const int w2 = led_writes;
+    ind.tick(Search::NONE, false, red, 2, status_led::Indicator::pack_options(0, 1, 48), 48, set_colour, set_led, on_colour);
+    CHECK(led_writes > w2);
+    CHECK_EQ(colour_events, 2);
+    // Battery critical: dim red during the alert, then the mode colour back.
+    const size_t before = colours.size();
+    for (int i = 0; i < 2 * status_led::kAlertBlinks + 2; ++i)
+        ind.tick(Search::NONE, true, red, 2, status_led::Indicator::pack_options(0, 1, 48), 48, set_colour, set_led, on_colour);
+    CHECK(colours.size() >= before + 2);
+    CHECK_EQ(colours[before], uint32_t(status_led::alert_red(48)) << 16);
+    CHECK_EQ(colours.back(), 0xFF0000u);
 }

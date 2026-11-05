@@ -480,30 +480,7 @@ static void check_led_cb(btstack_timer_source *ts)
 {
     /* Custom: the mode's blink code, then the search for new controllers (Board/StatusLed.h);
      * a wired USB host controller active on the Pico W mux counts as no search. */
-    static status_led::Blinker s_led;
-
-    /* Custom: a colour saved or previewed in the web app, or other status LED options: show them
-     * now, on the RGB LED and on a connected DS4 / DualSense lightbar. */
-    static uint32_t s_generation = UINT32_MAX;
-    static dongle_settings::Settings s_options{};
-    const dongle_settings::Settings& options = dongle_settings::get();
-    if (s_generation != mode_indicator::color_generation())
-    {
-        s_generation = mode_indicator::color_generation();
-        uint8_t r, g, b;
-        mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
-        board_api::set_led_color(r, g, b);
-        for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
-            apply_mode_lightbar(i);
-        s_led.invalidate();
-    }
-    if (options.status_led_pico != s_options.status_led_pico ||
-        options.status_led_pico_ext != s_options.status_led_pico_ext ||
-        options.status_led_brightness != s_options.status_led_brightness)
-    {
-        s_options = options;
-        s_led.invalidate();
-    }
+    static status_led::Indicator s_led;  // shared with the hybrid's two boards (Board/StatusLed.h)
 
 #if defined(CONFIG_TARGET_PICO_W) && defined(CONFIG_EN_USB_HOST)
     const bool wired_host_pad = board_api::usb::host_any_pad_mounted();
@@ -514,24 +491,23 @@ static void check_led_cb(btstack_timer_source *ts)
     const status_led::Search search = !searching ? status_led::Search::NONE
                                     : scan_reduced() ? status_led::Search::REDUCED
                                     : status_led::Search::FULL;
-    /* Custom: a connected controller's battery at "critical", not charging (Bluepad32/PadBattery.h):
-     * the status LED adds its quick blinks, in dim red on an RGB LED. */
-    const bool critical = pad_battery::any_critical();
-    static status_led::AlertColour s_alert_colour;
-    bool on = false, alert = false;
-    uint32_t next_ms = 0;
-    if (s_led.step(search, critical, on, next_ms, alert)) {
-        if (s_alert_colour.changed(alert)) {
-            if (alert) {
-                board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
-            } else {
-                uint8_t r, g, b;
-                mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), r, g, b);
-                board_api::set_led_color(r, g, b);
-            }
-        }
-        board_api::set_led(on);
-    }
+    const dongle_settings::Settings& options = dongle_settings::get();
+    uint8_t rgb[3];
+    mode_indicator::shown_color(UserSettings::get_instance().get_current_driver(), rgb[0], rgb[1], rgb[2]);
+    /* A colour saved or previewed in the web app shows on a connected DS4 / DualSense lightbar too;
+     * a controller's battery at "critical", not charging (Bluepad32/PadBattery.h) adds the quick
+     * blinks, in dim red on an RGB LED. */
+    const uint32_t next_ms = s_led.tick(
+        search, pad_battery::any_critical(), rgb, mode_indicator::color_generation(),
+        status_led::Indicator::pack_options(options.status_led_pico, options.status_led_pico_ext,
+                                            options.status_led_brightness),
+        options.status_led_brightness,
+        [](uint8_t r, uint8_t g, uint8_t b) { board_api::set_led_color(r, g, b); },
+        [](bool on) { board_api::set_led(on); },
+        []() {
+            for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
+                apply_mode_lightbar(i);
+        });
 
     btstack_run_loop_set_timer(ts, next_ms);
     btstack_run_loop_add_timer(ts);

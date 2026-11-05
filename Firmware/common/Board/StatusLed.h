@@ -75,6 +75,60 @@ namespace status_led {
         uint32_t since_alert_ms_{kAlertEveryMs};  // time shown as usual since the last alert
     };
 
+    /* One status LED tick, shared by the Pico W (Bluepad32.cpp), the hybrid's RP2040
+     * (ESP32_Bluepad32_I2C.cpp) and its ESP32 (BTManager.cpp): the mode colour written again when
+     * it changes (a colour saved or previewed in the web app, a mode change), the blink restarted
+     * when the LED options change, then the blink code / search / battery alert (Blinker), the
+     * alert in dim red and back to the mode colour. Each board passes what it reads (its search
+     * state, its LED options) and how it writes its LED. Returns when to call again (ms). */
+    class Indicator
+    {
+    public:
+        /* `rgb`: the mode colour now (mode_indicator::shown_color); `colour_generation`:
+         * mode_indicator::color_generation(); `options`: the LED options that board shows, packed
+         * by the caller (a change restarts the blink). `on_colour` is called when the mode colour
+         * was written because it changed (the Pico W then updates the lightbars, the hybrid logs it). */
+        template <typename SetColour, typename SetLed, typename OnColour>
+        uint32_t tick(Search search, bool critical, const uint8_t rgb[3], uint32_t colour_generation,
+                      uint32_t options, uint8_t brightness, SetColour set_colour, SetLed set_led,
+                      OnColour on_colour)
+        {
+            if (generation_ != colour_generation) {
+                generation_ = colour_generation;
+                set_colour(rgb[0], rgb[1], rgb[2]);
+                on_colour();
+                blinker_.invalidate();
+            }
+            if (options_ != options) {
+                options_ = options;
+                blinker_.invalidate();
+            }
+            bool on = false, alert = false;
+            uint32_t next_ms = 0;
+            if (blinker_.step(search, critical, on, next_ms, alert)) {
+                if (alert_.changed(alert)) {
+                    if (alert)
+                        set_colour(alert_red(brightness), 0, 0);
+                    else
+                        set_colour(rgb[0], rgb[1], rgb[2]);
+                }
+                set_led(on);
+            }
+            return next_ms;
+        }
+
+        static uint32_t pack_options(uint8_t a, uint8_t b, uint8_t brightness)
+        {
+            return static_cast<uint32_t>(a) | static_cast<uint32_t>(b) << 8 | static_cast<uint32_t>(brightness) << 16;
+        }
+
+    private:
+        Blinker blinker_;
+        AlertColour alert_;
+        uint32_t generation_{UINT32_MAX};
+        uint32_t options_{UINT32_MAX};
+    };
+
 } // namespace status_led
 
 #endif // _OGXM_STATUS_LED_H_

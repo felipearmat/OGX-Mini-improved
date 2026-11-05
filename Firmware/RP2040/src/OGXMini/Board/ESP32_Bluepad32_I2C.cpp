@@ -453,7 +453,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             if (reply_active) {
                 diag::i2c_reply(reply_pos < reply_len, reply_is_settings);  // a cut reply's rest is dropped here
                 if (reply_is_settings && reply_pos < reply_len) {
-                    ++_cut_at[std::min<uint8_t>(reply_pos, kCutAtSlots - 1)];
+                    { const size_t k = std::min<size_t>(reply_pos, kCutAtSlots - 1); _cut_at[k] = _cut_at[k] + 1; }
                 }
                 reply_active = false;
             }
@@ -492,7 +492,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             std::memcpy(static_cast<void*>(&packet_in), received, sizeof(PacketIn));
             if (count != sizeof(PacketIn) || packet_in.packet_len != sizeof(PacketIn)) {
                 diag::i2c_packet_rejected();
-                ++_bad_len[std::min<size_t>(count, kBadLenSlots - 1)];  // 32 here: its first byte was wrong
+                { const size_t k = std::min<size_t>(count, kBadLenSlots - 1); _bad_len[k] = _bad_len[k] + 1; }  // 32 here: its first byte was wrong
                 count = 0;
                 break;
             }
@@ -878,7 +878,7 @@ static void i2c_check_tick() {
 }
 
 static void status_led_tick() {
-    static status_led::Blinker s_led;
+    static status_led::Indicator s_led;  // shared with the Pico W and the ESP32 (Board/StatusLed.h)
     static uint32_t s_next_ms = 0;
 
     const uint32_t now = board_api::ms_since_boot();
@@ -892,47 +892,25 @@ static void status_led_tick() {
     const status_led::Search search = !searching ? status_led::Search::NONE
                                     : reduced ? status_led::Search::REDUCED
                                     : status_led::Search::FULL;
-    /* A colour saved or previewed in the web app, or other status LED options: show them now. */
-    static uint32_t s_generation = UINT32_MAX;
-    static uint8_t s_pico = 0xFF;
-    static uint8_t s_external = 0xFF;
-    static uint8_t s_brightness = 0;
-    const dongle_settings::Settings& options = dongle_settings::get();
-    if (s_generation != mode_indicator::color_generation()) {
-        s_generation = mode_indicator::color_generation();
-        uint8_t r, g, b;
-        mode_indicator::shown_color(_current_driver, r, g, b);
-        board_api::set_led_color(r, g, b);
-        diag::event(now, "status LED colour %02x%02x%02x (mode %u)", r, g, b, static_cast<unsigned>(_current_driver));
-        s_led.invalidate();
-    }
-    if (options.status_led_pico != s_pico || options.status_led_pico_ext != s_external ||
-        options.status_led_brightness != s_brightness) {
-        s_pico = options.status_led_pico;
-        s_external = options.status_led_pico_ext;
-        s_brightness = options.status_led_brightness;
-        s_led.invalidate();
-    }
     /* A controller's battery at critical, not charging (the ESP32 reports it with the pad,
      * SET_PAD_EXT BATTERY_CRITICAL): the quick blinks, in dim red on an RGB LED, as on the Pico W. */
     bool critical = false;
     for (uint8_t i = 0; i < MAX_GAMEPADS; ++i)
         critical |= _pad_critical_until_ms[i] && static_cast<int32_t>(_pad_critical_until_ms[i] - now) > 0;
-    static status_led::AlertColour s_alert_colour;
-    bool on = false, alert = false;
-    uint32_t next_ms = 0;
-    if (s_led.step(search, critical, on, next_ms, alert)) {
-        if (s_alert_colour.changed(alert)) {
-            if (alert) {
-                board_api::set_led_color(status_led::alert_red(options.status_led_brightness), 0, 0);
-            } else {
-                uint8_t r, g, b;
-                mode_indicator::shown_color(_current_driver, r, g, b);
-                board_api::set_led_color(r, g, b);
-            }
-        }
-        board_api::set_led(on);
-    }
+    const dongle_settings::Settings& options = dongle_settings::get();
+    uint8_t rgb[3];
+    mode_indicator::shown_color(_current_driver, rgb[0], rgb[1], rgb[2]);
+    const uint32_t next_ms = s_led.tick(
+        search, critical, rgb, mode_indicator::color_generation(),
+        status_led::Indicator::pack_options(options.status_led_pico, options.status_led_pico_ext,
+                                            options.status_led_brightness),
+        options.status_led_brightness,
+        [](uint8_t r, uint8_t g, uint8_t b) { board_api::set_led_color(r, g, b); },
+        [](bool on) { board_api::set_led(on); },
+        [now, &rgb]() {
+            diag::event(now, "status LED colour %02x%02x%02x (mode %u)", rgb[0], rgb[1], rgb[2],
+                        static_cast<unsigned>(_current_driver));
+        });
     s_next_ms = now + next_ms;
 }
 
