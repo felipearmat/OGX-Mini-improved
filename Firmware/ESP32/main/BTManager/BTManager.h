@@ -53,7 +53,6 @@ private:
      * (Gamepad/RumbleTiming.h, shared with the Pico W path): played for exactly one period, a
      * long rumble stopped and restarted every cycle and felt weak. */
     static constexpr uint32_t FEEDBACK_TIME_MS = switch_rumble::kFeedbackPeriodMs;
-    static constexpr uint32_t RUMBLE_DURATION_MS = switch_rumble::kRumbleDurationMs;
     static constexpr uint32_t LED_CHECK_TIME_MS = 500;
     static constexpr uint16_t STOP_SEARCH_RUMBLE_MS = 400;
 

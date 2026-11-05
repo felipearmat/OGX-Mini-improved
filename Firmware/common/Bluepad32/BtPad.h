@@ -357,6 +357,24 @@ namespace bt_pad {
         }
     }
 
+    /* One pad's share of the feedback tick, on the Pico W (Bluepad32.cpp send_feedback_cb) and the
+     * hybrid's ESP32 (BTManager output_feedback_cb) alike: the BLE keepalive, then the host's
+     * rumble (strongest since the last tick), unless the pad is in its post-connect grace (an early
+     * output report can drop a fresh DualShock 4) or HD Rumble plays it. Every pad gets
+     * switch_rumble::kRumbleDurationMs, longer than the tick: with the tick's own length (the Pico W
+     * since 2026-10-12, but for a Joy-Con pair) a long rumble stopped and restarted every tick. */
+    inline void feedback_rumble(uni_hid_device_t* d, uint8_t rumble_l, uint8_t rumble_r, uint32_t now_ms,
+                                KeepaliveState& keepalive, bool in_grace, bool hd_rumble_owns,
+                                bool joycon_pair_per_side)
+    {
+        const bool rumbling = rumble_l || rumble_r;
+        ble_keepalive(d, rumbling, now_ms, keepalive);
+        if (!rumbling || in_grace || (plays_hd_rumble(d) && hd_rumble_owns))
+            return;
+        play_host_rumble(d, static_cast<uint16_t>(switch_rumble::kRumbleDurationMs), rumble_l, rumble_r,
+                         joycon_pair_per_side);
+    }
+
     inline bool disconnect_combo_pressed(const uni_hid_device_t* d, const uni_gamepad_t* gp)
     {
         if (d->controller_type == CONTROLLER_TYPE_OUYAController)

@@ -439,30 +439,6 @@ static void send_feedback_cb(btstack_timer_source *ts)
         {
             continue;
         }
-        /* BLE Xbox (Series) and Switch 2 BLE may not send reports every poll interval. */
-        const bool skip_stall_disconnect =
-            (bp_device->controller_type == CONTROLLER_TYPE_XBoxOneController && bp_device->hids_cid != 0) ||
-            uni_hid_parser_switch2_is_ble_device(bp_device) ||
-            uni_hid_parser_steam_triton_is_device(bp_device);
-        /* Virtual slot (e.g. DS4's BT "mouse"): never gets gamepad HID → would always stall-disconnect
-         * and drop the real controller. */
-        if (uni_hid_device_is_virtual_device(bp_device))
-            goto after_stall_check;
-        if (uni_hid_parser_switch2_is_joycon_pair_secondary(bp_device))
-            goto after_stall_check;
-        if (bt_pad::is_joycon_pair_secondary(bp_device))
-            goto after_stall_check;
-        if (!skip_stall_disconnect)
-        {
-        const int stall_idx = bt_pad::output_idx(bp_device);
-        const unsigned stall_slot =
-            (stall_idx >= 0 && stall_idx < static_cast<int>(MAX_GAMEPADS))
-                ? static_cast<unsigned>(stall_idx)
-                : static_cast<unsigned>(i);
-        
-        }
-    after_stall_check:
-
         const int out_i = bt_pad::output_idx(bp_device);
         const int gp_idx =
             (out_i >= 0 && out_i < static_cast<int>(MAX_GAMEPADS)) ? out_i : static_cast<int>(i);
@@ -476,19 +452,13 @@ static void send_feedback_cb(btstack_timer_source *ts)
             pad_out_read[gp_idx] = true;
         }
         const Gamepad::PadOut gp_out = pad_out[gp_idx];
-        bt_pad::ble_keepalive(bp_device, gp_out.rumble_l > 0 || gp_out.rumble_r > 0, now_ms, s_ble_keepalive[i]);
         if (gp_out.rumble_l > 0 || gp_out.rumble_r > 0)  // Custom: idle turn-off ignores the shaking
             s_idle[gp_idx].note_rumble(now_ms);
-        if ((gp_out.rumble_l > 0 || gp_out.rumble_r > 0) &&
-            !(bt_pad::plays_hd_rumble(bp_device) && s_hd_feed[gp_idx].owns_rumble(now_ms)))  // HD Rumble plays it
-        {
-            if (bp_device->controller_type == CONTROLLER_TYPE_PS4Controller &&
-                now_ms < s_ps4_rumble_ok_ms[i])
-                ;
-            else
-                bt_pad::play_host_rumble(bp_device, static_cast<uint16_t>(FEEDBACK_TIME_MS), gp_out.rumble_l,
-                                         gp_out.rumble_r, joycon_settings::get().pair_rumble_per_side);
-        }
+        /* Keepalive and host rumble: shared with the hybrid's ESP32 (Bluepad32/BtPad.h). */
+        bt_pad::feedback_rumble(bp_device, gp_out.rumble_l, gp_out.rumble_r, now_ms, s_ble_keepalive[i],
+                                bp_device->controller_type == CONTROLLER_TYPE_PS4Controller &&
+                                    now_ms < s_ps4_rumble_ok_ms[i],
+                                s_hd_feed[gp_idx].owns_rumble(now_ms), joycon_settings::get().pair_rumble_per_side);
         apply_host_lightbar(bp_device, i, bt_devices_[gp_idx].gamepad->get_host_lightbar(), now_ms);
     }
     /* Custom: diagnostics rates roll over; link queries for each connected pad. */

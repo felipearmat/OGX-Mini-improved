@@ -642,16 +642,15 @@ void BTManager::output_feedback_cb(void* context)
         {
             continue;
         }
-        bt_pad::ble_keepalive(d, rumbling, now_ms, slot.keepalive);
-        /* Early output reports can drop a freshly connected DualShock 4: no rumble or lightbar yet. */
-        if (now_ms < slot.host_rumble_ok_ms)
+        /* Keepalive and host rumble: shared with the Pico W (Bluepad32/BtPad.h). Early output
+         * reports can drop a freshly connected DualShock 4: no rumble or lightbar yet. */
+        const bool in_grace = now_ms < slot.host_rumble_ok_ms;
+        bt_pad::feedback_rumble(d, packet_out.rumble_l, packet_out.rumble_r, now_ms, slot.keepalive, in_grace,
+                                bt_manager.hd_feed_[output].owns_rumble(now_ms),
+                                joycon_settings::get().pair_rumble_per_side);
+        if (in_grace)
         {
             continue;
-        }
-        if (rumbling && !(bt_pad::plays_hd_rumble(d) && bt_manager.hd_feed_[output].owns_rumble(now_ms)))
-        {
-            bt_pad::play_host_rumble(d, RUMBLE_DURATION_MS, packet_out.rumble_l, packet_out.rumble_r,
-                                     joycon_settings::get().pair_rumble_per_side);
         }
         bt_pad::set_lightbar(d, bt_manager.outputs_[output].host_lightbar, slot.lightbar);
     }
