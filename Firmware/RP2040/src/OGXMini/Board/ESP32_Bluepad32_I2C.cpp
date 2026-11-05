@@ -310,6 +310,13 @@ static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
 /* The reply to the ESP32's GET_EXT: the host's lightbar, whether the mode uses motion, and the
  * dongle settings (the web app keeps them here, on the USB side). */
 static volatile bool _sleep_pads = false;  // esp32_bp32_i2c::sleep_pads_before_reboot
+/* A write with its trailer came (Esp32Bridge::Trailer): from then on one without it is cut. Cleared
+ * when the ESP32 is reset, whose first writes go out bare until it reads our PacketOutExt. */
+static volatile bool _trailer_seen = false;
+static void reset_esp32() {
+    _trailer_seen = false;
+    esp32_api::reset();
+}
 
 static PacketOutExt ext_reply(uint8_t index) {
     PacketOutExt reply;
@@ -332,6 +339,7 @@ static PacketOutExt ext_reply(uint8_t index) {
     if (_sleep_pads) {
         reply.flags |= PacketOutExt::SLEEP_PADS;
     }
+    reply.flags |= PacketOutExt::TRAILER;  // check every write (Esp32Bridge::Trailer)
     dongle_settings::encode_v6(dongle_settings::get(), reply.settings);
     reply.driver = _current_driver;
     reply.active_profile = index < MAX_GAMEPADS ? _active_profile[index] : 1;
@@ -351,6 +359,7 @@ static bool _uart_bridge_mode = false;
 
 static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static size_t count = 0;
+    static uint8_t received[Esp32Bridge::kPacketLen + Esp32Bridge::kTrailerLen];  // a write, its trailer too
     static PacketIn packet_in;
     static PacketOut packet_out;
     static bool ext_requested = false;  // answer the next read with a PacketOutExt
@@ -386,6 +395,9 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     static bool reply_active = false;
     static bool reply_is_settings = false;  // the reply being read is a PacketOutExt
 
+    uint16_t age_10us = 0;  // this write's Esp32Bridge::Trailer, at I2C_SLAVE_FINISH
+    bool aged = false;
+
     switch (event) {
         case I2C_SLAVE_RECEIVE: {
             /* Custom fix: always take the byte. Past 32 bytes (a write the bus corrupted, no stop
@@ -394,8 +406,8 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
              * timed out waiting for Core1 to park (settings not saved). The oversized packet is
              * then dropped by the length check at the end of the transfer. */
             const uint8_t byte = i2c_read_byte_raw(i2c);
-            if (count < sizeof(PacketIn)) {
-                reinterpret_cast<uint8_t*>(&packet_in)[count] = byte;
+            if (count < sizeof(received)) {
+                received[count] = byte;
             }
             if (count < 0xFFFF) {
                 ++count;
@@ -414,6 +426,32 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
              * bus corrupted (no checksum on the link; the ESP32's writes are acknowledged byte by
              * byte whatever arrives) was acted on all the same: a stray byte read as SET_DRIVER
              * switched the adapter to another mode now and then. */
+            /* Custom: Esp32Bridge::Trailer (asked for with PacketOutExt::TRAILER): the packet's check
+             * and its age on the ESP32. Once one came, a packet without it is one the bus cut
+             * (except GET_EXT: an ESP32 restarted on its own asks for the flag with a bare one). */
+            age_10us = 0;
+            aged = false;
+            if (count == Esp32Bridge::kPacketLen + Esp32Bridge::kTrailerLen) {
+                if (!Esp32Bridge::trailer_ok(received)) {
+                    diag::i2c_packet_rejected();
+                    diag::i2c_check(false);
+                    count = 0;
+                    break;
+                }
+                diag::i2c_check(true);
+                _trailer_seen = true;
+                age_10us = static_cast<uint16_t>(received[Esp32Bridge::kPacketLen] |
+                                                 received[Esp32Bridge::kPacketLen + 1] << 8);
+                aged = true;
+                count = sizeof(PacketIn);
+            } else if (count == sizeof(PacketIn) && _trailer_seen &&
+                       static_cast<PacketID>(received[1]) != PacketID::GET_EXT) {
+                diag::i2c_packet_rejected();
+                diag::i2c_check(false);  // its trailer cut off
+                count = 0;
+                break;
+            }
+            std::memcpy(static_cast<void*>(&packet_in), received, sizeof(PacketIn));
             if (count != sizeof(PacketIn) || packet_in.packet_len != sizeof(PacketIn)) {
                 diag::i2c_packet_rejected();
                 count = 0;
@@ -462,7 +500,11 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                                                static_cast<uint32_t>(packet_in.clock_value[1]) << 8 |
                                                static_cast<uint32_t>(packet_in.clock_value[2]) << 16 |
                                                static_cast<uint32_t>(packet_in.clock_value[3]) << 24;
-                            diag::slot_clock(slot, packet_in.clock_kind, v);
+                            if (aged) {
+                                diag::slot_clock_aged(slot, packet_in.clock_kind, v, age_10us);
+                            } else {
+                                diag::slot_clock(slot, packet_in.clock_kind, v);
+                            }
                         }
                     }
                     break;
@@ -736,7 +778,32 @@ static void esp32_flashed_restart_tick() {
     }
     _esp32_just_flashed = false;
     diag::event(board_api::ms_since_boot(), "ESP32 just flashed: restarted once more");
-    esp32_api::reset();
+    reset_esp32();
+}
+
+/* The trailer's check (Esp32Bridge::Trailer) in the log: when it starts, then every 10 s with
+ * writes dropped, how many. */
+static void i2c_check_tick() {
+    static bool started = false;
+    static uint32_t last_ms = 0, last_failed = 0, last_passed = 0;
+    const uint32_t now = board_api::ms_since_boot();
+    const uint32_t passed = diag::i2c_checks_passed();
+    const uint32_t failed = diag::i2c_checks_failed();
+    if (!started && passed > 0) {
+        started = true;
+        diag::event(now, "I2C: the ESP32's writes checked (trailer on)");
+    }
+    if (now - last_ms < 10000) {
+        return;
+    }
+    if (failed != last_failed) {
+        diag::event(now, "I2C: %lu writes dropped by their check in 10 s, %lu passed",
+                    static_cast<unsigned long>(failed - last_failed),
+                    static_cast<unsigned long>(passed - last_passed));
+    }
+    last_ms = now;
+    last_failed = failed;
+    last_passed = passed;
 }
 
 static void status_led_tick() {
@@ -915,7 +982,7 @@ void esp32_bp32_i2c::run() {
     Gamepad::set_hd_rumble_notify(hd_uart_send);
 
     boot_stage::set(boot_stage::Stage::ESP32_RESET);
-    esp32_api::reset();
+    reset_esp32();
 
     DeviceDriver* device_driver = DeviceManager::get_instance().get_driver();
 
@@ -992,6 +1059,7 @@ void esp32_bp32_i2c::run() {
         boot_stage::set(boot_stage::Stage::LOOP_LED);
         status_led_tick();
         esp32_flashed_restart_tick();
+        i2c_check_tick();
         /* The probe's commands (Board/DebugProbe.h): its combos come from the ESP32, so the other
          * boards' check_for_driver_change does not run here. A mode change goes as SET_DRIVER's. */
         {

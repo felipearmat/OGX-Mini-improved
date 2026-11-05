@@ -34,6 +34,57 @@ namespace Esp32Bridge
     // RP2040 slave address; with CONFIG_MULTI_SLAVE_MODE the ESP32 adds the pad index.
     static constexpr uint8_t SLAVE_ADDR = 0x01;
 
+    /* Custom: the trailer after every 32-byte ESP32 write, once the RP2040 asks for it
+     * (PacketOutExt::TRAILER). The link had no check: the ESP32's writes are acknowledged byte by
+     * byte whatever arrives, and with a DS4 about 5 % of the packets came corrupted (2026-11-04);
+     * only those with a wrong length were dropped. The trailer carries:
+     *  - age_10us: how long the packet waited on the ESP32, from when it was queued (for SET_PAD,
+     *    when its report arrived) to the end of its own transfer, in 10 us units (saturates):
+     *    the probe point splits the link delay into the radio's and the I2C hop's;
+     *  - crc: crc8() of the packet and age_10us. A packet whose check fails is dropped.
+     * An RP2040 that predates it never sets TRAILER, so the ESP32 writes 32 bytes as before; an
+     * ESP32 that predates it ignores the flag. */
+    struct Trailer
+    {
+        uint16_t age_10us{0};
+        uint8_t  crc{0};
+    };
+    static constexpr size_t kPacketLen = 32;
+    static constexpr size_t kTrailerLen = 3;
+
+    // CRC-8, polynomial 0x07, initial value 0 (CRC-8/SMBUS).
+    inline uint8_t crc8(const uint8_t* data, size_t len)
+    {
+        uint8_t crc = 0;
+        for (size_t i = 0; i < len; ++i)
+        {
+            crc ^= data[i];
+            for (int b = 0; b < 8; ++b)
+            {
+                crc = static_cast<uint8_t>((crc & 0x80) ? (crc << 1) ^ 0x07 : crc << 1);
+            }
+        }
+        return crc;
+    }
+
+    // The 35 bytes the ESP32 writes for a 32-byte packet with its trailer.
+    inline void add_trailer(const uint8_t* packet, uint16_t age_10us, uint8_t* out)
+    {
+        for (size_t i = 0; i < kPacketLen; ++i)
+        {
+            out[i] = packet[i];
+        }
+        out[kPacketLen] = static_cast<uint8_t>(age_10us);
+        out[kPacketLen + 1] = static_cast<uint8_t>(age_10us >> 8);
+        out[kPacketLen + 2] = crc8(out, kPacketLen + 2);
+    }
+
+    // On the RP2040: the 35 bytes received pass their check.
+    inline bool trailer_ok(const uint8_t* received)
+    {
+        return crc8(received, kPacketLen + 2) == received[kPacketLen + 2];
+    }
+
     enum class PacketID : uint8_t
     {
         UNKNOWN = 0,
@@ -86,6 +137,7 @@ namespace Esp32Bridge
         static constexpr uint8_t FROM_COMBO = 0x01;
     };
     static_assert(sizeof(PacketIn) == 32, "Esp32Bridge::PacketIn must stay 32 bytes");
+    static_assert(sizeof(PacketIn) == kPacketLen, "every ESP32 write is kPacketLen bytes before its trailer");
     static_assert(offsetof(PacketIn, dpad) == 4, "Esp32Bridge::PacketIn layout changed");
     static_assert(offsetof(PacketIn, joystick_ry) == 15, "Esp32Bridge::PacketIn layout changed");
     static_assert(offsetof(PacketIn, analog) == 17, "Esp32Bridge::PacketIn layout changed");
@@ -136,6 +188,7 @@ namespace Esp32Bridge
         static constexpr uint8_t MOTION_OUTPUT  = 0x02;  // the output mode uses motion
         static constexpr uint8_t WEB_APP_OPEN   = 0x04;  // the web app has the RP2040's serial port open
         static constexpr uint8_t SLEEP_PADS     = 0x08;  // the RP2040 restarts: controllers to sleep now
+        static constexpr uint8_t TRAILER        = 0x10;  // the RP2040 checks a Trailer after 32-byte writes
 
         uint8_t  packet_len{sizeof(PacketOutExt)};
         PacketID packet_id{PacketID::GET_EXT};

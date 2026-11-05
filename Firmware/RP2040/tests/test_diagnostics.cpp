@@ -283,8 +283,12 @@ TEST(the_report_counts_i2c_replies_the_esp32_cut_short) {
     diag::i2c_reply(true, true);   // a settings reply (PacketOutExt) cut short
     diag::i2c_reply(false, true);
     diag::i2c_packet_rejected();
+    diag::i2c_check(true);   // a write with its trailer (Esp32Bridge::Trailer) that passed
+    diag::i2c_check(true);
+    diag::i2c_check(false);  // and one that failed
     CHECK(has(report(2000), "\"i2c_slave\":{\"replies\":4,\"replies_cut\":2,\"settings_replies\":2,"
-                            "\"settings_replies_cut\":1,\"packets_rejected\":1}"));
+                            "\"settings_replies_cut\":1,\"packets_rejected\":1,\"packets_checked\":2,"
+                            "\"check_failed\":1}"));
 }
 
 TEST(the_report_says_whether_link_details_are_on) {

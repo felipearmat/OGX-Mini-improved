@@ -658,6 +658,14 @@ void slot_clock(size_t slot, uint8_t kind, uint32_t value)
     probe_record(PROBE_PAD_CLOCK, p, sizeof(p));  // returns at once with the activity log off
 }
 
+void slot_clock_aged(size_t slot, uint8_t kind, uint32_t value, uint16_t age_10us)
+{
+    const uint8_t p[8] = {static_cast<uint8_t>(slot), kind, static_cast<uint8_t>(value), static_cast<uint8_t>(value >> 8),
+                          static_cast<uint8_t>(value >> 16), static_cast<uint8_t>(value >> 24),
+                          static_cast<uint8_t>(age_10us), static_cast<uint8_t>(age_10us >> 8)};
+    probe_record(PROBE_PAD_CLOCK, p, sizeof(p));
+}
+
 void slot_command(size_t slot, uint8_t subcommand, bool reply)
 {
     const uint8_t p[3] = {static_cast<uint8_t>(slot), subcommand, static_cast<uint8_t>(reply ? 1 : 0)};
@@ -735,6 +743,8 @@ static volatile uint32_t s_i2c_replies_cut = 0;
 static volatile uint32_t s_i2c_settings_replies = 0;  // PacketOutExt (GET_EXT) among them
 static volatile uint32_t s_i2c_settings_replies_cut = 0;
 static volatile uint32_t s_i2c_rejected = 0;
+static volatile uint32_t s_i2c_checked = 0;       // writes with a trailer that passed its check
+static volatile uint32_t s_i2c_check_failed = 0;
 
 void companion_slot(size_t slot, uint16_t reports_per_s, bool lost_valid, uint16_t lost_x10)
 {
@@ -779,6 +789,24 @@ void motion_sample(uint32_t now_ms, uint8_t source, const int32_t pad_accel[3], 
 void i2c_packet_rejected()
 {
     s_i2c_rejected = s_i2c_rejected + 1;
+}
+
+void i2c_check(bool ok)
+{
+    if (ok)
+        s_i2c_checked = s_i2c_checked + 1;
+    else
+        s_i2c_check_failed = s_i2c_check_failed + 1;
+}
+
+uint32_t i2c_checks_failed()
+{
+    return s_i2c_check_failed;
+}
+
+uint32_t i2c_checks_passed()
+{
+    return s_i2c_checked;
 }
 
 void i2c_reply(bool cut, bool settings)
@@ -1385,10 +1413,11 @@ size_t report_json(char* out, size_t out_len, uint32_t now_ms)
         /* The hybrid RP2040's side of the I2C link: replies the ESP32 stopped reading part way, and
          * among them the settings replies (37 bytes, more than the 16-byte TX FIFO). */
         w.raw(",\"i2c_slave\":{\"replies\":%lu,\"replies_cut\":%lu,\"settings_replies\":%lu,"
-              "\"settings_replies_cut\":%lu,\"packets_rejected\":%lu}",
+              "\"settings_replies_cut\":%lu,\"packets_rejected\":%lu,\"packets_checked\":%lu,\"check_failed\":%lu}",
               static_cast<unsigned long>(s_i2c_replies), static_cast<unsigned long>(s_i2c_replies_cut),
               static_cast<unsigned long>(s_i2c_settings_replies),
-              static_cast<unsigned long>(s_i2c_settings_replies_cut), static_cast<unsigned long>(s_i2c_rejected));
+              static_cast<unsigned long>(s_i2c_settings_replies_cut), static_cast<unsigned long>(s_i2c_rejected),
+              static_cast<unsigned long>(s_i2c_checked), static_cast<unsigned long>(s_i2c_check_failed));
     }
     if (s_companion.present) {
         /* The hybrid's ESP32: what it reports about itself and the I2C link. */
@@ -1537,6 +1566,8 @@ void reset_for_tests()
     s_i2c_settings_replies = 0;
     s_i2c_settings_replies_cut = 0;
     s_i2c_rejected = 0;
+    s_i2c_checked = 0;
+    s_i2c_check_failed = 0;
     s_motion = Motion{};
     s_info = BoardInfo{};
     std::memset(&s_p, 0, sizeof(s_p));

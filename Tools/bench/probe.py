@@ -190,6 +190,8 @@ class Session:
         self.hd_playing = False
         self.hd_last_wait = False
         self.clocks = {}  # slot -> PadClock
+        self.radio_clocks = {}  # slot -> PadClock at the hybrid ESP32's arrival time
+        self.ages = {}    # slot -> the hybrid's ESP32-to-RP2040 waits (us)
         self.link = {}    # slot -> excess delays (ms) this second
         self.late_line = {}  # slot -> second of its last "later than" line
         self.late_more = {}  # slot -> late reports this second not given a line
@@ -260,6 +262,18 @@ class Session:
                 self.out(f"# slot {slot} link delay beyond the best case ({clk.name} clock, {len(h)} reports): "
                          f"median {pick(0.5):.1f} ms, 95% {pick(0.95):.1f} ms, 99% {pick(0.99):.1f} ms, "
                          f"max {h[-1]:.1f} ms, {late} reports 10 ms or more")
+        for slot, clk in sorted(self.radio_clocks.items()):
+            h = sorted(clk.hist)
+            if h:
+                pick = lambda q: h[min(len(h) - 1, int(q * len(h)))]
+                self.out(f"# slot {slot} of that, the radio alone (at the ESP32's arrival, {len(h)} reports): "
+                         f"median {pick(0.5):.1f} ms, 95% {pick(0.95):.1f} ms, 99% {pick(0.99):.1f} ms, "
+                         f"max {h[-1]:.1f} ms")
+        for slot, xs in sorted(self.ages.items()):
+            a = sorted(xs)
+            pick = lambda q: a[min(len(a) - 1, int(q * len(a)))] / 1000
+            self.out(f"# slot {slot} ESP32 to RP2040 (queue + I2C): median {pick(0.5):.2f} ms, "
+                     f"95% {pick(0.95):.2f} ms, 99% {pick(0.99):.2f} ms, max {a[-1] / 1000:.2f} ms")
         for slot, xs in sorted(self.rtt.items()):
             m = sorted(xs)[len(xs) // 2]  # the median: the first replies of a setup wait far longer
             self.out(f"# slot {slot} subcommand round trip: min {min(xs):.1f} ms, median {m:.1f} ms, "
@@ -359,7 +373,21 @@ class Session:
                 clk = self.clocks[slot] = PadClock(kind)
             if slot in self.down:
                 clk.reset()
+                if slot in self.radio_clocks:
+                    self.radio_clocks[slot].reset()
                 return
+            if len(payload) >= 8:
+                # The hybrid: how long the report waited on the ESP32 before the RP2040 got it
+                # (its queue and the I2C hop, 10 us units). The same fit at the ESP32's arrival
+                # time gives the radio's share alone.
+                age_us = struct.unpack_from("<H", payload, 6)[0] * 10
+                self.ages.setdefault(slot, []).append(age_us)
+                radio = self.radio_clocks.get(slot)
+                if radio is None or radio.name != clk.name:
+                    radio = self.radio_clocks[slot] = PadClock(kind)
+                r = radio.add(t_us - age_us, raw)
+                if r is not None:
+                    radio.hist.append(r)
             excess = clk.add(t_us, raw)
             if excess is not None:
                 clk.hist.append(excess)
@@ -462,7 +490,7 @@ class Session:
                 parts.append(f"slot {slot} link +{max(xs):.1f} ms max" + (f" ({more} more late)" if more else ""))
             self.link = {}
             self.late_more = {}
-            for clk in self.clocks.values():
+            for clk in list(self.clocks.values()) + list(self.radio_clocks.values()):
                 clk.refit()
             for slot, info in sorted(self.linkinfo.items()):
                 bits = []

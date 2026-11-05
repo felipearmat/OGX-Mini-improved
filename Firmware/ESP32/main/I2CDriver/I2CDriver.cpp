@@ -91,9 +91,10 @@ void I2CDriver::run_tasks()
 
 void I2CDriver::write_packet(uint8_t address, const PacketIn& data_in) 
 {
-    push([this, address, data_in]() 
+    const int64_t queued = esp_timer_get_time();  // the report's arrival: its age in the trailer
+    push([this, address, data_in, queued]()
     {
-        write(address, &data_in, sizeof(PacketIn));
+        write(address, &data_in, sizeof(PacketIn), queued);
     });
 }
 
@@ -156,6 +157,7 @@ void I2CDriver::read_ext(uint8_t address, uint8_t index, std::function<void(cons
         {
             if (data_out.packet_id == PacketID::GET_EXT)
             {
+                trailer_.store((data_out.flags & PacketOutExt::TRAILER) != 0);
                 callback(data_out);
             }
             else

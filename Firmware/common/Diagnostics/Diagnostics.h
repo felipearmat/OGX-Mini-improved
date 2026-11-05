@@ -104,6 +104,9 @@ namespace diag {
      * subcommand sent to the pad or its reply (0x21), matched by subcommand ID on the PC. */
     enum PadClock : uint8_t { kClockSwitchTimer = 1, kClockDs4 = 2, kClockDualSense = 3 };
     void slot_clock(size_t slot, uint8_t kind, uint32_t value);
+    /* The hybrid's RP2040: the same, with how long the report waited on the ESP32 before this
+     * (Esp32Bridge::Trailer, 10 us units), so the PC splits radio from I2C. */
+    void slot_clock_aged(size_t slot, uint8_t kind, uint32_t value, uint16_t age_10us);
     void slot_command(size_t slot, uint8_t subcommand, bool reply);
     void slot_battery(size_t slot, uint8_t level_0_255);
     /* The pad's own battery report (DS4 / DualSense status byte, read as Linux hid-playstation
@@ -159,6 +162,11 @@ namespace diag {
     void i2c_reply(bool cut, bool settings = false);
     // ... and a packet from the ESP32 dropped because its length was wrong (corrupted on the bus).
     void i2c_packet_rejected();
+    /* The hybrid RP2040: a write with its trailer (Esp32Bridge::Trailer) passed its check or not
+     * (failed also counts a write whose trailer was cut off). */
+    void i2c_check(bool ok);
+    uint32_t i2c_checks_passed();
+    uint32_t i2c_checks_failed();
     // The ESP32's OGX-Mini-improved version (OGXM_VERSION), and a copy of it ("" while unknown).
     void companion_version(const char* version);
     size_t companion_version_copy(char* out, size_t out_len);

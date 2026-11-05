@@ -6,8 +6,10 @@
 #include <array>
 #include <atomic>
 #include <functional>
+#include <algorithm>
 #include <driver/i2c.h>
 #include <esp_system.h>
+#include <esp_timer.h>
 
 #include "sdkconfig.h"
 #include "RingBuffer.h"
@@ -76,6 +78,8 @@ public:
     uint32_t queue_drops() const { return queue_drops_.load(); }
     /* Reads that completed but carried another packet than the one asked for. */
     uint32_t wrong_replies() const { return wrong_replies_.load(); }
+    /* The RP2040 checks the trailer (Esp32Bridge::Trailer): learnt from its PacketOutExt. */
+    bool trailer() const { return trailer_.load(); }
 
     /* Custom fix: restart the ESP32 from this task, before its next transfer. Restarting from a
      * timer could cut a transfer in the middle (a pad that kept dropping restarted the ESP32 over
@@ -90,6 +94,7 @@ private:
     std::atomic<uint32_t> queue_drops_{0};
     std::atomic<uint32_t> wrong_replies_{0};
     std::atomic<bool> restart_requested_{false};
+    std::atomic<bool> trailer_{false};  // the RP2040 asked for Esp32Bridge::Trailer (PacketOutExt::TRAILER)
 
     /* The bus timing of one rate (as i2c_param_config sets it). */
     struct BusTiming
@@ -124,10 +129,28 @@ private:
         }
         return true;
     }
-    esp_err_t write(uint8_t address, const void* data, size_t len)
+    /* `queued_us`: when the packet was queued (esp_timer_get_time), for the trailer's age; 0 = now. */
+    esp_err_t write(uint8_t address, const void* data, size_t len, int64_t queued_us = 0)
     {
         restart_if_requested();
         set_rate(false);
+        if (trailer_.load() && len == Esp32Bridge::kPacketLen)
+        {
+            /* The age runs to the end of this transfer (the RP2040 takes the packet then): its
+             * bytes, the address and the acknowledgements, at the write rate. */
+            constexpr int64_t kBits = (Esp32Bridge::kPacketLen + Esp32Bridge::kTrailerLen + 1) * 9;
+            const int64_t now = esp_timer_get_time();
+            int64_t age = (queued_us > 0 ? now - queued_us : 0) + kBits * 1000000 / CONFIG_I2C_BAUDRATE;
+            age = std::min<int64_t>(std::max<int64_t>(age, 0) / 10, 0xFFFF);
+            uint8_t buf[Esp32Bridge::kPacketLen + Esp32Bridge::kTrailerLen];
+            Esp32Bridge::add_trailer(reinterpret_cast<const uint8_t*>(data), static_cast<uint16_t>(age), buf);
+            const esp_err_t ret = i2c_write_blocking(address, buf, sizeof(buf));
+            if (ret != ESP_OK)
+            {
+                ++write_errors_;
+            }
+            return ret;
+        }
         const esp_err_t ret = i2c_write_blocking(address, reinterpret_cast<const uint8_t*>(data), len);
         if (ret != ESP_OK)
         {

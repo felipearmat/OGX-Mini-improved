@@ -485,4 +485,28 @@ TEST(hd_rumble_uart_frames_survive_noise_and_corruption) {
     CHECK_EQ(d.bad_frames(), 1u);
 }
 
+TEST(write_trailer_catches_a_flipped_bit_and_carries_the_age) {
+    // Esp32Bridge::Trailer: the ESP32's 32-byte writes get an age and a CRC-8; every single bit
+    // flipped anywhere in the 35 bytes fails the check.
+    CHECK_EQ(Esp32Bridge::crc8(reinterpret_cast<const uint8_t*>("123456789"), 9), 0xF4);  // CRC-8/SMBUS check value
+    PacketIn in;
+    in.buttons = 0x1234;
+    in.joystick_lx = -1000;
+    uint8_t wire[Esp32Bridge::kPacketLen + Esp32Bridge::kTrailerLen];
+    Esp32Bridge::add_trailer(reinterpret_cast<const uint8_t*>(&in), 1234, wire);
+    CHECK(Esp32Bridge::trailer_ok(wire));
+    CHECK(std::memcmp(wire, &in, sizeof(in)) == 0);
+    CHECK_EQ(wire[32] | wire[33] << 8, 1234);
+    int caught = 0;
+    for (size_t byte = 0; byte < sizeof(wire); ++byte) {
+        for (int bit = 0; bit < 8; ++bit) {
+            wire[byte] ^= static_cast<uint8_t>(1u << bit);
+            caught += Esp32Bridge::trailer_ok(wire) ? 0 : 1;
+            wire[byte] ^= static_cast<uint8_t>(1u << bit);
+        }
+    }
+    CHECK_EQ(caught, static_cast<int>(sizeof(wire) * 8));
+    CHECK_EQ(PacketOutExt::TRAILER, 0x10);  // on the wire: an older side must keep ignoring it
+}
+
 TEST_MAIN()

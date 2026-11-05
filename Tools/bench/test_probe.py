@@ -135,6 +135,30 @@ def test_link_delay_from_the_controller_clock(tmp_path):
     assert "median 0." in summary  # the steady delay is the best case, not counted
 
 
+def test_the_hybrid_splits_the_delay_into_radio_and_i2c(tmp_path):
+    """The hybrid's clock frame carries how long the ESP32 held the report: a report held 20 ms
+    on the ESP32 (I2C) is not the radio's, one held back on the air is."""
+    tick_us = 5000.0
+    frames = [hello(1_000_000), text(1_500_000, b"1.500 slot 0 ready 057e:2006 Classic: Joy-Con (L)\n")]
+    on_esp32 = {1500: 20_000}
+    on_air = {2500: 15_000}
+    for i in range(3000):
+        count = 3 * i
+        arrive_esp32 = int(2_000_000 + count * tick_us + 1500 + on_air.get(i, 0))
+        age = 400 + on_esp32.get(i, 0)
+        payload = bytes([0, 1]) + struct.pack("<IH", count % 256, age // 10)
+        frames.append(frame(probe.PAD_CLOCK, arrive_esp32 + age, payload))
+        if i % 66 == 0:
+            frames.append(hello(arrive_esp32 + age + 1))
+    (log,) = run(tmp_path, frames)
+    total = [line for line in log.splitlines() if line.startswith("# slot 0 link delay")][0]
+    radio = [line for line in log.splitlines() if "the radio alone" in line][0]
+    hop = [line for line in log.splitlines() if "ESP32 to RP2040" in line][0]
+    assert "max 20." in total
+    assert "max 15." in radio
+    assert "median 0.40 ms" in hop and "max 20.40 ms" in hop
+
+
 def test_subcommand_round_trip(tmp_path):
     cmd = lambda t, sub, reply: frame(probe.PAD_COMMAND, t, bytes([1, sub, reply]))
     frames = [hello(1_000_000), cmd(1_100_000, 0x48, 0), cmd(1_118_000, 0x48, 1),

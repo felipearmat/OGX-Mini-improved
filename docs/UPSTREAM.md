@@ -245,6 +245,7 @@ later fixes reach every board in one PR.
 | 411b0b9, 1d8f0a1 | The same on the hybrid, from one shared implementation (`bt_pad::host_battery`, `health_on_ready` / `health_on_gone` / `quiet_check`, `status_led::alert_red`; `SET_PAD_EXT` charging / critical flags); a pair on a battery tie shows the half off its charger | todo | Send with c9aec53. Built for every Bluetooth board; the hybrid not tested on hardware yet. |
 | 2776e51 | Settings read past a hole in the NVS table (a sector rewrite cut short) | todo | A fix upstream has too: their NVSTool stops at the first free entry. |
 
+| (this commit) | Hybrid: a CRC-8 and the ESP32-side wait on every ESP32 -> RP2040 I2C write (`Esp32Bridge::Trailer`, asked for by the RP2040), checked writes in the report | todo | Upstream's link has no check either. Both firmwares; an older side keeps 32-byte writes. The wait needs the probe point (647e8a1) to be of use. |
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
