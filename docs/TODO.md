@@ -188,7 +188,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   pauses; the same rumble with the DS4 already connected was continuous. Suspect the lightbar
   update sharing the DS4 output report each feedback tick (mode colour vs host colour after the
   reconnection). Check with the full debug mode (what the host asks, what the ESP32 sends).
-- **Hybrid: Joy-Cons not reconnecting for minutes after being turned off a few times** — 2026-10-20,
+- **Hybrid: Joy-Cons not reconnecting for minutes after being turned off a few times** — **2026-11-04: the cause of most cases found and fixed.** A Joy-Con whose link drops by timeout (reason 0x08: the ESP32 reset with the RP2040, or flashed) lights its LEDs when pressed but does not page the adapter, and had to be paired again; one asked to sleep (0x13) pages it back. The hybrid's RP2040 reset the ESP32 on every restart it asked for itself (mode or settings changes from the web app or the probe, the web app's system commands): only a combo's mode change, decided on the ESP32, put the pads to sleep first. Since `SLEEP_PADS` / `sleep_bt_pads_before_restart` (CHANGELOG) every such restart closes the links with 0x13, and the pads came back by themselves after an RP2040 flash and a mode change. Still open below: the sync-button tap case and why the R half was hit more often than the L. 2026-10-20,
   Pico 2 W hybrid, Joy-Con pair already paired with the ESP32, turned off directly (link closed,
   reason 0x08) several times in a row: each time the last one left, the ESP32 restarted as
   designed (the white LED blink) and they came back by pressing a button, except twice: once only
