@@ -317,6 +317,9 @@ static volatile bool _trailer_seen = false;
  * is the RP2040's TX FIFO running dry (I2C interrupt only; read by i2c_check_tick). */
 static constexpr size_t kCutAtSlots = 40;
 static volatile uint32_t _cut_at[kCutAtSlots] = {};
+/* The length of the ESP32 writes dropped for it (the last slot: that or more), for the same log line. */
+static constexpr size_t kBadLenSlots = 80;
+static volatile uint32_t _bad_len[kBadLenSlots] = {};
 static void reset_esp32() {
     _trailer_seen = false;
     esp32_api::reset();
@@ -404,6 +407,33 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     uint16_t age_10us = 0;  // this write's Esp32Bridge::Trailer, at I2C_SLAVE_FINISH
     bool aged = false;
 
+    /* Every byte of this write waiting in the RX FIFO, none when it is empty (a "RX full" seen
+     * with a stop may find it drained by the finish already). A byte marked as the first of a
+     * transfer while this one has bytes is the next write's: kept for it, so two writes never
+     * merge. */
+    static int carry = -1;
+    const auto take_rx = [](i2c_inst_t* bus) {
+        if (count == 0 && carry >= 0) {
+            received[0] = static_cast<uint8_t>(carry);
+            count = 1;
+            carry = -1;
+        }
+        while (carry < 0 && i2c_get_read_available(bus) > 0) {
+            const uint32_t v = i2c_get_hw(bus)->data_cmd;
+            const uint8_t byte = static_cast<uint8_t>(v);
+            if ((v & I2C_IC_DATA_CMD_FIRST_DATA_BYTE_BITS) && count > 0) {
+                carry = byte;
+                break;
+            }
+            if (count < sizeof(received)) {
+                received[count] = byte;
+            }
+            if (count < 0xFFFF) {
+                ++count;
+            }
+        }
+    };
+
     switch (event) {
         case I2C_SLAVE_RECEIVE: {
             /* Custom fix: always take the byte. Past 32 bytes (a write the bus corrupted, no stop
@@ -411,16 +441,15 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
              * forever: Core1 never left this handler, the I2C link went silent and flash writes
              * timed out waiting for Core1 to park (settings not saved). The oversized packet is
              * then dropped by the length check at the end of the transfer. */
-            const uint8_t byte = i2c_read_byte_raw(i2c);
-            if (count < sizeof(received)) {
-                received[count] = byte;
-            }
-            if (count < 0xFFFF) {
-                ++count;
-            }
+            take_rx(i2c);
             break;
         }
         case I2C_SLAVE_FINISH:
+            /* Custom fix: the bytes still in the RX FIFO belong to this write. The SDK's interrupt
+             * handles a stop before the "RX full" it came with, so when the interrupt came late
+             * the last byte was read after the finish: a 35-byte write arrived as 34 + 1 and both
+             * were dropped (2026-11-05, YD-RP2040 with a Joy-Con pair: about 1.5 a second). */
+            take_rx(i2c);
             if (reply_active) {
                 diag::i2c_reply(reply_pos < reply_len, reply_is_settings);  // a cut reply's rest is dropped here
                 if (reply_is_settings && reply_pos < reply_len) {
@@ -463,6 +492,7 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
             std::memcpy(static_cast<void*>(&packet_in), received, sizeof(PacketIn));
             if (count != sizeof(PacketIn) || packet_in.packet_len != sizeof(PacketIn)) {
                 diag::i2c_packet_rejected();
+                ++_bad_len[std::min<size_t>(count, kBadLenSlots - 1)];  // 32 here: its first byte was wrong
                 count = 0;
                 break;
             }
@@ -819,6 +849,22 @@ static void i2c_check_tick() {
         }
         if (n > 0) {
             diag::event(now, "I2C: settings replies cut in 10 s, at byte:%s", line);
+        }
+    }
+    {
+        static uint32_t seen[kBadLenSlots] = {};
+        char line[160];
+        int n = 0;
+        for (size_t i = 0; i < kBadLenSlots && n < 140; ++i) {
+            const uint32_t c = _bad_len[i];
+            if (c != seen[i]) {
+                n += snprintf(line + n, sizeof(line) - n, " %u x%lu", static_cast<unsigned>(i),
+                              static_cast<unsigned long>(c - seen[i]));
+                seen[i] = c;
+            }
+        }
+        if (n > 0) {
+            diag::event(now, "I2C: writes dropped for their length in 10 s:%s", line);
         }
     }
     if (failed != last_failed) {
