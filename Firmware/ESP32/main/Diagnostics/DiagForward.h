@@ -20,6 +20,8 @@ namespace diag_forward {
     /* The physical slot of the report being processed (diag::slot_report), once; -1 when none.
      * Differs from the device passed to the controller callback for a merged Joy-Con pair. */
     int take_report_slot();
+    /* The controller's clock of the slot's latest report, once (PacketIn clock_kind / clock_value). */
+    bool take_clock(int slot, uint8_t& kind, uint32_t& value);
 
     /* Every feedback tick: counts gathered since the last one (BLE advertising reports). */
     void tick();

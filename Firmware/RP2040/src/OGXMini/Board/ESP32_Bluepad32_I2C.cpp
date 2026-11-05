@@ -240,6 +240,9 @@ static void record_diag(const PacketDiag& diag) {
         case PacketDiag::BATTERY_STATE:
             diag::slot_battery_state(diag.slot, diag.data[0], static_cast<diag::BatteryState>(diag.data[1]));
             break;
+        case PacketDiag::SLOT_COMMAND:
+            diag::slot_command(diag.slot, diag.data[0], diag.data[1] != 0);
+            break;
         case PacketDiag::LE_ADV_REPORTS:
             for (uint16_t i = d16(0); i > 0; --i)
                 diag::le_adv_report();
@@ -451,6 +454,15 @@ static inline void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
                         if (packet_in.counter_bits > 0) {
                             diag::slot_counter(slot, packet_in.counter_value, packet_in.counter_bits,
                                                packet_in.counter_unit);
+                        }
+                        /* The controller's own clock, for the probe point's link delay (as the
+                         * Pico W's Bluepad32/LinkDiag.cpp records it, here when the RP2040 gets it). */
+                        if (packet_in.clock_kind != 0) {
+                            const uint32_t v = static_cast<uint32_t>(packet_in.clock_value[0]) |
+                                               static_cast<uint32_t>(packet_in.clock_value[1]) << 8 |
+                                               static_cast<uint32_t>(packet_in.clock_value[2]) << 16 |
+                                               static_cast<uint32_t>(packet_in.clock_value[3]) << 24;
+                            diag::slot_clock(slot, packet_in.clock_kind, v);
                         }
                     }
                     break;

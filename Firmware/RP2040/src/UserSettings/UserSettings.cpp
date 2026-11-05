@@ -172,6 +172,9 @@ bool UserSettings::take_probe_command(DeviceDriverType& driver_out)
                 driver_out = driver;
                 return true;
             }
+            diag::event(board_api::ms_since_boot(), "probe: mode %u refused (%s, current %u)",
+                        static_cast<unsigned>(command.a), is_valid_driver(driver) ? "already in it" : "not a mode here",
+                        static_cast<unsigned>(current_driver_));
         }
     }
     return false;

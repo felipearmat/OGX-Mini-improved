@@ -26,6 +26,15 @@ struct Counter
     bool lost_valid{false};
 };
 Counter s_counters[diag::kSlots];
+/* The controller's own clock in its latest report (diag::slot_clock), carried by the SET_PAD it
+ * produces (PacketIn clock_kind / clock_value). */
+struct Clock
+{
+    bool fresh{false};
+    uint8_t kind{0};
+    uint32_t value{0};
+};
+Clock s_clocks[diag::kSlots];
 /* The slot whose report is being processed: a merged Joy-Con pair hands both halves' input to the
  * pair's primary device, so the SET_PAD it produces carries this slot for the timing instead. */
 int s_report_slot = -1;
@@ -80,6 +89,16 @@ bool take_counter(int slot, uint8_t& value, uint8_t& bits, uint8_t& unit)
     value = c.value;
     bits = c.bits;
     unit = c.unit;
+    return true;
+}
+
+bool take_clock(int slot, uint8_t& kind, uint32_t& value)
+{
+    if (slot < 0 || slot >= static_cast<int>(diag::kSlots) || !s_clocks[slot].fresh)
+        return false;
+    s_clocks[slot].fresh = false;
+    kind = s_clocks[slot].kind;
+    value = s_clocks[slot].value;
     return true;
 }
 
@@ -180,8 +199,16 @@ void settings_state(bool found, uint32_t used, uint32_t first_free, uint32_t use
     (void)found; (void)used; (void)first_free; (void)used_after_free;
 }
 
-void slot_clock(size_t slot, uint8_t kind, uint32_t value) { (void)slot; (void)kind; (void)value; }
-void slot_command(size_t slot, uint8_t subcommand, bool reply) { (void)slot; (void)subcommand; (void)reply; }
+void slot_clock(size_t slot, uint8_t kind, uint32_t value)
+{
+    if (slot >= kSlots) return;
+    s_clocks[slot] = Clock{true, kind, value};  // with the SET_PAD of this report
+}
+
+void slot_command(size_t slot, uint8_t subcommand, bool reply)
+{
+    Writer(PacketDiag::SLOT_COMMAND, slot).u8(subcommand).u8(reply ? 1 : 0).send();
+}
 
 void slot_report(size_t slot, uint32_t now_ms)
 {

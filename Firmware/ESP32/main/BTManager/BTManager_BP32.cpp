@@ -309,6 +309,16 @@ void BTManager::controller_data_cb(uni_hid_device_t* bp_device, uni_controller_t
         packet_in.counter_bits = counter_bits;
         packet_in.counter_unit = counter_unit;
     }
+    uint8_t clock_kind = 0;
+    uint32_t clock_value = 0;
+    if (diag_forward::take_clock(diag_slot, clock_kind, clock_value))
+    {
+        packet_in.clock_kind = clock_kind;
+        for (int b = 0; b < 4; ++b)
+        {
+            packet_in.clock_value[b] = static_cast<uint8_t>(clock_value >> (8 * b));
+        }
+    }
 
     /* SET_PAD goes out on every report (the RP2040 measures the input timing for the diagnostics
      * from it); the extension only when it changed, before the SET_PAD that applies it. */

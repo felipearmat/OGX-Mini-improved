@@ -66,7 +66,12 @@ namespace Esp32Bridge
         int16_t          joystick_ly{0};
         int16_t          joystick_rx{0};
         int16_t          joystick_ry{0};
-        uint8_t          analog[10]{0};  // Gamepad ANALOG_OFF_* order; the ESP32 sends zeros
+        uint8_t          analog[5]{0};   // Gamepad ANALOG_OFF_* order (the first 5); the ESP32 sends zeros
+        /* Version 3: the controller's own clock in this report (diag::PadClock, 0 = none) and its
+         * value (little-endian), for the probe point's link delay as on the Pico W
+         * (Bluepad32/LinkDiag.cpp). Took the last 5 analog bytes, which the ESP32 never filled. */
+        uint8_t          clock_kind{0};
+        uint8_t          clock_value[4]{};
         uint8_t          bt_slot{0};     // version 2: Bluetooth slot + 1 of this report (0 = none)
         /* Version 2: the controller's own report counter in this report (diagnostics: reports
          * the controller sent that never arrived), when counter_bits > 0. */
@@ -182,6 +187,7 @@ namespace Esp32Bridge
                              // since COMPANION_VERSION)
             COMPANION_VERSION, // the ESP32's OGX-Mini-improved version (NUL-padded)
             BATTERY_STATE,   // slot; percent (8), state (8, diag::BatteryState) from the pad's report
+            SLOT_COMMAND,    // slot; Switch subcommand (8), 1 if the pad's reply (the probe point's round trip)
         };
         enum DeviceInfoField : uint8_t { MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE };
         static constexpr size_t kData = 28;
