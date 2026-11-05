@@ -600,6 +600,7 @@ def main():
     port = None
     warned = False
     last_data = time.monotonic()
+    last_reopen = last_data
     try:
         while not args.seconds or time.monotonic() - start < args.seconds:
             if port is None:
@@ -655,9 +656,16 @@ def main():
                         raw = None  # a full disk: the session files go on
                 for f in dec.feed(data):
                     ses.frame(*f)
-            elif ses.file and now - last_data > args.idle:
-                ses.out("# no data from the adapter")
-                ses.close()
+            elif now - last_data > args.idle:
+                if ses.file:
+                    ses.out("# no data from the adapter")
+                    ses.close()
+                # A reader unplugged and plugged back can leave this handle on the old device with
+                # no error, silent for good: reopen the port after every quiet spell.
+                if now - last_reopen > max(args.idle, 5.0):
+                    last_reopen = now
+                    port.close()
+                    port = None
     except KeyboardInterrupt:
         pass
     finally:
