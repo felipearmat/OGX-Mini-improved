@@ -203,6 +203,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   with Windows and macOS: a Joy-Con trait, not an adapter bug. Documented in the README (combos).
   The comebacks above after a sync tap were the ESP32 connecting to the pads (a "key request"
   without a "link request"), not the pads calling: still open is why that took 7.5 min once.
+- **Sync tap: page the pad back (planned 2026-11-05, postponed by the user for the Bluepad32 re-sync)** — On the YD-RP2040 hybrid, a sync tap on the Joy-Con (R) closed its link with 0x08 and no link or key request ever came after a button press (the documented Joy-Con trait). Plan: a shared `Bluepad32/Repage` that, after a Classic pad's 0x08 drop (not 0x13 / 0x16), sends a remote name request (a page, no L2CAP) every 5 s for 2 min, and on an answer creates the device with its stored class and name and runs Bluepad32's connect; plus a Bluepad32 patch keeping the link key when an L2CAP open fails for other than security (today any failure drops it, so a page to an absent pad would cost a pairing). Both boards; test with sync taps on the hybrid. Also port to the re-sync: the four Bluepad32 patches made after it (`diag_output_hook`, `diag_output_queued`, `output_keep_order`, `switch_set_report_mode`).
 - **Joy-Cons once did not reconnect by pressing a button after the dongle rebooted**
   (2026-09-30, DebugLite log `joycon-hang.log`, 19:42-19:45): the right Joy-Con had just done a
   fresh pairing (its link key had been dropped), both were turned off two minutes later, the
