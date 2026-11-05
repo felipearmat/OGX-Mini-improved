@@ -25,6 +25,9 @@ enum class HostInputSource : uint8_t
 };
 
 /* Only write/store flash from Core0 */
+/* Custom: the Bluetooth controllers to sleep before a restart (UserSettings.cpp); blocks briefly. */
+void sleep_bt_pads_before_restart();
+
 class UserSettings
 {
 public:

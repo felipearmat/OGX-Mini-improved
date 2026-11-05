@@ -16,6 +16,7 @@
 #include "Descriptors/CDCDev.h"
 #include "Board/ModeIndicator.h"
 #include "UserSettings/BoardCapabilities.h"
+#include "UserSettings/UserSettings.h"
 #include "Gamepad/I2CWirePad.h"
 #include "Gamepad/MotionImu.h"
 #if defined(OGXM_RAW_CAPTURE)
@@ -751,6 +752,9 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                     sleep_ms(5);
                 }
                 OGXM_LOG("System command %u\n", command);
+                /* Custom: the controllers to sleep first, as on a mode change: bootsel, a restart,
+                 * flashing or the log monitor of the ESP32 all drop their links. */
+                sleep_bt_pads_before_restart();
                 board_api::usb::disconnect_all();
                 if (command == webapp_protocol::SYSTEM_BOOTSEL)
                 {

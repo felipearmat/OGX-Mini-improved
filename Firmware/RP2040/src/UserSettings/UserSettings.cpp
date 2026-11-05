@@ -28,6 +28,18 @@ static constexpr uint32_t MODE_CHANGE_WATCHDOG_MS = 8000;
 /* Custom: disconnect Bluetooth pads cleanly before a mode-change reboot (see
  * bluepad32::disconnect_pads_before_reboot). Dongle option, default from CMake
  * OGXM_DISCONNECT_PADS_ON_MODE_CHANGE (ON in this fork; OFF keeps the upstream behaviour). */
+/* Custom: the Bluetooth controllers to sleep before a restart that drops their links anyway (the
+ * Pico W's radio, or the hybrid's ESP32 reset with the RP2040): a Joy-Con that lost its link to a
+ * reset did not page the adapter again when pressed and had to be paired again. */
+void sleep_bt_pads_before_restart()
+{
+#if defined(CONFIG_EN_BLUETOOTH)
+    bluepad32::disconnect_pads_before_reboot();
+#elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
+    esp32_bp32_i2c::sleep_pads_before_reboot();
+#endif
+}
+
 static void prepare_bt_for_mode_change_reboot()
 {
     /* Custom fix: every caller stores a setting and reboots. Arm the watchdog before the first
@@ -35,14 +47,8 @@ static void prepare_bt_for_mode_change_reboot()
      * leaving it frozen (board_api::usb::disconnect_all() re-arms it for the flash write). */
     watchdog_enable(MODE_CHANGE_WATCHDOG_MS, true);
     diag::session_freeze(board_api::ms_since_boot());  // Custom: before the pads are turned off
-#if defined(CONFIG_EN_BLUETOOTH)
     if (dongle_settings::get().disconnect_pads_on_mode_change)
-        bluepad32::disconnect_pads_before_reboot();
-#elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
-    /* The hybrid: the ESP32's controllers to sleep too (it is reset with the RP2040). */
-    if (dongle_settings::get().disconnect_pads_on_mode_change)
-        esp32_bp32_i2c::sleep_pads_before_reboot();
-#endif
+        sleep_bt_pads_before_restart();
 }
 
 /* Custom: flash key of the dongle options (UserSettings/DongleSettings). */
