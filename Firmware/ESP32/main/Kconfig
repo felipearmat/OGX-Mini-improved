@@ -18,10 +18,12 @@ menu "OGXMini Options"
 
     config I2C_BAUDRATE
         int "Set I2C baudrate"
-        default 1000000
+        default 400000
         help
-            Writes to the RP2040 (pad reports: a DualShock 4 sends about 760 per second, each
-            one or two 32-byte writes).
+            Writes to the RP2040 (pad reports, 32 bytes each). At 1 MHz the RP2040 rejected
+            about 8 % of them as corrupted on the soldered YD-RP2040 hybrid with a Joy-Con pair
+            (845 in 60 s, 2026-11-04), none at 400 kHz; a DualShock 4 still gets about 500
+            reports a second through (twice what the Pico W takes from it).
 
     config I2C_READ_BAUDRATE
         int "Set I2C baudrate for reads"
