@@ -97,7 +97,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   replies); the ESP32 now reads at 400 kHz and writes at 1 MHz (`dff4b53`). Still about 1 settings
   read in 20 cut with a DS4 connected. Why exactly the first byte (the ESP32's master ends the read
   about 45 us in) is not known; check on the perfboard build whether 1 MHz reads work there before
-  raising `CONFIG_I2C_READ_BAUDRATE`. The entries below predate it. 2026-11-05: the cut at the first or 16th byte was the ESP32's bus timeout (10 bus cycles: 10 us at 1 MHz) while the RP2040 held SCL low to fill its FIFO; with the ESP32 waiting up to 1 ms, 1 MHz reads may work now (to measure).
+  raising `CONFIG_I2C_READ_BAUDRATE`. The entries below predate it. 2026-11-05: the cut at the first or 16th byte was the ESP32's bus timeout (10 bus cycles: 10 us at 1 MHz) while the RP2040 held SCL low to fill its FIFO; with the ESP32 waiting up to 1 ms, 1 MHz reads work: 2026-11-05 on the YD-RP2040, 30 s with a Joy-Con pair, no reply cut and no ESP32 read error at 1 MHz, the same as at 400 kHz. Kept at 400 kHz: the gain is about 0.5 ms on a 37-byte reply.
 - **Hybrid: I2C read errors about 12 times higher with controllers since the evening of 2026-10-20**
   — about 4 per second with a Joy-Con pair (120 per 30 s), against 10.7 per 30 s that morning on
   the same jumpers; the same with and without the DMA receive (A/B), about 0.25 per second with no
