@@ -150,7 +150,7 @@ build the firmware yourself, e.g. for a damaged pad or a board layout with fewer
 cmake ... -DOGXM_BOARD=ESP32_BLUEPAD32_I2C_PICO2 -DOGXM_HYBRID_PINOUT=ORIGINAL -DOGXM_HYBRID_I2C_SDA_PIN=26 -DOGXM_HYBRID_I2C_SCL_PIN=27
 ```
 
-**YD-RP2040 onboard RGB LED:** its WS2812B is wired to GP23 through a solder pad (labelled `RGB`, in some revisions `R68`), open from the factory. Bridge the pad, then build with `-DOGXM_YD_RP2040_RGB=ON` (off by default: on a Raspberry Pi Pico GP23 is the power supply mode pin). The LED shows the mode colour like the status LED, and the battery alert in dim red. Not for the Pico 2 / 2 W build, which uses `OGXM_EXT_RGB_*`.
+**YD-RP2040 onboard RGB LED:** its WS2812B is wired to GP23 through a solder pad (labelled `RGB`, in some revisions `R68`), open from the factory. Bridge the pad; the hybrid's RP2040 build drives it by default (`OGXM_YD_RP2040_RGB`, ON since 2026-11-05). On a Raspberry Pi Pico GP23 is the power supply's mode pin, which the LED's data pulses only switch to PWM mode for a moment; `-DOGXM_YD_RP2040_RGB=OFF` leaves it alone. The LED shows the mode colour like the status LED, and the battery alert in dim red. Not for the Pico 2 / 2 W build, which uses `OGXM_EXT_RGB_*`.
 
 The configure step stops on a pin that cannot do the job or is taken twice: SDA / SCL must be an
 SDA and an SCL of the same I2C controller (e.g. 18 / 19, 26 / 27, 6 / 7), TX / RX must be UART0
