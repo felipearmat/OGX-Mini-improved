@@ -142,6 +142,13 @@ def cmd_bootsel(args):
         return
     time.sleep(2.0)
     if shutil.which("picotool"):
+        # The adapter first puts its Bluetooth controllers to sleep (up to about 2 s): wait for
+        # the bootloader to show up rather than a fixed time.
+        for _ in range(40):
+            if subprocess.run(["picotool", "info"], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL).returncode == 0:
+                break
+            time.sleep(0.25)
         subprocess.run(["picotool", "load", "-v", "-x", args.uf2], check=True)
         return
     drive = None

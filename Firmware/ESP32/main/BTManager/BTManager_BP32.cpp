@@ -30,6 +30,24 @@ void BTManager::init_complete_cb(void)
     gap_set_local_name("Nintendo");
     uni_bt_start_scanning_and_autoconnect_unsafe();
     // uni_bt_del_keys_unsafe();
+    {
+        /* Diagnostics: the Classic link keys kept (paired controllers that can reconnect without
+         * pairing again), to tell a lost key from a pad that does not page. */
+        int keys = 0;
+        btstack_link_key_iterator_t it;
+        if (gap_link_key_iterator_init(&it))
+        {
+            bd_addr_t addr;
+            link_key_t key;
+            link_key_type_t type;
+            while (gap_link_key_iterator_get_next(&it, addr, key, &type))
+            {
+                ++keys;
+            }
+            gap_link_key_iterator_done(&it);
+        }
+        get_instance().diag_event("%d paired controllers (Classic link keys)", keys);
+    }
     uni_property_dump_all();
 }
 

@@ -711,6 +711,22 @@ static void hd_uart_send() {
     }
 }
 
+/* Custom: on its first boot after it was flashed, the ESP32 took no connection from a paired
+ * Joy-Con (none paged it: "link request" never came; 2026-11-04, four times out of four, the keys
+ * still stored), while every later boot did. So the boot after flashing restarts it once more,
+ * once its first boot is over. */
+static bool _esp32_just_flashed = false;
+static constexpr uint32_t kFlashedRestartMs = 4000;
+
+static void esp32_flashed_restart_tick() {
+    if (!_esp32_just_flashed || board_api::ms_since_boot() < kFlashedRestartMs) {
+        return;
+    }
+    _esp32_just_flashed = false;
+    diag::event(board_api::ms_since_boot(), "ESP32 just flashed: restarted once more");
+    esp32_api::reset();
+}
+
 static void status_led_tick() {
     static status_led::Blinker s_led;
     static uint32_t s_next_ms = 0;
@@ -797,6 +813,9 @@ void run_uart_bridge() {
 
     board_api::usb::disconnect_all(); 
     UserSettings::get_instance().write_datetime();
+    if (!UARTBridgeDevice::monitor_mode) {
+        boot_mode::set(boot_mode::Mode::ESP32_FLASHED);  // the ESP32's first boot is restarted
+    }
     board_api::reboot();
 }
 
@@ -837,6 +856,7 @@ void esp32_bp32_i2c::initialize() {
     /* UART bridge: GP21 to GND at boot (jumper), a retail update, or asked over USB in Web App
      * mode (Board/BootMode.h: ESP32 update or log monitor), so the adapter's USB port does it all. */
     const boot_mode::Mode boot = boot_mode::take();
+    _esp32_just_flashed = (boot == boot_mode::Mode::ESP32_FLASHED);
     UARTBridgeDevice::monitor_mode = (boot == boot_mode::Mode::ESP32_MONITOR);
     _uart_bridge_mode = 
         (esp32_api::uart_bridge_mode() || update_needed(user_settings) ||
@@ -959,6 +979,7 @@ void esp32_bp32_i2c::run() {
 #endif
         boot_stage::set(boot_stage::Stage::LOOP_LED);
         status_led_tick();
+        esp32_flashed_restart_tick();
         /* The probe's commands (Board/DebugProbe.h): its combos come from the ESP32, so the other
          * boards' check_for_driver_change does not run here. A mode change goes as SET_DRIVER's. */
         {

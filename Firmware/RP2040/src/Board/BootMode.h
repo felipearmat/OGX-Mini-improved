@@ -15,6 +15,7 @@ namespace boot_mode {
         NORMAL = 0,
         ESP32_FLASH = 1,    // hybrid: USB serial to the ESP32 in its ROM bootloader (esptool)
         ESP32_MONITOR = 2,  // hybrid: USB serial with the kept log, then the ESP32's live output
+        ESP32_FLASHED = 3,  // hybrid: the boot after flashing the ESP32 (it is restarted once more)
     };
 
     constexpr uint32_t kMagic = 0x0B0071DEu;
