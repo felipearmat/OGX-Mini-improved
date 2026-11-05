@@ -146,6 +146,7 @@ private:
      * the first one does (an RP2040 that predates it), the timer reads it over I2C. */
     std::array<std::atomic<bool>, MAX_GAMEPADS> hd_read_pending_{};
     std::atomic<bool> hd_uart_seen_{false};
+    bool sleep_requested_{false};  // PacketOutExt::SLEEP_PADS taken (BTstack run loop)
     std::atomic<bool> hd_play_scheduled_{false};
     btstack_context_callback_registration_t hd_play_reg_{};
     void hd_start_read(uint8_t output);

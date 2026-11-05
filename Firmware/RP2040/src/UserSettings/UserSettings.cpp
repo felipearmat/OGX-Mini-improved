@@ -19,6 +19,8 @@
 #include "Diagnostics/DiagnosticsBoard.h"
 #if defined(CONFIG_EN_BLUETOOTH)
 #include "Bluepad32/Bluepad32.h"
+#elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
+#include "OGXMini/Board/ESP32_Bluepad32_I2C.h"
 #endif
 
 static constexpr uint32_t MODE_CHANGE_WATCHDOG_MS = 8000;
@@ -36,6 +38,10 @@ static void prepare_bt_for_mode_change_reboot()
 #if defined(CONFIG_EN_BLUETOOTH)
     if (dongle_settings::get().disconnect_pads_on_mode_change)
         bluepad32::disconnect_pads_before_reboot();
+#elif defined(CONFIG_OGXM_BOARD_ESP32_BLUEPAD32_I2C)
+    /* The hybrid: the ESP32's controllers to sleep too (it is reset with the RP2040). */
+    if (dongle_settings::get().disconnect_pads_on_mode_change)
+        esp32_bp32_i2c::sleep_pads_before_reboot();
 #endif
 }
 

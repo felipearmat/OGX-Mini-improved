@@ -130,6 +130,7 @@ namespace Esp32Bridge
         static constexpr uint8_t LIGHTBAR_VALID = 0x01;  // the host asked for this colour
         static constexpr uint8_t MOTION_OUTPUT  = 0x02;  // the output mode uses motion
         static constexpr uint8_t WEB_APP_OPEN   = 0x04;  // the web app has the RP2040's serial port open
+        static constexpr uint8_t SLEEP_PADS     = 0x08;  // the RP2040 restarts: controllers to sleep now
 
         uint8_t  packet_len{sizeof(PacketOutExt)};
         PacketID packet_id{PacketID::GET_EXT};

@@ -306,6 +306,8 @@ static Gamepad::PadIn pad_in_from_packet(const PacketIn& packet) {
 
 /* The reply to the ESP32's GET_EXT: the host's lightbar, whether the mode uses motion, and the
  * dongle settings (the web app keeps them here, on the USB side). */
+static volatile bool _sleep_pads = false;  // esp32_bp32_i2c::sleep_pads_before_reboot
+
 static PacketOutExt ext_reply(uint8_t index) {
     PacketOutExt reply;
     reply.index = index;
@@ -323,6 +325,9 @@ static PacketOutExt ext_reply(uint8_t index) {
     }
     if (WebAppDevice::connected()) {
         reply.flags |= PacketOutExt::WEB_APP_OPEN;  // the ESP32 sends unmapped buttons meanwhile
+    }
+    if (_sleep_pads) {
+        reply.flags |= PacketOutExt::SLEEP_PADS;
     }
     dongle_settings::encode_v6(dongle_settings::get(), reply.settings);
     reply.driver = _current_driver;
@@ -966,6 +971,13 @@ void esp32_bp32_i2c::run() {
         }
         sleep_ms(1);
     }
+}
+
+/* The ESP32 reads this with its settings every 250 ms (GET_EXT) and asks its pads to sleep; a
+ * Joy-Con that lost its link to a reset ESP32 (reason 0x08) did not page it again when pressed. */
+void esp32_bp32_i2c::sleep_pads_before_reboot() {
+    _sleep_pads = true;
+    sleep_ms(700);
 }
 
 // #else // OGXM_BOARD == ESP32_BLUEPAD32_I2C

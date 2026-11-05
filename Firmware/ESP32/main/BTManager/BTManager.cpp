@@ -476,6 +476,21 @@ void BTManager::apply_ext(const I2CDriver::PacketOutExt& ext)
                    static_cast<unsigned long>(i2c_driver_.wrong_replies()));
     }
     motion_output_ = (ext.flags & I2CDriver::PacketOutExt::MOTION_OUTPUT) != 0;
+    /* The RP2040 restarts (a mode or settings change it took itself): the controllers to sleep now,
+     * as a combo's mode change does here (adopt_driver), before the restart resets this ESP32. */
+    if ((ext.flags & I2CDriver::PacketOutExt::SLEEP_PADS) && !sleep_requested_)
+    {
+        sleep_requested_ = true;
+        diag_event("the RP2040 restarts: controllers to sleep");
+        for (uint8_t i = 0; i < slots_.size(); ++i)
+        {
+            uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
+            if (d)
+            {
+                bt_pad::disconnect_with_partner(d);
+            }
+        }
+    }
     const bool web_app_open = (ext.flags & I2CDriver::PacketOutExt::WEB_APP_OPEN) != 0;
     if (web_app_open != web_app_open_)
     {
