@@ -273,6 +273,9 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | HD Rumble in Switch mode (Joy-Con pair, `hd_rumble.py`, 2026-10-27) | pass | heartbeat on both, high-band sweep on the left only, low-band sweep on the right only, SDL vs HD compare: as on the Pico 2 W (the user's check); no I2C queue drops |
 | Idle turn-off, rumble and the web app's orange / blue Axis Settings marks (dev-opt1 at 72ea233, SDK 2.3.1, web app 44b66d1, 2026-10-28) | pass | the user's check. Idle turn-off also in the flash log: every 15 min off went through (the pad closed the link, reason 0x13), Joy-Con pair and DS4; Joy-Con lights seen staying on earlier are not from it (likely the pads after the adapter vanished: flash, unplug, ESP32 off) |
 | Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
+| Soldered YD-RP2040 hybrid: 120 mode changes through the probe (2026-11-05) | pass | back on USB every time in 3.5-4.0 s; the ESP32 got the settings 504-1257 ms into each of 122 boots |
+| YD-RP2040 RGB LED with the ESP32's 1 ms SCL wait (2026-11-05, bcc87b5) | pass | the LED went red in Switch mode by itself (the user's check); 0 of 128 settings replies cut in 30 s (all cut before) |
+| HD Rumble in Switch mode on the soldered YD-RP2040 hybrid (Joy-Con pair, `hd_rumble.py` loop, 2026-11-05) | pass, L noise | the user: much better than 2026-11-04, close to the Pico 2 W; some noise left on the Joy-Con (L). Probe: 6480 reports from the host, all sent, queue wait 0.0 ms, no I2C write failed its check; the L half's link delay 95 % 45.8 ms against the R's 30.7 ms |
 
 ## Report
 
