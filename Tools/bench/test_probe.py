@@ -82,6 +82,17 @@ def test_a_restart_starts_a_new_file(tmp_path):
     assert "boot STEAM" in second
 
 
+def test_frames_slightly_out_of_order_or_one_damaged_frame_are_not_a_restart(tmp_path):
+    # Seen 2026-11-04: a frame 1 us before the one ahead of it (two cores) split a session;
+    # a damaged frame that passes the check can carry any time.
+    frames = [hello(200_000_000), report(200_160_894, 0), report(200_160_893, 1)]
+    frames += [frame(probe.USB_SENT, 10_497_309)]  # alone, far back in time
+    frames += [report(200_175_000, 0), hello(201_000_000)]
+    (log,) = run(tmp_path, frames)
+    assert "the adapter restarted" not in log
+    assert "rate:" in log
+
+
 def test_latency_rumble_and_cost(tmp_path):
     frames = [hello(1_000_000)]
     frames += [frame(probe.LATENCY, 1_100_000 + i, struct.pack("<I", us)) for i, us in enumerate((100, 300, 200))]
@@ -227,6 +238,23 @@ def test_the_raw_stream_replays_into_the_same_session(tmp_path):
     probe.replay([str(raw)], str(out), True)
     (log,) = [p.read_text() for p in out.iterdir()]
     assert "[rp] 1.100 boot STEAM" in log
+
+
+def test_a_raw_file_with_a_cut_member_still_replays(tmp_path):
+    # 2026-11-04: a service restart left the hour's gzip member without its end and the next start
+    # appended a new one; gzip then stopped at "invalid block type".
+    import gzip
+    import zlib
+    first = hello(1_000_000) + text(1_100_000, b"1.100 boot STEAM\n")
+    c = zlib.compressobj(9, zlib.DEFLATED, 31)
+    cut = c.compress(first * 200) + c.flush(zlib.Z_SYNC_FLUSH)  # no end, as a killed writer leaves it
+    later = gzip.compress(hello(500_000_000) + text(500_100_000, b"500.100 slot 0 ready\n") + hello(501_000_000))
+    raw = tmp_path / "raw.bin.gz"
+    raw.write_bytes(cut + later)
+    out = tmp_path / "out"
+    probe.replay([str(raw)], str(out), True)
+    logs = "".join(p.read_text() for p in out.iterdir())
+    assert "[rp] 1.100 boot STEAM" in logs and "slot 0 ready" in logs
 
 
 def test_boot_events_kept_while_the_header_is_late(tmp_path):

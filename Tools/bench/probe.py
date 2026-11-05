@@ -26,6 +26,7 @@ import signal
 import struct
 import sys
 import time
+import zlib
 
 import serial
 from serial.tools import list_ports
@@ -162,6 +163,7 @@ class Session:
 
     def reset(self):
         self.last_t = None
+        self.suspect = None  # a frame back in time, held until the next one tells a restart from damage
         self.t_hi = 0  # the adapter's µs clock wraps every 71 min
         self.text = {}
         self.slots = {}  # slot -> [count this second, last µs, max gap µs, gaps]
@@ -270,11 +272,24 @@ class Session:
 
     def frame(self, ftype, t, payload):
         if self.last_t is not None and t < self.last_t:
-            if self.last_t - t > 0x80000000:
+            back = self.last_t - t
+            if back > 0x80000000:
                 self.t_hi += 1 << 32  # the clock wrapped
+            elif back < 100_000:
+                # The two cores' frames reach the ring a few us out of order: not a restart.
+                t = self.last_t
+            elif self.suspect is None or not (self.suspect[1] <= t < self.suspect[1] + 2_000_000):
+                # One frame back in time (a restart, or a damaged frame that passed the check):
+                # a restart only if the next frame carries on from it.
+                self.suspect = (ftype, t, payload)
+                return
             else:
+                first, self.suspect = self.suspect, None
                 self.out("# the adapter restarted")
                 self.close()
+                self.last_t = None
+                self.frame(*first)
+        self.suspect = None
         t_us = self.t_hi + t
         self.last_t = t
         if ftype == HELLO and len(payload) >= 12:
@@ -549,14 +564,50 @@ class RawKeeper:
             self.file = None
 
 
+def raw_chunks(path):
+    """The bytes of a raw file, gzip member by member. A member cut short (the service killed, or
+    one written before SIGTERM closed it) gives what it holds, and reading goes on with the next."""
+    with open(path, "rb") as f:
+        raw = f.read()
+    # Pieces end where a gzip header may start, so a cut member's data is given before the next
+    # member's header makes the decompressor fail.
+    cuts = sorted({m.start() for m in re.finditer(b"\x1f\x8b\x08", raw)} | set(range(0, len(raw), 65536)))
+    cuts = [c for c in cuts if c > 0] + [len(raw)]
+    d = zlib.decompressobj(31)
+    start = 0
+    for end in cuts:
+        if end <= start:
+            continue
+        try:
+            data = d.decompress(raw[start:end])
+        except zlib.error:  # a member cut short: a new one starts here
+            d = zlib.decompressobj(31)
+            try:
+                data = d.decompress(raw[start:end])
+            except zlib.error:
+                data = b""  # not a member start after all: skip to the next one
+        if data:
+            yield data
+        if d.eof:  # a whole member ended inside the piece: the next one starts after it
+            rest = d.unused_data
+            d = zlib.decompressobj(31)
+            if rest:
+                try:
+                    data = d.decompress(rest)
+                    if data:
+                        yield data
+                except zlib.error:
+                    d = zlib.decompressobj(31)
+        start = end
+
+
 def replay(paths, directory, quiet):
     dec = Decoder()
     ses = Session(directory, quiet)
     for path in sorted(paths):
-        with gzip.open(path, "rb") as f:
-            while chunk := f.read(65536):
-                for fr in dec.feed(chunk):
-                    ses.frame(*fr)
+        for chunk in raw_chunks(path):
+            for fr in dec.feed(chunk):
+                ses.frame(*fr)
     ses.close()
 
 
