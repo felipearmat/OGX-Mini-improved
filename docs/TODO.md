@@ -27,15 +27,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   still open the port the way Chrome does (9600 baud, DTR / RTS) and talk to it; restarting
   Chrome did not help, replugging did. Watch for it: if it comes back, take `chrome://device-log`
   before replugging, and note what used the port before.
-- **Settings: a rewrite that a reset cannot cut** — NVSTool rewrites a whole 4 KB sector (erase,
-  then program) for one entry; a reset in between erases 16 settings (2026-10-22: the second sector
-  found all 0xFF). Erased entries are now free again, but what they held is lost. Write to a spare
-  sector and switch over (or keep two copies) so a cut leaves the old data.
-- ~~**Hybrid: the ESP32 hears the RP2040's first answer only about 10 s after a restart**~~ — gone:
-  2026-11-05, YD-RP2040 hybrid, 122 boots (mode changes through the probe): the settings reached
-  the ESP32 504-1257 ms after its start (median 756), 0-4 read errors each, no wrong reply, the
-  profiles every time. Most likely the 400 kHz reads (dff4b53) and the cut-reply fix.
-- ~~**Hybrid: I2C link checksum**~~ — done 2026-11-05: every ESP32 write carries a CRC-8 (`Esp32Bridge::Trailer`, CHANGELOG); `i2c_slave.check_failed` in the report and an event every 10 s with drops show what the bus corrupts.
+- ~~**Settings: a rewrite that a reset cannot cut**~~ — done 2026-11-05: NVSTool journals every sector rewrite in two sectors taken from the top of the flash log (CHANGELOG); a cut at any point keeps the old sector or is finished at the next boot (the log says so). Not yet cut on hardware: a reset in the middle of a write needs the power pulled at the right moment.
 - **Fixture tests (end-to-end from real input)** — capture is in (`RAW_CAPTURE`,
   `Tools/bench/capture_pad.py`). Recorded and checked step by step (2026-10-27): `ds4`,
   `joycon_pair` (right half's IMU only, the pair-IMU default). Still to record (Pico W build,

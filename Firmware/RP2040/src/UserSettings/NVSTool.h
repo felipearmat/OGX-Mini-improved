@@ -27,6 +27,20 @@ static_assert(PICO_FLASH_BANK_TOTAL_SIZE == NVS_BT_BANK_SECTORS * FLASH_SECTOR_S
 #endif
 static_assert(NVS_SECTORS > NVS_BT_BANK_SECTORS, "NVSTool: no sector left for the settings");
 
+/* Custom fix: the journal, NVS_JOURNAL_SECTORS (2) sectors just below the NVS sectors (taken from
+ * the top of the flash log, Board/FlashLog.cpp), so a sector rewrite a reset cuts loses nothing.
+ * Every rewrite first writes the new sector's content and a header (target, CRC-32) there, then
+ * rewrites the sector, then clears the header; the next boot finishes a rewrite whose header is
+ * still valid. Without it a cut between erase and program left 16 settings erased (2026-10-22). */
+#ifndef NVS_JOURNAL_SECTORS
+#define NVS_JOURNAL_SECTORS 2
+#endif
+static_assert(NVS_JOURNAL_SECTORS == 2, "NVSTool: the journal is one content sector and one header sector");
+
+#if defined(PICO_ON_DEVICE) && PICO_ON_DEVICE
+extern "C" char __flash_binary_end;
+#endif
+
 class NVSTool
 {
 public:
@@ -111,6 +125,29 @@ public:
         return s;
     }
 
+    /* Custom: finish a sector rewrite a reset cut (the journal above). Runs at the first use;
+     * public for the host test. Returns true when a sector was rewritten. */
+    bool recover()
+    {
+        if (!journal_usable())
+            return false;
+        const JournalHeader* h = journal_header();
+        if (!header_ok(*h) || crc32(journal_content(), FLASH_SECTOR_SIZE) != h->crc)
+            return false;
+        const uint32_t target = h->target;
+        const bool differs = std::memcmp(reinterpret_cast<const void*>(XIP_BASE + target), journal_content(),
+                                         FLASH_SECTOR_SIZE) != 0;
+        static std::array<uint8_t, FLASH_SECTOR_SIZE> copy;  // XIP is off while the sector is written
+        std::memcpy(copy.data(), journal_content(), FLASH_SECTOR_SIZE);
+        bool ok = true;
+        if (differs)
+            ok = run_flash_op([target]() { program_sector(target, copy.data()); });
+        clear_journal();
+        recovered_ = differs && ok;
+        return recovered_;
+    }
+    bool recovered_at_boot() const { return recovered_; }
+
     bool erase_all()
     {
         mutex_enter_blocking(&nvs_mutex_);
@@ -137,6 +174,8 @@ private:
     NVSTool()
     {
         mutex_init(&nvs_mutex_);
+
+        recover();  // a rewrite cut by a reset: finished before anything is read
 
         Entry* initial_entry = get_entry(0);
 
@@ -169,6 +208,74 @@ private:
 
     mutex_t nvs_mutex_;
     static inline std::atomic<bool> other_core_halted_{false};
+    bool recovered_ = false;
+
+    static constexpr uint32_t JOURNAL_OFFSET = NVS_START_OFFSET - FLASH_SECTOR_SIZE * NVS_JOURNAL_SECTORS;
+    static constexpr uint32_t JOURNAL_MAGIC = 0x4A53564Eu;  // "NVSJ"
+    struct JournalHeader
+    {
+        uint32_t magic;
+        uint32_t target;  // flash offset of the sector being rewritten
+        uint32_t crc;     // crc32() of the content sector
+        uint32_t check;   // ~(magic ^ target ^ crc)
+    };
+
+    static const uint8_t* journal_content()
+    {
+        return reinterpret_cast<const uint8_t*>(XIP_BASE + JOURNAL_OFFSET);
+    }
+    static const JournalHeader* journal_header()
+    {
+        return reinterpret_cast<const JournalHeader*>(XIP_BASE + JOURNAL_OFFSET + FLASH_SECTOR_SIZE);
+    }
+    static bool header_ok(const JournalHeader& h)
+    {
+        return h.magic == JOURNAL_MAGIC && h.check == ~(h.magic ^ h.target ^ h.crc) &&
+               h.target >= NVS_START_OFFSET && h.target < NVS_START_OFFSET + USED_SECTORS * FLASH_SECTOR_SIZE &&
+               h.target % FLASH_SECTOR_SIZE == 0;
+    }
+    /* The journal is below the settings, where the flash log was: not over the firmware image. */
+    static bool journal_usable()
+    {
+#if defined(PICO_ON_DEVICE) && PICO_ON_DEVICE
+        return reinterpret_cast<uintptr_t>(&__flash_binary_end) <= XIP_BASE + JOURNAL_OFFSET;
+#else
+        return true;
+#endif
+    }
+    static uint32_t crc32(const uint8_t* data, size_t len)
+    {
+        uint32_t crc = 0xFFFFFFFFu;
+        for (size_t i = 0; i < len; ++i)
+        {
+            crc ^= data[i];
+            for (int b = 0; b < 8; ++b)
+                crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+        }
+        return ~crc;
+    }
+    static void program_sector(uint32_t offset, const uint8_t* data)
+    {
+        flash_range_erase(offset, FLASH_SECTOR_SIZE);
+        for (uint32_t i = 0; i < FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE; ++i)
+            flash_range_program(offset + i * FLASH_PAGE_SIZE, data + i * FLASH_PAGE_SIZE, FLASH_PAGE_SIZE);
+    }
+    /* Header bits cleared (no erase needed): the journal no longer counts. */
+    static void clear_journal()
+    {
+        if (!header_ok(*journal_header()))
+            return;
+        /* In RAM, not const: flash_range_program() cannot read its source from flash (XIP is off
+         * while it programs); a const array went to flash and hung the adapter until the watchdog. */
+        static std::array<uint8_t, FLASH_PAGE_SIZE> zeros;
+        zeros.fill(0);
+        run_flash_op([]() { flash_range_program(JOURNAL_OFFSET + FLASH_SECTOR_SIZE, zeros.data(), FLASH_PAGE_SIZE); });
+    }
+#if defined(NVSTOOL_TEST_HOOKS)
+public:
+    static inline int test_cut_after_step = 0;  // 1: after the journal, 2: after the sector; 0: no cut
+private:
+#endif
 
 
     /* How long flash_safe_execute() waits for the other core to park. */
@@ -262,14 +369,38 @@ private:
         entry_to_write->key[key.size()] = '\0';
         std::memcpy(entry_to_write->value, buffer, len);
 
-        return run_flash_op([sector_offset]() {
-            flash_range_erase(sector_offset, FLASH_SECTOR_SIZE);
-            for (uint32_t i = 0; i < FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE; ++i)
-            {
-                flash_range_program(sector_offset + i * FLASH_PAGE_SIZE,
-                                    sector_buffer.data() + i * FLASH_PAGE_SIZE, FLASH_PAGE_SIZE);
-            }
-        });
+        if (!journal_usable())
+        {
+            return run_flash_op([sector_offset]() { program_sector(sector_offset, sector_buffer.data()); });
+        }
+        /* The journal first (one flash operation each, to keep the other core's lockout short):
+         * a reset at any point leaves either the old sector whole or a journal the next boot
+         * applies (recover()). */
+        static std::array<uint8_t, FLASH_PAGE_SIZE> header_page;
+        header_page.fill(0xFF);
+        JournalHeader h{JOURNAL_MAGIC, sector_offset, crc32(sector_buffer.data(), FLASH_SECTOR_SIZE), 0};
+        h.check = ~(h.magic ^ h.target ^ h.crc);
+        std::memcpy(header_page.data(), &h, sizeof(h));
+        if (!run_flash_op([]() {
+                program_sector(JOURNAL_OFFSET, sector_buffer.data());
+                flash_range_erase(JOURNAL_OFFSET + FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE);
+                flash_range_program(JOURNAL_OFFSET + FLASH_SECTOR_SIZE, header_page.data(), FLASH_PAGE_SIZE);
+            }))
+        {
+            return false;
+        }
+#if defined(NVSTOOL_TEST_HOOKS)
+        if (test_cut_after_step == 1) return true;
+#endif
+        if (!run_flash_op([sector_offset]() { program_sector(sector_offset, sector_buffer.data()); }))
+        {
+            return false;  // the journal stays: the next boot applies it
+        }
+#if defined(NVSTOOL_TEST_HOOKS)
+        if (test_cut_after_step == 2) return true;
+#endif
+        clear_journal();
+        return true;
     }
 
 }; // class NVSTool

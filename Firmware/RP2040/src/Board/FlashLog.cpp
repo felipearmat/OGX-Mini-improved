@@ -26,13 +26,18 @@ namespace flash_log {
 
 namespace {
 
-constexpr uint32_t kSectors = OGXM_FLASH_LOG_SECTORS;
+#ifndef NVS_JOURNAL_SECTORS
+#define NVS_JOURNAL_SECTORS 2  // as UserSettings/NVSTool.h
+#endif
+/* Custom: the top NVS_JOURNAL_SECTORS of the OGXM_FLASH_LOG_SECTORS went to NVSTool's journal
+ * (2026-11-05); the log keeps its start, so the pages it already holds stay where they were. */
+constexpr uint32_t kSectors = OGXM_FLASH_LOG_SECTORS - NVS_JOURNAL_SECTORS;
 constexpr uint32_t kPagesPerSector = FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE;
 constexpr uint32_t kPages = kSectors * kPagesPerSector;
-// Below NVSTool's sectors (UserSettings/NVSTool.h; BTstack's bank is inside them).
-constexpr uint32_t kEnd = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * NVS_SECTORS;
+// Below NVSTool's journal and sectors (UserSettings/NVSTool.h; BTstack's bank is inside them).
+constexpr uint32_t kEnd = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * (NVS_SECTORS + NVS_JOURNAL_SECTORS);
 constexpr uint32_t kStart = kEnd - kSectors * FLASH_SECTOR_SIZE;
-static_assert(kSectors >= 4, "the flash log needs a few sectors");
+static_assert(kSectors >= 2, "the flash log needs a few sectors");
 static_assert(sizeof(Page) == FLASH_PAGE_SIZE, "flash_log::Page is one flash page");
 
 constexpr uint32_t kReservePages = 2 * kPagesPerSector;  // erased while quiet, for playing

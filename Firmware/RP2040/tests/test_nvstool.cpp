@@ -188,3 +188,79 @@ TEST(a_hole_left_by_a_cut_sector_rewrite_hides_nothing) {
     CHECK_EQ(nvs.scan().first_free, 5u);
     nvs.erase_all();
 }
+
+namespace {
+constexpr uint32_t kNvsStart = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * NVS_SECTORS;
+constexpr uint32_t kJournal = kNvsStart - FLASH_SECTOR_SIZE * NVS_JOURNAL_SECTORS;
+void fill_first_sector(NVSTool& nvs, uint32_t base) {
+    for (int i = 0; i < 15; ++i) {  // entries 1..15: the whole first sector
+        const uint32_t v = base | static_cast<uint32_t>(i);
+        CHECK(nvs.write(key_for(i), &v, sizeof(v)));
+    }
+}
+}  // namespace
+
+TEST(a_reset_between_a_sectors_erase_and_its_program_loses_nothing) {
+    // The rewrite of one entry rewrites its whole sector; a reset after the erase used to leave
+    // the 16 entries erased (2026-10-22). Now the journal holds the new sector until it is written.
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    fill_first_sector(nvs, 0xAB000000u);
+    NVSTool::test_cut_after_step = 1;  // the journal is written, the reset comes now...
+    const uint32_t nv = 0x5555;
+    CHECK(nvs.write(key_for(7), &nv, sizeof(nv)));
+    NVSTool::test_cut_after_step = 0;
+    std::memset(mock_flash::memory() + kNvsStart, 0xFF, FLASH_SECTOR_SIZE);  // ...right after the erase
+    uint32_t v = 0;
+    CHECK(!nvs.read(key_for(3), &v, sizeof(v)));  // what the old firmware was left with
+    CHECK(nvs.recover());                         // the next boot
+    for (int i = 0; i < 15; ++i) {
+        CHECK(nvs.read(key_for(i), &v, sizeof(v)));
+        CHECK_EQ(v, i == 7 ? 0x5555u : (0xAB000000u | static_cast<uint32_t>(i)));
+    }
+    CHECK(!nvs.recover());  // applied once: the journal no longer counts
+}
+
+TEST(a_reset_before_the_sector_is_touched_finishes_the_write_at_boot) {
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    fill_first_sector(nvs, 0xCD000000u);
+    NVSTool::test_cut_after_step = 1;
+    const uint32_t nv = 0x7777;
+    CHECK(nvs.write(key_for(2), &nv, sizeof(nv)));
+    NVSTool::test_cut_after_step = 0;
+    uint32_t v = 0;
+    CHECK(nvs.read(key_for(2), &v, sizeof(v)));
+    CHECK_EQ(v, 0xCD000002u);  // the sector still whole, the old value
+    CHECK(nvs.recover());
+    CHECK(nvs.read(key_for(2), &v, sizeof(v)));
+    CHECK_EQ(v, 0x7777u);
+    // A reset after the sector was written but before the journal was cleared: nothing to redo.
+    NVSTool::test_cut_after_step = 2;
+    CHECK(nvs.write(key_for(2), &nv, sizeof(nv)));
+    NVSTool::test_cut_after_step = 0;
+    CHECK(!nvs.recover());
+    CHECK(!nvs.recover());
+}
+
+TEST(old_flash_log_pages_in_the_journal_are_not_a_journal) {
+    // The journal took the flash log's top two sectors: what the log left there must not be
+    // applied, and a damaged journal (its content changed after the header) neither.
+    NVSTool& nvs = NVSTool::get_instance();
+    nvs.erase_all();
+    fill_first_sector(nvs, 0xEE000000u);
+    for (uint32_t b = 0; b < 2 * FLASH_SECTOR_SIZE; ++b)
+        mock_flash::memory()[kJournal + b] = static_cast<uint8_t>(b * 7 + 3);
+    CHECK(!nvs.recover());
+    NVSTool::test_cut_after_step = 1;
+    const uint32_t nv = 1;
+    CHECK(nvs.write(key_for(1), &nv, sizeof(nv)));
+    NVSTool::test_cut_after_step = 0;
+    mock_flash::memory()[kJournal + 100] &= 0x0F;  // the content no longer matches its CRC
+    CHECK(!nvs.recover());
+    uint32_t v = 0;
+    CHECK(nvs.read(key_for(1), &v, sizeof(v)));
+    CHECK_EQ(v, 0xEE000001u);
+    CHECK_EQ(mock_flash::stats().ops_with_irqs_enabled, 0);
+    nvs.erase_all();
+}

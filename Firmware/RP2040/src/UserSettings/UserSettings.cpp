@@ -605,6 +605,9 @@ void UserSettings::load_dongle_settings()
     /* Custom: for the diagnostics report: whether they were found, and the table's state. */
     const NVSTool::Scan scan = nvs_tool_.scan();
     diag::settings_state(found, scan.used, scan.first_free, scan.used_after_free);
+    if (nvs_tool_.recovered_at_boot()) {
+        diag::event(board_api::ms_since_boot(), "settings: a rewrite cut by a reset finished from the journal");
+    }
 }
 
 /* Custom: stop the search for new controllers until a pad goes away (Bluepad32/ScanPolicy.h); one

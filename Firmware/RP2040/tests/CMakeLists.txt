@@ -45,7 +45,7 @@ target_compile_definitions(test_webapp_contract PRIVATE
     OGXM_CONTRACT_PATH="${FW_COMMON}/contract/webapp_contract.json")
 
 ogxm_add_test(test_nvstool test_nvstool.cpp)
-target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4)
+target_compile_definitions(test_nvstool PRIVATE NVS_SECTORS=4 NVSTOOL_TEST_HOOKS=1)
 
 # I2C link of the RP2040 + ESP32 hybrid: wire format shared by both firmwares (Firmware/common)
 ogxm_add_test(test_esp32_bridge test_esp32_bridge.cpp ${FW_COMMON}/UserSettings/DongleSettings.cpp
@@ -74,7 +74,7 @@ ogxm_add_test(test_rx_ring test_rx_ring.cpp)
 ogxm_add_test(test_flash_log test_flash_log.cpp ${FW_SRC}/Board/FlashLog.cpp ${FW_SRC}/Board/LogRing.cpp
               ${FW_SRC}/Diagnostics/Diagnostics.cpp ${FW_COMMON}/Diagnostics/DiagNames.cpp
               ${FW_COMMON}/UserSettings/DongleSettings.cpp)
-target_compile_definitions(test_flash_log PRIVATE NVS_SECTORS=4 OGXM_FLASH_LOG_SECTORS=4)
+target_compile_definitions(test_flash_log PRIVATE NVS_SECTORS=4 OGXM_FLASH_LOG_SECTORS=6)  # 4 after the NVS journal
 
 ogxm_add_test(test_spin_lock_budget test_spin_lock_budget.cpp)
 
