@@ -248,6 +248,7 @@ later fixes reach every board in one PR.
 | 40b88dd | Hybrid: a CRC-8 and the ESP32-side wait on every ESP32 -> RP2040 I2C write (`Esp32Bridge::Trailer`, asked for by the RP2040), checked writes in the report | todo | Upstream's link has no check either. Both firmwares; an older side keeps 32-byte writes. The wait needs the probe point (647e8a1) to be of use. |
 | bcc87b5 | Hybrid: the ESP32 waits up to 1 ms for the RP2040 holding SCL (its 25 us bus timeout cut every reply longer than the RP2040's 16-byte FIFO when the top-up came late) | todo | Upstream has the same driver default and replies longer than 16 bytes. One line on the ESP32; a good first fix PR. |
 | 41a165c | Settings: a journal for NVSTool's sector rewrites (two sectors below the settings), so a reset in the middle of a write loses nothing | todo | Upstream's NVSTool has the same erase-then-program rewrite. Needs two sectors below the NVS area: upstream has no flash log there, so check the image end. |
+| caa1b24 | Hybrid: the RP2040's I2C slave takes the RX FIFO's last bytes before finishing a write (the SDK's interrupt handles the stop first: 35-byte writes arrived as 34 + 1) | todo | Upstream's hybrid uses the same pico_i2c_slave. Also worth an issue on the Pico SDK. |
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
