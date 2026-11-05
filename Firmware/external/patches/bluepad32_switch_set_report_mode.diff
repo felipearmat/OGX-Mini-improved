@@ -1,22 +1,22 @@
 diff --git a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-index 79a262d..9287ece 100644
+index 46ae64d..c112f7e 100644
 --- a/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
 +++ b/src/components/bluepad32/include/parser/uni_hid_parser_switch.h
-@@ -33,6 +33,9 @@ void uni_hid_parser_switch_teardown(struct uni_hid_device_s* d);
- void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d);
- // Ask the pad to disconnect itself and sleep (subcommand 0x06 / 0x00).
+@@ -67,6 +67,9 @@ int uni_hid_parser_switch_device_extra_info(const struct uni_hid_device_s* d, ch
+  * down, and reconnects on its next button press. No-op for non-Switch devices.
+  */
  void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d);
 +// OGX-Mini-improved: ask a connected pad again for the standard full report (0x30), for a pad
 +// that finished its setup but sends no input reports.
 +void uni_hid_parser_switch_set_standard_report_mode(struct uni_hid_device_s* d);
- // Which half of a merged Joy-Con pair provides motion (true = right, the default).
- void uni_hid_parser_switch_set_pair_imu_side(bool right);
- // Whether a lone Joy-Con looks for its other half and merges with it (true, the default).
+ 
+ 
+ void uni_hid_parser_switch_teardown(struct uni_hid_device_s* d);
 diff --git a/src/components/bluepad32/parser/uni_hid_parser_switch.c b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-index e947985..503fa8d 100644
+index 21deda6..41e6c9b 100644
 --- a/src/components/bluepad32/parser/uni_hid_parser_switch.c
 +++ b/src/components/bluepad32/parser/uni_hid_parser_switch.c
-@@ -531,6 +531,17 @@ void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d) {
+@@ -1878,6 +1878,17 @@ void uni_hid_parser_switch_request_sleep(struct uni_hid_device_s* d) {
      send_subcmd(d, req, sizeof(out));
  }
  
@@ -31,6 +31,6 @@ index e947985..503fa8d 100644
 +    send_subcmd(d, req, sizeof(out));
 +}
 +
- void uni_hid_parser_switch_cleanup(struct uni_hid_device_s* d) {
-     if (!d || d->report_parser.setup != uni_hid_parser_switch_setup)
-         return;
+ bool uni_hid_parser_switch_does_name_match(struct uni_hid_device_s* d, const char* name) {
+     struct device_s {
+         const char* name;
