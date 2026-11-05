@@ -68,7 +68,7 @@ if [ $OS = linux ]; then
 Description=OGX-Mini debug probe reader (Tools/bench/probe.py), also in Game Mode
 
 [Service]
-ExecStart="$PY" -u "$PROBE" --port "$PORT" --dir "$LOGS" --quiet
+ExecStart="$PY" -u "$PROBE" --port "$PORT" --dir "$LOGS" --commands "$LOGS/commands" --quiet
 Restart=always
 RestartSec=5
 

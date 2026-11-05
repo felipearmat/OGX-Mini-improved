@@ -22,6 +22,7 @@ import glob
 import gzip
 import os
 import re
+import signal
 import struct
 import sys
 import time
@@ -570,6 +571,9 @@ def main():
     ap.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = run until stopped)")
     ap.add_argument("--no-raw", action="store_true", help="do not keep the raw stream (<dir>/raw)")
     ap.add_argument("--replay", nargs="+", metavar="RAW", help="decode kept raw files (.bin.gz) into session files")
+    ap.add_argument("--commands", metavar="FIFO",
+                    help="a named pipe: each line written to it ('M 6', 'O 1 0') is sent to the adapter "
+                         "while this keeps running, so the session goes on (echo 'M 8' > FIFO)")
     ap.add_argument("--send", nargs=3, metavar=("CMD", "A", "B"),
                     help="send one command first (needs the reader's TX on the probe's RX pin): "
                          "O LEVEL DETAILED sets the log options live, M MODE changes the output mode")
@@ -578,6 +582,17 @@ def main():
         replay(args.replay, args.dir, args.quiet)
         return
 
+    # systemd stops the service with SIGTERM: end as on Ctrl+C, so the session gets its summary and
+    # the raw file its gzip trailer (a cut one could not be replayed).
+    def _on_term(*_):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _on_term)
+    fifo = None
+    if args.commands:
+        if not os.path.exists(args.commands):
+            os.mkfifo(args.commands)
+        fifo = os.open(args.commands, os.O_RDWR | os.O_NONBLOCK)  # RDWR: no EOF between writers
+    pending = b""
     dec = Decoder()
     raw = None if args.no_raw else RawKeeper(args.dir)
     ses = Session(args.dir, args.quiet)
@@ -607,6 +622,23 @@ def main():
                 if args.send:
                     port.write(command(ord(args.send[0][0]), int(args.send[1]), int(args.send[2])))
                     args.send = None
+            if fifo is not None:
+                try:
+                    pending += os.read(fifo, 256)
+                except BlockingIOError:
+                    pass
+                while b"\n" in pending:
+                    line, pending = pending.split(b"\n", 1)
+                    parts = line.decode(errors="replace").split()
+                    if not parts:
+                        continue
+                    try:
+                        values = [int(v) for v in parts[1:3]] + [0, 0]
+                        port.write(command(ord(parts[0][0]), values[0], values[1]))
+                        if ses.file:
+                            ses.out("# command sent: " + " ".join(parts))
+                    except (ValueError, serial.SerialException):
+                        pass
             try:
                 data = port.read(65536)
             except serial.SerialException:
