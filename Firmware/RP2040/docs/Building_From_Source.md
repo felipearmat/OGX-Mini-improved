@@ -35,7 +35,7 @@ Install **all** of the following and ensure they are on your **PATH** (open a ne
 | Dependency | Notes |
 |------------|--------|
 | **Network access** (first configure) | CMake may fetch **picotool** / SDK helpers; submodules and pico-sdk are cloned from GitHub |
-| **Raspberry Pi Pico SDK 2.1.0** | Must exist as `Firmware/external/pico-sdk` **or** via `PICO_SDK_PATH` — see [§3](#3-pico-sdk-required--not-a-git-submodule) |
+| **Raspberry Pi Pico SDK 2.3.1** | Must exist as `Firmware/external/pico-sdk` **or** via `PICO_SDK_PATH` — see [§3](#3-pico-sdk-required--not-a-git-submodule) |
 | Disk space | Roughly **1–3+ GB** after submodules + SDK + build tree |
 
 Optional but useful:
@@ -305,7 +305,7 @@ If you only need a normal Pico / Pico W adapter, **skip this section**.
 | Symptom | What to check |
 |---------|----------------|
 | `arm-none-eabi-gcc` not found | Install Arm GNU toolchain; restart terminal; verify PATH |
-| `pico_sdk_init.cmake` / SDK missing | Clone SDK **2.1.0** into `Firmware/external/pico-sdk` or set `PICO_SDK_PATH` ([§3](#3-pico-sdk-required--not-a-git-submodule)) |
+| `pico_sdk_init.cmake` / SDK missing | Clone SDK **2.3.1** into `Firmware/external/pico-sdk` or set `PICO_SDK_PATH` ([§3](#3-pico-sdk-required--not-a-git-submodule)) |
 | `compile_gatt.py` / BTstack missing | `git submodule update --init --recursive` (Bluepad32 nested submodule) |
 | Patch apply fatal error | Clean submodule and re-init; ensure you did not manually break `bluepad32` / `btstack` / `pico-sdk` trees |
 | CMake / Ninja not found | Install per [§1](#1-required-applications-rp2040--rp2350-firmware) |

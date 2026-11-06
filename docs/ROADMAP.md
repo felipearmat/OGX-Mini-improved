@@ -120,7 +120,7 @@ build in CI and share their common code ([Firmware/common](../Firmware/common/RE
    combos, idle turn-off, diagnostics, flashing both chips through the adapter), results in
    [HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md). Next: several controllers at once (`MAX_GAMEPADS` > 1),
    range against a Pico 2 W with the diagnostics report (signal, lost reports, input gaps), a BLE
-   controller, then a soldered board (the jumpers corrupt some I2C packets). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
+   controller. ~~A soldered board~~: done 2026-11-04 (YD-RP2040 + 38-pin ESP32; the I2C corruption was the ESP32's bus timeout, fixed 2026-11-05). Prefer an ESP32 with an external antenna (ESP32-WROOM-32U / WROVER-IE); ESP-IDF can
    raise the Classic transmit power to +9 dBm (`esp_bredr_tx_power_set`).
 2. **Close the gaps on the ESP32 side** — all of them software, none a hardware limit:
    - ~~shared Bluetooth core~~ — done: the ESP32 runs the Pico W's Bluetooth code

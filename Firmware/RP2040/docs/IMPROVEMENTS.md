@@ -748,6 +748,8 @@ Some 8BitDo wired XInput controllers (VID 0x2DC8, PID 0x3016 or 0x3106) can disc
 
 **Why PS5 can feel slower than Xbox One over BT:** DualSense sends larger reports (78 bytes, with gyro/accel), and Bluepad32’s DS5 parser does more work per report (calibration, etc.). Xbox One reports are smaller and the parser is lighter. Bluetooth poll/report rate and radio latency dominate; the adapter’s job is to not add extra delay.
 
+*(The adaptive-trigger toggle was removed in 2026-11; it is to come back as a macro action. The history below stays for reference.)*
+
 **Change in this firmware:** The PS5 adaptive-trigger toggle (touchpad/mute button) now runs **after** `set_pad_in(gp_in)`. Previously it ran at the start of the callback; when you pressed the touchpad it could send two output reports (left/right trigger effect) before updating gamepad state, which could delay the next main-loop read. Now the gamepad state is always written first, then the trigger effect is sent, so input is not held up by the trigger command.
 
 **If you need minimum latency with a DualSense:** Use the controller **wired** on the PIO USB host port when possible; wired PS5 uses the same low-latency path as other USB host controllers and avoids BT report size and rate limits.
@@ -865,7 +867,7 @@ For **`CONTROLLER_TYPE_PS4Controller`**, **rumble output** is **delayed ~6 secon
 - **Core0 `sleep_ms(1)`** in the main loop so Core1 (BT stack) gets CPU time ([Team-Resurgent/OGX-Mini](https://github.com/Team-Resurgent/OGX-Mini) pattern).
 - **Lock-free Bluetooth input path** (`set_pad_in_from_bluetooth`) so HID callbacks never block on Core0’s mutex. **Joy-Con pairs:** **2-slot** staging ring so back-to-back L/R reports are not overwritten before Core0 drains (see [§ Joy-Con pair merge — latency](#joy-con-pair-merge--latency-when-both-halves-are-active)).
 - **Reconnect:** last device disconnect calls **`uni_bt_enable_new_connections_unsafe(true)`** so pairing can resume without power-cycling.
-- **8 s input-stall disconnect** (non-virtual, non-BLE-Xbox) to clear zombie links; **BLE Xbox** uses keepalive instead of stall disconnect.
+- ~~**8 s input-stall disconnect**~~ (removed 2026-11-04: it was dead code, its time written and never read) (non-virtual, non-BLE-Xbox) to clear zombie links; **BLE Xbox** uses keepalive instead of stall disconnect.
 
 ### 6. Connection rumble when the wireless controller is ready *(v1.0.0.9a)*
 
