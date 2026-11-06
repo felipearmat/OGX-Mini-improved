@@ -4,6 +4,13 @@
 
 #include <cstring>
 #include <hardware/sync.h>
+#if defined(PICO_ON_DEVICE) && PICO_ON_DEVICE
+#if defined(PICO_RP2350)
+#include <hardware/structs/powman.h>
+#else
+#include <hardware/structs/vreg_and_chip_reset.h>
+#endif
+#endif
 
 namespace {
 
@@ -48,8 +55,31 @@ struct Guard
 };
 #endif
 
+/* Custom fix: the power went away. The ring's RAM is not cleared at boot, so it survives a warm
+ * reboot (watchdog, RUN pin) as wanted, but after a power cut it can survive too, or come back half
+ * decayed, its magic still matching (2026-10-22: a 9 s unplug kept it): dropped on a power-on (or,
+ * on the RP2350, brown-out) reset. */
+bool power_was_lost()
+{
+#if defined(PICO_ON_DEVICE) && PICO_ON_DEVICE
+#if defined(PICO_RP2350)
+    return (powman_hw->chip_reset & (POWMAN_CHIP_RESET_HAD_POR_BITS | POWMAN_CHIP_RESET_HAD_BOR_BITS)) != 0;
+#else
+    return (vreg_and_chip_reset_hw->chip_reset & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_POR_BITS) != 0;
+#endif
+#else
+    return false;
+#endif
+}
+
 void ensure_valid()
 {
+    static bool s_boot_checked = false;
+    if (!s_boot_checked) {
+        s_boot_checked = true;
+        if (power_was_lost())
+            s_ring.magic = 0;  // starts over below
+    }
     if (s_ring.magic != kMagic || s_ring.head >= kSize || s_ring.used > kSize) {
         s_ring.magic = kMagic;
         s_ring.head = 0;
