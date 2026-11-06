@@ -23,8 +23,8 @@ keeps everything. Keep the log in flash only when no PC can be near the adapter.
 
 ## The probe point
 
-While the activity log is on, the adapter sends its records on a UART pin (GP4 on the Pico W,
-Pico 2 W and the RP2040 + ESP32 hybrid), as small binary frames sent by DMA: the adapter does not
+While the activity log is on, the adapter sends its records on a UART pin (GP8 on the Pico,
+Pico 2, Pico W, Pico 2 W and the RP2040 + ESP32 hybrid; GP4 on the hybrid's `ORIGINAL` wiring), as small binary frames sent by DMA: the adapter does not
 format text or wait for the wire. Nothing attached costs the same. Each session also records the
 probe's own cost, measured by the adapter.
 
@@ -34,7 +34,7 @@ adapter stays on its own USB port (PC or console); the reader goes to a PC.
 
 ## Commands to the adapter (automated tests)
 
-With a second wire, from the reader's TX to GP5 ([hardware/README.md](../../../hardware/README.md#debug-probe-point)),
+With a second wire, from the reader's TX to GP9 ([hardware/README.md](../../../hardware/README.md#debug-probe-point)),
 the PC can drive the adapter in any output mode, which is otherwise only possible in
 D-Input/Debug through the web app:
 

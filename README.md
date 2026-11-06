@@ -346,7 +346,7 @@ of freezing). Full guide, including what each Diagnostics column means:
 
 To record a whole play session in any output mode, also with the adapter on a console: turn on
 the **Activity log** in the web app and attach a 3.3 V USB-UART adapter (or a spare ESP32 board) to
-the adapter's probe pin (GP4 on the Pico W and Pico 2 W, GP8 on the hybrid's default wiring). The adapter streams its events
+the adapter's probe pin (GP8 on the Pico, Pico 2, Pico W, Pico 2 W and the hybrid's default wiring). The adapter streams its events
 and the time of every report on that pin at about 0.1% of one core; a reader service on the PC
 (`Tools/debug/install.sh`, `Tools\debug\install.ps1`) writes one file per session. Guide:
 [Debug mode](Firmware/RP2040/docs/Debug_Mode.md).
