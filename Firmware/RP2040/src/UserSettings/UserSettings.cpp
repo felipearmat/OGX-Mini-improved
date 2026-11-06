@@ -616,16 +616,9 @@ void UserSettings::stop_search(Gamepad& gamepad)
 {
     OGXM_LOG("Stop searching for new controllers\n");
 #if defined(CONFIG_EN_BLUETOOTH)
-    bluepad32::request_stop_search();
+    bluepad32::request_stop_search();  // its rumble goes to the pads on the Bluetooth core
 #endif
-    Gamepad::PadOut pad_out = gamepad.get_pad_out();
-    pad_out.rumble_l = 0xFF;
-    pad_out.rumble_r = 0xFF;
-    gamepad.set_pad_out(pad_out);
-    busy_wait_ms(400);
-    pad_out.rumble_l = 0;
-    pad_out.rumble_r = 0;
-    gamepad.set_pad_out(pad_out);
+    (void)gamepad;
 }
 
 /* Custom: diagnostics session summary, written with the mode change (Diagnostics/Diagnostics.h). */

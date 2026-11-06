@@ -54,7 +54,6 @@ private:
      * long rumble stopped and restarted every cycle and felt weak. */
     static constexpr uint32_t FEEDBACK_TIME_MS = switch_rumble::kFeedbackPeriodMs;
     static constexpr uint32_t LED_CHECK_TIME_MS = 500;
-    static constexpr uint16_t STOP_SEARCH_RUMBLE_MS = 400;
 
     /* One Bluetooth slot (Bluepad32 device index). */
     struct Slot

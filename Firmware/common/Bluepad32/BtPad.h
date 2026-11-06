@@ -22,6 +22,7 @@
 #include "Bluepad32/InputWatch.h"
 #include "Bluepad32/JoyConSettings.h"
 #include "Bluepad32/PadBattery.h"
+#include "Bluepad32/ScanControl.h"
 #include "Diagnostics/Diagnostics.h"
 #include "Gamepad/Lightbar.h"
 #include "Gamepad/MotionSource.h"
@@ -355,6 +356,53 @@ namespace bt_pad {
             uni_hid_parser_switch2_send_keepalive(d);
             state.switch2_last_ms = now_ms;
         }
+    }
+
+    /* A BLE (HOGP) pad, for the search policy: HIDS up, or a Steam Controller (Triton), which skips
+     * HIDS, on an LE link (it still needs a quiet radio). The Pico W's test; the ESP32 left Triton
+     * out until 2026-11-06. */
+    inline bool is_ble_hogp(const uni_hid_device_t* d)
+    {
+        if (d == nullptr)
+            return false;
+        if (d->hids_cid != 0 && d->hids_cid != 0xffff)
+            return true;
+        return uni_hid_parser_steam_triton_is_device(d) &&
+               d->conn.handle != UNI_BT_CONN_HANDLE_INVALID &&
+               gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_LE;
+    }
+
+    /* The connected pads for the search policy (Bluepad32/ScanControl.h), on every board:
+     * `slot_pad(i, output)` gives slot i's connected pad and its output index, or nullptr. */
+    template <typename SlotPad>
+    scan_control::Pads scan_pads(int slots, int max_gamepads, SlotPad slot_pad)
+    {
+        scan_control::Pads pads;
+        bool used[8]{};
+        for (int i = 0; i < slots; ++i) {
+            int out = -1;
+            uni_hid_device_t* d = slot_pad(i, out);
+            if (!d)
+                continue;
+            if (is_ble_hogp(d))
+                pads.hogp = true;
+            else if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL)
+                pads.classic = true;
+            if (out >= 0 && out < max_gamepads && out < 8 && !used[out]) {
+                used[out] = true;
+                ++pads.outputs;
+            }
+        }
+        pads.awaiting = uni_hid_parser_switch_any_awaiting_partner();
+        return pads;
+    }
+
+    /* Start + L3 confirmed on the pads themselves, the same on every board. */
+    constexpr uint16_t kStopSearchRumbleMs = 400;
+    inline void stop_search_rumble(uni_hid_device_t* d)
+    {
+        if (d)
+            play_host_rumble(d, kStopSearchRumbleMs, 0xFF, 0xFF, joycon_settings::get().pair_rumble_per_side);
     }
 
     /* One pad's share of the feedback tick, on the Pico W (Bluepad32.cpp send_feedback_cb) and the
