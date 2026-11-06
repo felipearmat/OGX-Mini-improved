@@ -67,9 +67,12 @@ session.
 
 | Board | Probe pin |
 |---|---|
-| Pico W, Pico 2 W | GP4 (pin 6) |
+| Pico, Pico 2, Pico W, Pico 2 W | GP8 (pin 11) |
 | [ESP32 hybrid](#pi-pico--esp32) (RP2040 or Pico 2 / Pico 2 W) | GP8 (pin 11); GP4 (pin 6) on the `ORIGINAL` wiring |
 | Other boards | none by default (set `OGXM_DEBUG_UART_TX_PIN` after checking the board's pins) |
+
+The same two pins (GP8, GP9) on every board with the Pico's pinout since 2026-11-06, so one probe
+wiring fits them all; the Pico W and Pico 2 W had GP4 / GP5 before.
 
 The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
 
@@ -80,7 +83,7 @@ The pin is UART TX at 921600 baud, 8N1, 3.3 V. Read it with either:
 
 Optional, for automated tests: a second wire from the reader's **TX** (USB-UART adapter) or the
 ESP32 board's **RX0** / GPIO3 (its USB chip's TX, free while the ESP32 is held in reset) to the pin
-after the probe pin (**GP5**, pin 7; **GP9**, pin 12, on the hybrid's default wiring) lets the PC send the adapter short commands in any output mode: the log options live, a
+after the probe pin (**GP9**, pin 12; **GP5**, pin 7, on the hybrid's `ORIGINAL` wiring) lets the PC send the adapter short commands in any output mode: the log options live, a
 mode change (`OGXM_DEBUG_UART_RX_PIN`, `AUTO` = the pin after the probe pin, `-1` = none).
 
 No 5 V or 3V3 between the boards: each takes power from its own USB. Tested with a Pico 2 W and an

@@ -178,12 +178,17 @@ else()
 endif()
 math(EXPR _ogxm_hybrid_log_rx "${_ogxm_hybrid_log_tx} + 1")
 
-set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP4 where free (GP8 on the hybrid's default wiring)")
+# Custom: GP8 / GP9 on every board with the Pico's pinout (Pico, Pico 2, Pico W, Pico 2 W and the
+# hybrids on their default wiring), so one probe wiring fits them all (the user's decision,
+# 2026-11-06; the Pico W boards used GP4 / GP5 before). GP8 / GP9 are free in every mode there (the
+# console modes use GP10 / 11 and GP19-22 / 26, the USB host port GP0 / 1 or GP2 / 3). The hybrid's
+# ORIGINAL wiring keeps GP4 (GP8 is its ESP32 EN), as BlueRetro's board does not get one.
+set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP8 on the Pico-pinout boards (GP4 on the hybrid's ORIGINAL wiring)")
 if(OGXM_DEBUG_UART_TX_PIN STREQUAL "AUTO")
     if(OGXM_BOARD MATCHES "^(ESP32_BLUEPAD32_I2C|ESP32_BLUEPAD32_I2C_PICO2)$")
         set(_ogxm_probe_pin ${_ogxm_hybrid_log_tx})
-    elseif(OGXM_BOARD MATCHES "^(PI_PICOW|PI_PICO2W)$")
-        set(_ogxm_probe_pin 4)
+    elseif(OGXM_BOARD MATCHES "^(PI_PICO|PI_PICO2|PI_PICOW|PI_PICO2W)$")
+        set(_ogxm_probe_pin 8)
     else()
         set(_ogxm_probe_pin -1)
     endif()
