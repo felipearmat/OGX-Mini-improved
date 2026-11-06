@@ -367,6 +367,13 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                             hci_event_connection_complete_get_status(packet));
             }
             break;
+        case HCI_EVENT_ROLE_CHANGE: {  // status, address, new role (0 master, 1 slave): ours on that link
+            bd_addr_t a;
+            reverse_bd_addr(&packet[3], a);  // event code, length, status, address
+            diag::event(now, "link %02X:%02X:%02X role %s%s", a[0], a[1], a[2], packet[9] == 0 ? "master" : "slave",
+                        packet[2] != 0 ? " (switch failed)" : "");
+            break;
+        }
         case HCI_EVENT_LINK_KEY_REQUEST: {  // the controller asks the host for the stored key
             bd_addr_t a;
             hci_event_link_key_request_get_bd_addr(packet, a);
