@@ -195,10 +195,11 @@ Flash the `.uf2` from the build output folder.
 
 | Board family | TX pin | RX pin | Baud |
 |--------------|--------|--------|------|
-| **Pico W / Pico 2 W / RP2354** | **GP4** | **GP5** | **115200** 8N1 |
-| **Most other boards** (Pico, Zero, Feather, RP2350-USB-A, …) | **GP0** | **GP1** | **115200** 8N1 |
+| **Pico, Pico 2, Pico W, Pico 2 W, the RP2040 + ESP32 hybrid** | **GP8** | **GP9** | **115200** 8N1 |
+| **RP2354**; Pico W / Pico 2 W with `-DOGXM_LEGACY_PINOUT=ON`; the hybrid's `ORIGINAL` wiring | **GP4** | **GP5** | **115200** 8N1 |
+| **Other boards** (Zero, Feather, XIAO, RP2350-USB-A, …) | **GP0** | **GP1** | **115200** 8N1 |
 
-Pico W / 2 W use GP4/GP5 so UART does not collide with PIO USB on GP0/GP1.
+On the Pico-pinout boards the log shares the [probe point's](../../../hardware/README.md#debug-probe-point) pins (the [common pinout](../../../hardware/README.md)), clear of the USB host port and the console modes.
 
 Connect a USB–UART adapter: adapter **RX** ← Pico **TX**, common **GND**. Open a serial terminal at **115200** (e.g. `minicom`, `screen`, PuTTY, Arduino Serial Monitor).
 

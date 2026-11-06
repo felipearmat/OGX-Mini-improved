@@ -134,7 +134,7 @@ Provide what applies; more evidence = faster triage.
 | **Debug UART full report hex** (adapter host port) | New controller / wrong mapping (**required** — not PC `Tools/controller_capture/` scripts) |
 | GitHub commit or release link | Version clarity |
 
-Debug UART pins and baud: [Adding_Supported_Controllers — UART](Adding_Supported_Controllers.md#uart-pins-and-baud) (**115200**; Pico W / 2 W: **GP4/GP5**; most other boards: **GP0/GP1**).
+Debug UART pins and baud: [Adding_Supported_Controllers — UART](Adding_Supported_Controllers.md#uart-pins-and-baud) (**115200**; Pico, Pico 2, Pico W, Pico 2 W and the hybrid: **GP8/GP9**; RP2354: **GP4/GP5**; other boards: **GP0/GP1**).
 
 ---
 

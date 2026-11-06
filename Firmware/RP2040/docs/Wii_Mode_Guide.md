@@ -18,7 +18,7 @@ For hardware wiring and USB port setup (PIO USB, pins, build), see [PICO2W_WII_U
 
 ## 2. USB connection (controller input)
 
-- **Use the external USB port** (PIO USB). On Pico W / Pico 2 W this is the connector wired to **D+/D− on GP0/GP1** (or swapped per board config). See [PICO2W_WII_USB_SETUP.md](PICO2W_WII_USB_SETUP.md) for pins and wiring.
+- **Use the external USB port** (PIO USB). On Pico W / Pico 2 W this is the connector wired to **D+/D− on GP2/GP3** (GP0/GP1 with `-DOGXM_LEGACY_PINOUT=ON`) (or swapped per board config). See [PICO2W_WII_USB_SETUP.md](PICO2W_WII_USB_SETUP.md) for pins and wiring.
 - **Do not** plug the gamepad into the Pico’s **built-in** USB port (the one used for flashing). That port is not used as host in Wii mode.
 - Power the board and plug the USB controller into the external port. When it enumerates, the controller’s LED (if any) should indicate it’s active. The firmware waits for a controller before starting the Wiimote connection flow.
 

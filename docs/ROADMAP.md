@@ -130,7 +130,7 @@ build in CI and share their common code ([Firmware/common](../Firmware/common/RE
      ~~one place for the settings~~ — done (the RP2040 keeps them; the ESP32's BLE web app edits
      them over I2C). Hardware test: [docs/HYBRID_TEST_PLAN.md](HYBRID_TEST_PLAN.md);
    - ~~the link details in the diagnostics~~, ~~the DualSense passthrough in STEAM mode~~,
-     ~~DualShock 3 USB pairing~~ (USB host port on GP0 / GP1), ~~one BLE web app~~
+     ~~DualShock 3 USB pairing~~ (USB host port, GP2 / GP3 since the common pinout), ~~one BLE web app~~
      (`Firmware/common/Bluepad32/BLEServer`) — done;
    - ~~flashing and logs through the adapter's USB port~~ — done (`Tools/hybrid`).
 3. **Check BLE 4.2 limits:** the original ESP32 has Bluetooth LE 4.2; Switch 2 controllers (BLE)
