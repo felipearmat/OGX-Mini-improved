@@ -138,7 +138,7 @@ void SwitchDevice::build_standard_report(const SwitchPro::SwitchReport& sw)
 	std::memcpy(report_.data() + 1, &sw, sizeof(SwitchPro::SwitchReport));
 	if (vibration_enabled_)
 	{
-		vibration_idx_ = (vibration_idx_ + 1) % 4;
+		vibration_idx_ = static_cast<uint8_t>((vibration_idx_ + 1) % 4);
 		vibration_report_ = VIB_OPTS[vibration_idx_];
 	}
 	report_[11] = vibration_report_;
@@ -146,7 +146,7 @@ void SwitchDevice::build_standard_report(const SwitchPro::SwitchReport& sw)
 	 * only updates once per report, so the same sample is repeated. */
 	if (imu_enabled_ && imu_valid_)
 	{
-		for (int i = 0; i < 3; ++i)
+		for (size_t i = 0; i < 3; ++i)
 			std::memcpy(report_.data() + 12 + i * sizeof(imu_sample_), &imu_sample_, sizeof(imu_sample_));
 	}
 }

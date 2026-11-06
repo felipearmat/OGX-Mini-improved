@@ -106,19 +106,6 @@ TU_ATTR_ALWAYS_INLINE static inline Interface* get_itf_by_instance(uint8_t dev_a
     return &device->interfaces[instance];
 }
 
-static void std_sleep_ms(uint32_t ms)
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    while ( std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::high_resolution_clock::now() - start).count() < ms) 
-    {
-#if defined(CONFIG_EN_USB_HOST)
-        pio_usb_host_frame();
-#endif
-        tuh_task();
-    }
-}
-
 static void wait_for_tx_complete(uint8_t dev_addr, uint8_t ep_addr, uint32_t timeout_ms = 200)
 {
     const auto start = std::chrono::high_resolution_clock::now();
@@ -165,15 +152,13 @@ bool send_ctrl_xfer(uint8_t dev_addr, const tusb_control_request_t* request, uin
                                             request->wValue, request->wIndex, request->wLength);
     }
 #endif
-    tuh_xfer_s transfer = 
-    {
-        .daddr = dev_addr,
-        .ep_addr = 0x00,
-        .setup = request, 
-        .buffer = buffer,
-        .complete_cb = complete_cb, 
-        .user_data = user_data
-    };
+    tuh_xfer_s transfer{};  // every field zeroed, then set
+    transfer.daddr = dev_addr;
+    transfer.ep_addr = 0x00;
+    transfer.setup = request;
+    transfer.buffer = buffer;
+    transfer.complete_cb = complete_cb;
+    transfer.user_data = user_data;
     return tuh_control_xfer(&transfer);
 }
 
@@ -985,14 +970,13 @@ bool get_interface_alt(uint8_t daddr, uint8_t itf_num, uint8_t* alt_out)
         .wLength = tu_htole16(1),
     };
     xfer_result_t result = XFER_RESULT_INVALID;
-    tuh_xfer_t xfer = {
-        .daddr = daddr,
-        .ep_addr = 0,
-        .setup = &request,
-        .buffer = &alt,
-        .complete_cb = nullptr,
-        .user_data = reinterpret_cast<uintptr_t>(&result),
-    };
+    tuh_xfer_t xfer{};  // every field zeroed, then set
+    xfer.daddr = daddr;
+    xfer.ep_addr = 0;
+    xfer.setup = &request;
+    xfer.buffer = &alt;
+    xfer.complete_cb = nullptr;
+    xfer.user_data = reinterpret_cast<uintptr_t>(&result);
     if (!tuh_control_xfer(&xfer))
     {
         return false;

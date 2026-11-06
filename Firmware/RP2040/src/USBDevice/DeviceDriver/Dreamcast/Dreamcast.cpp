@@ -125,8 +125,6 @@ void dreamcast_core1_entry(void) {
 
         uint32_t frameWord = st.readBuffer[0];
         uint8_t cmd = MaplePacket::Frame::getFrameCommand(frameWord, st.rxByteOrder);
-        uint8_t recipient = MaplePacket::Frame::getFrameRecipientAddr(frameWord, st.rxByteOrder);
-        uint8_t sender = MaplePacket::Frame::getFrameSenderAddr(frameWord, st.rxByteOrder);
 
         if (cmd == COMMAND_DEVICE_INFO_REQUEST) {
             respPacket.setFrame(COMMAND_RESPONSE_DEVICE_INFO, MAPLE_HOST_ADDR, MAPLE_CTRL_ADDR, 28);

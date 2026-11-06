@@ -534,7 +534,7 @@ static void init_complete_cb(void) {
 }
 
 static uni_error_t device_discovered_cb(bd_addr_t addr, const char* name, uint16_t cod, uint8_t rssi) {
-    uint8_t minor = cod & UNI_BT_COD_MINOR_MASK;
+    uint8_t minor = static_cast<uint8_t>(cod & UNI_BT_COD_MINOR_MASK);
 
     if (!(minor & (UNI_BT_COD_MINOR_GAMEPAD |
                    UNI_BT_COD_MINOR_JOYSTICK |
@@ -698,11 +698,6 @@ static void bt_disconnect_reboot_cb(btstack_timer_source_t* ts) {
     /* Custom: in the log, so a reboot by the watchdog fallback (this timer never fired) shows. */
     diag::event(to_ms_since_boot(get_absolute_time()), "last slot gone: reboot timer fired");
     s_store_session_and_reboot.store(true);  // Core0: UserSettings stores it and reboots
-}
-
-/** Xbox Series / One S over BLE (HOGP) — in-place reconnect leaves HIDS/bond state bad. */
-static bool device_is_xbox_ble(const uni_hid_device_t* d) {
-    return d != nullptr && d->controller_type == CONTROLLER_TYPE_XBoxOneController && d->hids_cid != 0;
 }
 
 /**
@@ -1227,9 +1222,12 @@ uni_platform* get_driver()
         .on_device_connected = device_connected_cb,
         .on_device_disconnected = device_disconnected_cb,
         .on_device_ready = device_ready_cb,
+        .on_gamepad_data = nullptr,
         .on_controller_data = controller_data_cb,
         .get_property = get_property_cb,
         .on_oob_event = oob_event_cb,
+        .device_dump = nullptr,
+        .register_console_cmds = nullptr,
     };
     return &driver;
 }

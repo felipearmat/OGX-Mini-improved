@@ -21,10 +21,10 @@ namespace {
         if (code == 0)
             return kSilent;
         if (code < 16)
-            return 0.25f * code - 7.75f;
+            return 0.25f * static_cast<float>(code) - 7.75f;
         if (code < 32)
-            return 0.0625f * code - 4.9375f;
-        return 0.03125f * code - 3.96875f;
+            return 0.0625f * static_cast<float>(code) - 4.9375f;
+        return 0.03125f * static_cast<float>(code) - 3.96875f;
     }
 
     // Amplitude part of a 5-bit command (the frequency part is not tracked).
@@ -34,7 +34,7 @@ namespace {
         if (code == 0)
             return kSilent;                     // reset to default
         if (code <= 11)
-            return -0.5f * (code - 1);          // substitute 0, -0.5 .. -5
+            return -0.5f * static_cast<float>(code - 1);          // substitute 0, -0.5 .. -5
         if (code <= 16)
             return current;                     // frequency-only commands
         if (code <= 19)

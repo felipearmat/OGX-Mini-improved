@@ -64,7 +64,7 @@ static bool analogLock = false;
 static uint8_t motorBytes[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 static uint8_t pollConfig[4] = { 0x00, 0x00, 0x00, 0x00 };
 
-static void cancel_ack(void) {
+static void __attribute__((unused)) cancel_ack(void) {
     pio_sm_exec(psx_device_pio, smCmdReader, pio_encode_jmp(offsetCmdReader));
 }
 

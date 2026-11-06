@@ -168,6 +168,9 @@ namespace I2C {
                                     break;
                             }
                             break;
+
+                        default:  // UNKNOWN
+                            break;
                     }
                     count = 0;
                     std::memset(buffer_in, 0, sizeof(buffer_in));
@@ -326,7 +329,7 @@ namespace I2C {
 
     void initialize() {
         uint8_t i2c_address = get_address();
-        _i2c_role = (i2c_address == 0xFF) ? Role::MASTER : _i2c_role = Role::SLAVE;
+        _i2c_role = (i2c_address == 0xFF) ? Role::MASTER : Role::SLAVE;
 
         i2c_init(I2C_PORT, I2C_BAUDRATE);
 

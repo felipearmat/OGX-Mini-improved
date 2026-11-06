@@ -48,8 +48,7 @@ void psx_host_poll(Gamepad& gamepad)
     {
         return;
     }
-    Gamepad::PadIn pad_in;
-    std::memset(&pad_in, 0, sizeof(pad_in));
+    Gamepad::PadIn pad_in;  // zeroed by its constructor
 
     uint8_t b1 = buf[1];
     uint8_t b2 = buf[2];
@@ -109,8 +108,7 @@ void joybus_host_poll(Gamepad& gamepad)
     ::joybus_send_data(poll_cmd, 2, 8);
     const uint8_t *r = ::joybus_get_response();
 
-    Gamepad::PadIn pad_in;
-    std::memset(&pad_in, 0, sizeof(pad_in));
+    Gamepad::PadIn pad_in;  // zeroed by its constructor
 
     uint8_t b1 = r[0];
     uint8_t b2 = r[1];
@@ -171,8 +169,7 @@ void n64_host_poll(Gamepad& gamepad)
     ::n64_host_poll();
     const uint8_t* r = ::n64_host_get_response();
 
-    Gamepad::PadIn pad_in;
-    std::memset(&pad_in, 0, sizeof(pad_in));
+    Gamepad::PadIn pad_in;  // zeroed by its constructor
 
     uint8_t b0 = r[0];
     uint8_t b1 = r[1];
@@ -190,8 +187,8 @@ void n64_host_poll(Gamepad& gamepad)
     if (b1 & N64_R)     pad_in.buttons |= Gamepad::BUTTON_RB;
     /* C buttons -> right stick (diagonals combine) */
     uint8_t c_nibble = b1 & N64_C;
-    pad_in.joystick_rx = ((c_nibble & N64_C_RIGHT) ? 32767 : 0) - ((c_nibble & N64_C_LEFT) ? 32767 : 0);
-    pad_in.joystick_ry = ((c_nibble & N64_C_DOWN) ? 32767 : 0) - ((c_nibble & N64_C_UP) ? 32767 : 0);
+    pad_in.joystick_rx = static_cast<int16_t>(((c_nibble & N64_C_RIGHT) ? 32767 : 0) - ((c_nibble & N64_C_LEFT) ? 32767 : 0));
+    pad_in.joystick_ry = static_cast<int16_t>(((c_nibble & N64_C_DOWN) ? 32767 : 0) - ((c_nibble & N64_C_UP) ? 32767 : 0));
 
     pad_in.joystick_lx = n64_stick_to_int16(r[2]);
     pad_in.joystick_ly = n64_stick_to_int16(r[3]);
@@ -206,7 +203,7 @@ void dreamcast_host_init(unsigned /* pio_in_index */, unsigned /* pio_out_index 
 }
 
 static void controller_condition_to_pad_in(const controller_condition_t& cond, Gamepad::PadIn& pad) {
-    std::memset(&pad, 0, sizeof(pad));
+    pad = Gamepad::PadIn{};
     /* Dreamcast: 0 = pressed. PadIn: bit set = pressed */
     if (!cond.up)    pad.dpad |= Gamepad::DPAD_UP;
     if (!cond.down)  pad.dpad |= Gamepad::DPAD_DOWN;

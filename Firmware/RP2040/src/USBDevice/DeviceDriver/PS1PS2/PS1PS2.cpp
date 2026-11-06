@@ -47,24 +47,24 @@ void PS1PS2Device::process(const uint8_t idx, Gamepad& gamepad) {
 
     /* Active-low: start all released (0xFF), clear bit when pressed */
     psx_report_.buttons1 = 0xFF;
-    if (gp.dpad & Gamepad::DPAD_UP)    psx_report_.buttons1 &= ~PSX_UP;
-    if (gp.dpad & Gamepad::DPAD_RIGHT) psx_report_.buttons1 &= ~PSX_RIGHT;
-    if (gp.dpad & Gamepad::DPAD_DOWN)  psx_report_.buttons1 &= ~PSX_DOWN;
-    if (gp.dpad & Gamepad::DPAD_LEFT)  psx_report_.buttons1 &= ~PSX_LEFT;
-    if (gp.buttons & Gamepad::BUTTON_BACK)  psx_report_.buttons1 &= ~PSX_SELECT;
-    if (gp.buttons & Gamepad::BUTTON_L3)    psx_report_.buttons1 &= ~PSX_L3;
-    if (gp.buttons & Gamepad::BUTTON_R3)    psx_report_.buttons1 &= ~PSX_R3;
-    if (gp.buttons & Gamepad::BUTTON_START) psx_report_.buttons1 &= ~PSX_START;
+    if (gp.dpad & Gamepad::DPAD_UP)    psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_UP);
+    if (gp.dpad & Gamepad::DPAD_RIGHT) psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_RIGHT);
+    if (gp.dpad & Gamepad::DPAD_DOWN)  psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_DOWN);
+    if (gp.dpad & Gamepad::DPAD_LEFT)  psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_LEFT);
+    if (gp.buttons & Gamepad::BUTTON_BACK)  psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_SELECT);
+    if (gp.buttons & Gamepad::BUTTON_L3)    psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_L3);
+    if (gp.buttons & Gamepad::BUTTON_R3)    psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_R3);
+    if (gp.buttons & Gamepad::BUTTON_START) psx_report_.buttons1 &= static_cast<uint8_t>(~PSX_START);
 
     psx_report_.buttons2 = 0xFF;
-    if (gp.buttons & Gamepad::BUTTON_LB) psx_report_.buttons2 &= ~PSX_L1;
-    if (gp.buttons & Gamepad::BUTTON_RB) psx_report_.buttons2 &= ~PSX_R1;
-    if (gp.buttons & Gamepad::BUTTON_Y)  psx_report_.buttons2 &= ~PSX_TRI;
-    if (gp.buttons & Gamepad::BUTTON_B)  psx_report_.buttons2 &= ~PSX_CIR;
-    if (gp.buttons & Gamepad::BUTTON_A)  psx_report_.buttons2 &= ~PSX_CROSS;
-    if (gp.buttons & Gamepad::BUTTON_X)  psx_report_.buttons2 &= ~PSX_SQU;
-    if (gp.trigger_l > 0) psx_report_.buttons2 &= ~PSX_L2;
-    if (gp.trigger_r > 0) psx_report_.buttons2 &= ~PSX_R2;
+    if (gp.buttons & Gamepad::BUTTON_LB) psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_L1);
+    if (gp.buttons & Gamepad::BUTTON_RB) psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_R1);
+    if (gp.buttons & Gamepad::BUTTON_Y)  psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_TRI);
+    if (gp.buttons & Gamepad::BUTTON_B)  psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_CIR);
+    if (gp.buttons & Gamepad::BUTTON_A)  psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_CROSS);
+    if (gp.buttons & Gamepad::BUTTON_X)  psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_SQU);
+    if (gp.trigger_l > 0) psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_L2);
+    if (gp.trigger_r > 0) psx_report_.buttons2 &= static_cast<uint8_t>(~PSX_R2);
 
     psx_report_.l2 = gp.trigger_l;
     psx_report_.r2 = gp.trigger_r;
@@ -87,13 +87,13 @@ void PS1PS2Device::process(const uint8_t idx, Gamepad& gamepad) {
     bool home_pressed = (gp.buttons & Gamepad::BUTTON_SYS) != 0;
     bool start_pressed = (gp.buttons & Gamepad::BUTTON_START) != 0;
     if (home_pressed && start_pressed) {
-        psx_report_.buttons1 &= ~(PSX_L3 | PSX_R3);
-        psx_report_.buttons2 &= ~(PSX_L1 | PSX_L2 | PSX_R1 | PSX_R2);
+        psx_report_.buttons1 &= static_cast<uint8_t>(~(PSX_L3 | PSX_R3));
+        psx_report_.buttons2 &= static_cast<uint8_t>(~(PSX_L1 | PSX_L2 | PSX_R1 | PSX_R2));
         psx_report_.l2 = 0xFF;
         psx_report_.r2 = 0xFF;
     } else if (home_pressed) {
-        psx_report_.buttons1 &= ~(PSX_SELECT | PSX_START);
-        psx_report_.buttons2 &= ~(PSX_L1 | PSX_L2 | PSX_R1 | PSX_R2);
+        psx_report_.buttons1 &= static_cast<uint8_t>(~(PSX_SELECT | PSX_START));
+        psx_report_.buttons2 &= static_cast<uint8_t>(~(PSX_L1 | PSX_L2 | PSX_R1 | PSX_R2));
         psx_report_.l2 = 0xFF;
         psx_report_.r2 = 0xFF;
     }

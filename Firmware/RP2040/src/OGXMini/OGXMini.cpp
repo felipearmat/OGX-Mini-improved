@@ -95,35 +95,35 @@ namespace OGXMini {
     };
 
     void initialize() {
-        if (init_func[OGXM_BOARD] != nullptr) {
-            init_func[OGXM_BOARD]();
+        if (auto f = init_func[OGXM_BOARD]) {
+            f();
         }
         diag::board_boot();  // Custom: diagnostics for the web app's log report
     }
 
     void run() {
-        if (run_func[OGXM_BOARD] != nullptr) {
-            run_func[OGXM_BOARD]();
+        if (auto f = run_func[OGXM_BOARD]) {
+            f();
         }
     }
 
     void host_mounted(bool mounted, HostDriverType host_type) {
-        if (host_mount_w_type_func[OGXM_BOARD] != nullptr) {
-            host_mount_w_type_func[OGXM_BOARD](mounted, host_type);
-        } else if (host_mount_func[OGXM_BOARD] != nullptr) {
-            host_mount_func[OGXM_BOARD](mounted);
+        if (auto f = host_mount_w_type_func[OGXM_BOARD]) {
+            f(mounted, host_type);
+        } else if (auto g = host_mount_func[OGXM_BOARD]) {
+            g(mounted);
         }
     }
 
     void host_mounted(bool mounted) {
-        if (host_mount_func[OGXM_BOARD] != nullptr) {
-            host_mount_func[OGXM_BOARD](mounted);
+        if (auto f = host_mount_func[OGXM_BOARD]) {
+            f(mounted);
         }
     }
 
     void wireless_connected(bool connected, uint8_t idx) {
-        if (wl_conn_func[OGXM_BOARD] != nullptr) {
-            wl_conn_func[OGXM_BOARD](connected, idx);
+        if (auto f = wl_conn_func[OGXM_BOARD]) {
+            f(connected, idx);
         }
     }
 

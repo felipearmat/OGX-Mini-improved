@@ -292,7 +292,7 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                         const uint16_t lat = hci_subevent_le_connection_update_complete_get_conn_latency(packet);
                         const uint16_t to = hci_subevent_le_connection_update_complete_get_supervision_timeout(packet);
                         diag::le_parameters(h, iv, lat, to);
-                        diag::event(now, "LE 0x%04x now %u.%02u ms lat %u", h,
+                        diag::event(now, "LE 0x%04x now %u.%02u ms lat %u timeout %u ms", h,
                                     iv * 125 / 100, iv * 125 % 100, lat, to * 10);
                     }
                     break;

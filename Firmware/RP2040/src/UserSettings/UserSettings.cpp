@@ -183,7 +183,7 @@ bool UserSettings::take_probe_command(DeviceDriverType& driver_out)
 //Checks if button combo has been held for 3 seconds, returns true if mode has been changed
 bool UserSettings::check_for_driver_change(Gamepad& gamepad)
 {
-    DeviceDriverType probe_driver;
+    DeviceDriverType probe_driver = current_driver_;
     if (take_probe_command(probe_driver)) {
         current_driver_ = probe_driver;
         return true;

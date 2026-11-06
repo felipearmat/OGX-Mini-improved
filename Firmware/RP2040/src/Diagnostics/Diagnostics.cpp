@@ -417,9 +417,9 @@ void log_ctrl_summary(size_t slot, const CtrlLine& line, uint32_t now_ms)
                           c.late_pct_x10 / 10, c.late_pct_x10 % 10, lost, static_cast<unsigned long>(line.gaps),
                           c.max_gap_ms);
     if (n > 0 && static_cast<size_t>(n) < sizeof(text) && c.rssi != -128)
-        n += std::snprintf(text + n, sizeof(text) - n, c.le ? ", rssi %d dBm" : ", rssi %+d dB from golden", c.rssi);
+        n += std::snprintf(text + n, sizeof(text) - static_cast<size_t>(n), c.le ? ", rssi %d dBm" : ", rssi %+d dB from golden", c.rssi);
     if (n > 0 && static_cast<size_t>(n) < sizeof(text) && line.battery != 0xFFFF)
-        n += std::snprintf(text + n, sizeof(text) - n, ", battery %u/255", line.battery);
+        n += std::snprintf(text + n, sizeof(text) - static_cast<size_t>(n), ", battery %u/255", line.battery);
     ring_line(now_ms, text);
 }
 
@@ -1224,7 +1224,7 @@ void session_freeze(uint32_t now_ms)
         s_p.session_stored = 0;
         const Session& ss = s_frozen;
         std::snprintf(text, sizeof(text),
-                      "session summary %s: %lu s, USB %lu s, %lu/s sent, latency avg %lu us, max %lu us",
+                      "session summary %.10s: %lu s, USB %lu s, %lu/s sent, latency avg %lu us, max %lu us",
                       ss.mode, static_cast<unsigned long>(ss.uptime_s), static_cast<unsigned long>(ss.usb_configured_s),
                       static_cast<unsigned long>(ss.usb_configured_s ? ss.usb_reports_sent / ss.usb_configured_s : 0),
                       static_cast<unsigned long>(ss.latency_avg_us), static_cast<unsigned long>(ss.latency_max_us));
