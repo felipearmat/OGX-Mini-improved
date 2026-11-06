@@ -468,7 +468,7 @@ while the PC is off, so in practice only in Mouse + Keyboard mode.
 3. **Several controllers on one adapter** — up to 4 Bluetooth players, and a co-pilot mode
 4. **Bluetooth out where a system only takes Bluetooth** — Bluetooth controllers in Wii mode, Wii U
    Pro Controller, Apple TV
-5. **RP2040 + ESP32 hybrid** — several players, the range with an external antenna, a soldered board
+5. **RP2040 + ESP32 hybrid** — several players, the range with an external antenna, ~~a soldered board~~ (done)
 
 Details and status: [docs/ROADMAP.md](docs/ROADMAP.md). Known bugs: [docs/TODO.md](docs/TODO.md).
 
