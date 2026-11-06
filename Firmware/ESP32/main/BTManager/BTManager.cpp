@@ -330,8 +330,7 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
             dongle_settings::get());
         if (result.stop_search)
         {
-            bt_manager.diag_event("search stopped (controller)");
-            scan_control::request_stop();
+            scan_control::request_stop();  // ScanControl logs "search stopped (controller)"
             bt_manager.stop_search_feedback();
             bt_manager.apply_scan(false, false);
         }
@@ -431,10 +430,7 @@ void BTManager::stop_search_feedback()
     for (uint8_t i = 0; i < slots_.size(); ++i)
     {
         uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
-        if (d)
-        {
-            bt_pad::play_host_rumble(d, STOP_SEARCH_RUMBLE_MS, 0xFF, 0xFF, joycon_settings::get().pair_rumble_per_side);
-        }
+        bt_pad::stop_search_rumble(d);  // shared with the Pico W
     }
 }
 
@@ -917,31 +913,14 @@ void BTManager::scan_event(uint32_t now_ms, const char* text)
 
 void BTManager::apply_scan(bool pad_leaving, bool force)
 {
-    bool used[MAX_GAMEPADS]{};
-    scan_control::Pads pads;
-    for (uint8_t i = 0; i < slots_.size(); ++i)
-    {
-        uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
-        if (!d)
-        {
-            continue;
-        }
-        if (d->hids_cid != 0 && d->hids_cid != 0xffff)
-        {
-            pads.hogp = true;
-        }
-        else if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL)
-        {
-            pads.classic = true;
-        }
-        const int out = slots_[i].output;
-        if (out >= 0 && out < MAX_GAMEPADS && !used[out])
-        {
-            used[out] = true;
-            ++pads.outputs;
-        }
-    }
-    pads.awaiting = uni_hid_parser_switch_any_awaiting_partner();
+    /* Shared with the Pico W (Bluepad32/BtPad.h scan_pads). */
+    const scan_control::Pads pads = bt_pad::scan_pads(
+        static_cast<int>(slots_.size()), MAX_GAMEPADS, [this](int i, int& out) -> uni_hid_device_t* {
+            uni_hid_device_t* d = slots_[i].connected ? get_connected_bp32_device(i) : nullptr;
+            if (d)
+                out = slots_[i].output;
+            return d;
+        });
     scan_control::apply(pads, MAX_GAMEPADS, pad_leaving, force, btstack_run_loop_get_time_ms(),
                         dongle_settings::get(), true, scan_event);
 }

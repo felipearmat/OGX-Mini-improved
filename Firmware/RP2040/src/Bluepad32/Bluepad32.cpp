@@ -595,15 +595,7 @@ static void device_connected_cb(uni_hid_device_t* device) {
 
 /** CYW43: any active BLE gamepad link (HOGP or Triton Valve GATT) needs scans off. */
 static bool device_is_ble_hogp(const uni_hid_device_t* d) {
-    if (d == nullptr)
-        return false;
-    if (d->hids_cid != 0 && d->hids_cid != 0xffff)
-        return true;
-    /* Triton skips HIDS — still needs quiet radio while LE link is up. */
-    if (uni_hid_parser_steam_triton_is_device(d) && d->conn.handle != UNI_BT_CONN_HANDLE_INVALID &&
-        gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_LE)
-        return true;
-    return false;
+    return bt_pad::is_ble_hogp(d);  // shared with the ESP32
 }
 
 /** CYW43: periodic BR/EDR inquiry while a Classic ACL link is up can drop DS4/PS3 in ~1–2 s. */
@@ -673,23 +665,16 @@ static bool scan_reduced()
 static void apply_scan_policy(int exclude_idx, bool force)
 {
 #if defined(CONFIG_TARGET_PICO_W)
-    bool used[MAX_GAMEPADS]{};
-    scan_control::Pads pads;
-    for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i) {
-        if (i == exclude_idx || !bt_devices_[i].connected)
-            continue;
-        uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
-        if (!d)
-            continue;
-        if (device_is_ble_hogp(d)) pads.hogp = true;
-        else if (gap_get_connection_type(d->conn.handle) == GAP_CONNECTION_ACL) pads.classic = true;
-        const int out = bt_pad::output_idx(d);
-        if (out >= 0 && out < static_cast<int>(MAX_GAMEPADS) && !used[out]) {
-            used[out] = true;
-            ++pads.outputs;
-        }
-    }
-    pads.awaiting = uni_hid_parser_switch_any_awaiting_partner();
+    /* Shared with the ESP32 (Bluepad32/BtPad.h scan_pads). */
+    const scan_control::Pads pads = bt_pad::scan_pads(
+        CONFIG_BLUEPAD32_MAX_DEVICES, static_cast<int>(MAX_GAMEPADS), [exclude_idx](int i, int& out) -> uni_hid_device_t* {
+            if (i == exclude_idx || !bt_devices_[i].connected)
+                return nullptr;
+            uni_hid_device_t* d = uni_hid_device_get_instance_for_idx(i);
+            if (d)
+                out = bt_pad::output_idx(d);
+            return d;
+        });
     scan_control::apply(pads, MAX_GAMEPADS, exclude_idx >= 0, force, to_ms_since_boot(get_absolute_time()),
                         dongle_settings::get(), false, scan_diag_event);
 #else
@@ -1403,7 +1388,22 @@ bool take_store_session_and_reboot() {
 
 /* Custom: Start + L3 — stop searching for new controllers until a pad goes away (Core0). */
 void request_stop_search() {
-    scan_control::request_stop();
+    /* Custom: as on the ESP32 (BTManager): the stop, its rumble on every pad and the policy, on the
+     * BTstack run loop. Core0 held a rumble on the gamepad and waited 400 ms for it. */
+    static btstack_context_callback_registration_t s_reg;
+    static std::atomic<bool> s_queued{false};
+    if (!s_btstack_run_loop_ready.load(std::memory_order_acquire) || s_queued.exchange(true))
+        return;  // not up yet, or already on its way (one registration in the run loop's list)
+    s_reg.callback = [](void*) {
+        s_queued.store(false);
+        scan_control::request_stop();
+        for (uint8_t i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; ++i)
+            if (bt_devices_[i].connected)
+                bt_pad::stop_search_rumble(uni_hid_device_get_instance_for_idx(i));
+        apply_scan_policy(-1, false);
+    };
+    s_reg.context = nullptr;
+    btstack_run_loop_execute_on_main_thread(&s_reg);
 }
 
 void wired_usb_release_enable_bt_pairing() {
