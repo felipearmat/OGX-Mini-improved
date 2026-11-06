@@ -107,12 +107,15 @@ Nintendo Switch, and on the **RP2040 + ESP32 hybrid** (a Pico 2 W with an ESP32 
 | Smallest wired-only adapter | RP2040-Zero / RP2350-Zero | Tiny, USB-C |
 
 > [!WARNING]
-> **Two pins differ from upstream OGX-Mini** on the boards with the Pico's header (Pico, Pico 2,
-> Pico W, Pico 2 W): the **USB host port is on GP2 / GP3** (upstream: GP0 / GP1) and **Dreamcast
-> on GP13 / GP14** (upstream: GP10 / GP11). A board wired for upstream needs those wires moved, or
-> a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`). The fork's own additions use pins
-> upstream leaves free: the debug probe on GP8 / GP9 and an external RGB LED on GP6. The whole
-> table: [Common pinout](hardware/README.md#common-pinout-this-fork).
+> **Some pins differ from upstream OGX-Mini** on the boards with the Pico's header (Pico, Pico 2,
+> Pico W, Pico 2 W): the **USB host port is on GP2 / GP3** (upstream: GP0 / GP1), **Dreamcast on
+> GP13 / GP14** (upstream: GP10 / GP11), and the **RP2040 + ESP32 hybrid's wires**: I2C GP4 / GP5
+> (upstream GP18 / GP19), UART TX GP12 (GP28 / GP16), UART RX GP1 (GP17), ESP32 EN GP27 (GP8) and
+> IO0 GP11 (GP20). A board wired for upstream needs those wires moved, or a build with the old pins
+> (`-DOGXM_LEGACY_PINOUT=ON`; the hybrid: `-DOGXM_HYBRID_PINOUT=ORIGINAL`, the releases'
+> `-ORIGINAL_PINS` files). The fork's own additions use pins upstream leaves free (the debug probe
+> on GP8 / GP9, an external RGB LED on GP6). The whole table:
+> [Common pinout](hardware/README.md#common-pinout-this-fork).
 
 Boards, pinouts and wiring diagrams: [hardware/](hardware/README.md) and
 [GPIO pinouts](Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md). Every `OGXM_BOARD` value
