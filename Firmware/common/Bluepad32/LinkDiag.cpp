@@ -38,6 +38,13 @@ static const hci_cmd_t s_hci_read_afh_channel_map = {HCI_OPCODE(0x05, 0x0006), "
 /* Read Scan Enable (Controller & Baseband, OCF 0x0019): whether the controller takes connections
  * (page scan) and answers searches (inquiry scan); not in BTstack's command table either. */
 static const hci_cmd_t s_hci_read_scan_enable = {HCI_OPCODE(0x03, 0x0019), ""};
+/* Custom: what the radio scans for, read every few seconds (the 2026-11-05 Bluepad32 v5.0 A/B: a
+ * link went silent 60-77 ms every 1.28 s, the scan period, in some sessions only). */
+static const hci_cmd_t s_hci_read_page_scan_activity = {HCI_OPCODE(0x03, 0x001B), ""};
+static const hci_cmd_t s_hci_read_inquiry_scan_activity = {HCI_OPCODE(0x03, 0x001D), ""};
+static const hci_cmd_t s_hci_read_page_scan_type = {HCI_OPCODE(0x03, 0x0047), ""};
+static uint32_t s_page_scan = UINT32_MAX, s_inquiry_scan = UINT32_MAX;
+static int s_page_scan_type = -1;
 static int s_scan_enable = -1;  // last value logged, -1 = none since the stack started
 static bool s_scan_read_pending = false;
 
@@ -65,6 +72,20 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
 {
     if (s_scan_read_pending)
         ask_scan_enable();
+    {  // the radio's scan settings, one read every 5 s in turn
+        static uint32_t s_radio_ms = 0;
+        static uint8_t s_radio_step = 0;
+        if (now_ms - s_radio_ms >= 5000 && hci_can_send_command_packet_now()) {
+            s_radio_ms = now_ms;
+            switch (s_radio_step++ % 4) {
+                case 0: hci_send_cmd(&s_hci_read_scan_enable); break;
+                case 1: hci_send_cmd(&s_hci_read_page_scan_activity); break;
+                case 2: hci_send_cmd(&s_hci_read_inquiry_scan_activity); break;
+                default: hci_send_cmd(&s_hci_read_page_scan_type); break;
+            }
+            return;
+        }
+    }
     static uint32_t s_last_ms = 0;
     static uint8_t s_step = 0;
     if (now_ms - s_last_ms < 700)
@@ -258,6 +279,24 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                 break;
             if (op == hci_write_scan_enable.opcode) {
                 ask_scan_enable();
+                break;
+            }
+            if (op == s_hci_read_page_scan_activity.opcode || op == s_hci_read_inquiry_scan_activity.opcode) {
+                // status, interval, window (0.625 ms slots)
+                const uint16_t iv = little_endian_read_16(r, 1), win = little_endian_read_16(r, 3);
+                const uint32_t v = static_cast<uint32_t>(iv) << 16 | win;
+                uint32_t& last = op == s_hci_read_page_scan_activity.opcode ? s_page_scan : s_inquiry_scan;
+                if (v != last)
+                    diag::event(now, "radio: %s scan %u.%03u ms every %u.%03u ms",
+                                op == s_hci_read_page_scan_activity.opcode ? "page" : "inquiry",
+                                win * 625 / 1000, win * 625 % 1000, iv * 625 / 1000, iv * 625 % 1000);
+                last = v;
+                break;
+            }
+            if (op == s_hci_read_page_scan_type.opcode) {  // status, type (0 standard, 1 interlaced)
+                if (r[1] != s_page_scan_type)
+                    diag::event(now, "radio: page scan %s", r[1] ? "interlaced" : "standard");
+                s_page_scan_type = r[1];
                 break;
             }
             if (op == s_hci_read_scan_enable.opcode) {  // status, scan enable (bit 0 inquiry, bit 1 page)
