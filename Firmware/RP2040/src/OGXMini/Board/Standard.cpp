@@ -207,7 +207,7 @@ void standard::run() {
             GPIOHost::joybus_host_init(0, 19);
         }
         if (input_src == HostInputSource::DREAMCAST_GPIO) {
-            GPIOHost::dreamcast_host_init(1, 0, 10, -1);
+            GPIOHost::dreamcast_host_init(1, 0, DREAMCAST_PIN_A, -1);
         }
         if (input_src == HostInputSource::N64_GPIO) {
             GPIOHost::n64_host_init(0, 19);

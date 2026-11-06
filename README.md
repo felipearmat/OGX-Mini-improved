@@ -99,12 +99,20 @@ Nintendo Switch, and on the **RP2040 + ESP32 hybrid** (a Pico 2 W with an ESP32 
 |---|---|---|
 | Bluetooth controllers on PC, Steam, Switch, Xbox 360, PS3 (most people) | Raspberry Pi Pico 2 W (or Pico W) | One board, Bluetooth built in, nothing to wire |
 | Wired controllers or 2.4 GHz dongles | A board with a USB-A port: Waveshare RP2350-USB-A, Adafruit Feather RP2040 USB Host | Plug the controller straight in |
-| Bluetooth **and** wired on one adapter | Pico 2 W + a USB-A socket on GP0 / GP1 | Built-in Bluetooth plus a second USB port |
+| Bluetooth **and** wired on one adapter | Pico 2 W + a USB-A socket on GP2 / GP3 | Built-in Bluetooth plus a second USB port |
 | Longer Bluetooth range, several Bluetooth players | RP2040 or Pi Pico 2 / Pico 2 W + an ESP32, with an external antenna for range (ESP32-WROOM-32U) | Higher transmit power, the ESP32's radio. Tested with one controller at a time ([test plan](docs/HYBRID_TEST_PLAN.md)); the range gain over a Pico 2 W and several players are not measured yet ([roadmap](docs/ROADMAP.md#6-rp2040--esp32-hybrid)). |
 | Wii / Wii U | Pico 2 W + a USB-A socket (wired USB controller) | The radio talks to the console as a Wiimote |
 | PS1 / PS2, GameCube, N64, Dreamcast | Pico 2 W + a controller extension cable | Bluetooth controller in, console cable out |
 | Original Xbox, four players | 4-channel RP2040-Zero board | One USB device per console port |
 | Smallest wired-only adapter | RP2040-Zero / RP2350-Zero | Tiny, USB-C |
+
+> [!WARNING]
+> **Two pins differ from upstream OGX-Mini** on the boards with the Pico's header (Pico, Pico 2,
+> Pico W, Pico 2 W): the **USB host port is on GP2 / GP3** (upstream: GP0 / GP1) and **Dreamcast
+> on GP13 / GP14** (upstream: GP10 / GP11). A board wired for upstream needs those wires moved, or
+> a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`). The fork's own additions use pins
+> upstream leaves free: the debug probe on GP8 / GP9 and an external RGB LED on GP6. The whole
+> table: [Common pinout](hardware/README.md#common-pinout-this-fork).
 
 Boards, pinouts and wiring diagrams: [hardware/](hardware/README.md) and
 [GPIO pinouts](Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md). Every `OGXM_BOARD` value

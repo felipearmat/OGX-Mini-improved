@@ -1,9 +1,56 @@
+> [!WARNING]
+> **Two pins differ from upstream OGX-Mini** (MegaCadeDev/OGX-Mini-2026) since 2026-11: the
+> **USB host port is on GP2 / GP3** (upstream: GP0 / GP1) and **Dreamcast on GP13 / GP14**
+> (upstream: GP10 / GP11). A board wired for upstream, or from the diagrams below (upstream's), needs
+> those wires moved, or a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`).
+
+# Common pinout (this fork)
+One pinout for every board with the Pico's header (Raspberry Pi Pico, Pico 2, Pico W, Pico 2 W,
+YD-RP2040 and other Pico-compatible boards) and for every use of it: the adapter on its own, its
+USB host port, the console modes and the RP2040 + ESP32 hybrid. Wire a board once and every
+firmware build of this fork fits it; nothing on the board needs to move when you switch from one
+use to another. Pin numbers are the Pico's (pin 1 = GP0, top left with the USB port up).
+
+| Function | Pins (header pin) | Upstream OGX-Mini | Old pins in this fork's build |
+|---|---|---|---|
+| USB host port (wired controller) D+ / D- | **GP2 / GP3** (4 / 5) | GP0 / GP1 | `-DOGXM_LEGACY_PINOUT=ON` |
+| Debug probe point, TX / RX ([below](#debug-probe-point)) | **GP8 / GP9** (11 / 12) | none | `-DOGXM_LEGACY_PINOUT=ON`: GP4 / GP5 on the Pico W boards |
+| External RGB status LED (WS2812B, [below](#external-rgb-status-led)) | **GP6** (9) | none | `OGXM_EXT_RGB_PIN` |
+| Dreamcast Maple bus A / B | **GP13 / GP14** (17 / 19) | GP10 / GP11 | `-DOGXM_LEGACY_PINOUT=ON` |
+| PS1 / PS2: DAT, CMD, SEL, CLK, ACK | GP19, GP20, GP21, GP22, GP26 | same | — |
+| GameCube / N64 data | GP19 | same | — |
+| Hybrid: I2C SDA / SCL to the ESP32 | **GP4 / GP5** (6 / 7) | GP18 / GP19 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| Hybrid: UART TX to the ESP32's RX0 | **GP12** (16) | GP28 (and GP16) | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| Hybrid: UART RX from the ESP32's TX0 | **GP1** (2) | GP17 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| Hybrid: ESP32 EN / IO0 | **GP27 / GP11** (32 / 15) | GP8 / GP20 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| Hybrid: UART bridge jumper (to GND at boot) | GP21 | same | — |
+| On-board LED / YD-RP2040 RGB LED | GP25 / GP23 | same | — |
+
+GP0, GP7, GP10, GP15 to GP18 and GP28 stay free. Boards with another header (RP2040-Zero,
+RP2350-Zero, XIAO, Feather, RP2350-USB-A, OGX-LIVE) keep their own pins (sections below).
+
+**The ESP32 side (hybrid), the same on the 30-pin and the 38-pin DevKit.** With the antenna at the
+top and the chip facing you, both boards have these four in a row, in this order, on the right-hand
+header: **GPIO22 (D22, SCL), TX0, RX0, GPIO21 (D21, SDA)** (the 38-pin board has one GND above
+them, so the row starts one pin lower), and **EN** at the top of the left-hand header (second on
+the 38-pin board, under 3V3). So the same four-wire cable, in the same order, fits both.
+
+| ESP32 pin | 38-pin DevKitC (ESP32-DevKitC V4) | 30-pin DevKit V1 (DOIT) |
+|---|---|---|
+| GPIO22 / TX0 / RX0 / GPIO21 | right header, pins 3-6 | right header, pins 2-5 |
+| EN | left header, pin 2 | left header, pin 1 |
+| GPIO0 (IO0) | right header, pin 14 (`IO0`) | **not on a header**: a wire to the BOOT button's GPIO0 side, or flash the ESP32 once through its own USB port (flashing through the Pico needs IO0) |
+| VIN / 5V, GND | left header, pin 19 (5V); GND pins on both | left header, bottom (VIN, GND) |
+| GPIO4 (external RGB LED), GPIO15 (status LED option) | right header | right header |
+
 **Soldering:** take care with the boards' corner pads (on a Pico: pins 1, 20, 21 and 40). They are
 the ones usually tacked first and pulled by the wires, and a poor or too hot iron often lifts or
 melts them. The wiring this fork adds keeps off them where it can (the hybrid's UART TX is GP28,
 pin 34).
 
 # Pi Pico
+The diagrams below are upstream OGX-Mini's: the USB host port is on GP2 / GP3 in this fork ([Common pinout](#common-pinout-this-fork)).
+
 ![OGX-Mini](../images/DiagramPico.png)
 
 # Pi Pico 2
@@ -47,10 +94,11 @@ Both firmwares drive their pin whether or not an LED is there, so one LED on eit
   cathode on the LED's 5V) so 3.3 V is a valid high for it.
 - Pico build options: `OGXM_EXT_RGB_PIN` (default `6`, `-1` = none), `OGXM_EXT_RGB_COUNT` (1 to 4;
   more LEDs can be chained, DOUT to the next DIN, for later use: the status is on the first one),
-  `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`; the web app's brightness replaces it). GP6 is free in every mode (debug UART is
-  GP4/GP5, PIO USB GP0/GP1, GPIO modes GP10, GP11, GP19 to GP22 and GP26; the hybrid's ESP32 wires
-  use GP1 to GP5, GP8, GP9, GP11, GP12, GP21 and GP27 by default, GP0, GP1, GP4, GP5, GP8, GP16 to
-  GP21 and GP28 on the `ORIGINAL` wiring). The LED uses PIO block 2, which the RP2040 does not have.
+  `OGXM_EXT_RGB_BRIGHTNESS` (1 to 255, default `48`; the web app's brightness replaces it). GP6 is free in every mode ([Common pinout](#common-pinout-this-fork):
+  USB host GP2/GP3, probe GP8/GP9, GPIO modes GP13, GP14, GP19 to GP22 and GP26; the hybrid's ESP32
+  wires GP1, GP4, GP5, GP11, GP12, GP21 and GP27; GP0, GP1, GP4, GP5, GP8, GP16 to GP21 and GP28 on
+  the hybrid's `ORIGINAL` wiring). The LED uses PIO block 2, which the RP2040 does not have: on an
+  RP2040 Pico GP6 stays free for it but the LED is off.
 - ESP32 options (`idf.py menuconfig`, *OGXMini Options*): `ENABLE_EXT_RGB` (on), `EXT_RGB_PIN`
   (default `4`), `EXT_RGB_BRIGHTNESS` (default `48`). The LED uses the RMT peripheral. On the
   hybrid the RP2040 keeps the settings: the ESP32 gets the web app's on / off, brightness and the

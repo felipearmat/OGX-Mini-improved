@@ -35,15 +35,29 @@
     #define MAIN_LOOP_DELAY_US 0
 #endif
 
+/* Custom: the common pinout of the Pico-pinout boards (CMake OGXM_LEGACY_PINOUT for the old one):
+ * USB host port GP2 / GP3, like the hybrid's default wiring, where GP1 is the ESP32's UART. */
+#if defined(OGXM_LEGACY_PINOUT)
+#define OGXM_PICO_USB_DP_PIN 0  // D- = GP1
+#else
+#define OGXM_PICO_USB_DP_PIN 2  // D- = GP3
+#endif
+
 #if defined(CONFIG_OGXM_BOARD_PI_PICO) || defined(CONFIG_OGXM_BOARD_PI_PICO2)
     #define OGXM_BOARD          PI_PICO
-    #define PIO_USB_DP_PIN      0 // DM = 1
+    #define PIO_USB_DP_PIN      OGXM_PICO_USB_DP_PIN
     #define LED_INDICATOR_PIN   25
+    #if defined(CONFIG_OGXM_BOARD_PI_PICO2) && defined(OGXM_EXT_RGB_PIN)
+    // Custom: external WS2812 status LED (CMake OGXM_EXT_RGB_*), as on the Pico 2 W.
+    #define RGB_PXL_PIN         OGXM_EXT_RGB_PIN
+    #define RGB_PXL_COUNT       OGXM_EXT_RGB_COUNT
+    #define RGB_PXL_PIO         pio2
+    #endif
 
 #elif defined(CONFIG_OGXM_BOARD_PI_PICOW) || defined(CONFIG_OGXM_BOARD_PI_PICO2W)
     #define OGXM_BOARD          PI_PICOW
     // PIO USB host for external port (e.g. Wii mode: controller on USB, BT for Wiimote)
-    #define PIO_USB_DP_PIN      0  // D+ = GP0, D- = GP1
+    #define PIO_USB_DP_PIN      OGXM_PICO_USB_DP_PIN
     #ifndef PIO_USB_SWAP_DP_DM
     #define PIO_USB_SWAP_DP_DM  0  // set 1 if controller powers but does not enumerate
     #endif
@@ -189,6 +203,18 @@
 #else
     #error "Invalid OGXMini board selected"
 
+#endif
+
+/* Custom: the Dreamcast Maple bus (A, and B the next GPIO), as a device and as the GPIO host input:
+ * GP13 / GP14 on the Pico-pinout boards' common pinout (GP11 is the hybrid's ESP32 IO0), GP10 / GP11
+ * elsewhere and on the legacy pinout. */
+#ifndef DREAMCAST_PIN_A
+#if (defined(CONFIG_OGXM_BOARD_PI_PICO) || defined(CONFIG_OGXM_BOARD_PI_PICO2) || \
+     defined(CONFIG_OGXM_BOARD_PI_PICOW) || defined(CONFIG_OGXM_BOARD_PI_PICO2W)) && !defined(OGXM_LEGACY_PINOUT)
+#define DREAMCAST_PIN_A 13
+#else
+#define DREAMCAST_PIN_A 10
+#endif
 #endif
 
 #if defined(I2C_SDA_PIN)

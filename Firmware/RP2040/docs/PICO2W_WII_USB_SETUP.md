@@ -20,7 +20,7 @@ This document describes how **Pico 2 W** (and Pico W) use a **USB gamepad** on a
 If the firmware uses the **wrong USB port** for the controller in Wii mode:
 
 - **`tuh_init(0)`** → **native USB (roothub 0)** = the Pico’s **built-in USB port** (the one used for programming).
-- The controller is on the **external USB** on **GP0/GP1** (**PIO USB, roothub 1**), which is then **never used**.
+- The controller is on the **external USB** on **GP2/GP3** (GP0/GP1 with `-DOGXM_LEGACY_PINOUT=ON`) (**PIO USB, roothub 1**), which is then **never used**.
 - Result: controller gets power (e.g. vibrate) but is **never enumerated** → no LED, no input.
 
 ### The fix in OGX-Mini
@@ -39,15 +39,15 @@ So the controller **must** be plugged into the **external** USB port (PIO USB). 
 
 For OGX-Mini, Pico W and Pico 2 W use the following when USB host is used (e.g. Wii mode). Defined in `Board/Config.h` for `CONFIG_OGXM_BOARD_PI_PICOW` / `PI_PICO2W`:
 
-- **`PIO_USB_DP_PIN`** – Base pin for D+ (e.g. `0` → D+ = GP0, D− = GP1 with default pinout).
+- **`PIO_USB_DP_PIN`** – Base pin for D+ (`2` → D+ = GP2, D− = GP3 on this fork's common pinout; `0` with the legacy one).
 - **`PIO_USB_SWAP_DP_DM`** – Optional. Set to `1` if the controller gets power but does not enumerate (D+/D− swapped on the cable).
 
 **Wiring:**
 
 | Config              | D+   | D−   |
 |---------------------|------|------|
-| Swap = 0, PIN = 0   | GP0  | GP1  |
-| Swap = 1             | GP1  | GP0  |
+| Swap = 0, PIN = 2   | GP2  | GP3  |
+| Swap = 1             | GP3  | GP2  |
 
 Also connect USB **GND** and **VBUS** (5 V) to the external connector.
 
@@ -68,7 +68,7 @@ Example (from `Firmware/RP2040`):
 
 ## 5. Usage summary (Wii mode on Pico 2 W)
 
-1. **Wire** the external USB connector: D+ and D− to the chosen GPIOs (e.g. GP0/GP1), plus GND and 5 V (VBUS).
+1. **Wire** the external USB connector: D+ and D− to the chosen GPIOs (GP2/GP3 by default), plus GND and 5 V (VBUS).
 2. **Build** firmware with **`-DOGXM_FIXED_DRIVER=WII`** for **PI_PICO2W** and **flash** the `.uf2`.
 3. **Plug** the USB controller into the **external** port; the controller LED should turn on when it enumerates.
 4. **Sync** the Pico to the Wii (Wii Sync, then Pico as needed). The Pico appears as a Wiimote; input comes from the USB gamepad.

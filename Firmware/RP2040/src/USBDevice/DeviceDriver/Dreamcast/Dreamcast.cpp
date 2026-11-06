@@ -1,5 +1,6 @@
 /* Dreamcast Maple Bus output (device). USB/BT gamepad -> adapter -> Dreamcast. */
 
+#include "Board/Config.h"
 #include "USBDevice/DeviceDriver/Dreamcast/Dreamcast.h"
 #include "Gamepad/Gamepad.h"
 #include "USBHost/GPIOHost/dreamcast_host/MapleBus.h"
@@ -103,7 +104,7 @@ void dreamcast_core1_entry(void) {
         while (true) sleep_ms(1);
         return;
     }
-    const uint32_t pinA = 10;
+    const uint32_t pinA = DREAMCAST_PIN_A;  // Board/Config.h
     MapleBus bus(pinA, -1, true);
     MaplePacket reqPacket, respPacket;
     respPacket.payloadByteOrder = MaplePacket::ByteOrder::HOST;

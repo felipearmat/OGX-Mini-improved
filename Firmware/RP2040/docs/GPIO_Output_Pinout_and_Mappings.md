@@ -73,7 +73,7 @@ Dreamcast uses a **5-pin** controller connector. **GPIO** = RP2040 (adapter); **
 | Sense  | —              | Connector 4               | Grounded by controller       |
 | D1     | **GPIO 11**    | Connector 5               | Maple Bus data line B         |
 
-**Output mode:** Connect **GPIO 10** and **11** to connector 1 and 5, and Pico **GND** to connector **3**. Do not connect console 5V to the Pico. **Input mode:** Same data + GND. To power a Dreamcast controller you need +5V (Pico is 3.3V — use console port or external 5V).
+**Output mode:** Connect **GPIO 13** and **14** (GPIO 10 and 11 with the legacy pinout, `-DOGXM_LEGACY_PINOUT=ON`, and on boards other than the Pico family; see [hardware/README.md](../../../hardware/README.md#common-pinout-this-fork)) to connector 1 and 5, and Pico **GND** to connector **3**. Do not connect console 5V to the Pico. **Input mode:** Same data + GND. To power a Dreamcast controller you need +5V (Pico is 3.3V — use console port or external 5V).
 
 No direction pin is used in the default configuration (`dir_pin = -1`).
 
@@ -178,7 +178,7 @@ N64 stick is signed 8-bit, 0x80 center. C-buttons are derived from the right ana
 | Mode     | Pico: data (GPIO)   | Pico: power  | Plug: GND  | Plug: VCC (input mode only) |
 |----------|---------------------|--------------|------------|------------------------------|
 | PS1/PS2  | 19, 20, 21, 22, 26  | GND          | Connector 4 | Connector 5 (Pico 3V3)       |
-| Dreamcast| 10, 11              | GND          | Connector 3 | Connector 2 (5V from console) |
+| Dreamcast| 13, 14 (legacy: 10, 11) | GND          | Connector 3 | Connector 2 (5V from console) |
 | GameCube | 19                  | GND          | Connector 3 or 4 | Connector 6 (Pico 3V3)   |
 | N64      | 19                  | GND          | Connector 3 | Connector 1 (Pico 3V3)       |
 

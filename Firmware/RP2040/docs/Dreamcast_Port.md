@@ -66,7 +66,7 @@ DreamPicoPort uses:
   - When input source is `DREAMCAST_GPIO`, they call `dreamcast_host_init()` and `dreamcast_host_poll()`.
 
 - **Pins**
-  - DreamPicoPort defaults: e.g. P1 bus = GPIO 10 (A), 11 (B); direction pin 6. We use `dreamcast_host_init(1, 0, 10, -1)` in the stub (PIO1 for in, PIO0 for out, pin A 10, no dir pin). Adjust in your config to match hardware.
+  - DreamPicoPort defaults: e.g. P1 bus = GPIO 10 (A), 11 (B); direction pin 6. We use `dreamcast_host_init(1, 0, DREAMCAST_PIN_A, -1)` (PIO1 for in, PIO0 for out, no dir pin); `DREAMCAST_PIN_A` (Board/Config.h) is 13 on the Pico family's common pinout, 10 elsewhere and with `OGXM_LEGACY_PINOUT`. Adjust in your config to match hardware.
 
 ## References
 

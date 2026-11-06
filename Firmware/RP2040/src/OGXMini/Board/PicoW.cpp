@@ -323,7 +323,7 @@ void core1_task_wii_usb_host() {
     host_manager.initialize(_gamepads);
     OGXM_LOG("WII Core1: HostManager init done\n");
 
-    OGXM_LOG("WII Core1: waiting for host_connected() (plug USB controller into external port GP0/GP1)\n");
+    OGXM_LOG("WII Core1: waiting for host_connected() (plug USB controller into the external USB host port)\n");
     uint32_t wait_count = 0;
     while (!board_api::usb::host_connected()) {
         sleep_ms(100);
@@ -507,7 +507,7 @@ void pico_w::run() {
             /* Skip joybus host when in GameCube device mode: Core1 uses GPIO 19 for console output. */
             GPIOHost::joybus_host_init(0, 19);
         } else if (input_src == HostInputSource::DREAMCAST_GPIO) {
-            GPIOHost::dreamcast_host_init(1, 0, 10, -1);
+            GPIOHost::dreamcast_host_init(1, 0, DREAMCAST_PIN_A, -1);
         } else if (input_src == HostInputSource::N64_GPIO) {
             GPIOHost::n64_host_init(0, 19);
         }
@@ -555,7 +555,7 @@ void pico_w::run() {
         } else if (input_src == HostInputSource::GAMECUBE_GPIO) {
             GPIOHost::joybus_host_init(0, 19);
         } else if (input_src == HostInputSource::DREAMCAST_GPIO) {
-            GPIOHost::dreamcast_host_init(1, 0, 10, -1);
+            GPIOHost::dreamcast_host_init(1, 0, DREAMCAST_PIN_A, -1);
         } else if (input_src == HostInputSource::N64_GPIO) {
             GPIOHost::n64_host_init(0, 19);
         }

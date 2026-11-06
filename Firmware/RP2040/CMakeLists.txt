@@ -183,12 +183,24 @@ math(EXPR _ogxm_hybrid_log_rx "${_ogxm_hybrid_log_tx} + 1")
 # 2026-11-06; the Pico W boards used GP4 / GP5 before). GP8 / GP9 are free in every mode there (the
 # console modes use GP10 / 11 and GP19-22 / 26, the USB host port GP0 / 1 or GP2 / 3). The hybrid's
 # ORIGINAL wiring keeps GP4 (GP8 is its ESP32 EN), as BlueRetro's board does not get one.
+# Custom: one pinout for every board with the Pico's pinout (Pico, Pico 2, Pico W, Pico 2 W) and the
+# hybrid's default wiring, so one set of wires fits every use (the user's decision, 2026-11-06):
+# USB host port GP2 / GP3, Dreamcast GP13 / GP14, probe GP8 / GP9, external RGB LED GP6, console
+# modes GP19-22 / GP26, the hybrid's ESP32 on GP1 / 4 / 5 / 11 / 12 / 21 / 27 (hardware/README.md).
+# OGXM_LEGACY_PINOUT brings back the pins before it (USB host GP0 / GP1, Dreamcast GP10 / GP11, the
+# Pico W's probe GP4 / GP5) for boards wired that way.
+option(OGXM_LEGACY_PINOUT "Pico-pinout boards: the pins before the common pinout (USB host GP0/GP1, Dreamcast GP10/GP11, Pico W probe GP4/GP5)" OFF)
+if(OGXM_LEGACY_PINOUT)
+    add_compile_definitions(OGXM_LEGACY_PINOUT=1)
+endif()
 set(OGXM_DEBUG_UART_TX_PIN "AUTO" CACHE STRING "Debug probe point: UART TX pin (0, 4, 8, 12, 16, 20, 24, 28), -1 = none, AUTO = GP8 on the Pico-pinout boards (GP4 on the hybrid's ORIGINAL wiring)")
 if(OGXM_DEBUG_UART_TX_PIN STREQUAL "AUTO")
     if(OGXM_BOARD MATCHES "^(ESP32_BLUEPAD32_I2C|ESP32_BLUEPAD32_I2C_PICO2)$")
         set(_ogxm_probe_pin ${_ogxm_hybrid_log_tx})
-    elseif(OGXM_BOARD MATCHES "^(PI_PICO|PI_PICO2|PI_PICOW|PI_PICO2W)$")
+    elseif(OGXM_BOARD MATCHES "^(PI_PICO|PI_PICO2|PI_PICOW|PI_PICO2W)$" AND NOT OGXM_LEGACY_PINOUT)
         set(_ogxm_probe_pin 8)
+    elseif(OGXM_BOARD MATCHES "^(PI_PICOW|PI_PICO2W)$")
+        set(_ogxm_probe_pin 4)  # the legacy pinout
     else()
         set(_ogxm_probe_pin -1)
     endif()
@@ -326,7 +338,9 @@ function(ogxm_hybrid_pin_check)
     message(STATUS "Hybrid pins (${OGXM_HYBRID_PINOUT} preset): I2C ${OGXM_HYBRID_I2C_SDA_PIN}/${OGXM_HYBRID_I2C_SCL_PIN}, UART TX ${OGXM_HYBRID_UART_TX_PIN} (also ${OGXM_HYBRID_UART_TX_ALT_PIN}) RX ${OGXM_HYBRID_UART_RX_PIN}, EN ${OGXM_HYBRID_ESP32_EN_PIN}, IO0 ${OGXM_HYBRID_ESP32_IO0_PIN}, bridge jumper ${OGXM_HYBRID_BRIDGE_JUMPER_PIN}, USB host ${OGXM_HYBRID_USB_DP_PIN}/${usb_dm}")
 endfunction()
 
-# Custom: external WS2812 status LED on a Pico 2 / Pico 2 W board (see hardware/README.md).
+# Custom: external WS2812 status LED on a Pico 2 / Pico 2 W board (see hardware/README.md). On an
+# RP2040 Pico its GP6 stays free but the LED is off: both PIO blocks go to the USB host port and the
+# GPIO modes there.
 macro(ogxm_ext_rgb_options)
     set(OGXM_EXT_RGB_PIN 6 CACHE STRING "Pico 2 W: GPIO of an external WS2812 status LED, -1 = none")
     set(OGXM_EXT_RGB_COUNT 1 CACHE STRING "Pico 2 W: WS2812 LEDs chained on that pin, 1 to 4")
@@ -357,6 +371,7 @@ elseif (OGXM_BOARD STREQUAL "PI_PICO2")
     set(PICO_BOARD pico2)
     set(PICO_PLATFORM rp2350)
     set(FLASH_SIZE_MB 4)
+    ogxm_ext_rgb_options()  # Custom: external WS2812 status LED (GP6, PIO block 2), as on the Pico 2 W
 
 elseif(OGXM_BOARD STREQUAL "PI_PICOW")
     add_compile_definitions(CONFIG_OGXM_BOARD_PI_PICOW=1)
