@@ -1,8 +1,10 @@
 > [!WARNING]
-> **Two pins differ from upstream OGX-Mini** (MegaCadeDev/OGX-Mini-2026) since 2026-11: the
-> **USB host port is on GP2 / GP3** (upstream: GP0 / GP1) and **Dreamcast on GP13 / GP14**
-> (upstream: GP10 / GP11). A board wired for upstream, or from the diagrams below (upstream's), needs
-> those wires moved, or a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`).
+> **Some pins differ from upstream OGX-Mini** (MegaCadeDev/OGX-Mini-2026) since 2026-11: the
+> **USB host port** (GP2 / GP3, upstream GP0 / GP1), **Dreamcast** (GP13 / GP14, upstream
+> GP10 / GP11) and the **RP2040 + ESP32 hybrid's wires** (I2C, UART, EN, IO0; the rows marked in
+> the table). A board wired for upstream, or from the diagrams below (upstream's), needs those wires
+> moved, or a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`, the hybrid
+> `-DOGXM_HYBRID_PINOUT=ORIGINAL`).
 
 # Common pinout (this fork)
 One pinout for every board with the Pico's header (Raspberry Pi Pico, Pico 2, Pico W, Pico 2 W,
@@ -11,18 +13,18 @@ USB host port, the console modes and the RP2040 + ESP32 hybrid. Wire a board onc
 firmware build of this fork fits it; nothing on the board needs to move when you switch from one
 use to another. Pin numbers are the Pico's (pin 1 = GP0, top left with the USB port up).
 
-| Function | Pins (header pin) | Upstream OGX-Mini | Old pins in this fork's build |
+| Function (⚠ = moved from upstream) | Pins (header pin) | Upstream OGX-Mini | Old pins in this fork's build |
 |---|---|---|---|
-| USB host port (wired controller) D+ / D- | **GP2 / GP3** (4 / 5) | GP0 / GP1 | `-DOGXM_LEGACY_PINOUT=ON` |
+| ⚠ USB host port (wired controller) D+ / D- | **GP2 / GP3** (4 / 5) | GP0 / GP1 | `-DOGXM_LEGACY_PINOUT=ON` |
 | Debug probe point, TX / RX ([below](#debug-probe-point)) | **GP8 / GP9** (11 / 12) | none | `-DOGXM_LEGACY_PINOUT=ON`: GP4 / GP5 on the Pico W boards |
 | External RGB status LED (WS2812B, [below](#external-rgb-status-led)) | **GP6** (9) | none | `OGXM_EXT_RGB_PIN` |
-| Dreamcast Maple bus A / B | **GP13 / GP14** (17 / 19) | GP10 / GP11 | `-DOGXM_LEGACY_PINOUT=ON` |
+| ⚠ Dreamcast Maple bus A / B | **GP13 / GP14** (17 / 19) | GP10 / GP11 | `-DOGXM_LEGACY_PINOUT=ON` |
 | PS1 / PS2: DAT, CMD, SEL, CLK, ACK | GP19, GP20, GP21, GP22, GP26 | same | — |
 | GameCube / N64 data | GP19 | same | — |
-| Hybrid: I2C SDA / SCL to the ESP32 | **GP4 / GP5** (6 / 7) | GP18 / GP19 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
-| Hybrid: UART TX to the ESP32's RX0 | **GP12** (16) | GP28 (and GP16) | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
-| Hybrid: UART RX from the ESP32's TX0 | **GP1** (2) | GP17 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
-| Hybrid: ESP32 EN / IO0 | **GP27 / GP11** (32 / 15) | GP8 / GP20 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| ⚠ Hybrid: I2C SDA / SCL to the ESP32 | **GP4 / GP5** (6 / 7) | GP18 / GP19 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| ⚠ Hybrid: UART TX to the ESP32's RX0 | **GP12** (16) | GP28 (and GP16) | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| ⚠ Hybrid: UART RX from the ESP32's TX0 | **GP1** (2) | GP17 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
+| ⚠ Hybrid: ESP32 EN / IO0 | **GP27 / GP11** (32 / 15) | GP8 / GP20 | `-DOGXM_HYBRID_PINOUT=ORIGINAL` |
 | Hybrid: UART bridge jumper (to GND at boot) | GP21 | same | — |
 | On-board LED / YD-RP2040 RGB LED | GP25 / GP23 | same | — |
 
