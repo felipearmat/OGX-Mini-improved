@@ -249,6 +249,7 @@ later fixes reach every board in one PR.
 | bcc87b5 | Hybrid: the ESP32 waits up to 1 ms for the RP2040 holding SCL (its 25 us bus timeout cut every reply longer than the RP2040's 16-byte FIFO when the top-up came late) | todo | Upstream has the same driver default and replies longer than 16 bytes. One line on the ESP32; a good first fix PR. |
 | 41a165c | Settings: a journal for NVSTool's sector rewrites (two sectors below the settings), so a reset in the middle of a write loses nothing | todo | Upstream's NVSTool has the same erase-then-program rewrite. Needs two sectors below the NVS area: upstream has no flash log there, so check the image end. |
 | caa1b24 | Hybrid: the RP2040's I2C slave takes the RX FIFO's last bytes before finishing a write (the SDK's interrupt handles the stop first: 35-byte writes arrived as 34 + 1) | todo | Upstream's hybrid uses the same pico_i2c_slave. Also worth an issue on the Pico SDK. |
+| 002720f | Kept log (LogRing): dropped after a power-on / brown-out reset, so a power cut does not bring back an old or decayed ring | fork only | Upstream has no LogRing (it came with the fork's diagnostics). |
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
