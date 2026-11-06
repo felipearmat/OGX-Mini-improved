@@ -942,6 +942,29 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         -Wno-unused-parameter # Disable warnings for unused parameters
         # -Werror              # Treat warnings as errors
     )
+    # Custom: code ported from other projects keeps its own numeric style (kept close to its
+    # origin for later syncs); the conversion warnings stay on for the rest of the firmware.
+    set_source_files_properties(
+        ${SRC}/Wii/wiimote-lib/wiimote_btstack.c
+        ${SRC}/Wii/wiimote-lib/wiimote.c
+        ${SRC}/Wii/wiimote-lib/wm_reports.c
+        ${SRC}/Wii/wiimote-lib/motion.c
+        ${SRC}/Wii/wiimote-lib/wm_crypto.c
+        ${SRC}/Wii/wiimote-lib/inet.c
+        ${SRC}/USBHost/GPIOHost/dreamcast_host/MapleBus.cpp
+        ${SRC}/USBHost/GPIOHost/psx_host/psx_host.c
+        ${SRC}/USBHost/GPIOHost/joybus_host/joybus_controller.c
+        ${SRC}/USBHost/GPIOHost/joybus_host/n64_host.c
+        ${SRC}/USBDevice/DeviceDriver/PS1PS2/controller_simulator.c
+        ${SRC}/USBDevice/DeviceDriver/GameCube/gamecube_device.c
+        ${SRC}/USBDevice/DeviceDriver/N64/n64_device.c
+        ${SRC}/USBHost/HIDParser/HIDJoystick.cpp
+        ${SRC}/USBHost/HIDParser/HIDReportDescriptor.cpp
+        ${SRC}/USBHost/HIDParser/HIDReportDescriptorElements.cpp
+        ${SRC}/USBHost/HIDParser/HIDReportDescriptorUsages.cpp
+        ${SRC}/USBHost/HIDParser/HIDUtils.cpp
+        PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-sign-conversion;-Wno-float-conversion"
+    )
 
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     pico_enable_stdio_uart(${FW_NAME} 0)

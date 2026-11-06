@@ -45,21 +45,6 @@ const char* endpoint_type_name(uint8_t attr) {
     }
 }
 
-void utf16_to_ascii(const uint8_t* buf, uint16_t buflen, char* out, size_t out_len) {
-    if (!out || out_len == 0) return;
-    out[0] = '\0';
-    if (!buf || buflen < 2) return;
-    const uint8_t str_len = buf[0];
-    if (str_len < 2 || buf[1] != 0x03) return;
-    size_t o = 0;
-    for (uint8_t i = 2; i + 1 < str_len && i + 1 < buflen && o + 1 < out_len; i += 2) {
-        const uint8_t lo = buf[i];
-        const uint8_t hi = buf[i + 1];
-        out[o++] = (hi == 0 && lo >= 0x20 && lo < 0x7F) ? static_cast<char>(lo) : '?';
-    }
-    out[o] = '\0';
-}
-
 }  // namespace
 
 bool GameSirCyclone2Host::is_known_id(uint16_t vid, uint16_t pid) {

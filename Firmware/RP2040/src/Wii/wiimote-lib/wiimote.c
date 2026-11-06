@@ -352,7 +352,11 @@ void read_register(struct wiimote_state *state, uint32_t offset, uint16_t size)
       buffer = state->sys.register_b0 + (offset & 0xff);
       break;
     default: //???
-      break;
+      /* Custom: no register here; answer with an error, as for an inactive MotionPlus,
+       * instead of reading through an unset pointer. */
+      rpt = report_queue_push(state);
+      report_format_mem_resp(state, rpt, 0x10, 0x7, offset, NULL, false);
+      return;
   }
 
   //equivalent to ceil(size / 0x10)

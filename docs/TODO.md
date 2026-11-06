@@ -138,7 +138,7 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   not damaged pins). Expected to go away on the perfboard build (short SDA / SCL traces, layout in
   hardware/README): count `i2c_read_errors` there at 1 MHz before changing anything. Only if they
   stay: 1 kΩ pull-ups (or a second 2.2 kΩ in parallel), then a configurable ESP32 I2C rate.
-- **Debug builds: about 330 compiler warnings in our code** (`-Wconversion` /
+- ~~**Debug builds: about 330 compiler warnings in our code**~~ — done 2026-11-06: 0 on every board (CHANGELOG; three real bugs among them). Was: (`-Wconversion` /
   `-Wsign-conversion`, implicit numeric conversions; about 1,900 more from the libraries).
   Release builds have none and CI keeps them at zero.
 - **Hybrid: the Joy-Con (R) had to be paired again after a few mode changes and ESP32 flashes** — 2026-11-04 on the YD-RP2040 (the L reconnected by itself). Flashing the ESP32 does not write its NVS (the keys); see whether the R's key was dropped or the R lost its own.

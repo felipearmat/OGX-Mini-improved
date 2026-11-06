@@ -134,7 +134,7 @@ void XboxOGSBDevice::process(const uint8_t idx, Gamepad& gamepad)
         {
             if (in_report_.dButtons[2] & XboxOG::SB::BUTTONS2_TOGGLE_MID)
             {
-                in_report_.dButtons[2] &= ~XboxOG::SB::BUTTONS2_TOGGLE_MID;
+                in_report_.dButtons[2] &= static_cast<uint16_t>(~XboxOG::SB::BUTTONS2_TOGGLE_MID);
             }
             else
             {
@@ -176,12 +176,12 @@ void XboxOGSBDevice::process(const uint8_t idx, Gamepad& gamepad)
 
         if (gp_in.dpad & Gamepad::DPAD_UP && dpad_reset_)
         {
-            in_report_.tunerDial = (in_report_.tunerDial + 1) % 16;
+            in_report_.tunerDial = static_cast<int8_t>((in_report_.tunerDial + 1) % 16);
             dpad_reset_ = false;
         }
         else if (gp_in.dpad & Gamepad::DPAD_DOWN && dpad_reset_)
         {
-            in_report_.tunerDial = (in_report_.tunerDial + 15) % 16;
+            in_report_.tunerDial = static_cast<int8_t>((in_report_.tunerDial + 15) % 16);
             dpad_reset_ = false;
         }
         else if (!(gp_in.dpad & Gamepad::DPAD_DOWN) && !(gp_in.dpad & Gamepad::DPAD_UP))

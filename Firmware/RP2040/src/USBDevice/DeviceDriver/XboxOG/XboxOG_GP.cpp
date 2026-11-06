@@ -58,7 +58,7 @@ void XboxOGDevice::process(const uint8_t idx, Gamepad& gamepad)
             gp_in.trigger_r = gamepad.scale_trigger_r(0xFF);
             gp_in.buttons |= Gamepad::BUTTON_BACK;
             gp_in.buttons |= Gamepad::BUTTON_LB;  // White
-            gp_in.buttons &= ~Gamepad::BUTTON_START;  // chord must not include Start
+            gp_in.buttons &= static_cast<uint16_t>(~Gamepad::BUTTON_START);  // chord must not include Start
         }
         else if (guide_pressed)
         {

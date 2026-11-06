@@ -69,7 +69,7 @@ static uint8_t scale(uint8_t value, uint8_t brightness)
     {
         return 0;
     }
-    const uint16_t scaled = static_cast<uint16_t>(value) * brightness / 255;
+    const uint16_t scaled = static_cast<uint16_t>(static_cast<unsigned>(value) * brightness / 255u);
     return scaled == 0 ? 1 : static_cast<uint8_t>(scaled);
 }
 

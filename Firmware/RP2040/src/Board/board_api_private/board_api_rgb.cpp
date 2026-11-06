@@ -16,7 +16,7 @@ WS2812& get_ws2812() {
 #if defined(RGB_PXL_PIO)
     /* Custom: board picks the PIO block; claim a free state machine on it. */
     static WS2812 ws2812 = WS2812(RGB_PXL_PIN, RGB_PXL_COUNT, RGB_PXL_PIO,
-                                  pio_claim_unused_sm(RGB_PXL_PIO, true), WS2812::FORMAT_GRB);
+                                  static_cast<uint>(pio_claim_unused_sm(RGB_PXL_PIO, true)), WS2812::FORMAT_GRB);
 #else
     static WS2812 ws2812 = WS2812(RGB_PXL_PIN, RGB_PXL_COUNT, pio1, 0, WS2812::FORMAT_GRB);
 #endif

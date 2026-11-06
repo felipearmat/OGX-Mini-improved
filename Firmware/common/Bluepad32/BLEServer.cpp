@@ -97,7 +97,7 @@ public:
         if (current_offset_ >= sizeof(UserProfile)) {
             current_offset_ = 0;
         }
-        return copy_len;
+        return static_cast<uint16_t>(copy_len);
     }
 
 private:
@@ -267,7 +267,7 @@ static uint16_t att_read_callback(  hci_con_handle_t connection_handle,
                 uint8_t data[sizeof(dongle_settings::Settings) + 4];
                 std::memcpy(data, &ble_store::dongle_settings(), sizeof(dongle_settings::Settings));
                 const uint32_t caps = ble_store::capabilities();
-                for (int i = 0; i < 4; ++i)
+                for (size_t i = 0; i < 4; ++i)
                     data[sizeof(dongle_settings::Settings) + i] = static_cast<uint8_t>(caps >> (8 * i));
                 // longer than one ATT packet: long reads come with an offset
                 return att_read_callback_handle_blob(data, static_cast<uint16_t>(sizeof(data)), offset, buffer, buffer_size);

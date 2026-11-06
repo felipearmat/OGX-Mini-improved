@@ -4,7 +4,11 @@
 */
 
 #include "Board/Pico_WS2812/WS2812.hpp"
+// Custom: the header pioasm generates converts its clock divider without casts.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
 #include "WS2812.pio.h"
+#pragma GCC diagnostic pop
 
 WS2812::WS2812(uint pin, uint length, PIO pio, uint sm)  {
     initialize(pin, length, pio, sm, NONE, GREEN, RED, BLUE);
@@ -46,7 +50,7 @@ void WS2812::initialize(uint pin, uint length, PIO pio, uint sm, DataByte b1, Da
     this->bytes[1] = b2;
     this->bytes[2] = b3;
     this->bytes[3] = b4;
-    uint offset = pio_add_program(pio, &ws2812_program);
+    uint offset = static_cast<uint>(pio_add_program(pio, &ws2812_program));
     uint bits = (b1 == NONE ? 24 : 32);
 
     ws2812_program_init(pio, sm, offset, pin, 800000, bits);
@@ -67,6 +71,8 @@ uint32_t WS2812::convertData(uint32_t rgbw) {
                 break;
             case WHITE:
                 result |= (rgbw & 0xFF000000) >> 24;
+                break;
+            case NONE:
                 break;
         }
         result <<= 8;

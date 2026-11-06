@@ -285,7 +285,7 @@ bool WebAppDevice::write_motion(uint8_t index, const Gamepad::PadIn& pad_in)
         d[at + 1] = static_cast<uint8_t>(static_cast<uint16_t>(c) >> 8);
     };
     d[0] = pad_in.motion_source;
-    for (int i = 0; i < 3; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
         put16(1 + 2 * i, static_cast<int64_t>(accel[i]) * 1000 / 8192);  // DS4 units: 8192 / g
         put16(7 + 2 * i, static_cast<int64_t>(gyro[i]) * 10 / 1024);     // 1024 / (deg/s)
     }
@@ -704,7 +704,7 @@ void WebAppDevice::process(const uint8_t idx, Gamepad& gamepad)
                 reply.header.packet_id = PacketID::GET_CAPABILITIES;
                 reply.header.chunks_total = 1;
                 reply.header.chunk_len = 4;
-                for (int i = 0; i < 4; ++i)
+                for (size_t i = 0; i < 4; ++i)
                     reply.data[i] = static_cast<uint8_t>(caps >> (8 * i));
                 write_packet(reply);
                 break;
