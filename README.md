@@ -501,7 +501,7 @@ cmake --build build
 detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
 hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
 is not used; both take `-DOGXM_HYBRID_PINOUT=ORIGINAL` for upstream's wiring), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
-outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W and the hybrid on a Pico 2 W (`ESP32_BLUEPAD32_I2C_PICO2`) (this fork); Feather USB Host, Pico W,
+outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W, the hybrid on a Pico 2 W (`ESP32_BLUEPAD32_I2C_PICO2`) and on a YD-RP2040 (`ESP32_BLUEPAD32_I2C`, default wiring) (this fork); Feather USB Host, Pico W,
 Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 
 **Options:** `MAX_GAMEPADS` (1–4, default 1; see [Limitations](#limitations)),

@@ -277,12 +277,10 @@ No separate `picotool` install is required for UF2 flashing (the SDK may still d
 
 Debug builds log to **UART**, not the Pico’s USB data cable (USB CDC stdio is disabled when TinyUSB host is linked).
 
-| Board family | TX pin | RX pin | Baud |
-|--------------|--------|--------|------|
-| Pico W / Pico 2 W / RP2354 | **GP4** | **GP5** | **115200** 8N1 |
-| Most other boards | **GP0** | **GP1** | **115200** 8N1 |
-
-Wire USB–serial adapter **RX ← board TX**, common **GND**. Details: [Adding_Supported_Controllers — UART](Adding_Supported_Controllers.md#uart-pins-and-baud).
+At **115200** 8N1 on **GP8 (TX) / GP9 (RX)** on the Pico, Pico 2, Pico W, Pico 2 W and the hybrid
+(the probe point's pins); other boards and the legacy pinout: the table in
+[Adding_Supported_Controllers — UART](Adding_Supported_Controllers.md#uart-pins-and-baud).
+Wire the USB–serial adapter **RX ← board TX**, common **GND**.
 
 ---
 
