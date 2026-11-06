@@ -157,8 +157,8 @@ add_definitions(-DMAX_GAMEPADS=${MAX_GAMEPADS})
 
 set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in src/board_config.h")
 # Custom: the debug probe point (src/Board/DebugProbe.h), a UART TX pin that streams the activity
-# log: GP4 on the boards where it is free (Pico W, Pico 2 W, the RP2040 + ESP32 hybrids), off
-# elsewhere until a board's pins are checked. -1 = none; any UART TX pin otherwise.
+# log (and carries a Debug build's text log): GP8 on the Pico-pinout boards (below), off elsewhere
+# until a board's pins are checked. -1 = none; any UART TX pin otherwise.
 # Custom: the RP2040 + ESP32 hybrid's wiring preset (hardware/README.md#pi-pico--esp32).
 #   IMPROVED (default since 2026-11): I2C GP4 / GP5, UART TX GP12 / RX GP1, EN GP27, IO0 GP11, USB
 #     host port GP2 / GP3; the probe point (and a Debug build's log) on GP8 / GP9.
@@ -662,6 +662,8 @@ if(NOT _ogxm_probe_pin EQUAL -1)
     endif()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         message(STATUS "Debug probe point: off in a Debug build (its text log has the UART)")
+        set(_ogxm_log_tx_pin ${_ogxm_probe_pin})
+        set(_ogxm_log_rx_pin ${_ogxm_probe_rx_pin})
         set(_ogxm_probe_pin -1)
         set(_ogxm_probe_rx_pin -1)
     else()
@@ -908,14 +910,18 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Debug build enabled (UART logging at 115200; TinyUSB host prevents USB CDC stdio — use UART TX pin, see CMakeLists UART message).")
     set(BUILD_STR "-Debug")
 
-    # Pico W/2W: use UART1 on GP4 (TX) / GP5 (RX) - valid UART pins, avoids PIO USB (GP0/1) in Wii mode
-    # Note: GP10/11 are not valid UART pins on RP2040/RP2350
-    # The RP2040 + ESP32 hybrid: its free UART1 pair (GP8 / GP9 on the default wiring, where GP4 / GP5
-    # carry the I2C; GP4 / GP5 on the ORIGINAL one, where GP0 / GP1 are the USB host port)
-    if(OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C" OR OGXM_BOARD STREQUAL "ESP32_BLUEPAD32_I2C_PICO2")
-        set(TX_PIN ${_ogxm_hybrid_log_tx})
-        set(RX_PIN ${_ogxm_hybrid_log_rx})
-    elseif(OGXM_BOARD STREQUAL "PI_PICOW" OR OGXM_BOARD STREQUAL "PI_PICO2W" OR OGXM_BOARD STREQUAL "RP2354")
+    # Custom: the text log on the probe point's pins where a board has one (GP8 / GP9 on the Pico-pinout
+    # boards and the hybrid's default wiring, the common pinout; GP4 / GP5 on the legacy Pico W pinout
+    # and the hybrid's ORIGINAL wiring), so one wiring serves both. Elsewhere: GP4 / GP5 on the RP2354
+    # (its USB host port is GP0 / GP1), GP0 / GP1 on the rest. GP10 / 11 are not UART pins.
+    if(DEFINED _ogxm_log_tx_pin)
+        set(TX_PIN ${_ogxm_log_tx_pin})
+        if(_ogxm_log_rx_pin EQUAL -1)
+            math(EXPR RX_PIN "${_ogxm_log_tx_pin} + 1")
+        else()
+            set(RX_PIN ${_ogxm_log_rx_pin})
+        endif()
+    elseif(OGXM_BOARD STREQUAL "RP2354")
         set(TX_PIN 4)
         set(RX_PIN 5)
     else()

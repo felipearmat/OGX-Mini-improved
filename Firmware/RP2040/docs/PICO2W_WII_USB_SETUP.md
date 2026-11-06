@@ -88,10 +88,10 @@ For firmware built for **Pico W / Pico 2 W** with **USB host** enabled but **not
 
 ## 7. Debug / UART logging (crash debugging)
 
-To see where the firmware gets to when switching to Wii mode (or if it crashes), build in **Debug** so that **UART logging** is enabled. Logs go to **UART1** on **GP4 (TX)** and **GP5 (RX)** so they do not conflict with PIO USB on GP0/GP1. (GP10/11 are not valid UART pins on RP2040/RP2350.)
+To see where the firmware gets to when switching to Wii mode (or if it crashes), build in **Debug** so that **UART logging** is enabled. Logs go to **UART1** on **GP8 (TX)** and **GP9 (RX)** (the probe point's pins; GP4 / GP5 with `-DOGXM_LEGACY_PINOUT=ON`), clear of the USB host port on GP2/GP3. (GP10/11 are not valid UART pins on RP2040/RP2350.)
 
 1. **Build Debug** for Pico 2 W: `cmake -G Ninja -DOGXM_BOARD=PI_PICO2W -DCMAKE_BUILD_TYPE=Debug <path-to-RP2040>` then `ninja`. Or use the build script with a Debug build directory.
-2. **Connect a USB–UART adapter** (3.3 V) to **GP4 (TX)** and **GP5 (RX)** and GND. Open a terminal at **115200** baud.
+2. **Connect a USB–UART adapter** (3.3 V) to **GP8 (TX)** and **GP9 (RX)** and GND. Open a terminal at **115200** baud.
 3. **Flash** the Debug `.uf2`, switch to Wii mode, and watch the log. You should see: `PicoW init: start` … `driver inited`; `PicoW run: wii_mode=1` … `Core1 launched`; `WII Core1: entry` … `HostManager init done` … `tuh_init done` … `entering loop`; `PicoW run: Wii main loop tick`. The **last line printed** before a crash or hang shows how far the code got.
 
 ---

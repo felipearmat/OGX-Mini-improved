@@ -5,8 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Custom: the debug probe point, a UART TX pin (OGXM_DEBUG_UART_TX_PIN, GP4 by default where it is
- * free, GP8 on the hybrid's default wiring) that streams the activity log while it is on (the web app's "Activity log" option).
+/* Custom: the debug probe point, a UART TX pin (OGXM_DEBUG_UART_TX_PIN, GP8 on the Pico-pinout boards,
+ * GP4 on the legacy Pico W pinout and the hybrid's ORIGINAL wiring) that streams the activity log while it is on (the web app's "Activity log" option).
  *
  * The adapter only copies small binary records into a RAM ring; a DMA channel sends them on the
  * UART, so no CPU time goes per byte and nothing waits for the wire. A full ring drops the record

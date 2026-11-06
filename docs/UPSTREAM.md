@@ -254,6 +254,7 @@ later fixes reach every board in one PR.
 | 0b97089 | Four-channel I2C: the role set once (`a = c ? MASTER : a = SLAVE`), the packet switch handles UNKNOWN | todo | Upstream has the same line. Goes with the Wii fix. |
 | 0b97089 | Debug build: 0 warnings in our code (casts, dead helpers, conversion warnings off for ported files) | fork only | Much of it touches fork code; offer the upstream-file parts only if asked. |
 | f456f3f | Build: changing `OGXM_HYBRID_PINOUT` in a build folder moves the pins still at the old defaults | fork only | Upstream has no wiring presets. |
+| LOGPIN | Debug builds print their log on the probe point's pins (GP8 / GP9 on the Pico-pinout boards) | fork only | Follows the fork's common pinout. |
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
