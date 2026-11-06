@@ -44,6 +44,45 @@ static const hci_cmd_t s_hci_read_page_scan_activity = {HCI_OPCODE(0x03, 0x001B)
 static const hci_cmd_t s_hci_read_inquiry_scan_activity = {HCI_OPCODE(0x03, 0x001D), ""};
 static const hci_cmd_t s_hci_read_page_scan_type = {HCI_OPCODE(0x03, 0x0047), ""};
 static uint32_t s_page_scan = UINT32_MAX, s_inquiry_scan = UINT32_MAX;
+/* Custom: our role on each new Classic link, asked once it is up; slave is switched to master (the
+ * 2026-11-05/06 A/B: the sessions where a Joy-Con started a link had the long gaps). */
+struct RoleQuery {
+    hci_con_handle_t handle = HCI_CON_HANDLE_INVALID;
+    bd_addr_t addr{};
+    bool asked = false;
+    bool switch_wanted = false;
+    uint32_t up_ms = 0;  // asked 3 s after the link came up, past the pad's setup
+};
+static RoleQuery s_roles[4];
+static void role_query_add(hci_con_handle_t h, const bd_addr_t a, uint32_t now_ms)
+{
+    for (auto& q : s_roles)
+        if (q.handle == HCI_CON_HANDLE_INVALID) {
+            q = RoleQuery{};
+            q.handle = h;
+            q.up_ms = now_ms;
+            bd_addr_copy(q.addr, a);
+            return;
+        }
+}
+static void role_query_tick(uint32_t now_ms)
+{
+    for (auto& q : s_roles) {
+        if (q.handle == HCI_CON_HANDLE_INVALID || !hci_can_send_command_packet_now() || now_ms - q.up_ms < 3000)
+            continue;
+        if (!q.asked) {
+            q.asked = true;
+            hci_send_cmd(&hci_role_discovery, q.handle);
+            return;
+        }
+        if (q.switch_wanted) {
+            q.switch_wanted = false;
+            hci_send_cmd(&hci_switch_role_command, q.addr, 0);  // 0 = become master
+            q.handle = HCI_CON_HANDLE_INVALID;
+            return;
+        }
+    }
+}
 static int s_page_scan_type = -1;
 static int s_scan_enable = -1;  // last value logged, -1 = none since the stack started
 static bool s_scan_read_pending = false;
@@ -72,6 +111,7 @@ void query(uint32_t now_ms, bool (*slot_connected)(int slot))
 {
     if (s_scan_read_pending)
         ask_scan_enable();
+    role_query_tick(now_ms);
     {  // the radio's scan settings, one read every 5 s in turn
         static uint32_t s_radio_ms = 0;
         static uint8_t s_radio_step = 0;
@@ -293,6 +333,19 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
                 last = v;
                 break;
             }
+            if (op == hci_role_discovery.opcode) {  // status, handle, role (0 master, 1 slave)
+                const hci_con_handle_t h = little_endian_read_16(r, 1);
+                diag::event(now, "link 0x%04x up as %s%s", h, r[3] == 0 ? "master" : "slave",
+                            r[3] == 0 ? "" : ": asking to be master");
+                for (auto& q : s_roles)
+                    if (q.handle == h) {
+                        if (r[3] != 0)
+                            q.switch_wanted = true;
+                        else
+                            q.handle = HCI_CON_HANDLE_INVALID;
+                    }
+                break;
+            }
             if (op == s_hci_read_page_scan_type.opcode) {  // status, type (0 standard, 1 interlaced)
                 if (r[1] != s_page_scan_type)
                     diag::event(now, "radio: page scan %s", r[1] ? "interlaced" : "standard");
@@ -360,6 +413,11 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
         case HCI_EVENT_CONNECTION_COMPLETE:
             if (hci_event_connection_complete_get_status(packet) == 0) {
                 ask_version(hci_event_connection_complete_get_connection_handle(packet));
+                if (hci_event_connection_complete_get_link_type(packet) == 1) {  // ACL
+                    bd_addr_t a;
+                    hci_event_connection_complete_get_bd_addr(packet, a);
+                    role_query_add(hci_event_connection_complete_get_connection_handle(packet), a, now);
+                }
             } else {
                 bd_addr_t a;
                 hci_event_connection_complete_get_bd_addr(packet, a);
@@ -401,6 +459,9 @@ static void hci_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, 
             }
             break;
         case HCI_EVENT_DISCONNECTION_COMPLETE:
+            for (auto& q : s_roles)
+                if (q.handle == hci_event_disconnection_complete_get_connection_handle(packet))
+                    q.handle = HCI_CON_HANDLE_INVALID;
             for (auto& vh : s_version_handles)
                 if (vh == hci_event_disconnection_complete_get_connection_handle(packet))
                     vh = HCI_CON_HANDLE_INVALID;
