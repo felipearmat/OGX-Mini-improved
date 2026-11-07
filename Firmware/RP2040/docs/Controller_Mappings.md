@@ -241,7 +241,7 @@ Face buttons use **Nintendo names on the wire**; mapping from PadIn is **crossed
 | D-pad | D-pad |
 | Sticks | Left / right (12-bit; Y inverted vs PadIn) |
 
-**Rumble (v1.0.0.12a):** Console **HD rumble** in output reports **`0x01` / `0x10` / `0x11`** is decoded into **`PadOut`** and forwarded to the input pad (Bluetooth DualSense / Xbox, etc.). See [IMPROVEMENTS — Switch HD rumble](IMPROVEMENTS.md#switch-mode--hd-rumble-passthrough).
+**Rumble:** Console **HD rumble** in output reports **`0x01` / `0x10` / `0x11`** is decoded into **`PadOut`** and forwarded to the input pad (Bluetooth DualSense / Xbox, etc.). See [IMPROVEMENTS — Switch HD rumble](IMPROVEMENTS.md#switch-mode--hd-rumble-passthrough).
 
 **Source:** `USBDevice/DeviceDriver/Switch/Switch.cpp`
 

@@ -212,72 +212,74 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 
 ## Results
 
-**2026-10-20** — Pi Pico 2 W `ESP32_BLUEPAD32_I2C_PICO2` (Debug, I2C on GP26 / GP27, IO0 on GP22)
-+ ESP32 38-pin DevKit (WROOM), jumper wires, 2.2 kΩ pull-ups; Joy-Con pair; Linux host (Bazzite).
+Boards: **Pico 2 W bench** = Pi Pico 2 W `ESP32_BLUEPAD32_I2C_PICO2` on upstream's wiring with I2C on
+GP26 / GP27 and IO0 on GP22, ESP32 38-pin DevKit (WROOM), jumper wires, 2.2 kΩ pull-ups (from
+2026-10-20); **YD-RP2040** = the soldered YD-RP2040 + 38-pin ESP32 on the default wiring
+(`ESP32_BLUEPAD32_I2C`, from 2026-11-04). Linux host (Bazzite), Joy-Con pairs and a DualShock 4.
 
-| # | Result | Notes |
-|---|---|---|
-| 6.5 | pass | Joy-Cons asked to sleep (link closed, reason 0x13), ESP32 restarts; a button press brings them back (they call the adapter) |
-| 7.1 | pass | the pair merges into one pad, search off with the slot in use |
-| 9.1 | pass (Joy-Cons) | controllers, input timing, events, `companion` with the ESP32's I2C errors |
-| 11.2 | pass | many times; the ESP32 enters its bootloader through GP22, no BOOT button |
-| 11.4 | pass | |
-| 14.1 | pass (Joy-Cons) | remote chip (`Broadcom v7 s2105`), poll interval granted (`poll 5000 us`) |
-| D-Input ZL / ZR | pass | after the fix: buttons 7 / 8 on evdev (CHANGELOG) |
-| I2C link | pass, with errors | about 10 read errors per 30 s at 1 MHz on these jumpers, 1 per 30 s at 400 kHz: signal, see [TODO](TODO.md) |
-| 1.3, 1.4 (DS4, 2026-10-21) | pass | DS4 off: the host keeps a neutral pad (no USB reconnect); back on with PS, no pairing |
-| 2.1 (DS4, Switch, XInput, D-Input) | pass | every button by position, D-pad, both sticks full range (Switch right stick after the SPI fix), triggers to 254 in XInput (Bluepad32 widens 8-bit triggers by 4: accepted) |
-| 3.1-3.4 (DS4, STEAM mode) | pass | strong = left grip, weak lighter; 6 s continuous; 5 of 5 150 ms pulses; host rumble waits about 6 s after the DS4 connects. Seen: rumble in regular pulses when it was already on as the DS4 reconnected (TODO) |
-| 4.2 / 16.2 (DS4 touchpad, STEAM) | pass | one and two fingers, 21 clicks |
-| 5.1-5.3 (DS4) | pass | mode colour on connect (STEAM lilac, Switch red), the host's colour after (blue from hid-playstation) |
-| 6.1 (STEAM, Switch, XInput, D-Input combos) | pass | |
-| 4.7 (DS4) | pass | battery 0 % when flat (the pad then turned off), 39 % charging |
-| 4.7 (DS4 charging state, 2026-10-22) | pass | from the pad's status byte: on the charger 100 % `full`, off the cable 95 % `discharging` (level 9) |
-| 7.5 / 17.1 / 17.2 (DS4) | pass | about 770 reports/s on the RP2040 (after the per-second counter fix), 884/s at the ESP32's radio, 0 % lost, largest gap 18 ms |
-| 9.2, 14.1 (DS4) | pass | link, key and ready events; MediaTek BT 4.1 chip, RSSI in the golden range, 76 / 79 channels, 0 failed contacts |
-| I2C with a DS4 | pass, with errors | 9-21 packets rejected per minute (corrupted, wrong length) at about 770 reports/s: CRC needed (TODO) |
-| 8.1-8.3 (DS4, idle time 1 min, 2026-10-22) | pass | off after a minute still; slow tilting kept it on (off 104 s after connecting, a minute after it was put down); a continuous rumble on the table did not (off about 60 s after the last press) |
-| 6.2, 6.3, 6.6, 6.7 (DS4, 2026-10-22) | pass | Start + LB + Up + A went to STEAM; with STEAM's combo turned off nothing happened; Start + Select ignored right after connecting, turned the pad off later; Start + L3: one short rumble, "search stopped (controller)" (logged twice: TODO) |
-| 4.4 (pair IMU side, 2026-10-22) | pass | right chosen: only the right half moves the output (743 deg/s, left half nothing); left chosen: the reverse (1106 deg/s / nothing). Orientation part not yet |
-| 8.4 (Joy-Con pair idle, 2026-10-22) | pass | both halves off together, each asked to sleep (reason 0x13); took about 97 s with a 1 min idle time (motion noise on the table may restart the minute: watch) |
-| 7.2 (lone Joy-Con, 2026-10-22) | pass | search reduced to 10 % exactly 60 s after the Joy-Con was ready; LED from fast to slow blink |
-| 4.5 (lone Joy-Con held sideways) | pass | stick up / right from the player's view read as up (Y 33) / right (X 232) |
-| 17.3, 17.4 (BLE advertising, 2026-10-22) | pass | lone Joy-Con (reduced search): "OGX-Mini" found by the PC's Bluetooth; pair merged (slot full): not found in 30 s |
-| 17.5 (higher transmit power) | pass | applied live (no restart): "TX power: high (+9 dBm)" then back, report `high_tx_power` follows; links already open stayed at +3 dBm (power control raises it only when needed) |
-| 17.8 (pads off before a mode change) | pass | Joy-Cons disconnected before the combo's mode change (dev default on) |
-| 11.3 (`flash-esp32 --baud 115200`) | pass | 38 s for the app (137.9 kbit/s), hashes verified; the I2C link back right after |
-| 11.5 (`monitor`) | pass | the kept log (ESP32 boot and RP2040 lines in order), then live output; back to the mode at the end |
-| 17.9 (latency in the stored session) | pass | STEAM session of 447 s: 312953 samples, average 510 us, max 1.5 ms |
-| Motion, STEAM mode (2026-10-21) | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
-| Motion, STEAM mode, DS4 (2026-10-21) | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
-| Motion reference, DS4 on USB (2026-10-22) | pass | the same DS4 straight on the PC's USB (its own calibration 0x02, nothing of ours): a hand turn integrates to 348 degrees on Y, as through the adapter (349): the adapter's motion path keeps the pad's scale |
-| 17.7 (DS4, PS4 mode, 2026-10-22) | pass after a fix | the host kept the dongle's address (no USB reconnect on the hybrid); after the fix one reconnect as the DS4 connects, Linux `HID_UNIQ` = the DS4's address |
-| 4.1 (DS4, PS4 mode, 2026-10-22) | pass | +0.98 g on Y still; a hand turn integrates to 349.8 degrees on Y, as the DS4 on USB (348) |
-| 2.2 (DS4 touchpad, PS4 mode, 2026-10-22) | pass | 9 clicks in 3 groups of 3, each counted once; touches seen |
-| 11.6 (2026-10-22) | pass, with a note | live output fine; the kept log still held the previous session after the cable was out 9 s (SRAM kept its contents; TODO) |
-| STEAM ZL / ZR (Joy-Con pair, 2026-10-23) | pass after a fix | 6 + 6 presses, analog 255 and L2 / R2 bits each (before: nothing) |
-| Switch right stick (Joy-Con pair, hid-nintendo, 2026-10-23) | pass after a fix | rest RX 0.7 % / RY -1.8 %, edges 94-100 % with the calibration that matches the output |
-| DS4 full triggers (D-Input/Debug, 2026-10-23) | pass after a fix | L2 / R2 at 255 (254 before the Bluepad32 bit-replication patch) |
-| Switch mode in Steam (Joy-Con pair, 2026-10-23) | pass | the user's check after the calibration fix: sticks feel right again |
-| STEAM mode in a game (Joy-Con pair, 2026-10-23) | pass | the user's check: ZL / ZR work |
-| 3.5 (Joy-Con pair, STEAM, Linux force feedback, 2026-10-23) | pass | per side (default): strong motor on the left Joy-Con, weak on the right, both on both; "both halves" option: both Joy-Cons for every motor, strong and weak still told apart |
-| 6.4 (lone left Joy-Con, 2026-10-23) | pass | Capture (its Start) + SL + stick pushed up to the edge went to STEAM: the stick stood in for the D-pad |
-| 17.10 (DS4 at 1-2 m, 60 s, 2026-10-23) | pass | 0 % lost at the radio and on the board link (56 % in the first test), 6-9 % late, largest gap 15 ms, RSSI -13 to -16 dB (golden range), about 680 reports/s; 12 I2C packets rejected in about 2 min (the known corruption on the jumpers, TODO) |
-| 14.3 (DS4 walked away, 2026-10-23) | pass | RSSI -14 -> -52 dB, rate 680 -> 0 /s, largest gap 13 ms -> 1269 ms, then "slot 0 disconnected", link closed reason 0x08 (supervision timeout), ESP32 back to searching. "Lost" stays 0 %: the counter compares reports that arrive, a fading link shows as gaps and rate |
-| 2.8 (DS4, XInput, in a game, 2026-10-23) | pass | the user's check: stick sensitivity and rumble right (triggers now reach 255) |
-| I2C link with controllers (2026-10-21) | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
-| ESP32 restarted by a pad that keeps dropping, then the mode combo (DS4, 2026-10-26) | pass after a fix | before: settings replies cut 99 % at 1 MHz, the combo did nothing (seen 2026-10-25 with a flat Joy-Con); after (reads 400 kHz, writes 1 MHz, `dff4b53`): settings 0.5 s after the ESP32's restart, combo 9 s after reconnecting changed the mode, DS4 about 740 reports/s, no queue drops, about 1 settings read in 20 still cut with the DS4 connected |
-| Pico SDK 2.3.1 on the RP2040 (2026-10-27) | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. |
-| Mode colour preview on the ESP32's LED with a DS4 connected (2026-10-27) | pass after a fix | follows the preview and Cancel almost at once (seconds late before the 400 kHz reads, dff4b53) |
-| Touchpad press and Misc apart (c645e1a, 2026-10-27) | pass | the user's check: STEAM in Steam, DS4 press = touchpad click only, Joy-Con Capture = Mute only; XInput, the press is Misc; web app Touchpad press row lit by the click |
-| HD Rumble in Switch mode (Joy-Con pair, `hd_rumble.py`, 2026-10-27) | pass | heartbeat on both, high-band sweep on the left only, low-band sweep on the right only, SDL vs HD compare: as on the Pico 2 W (the user's check); no I2C queue drops |
-| Idle turn-off, rumble and the web app's orange / blue Axis Settings marks (dev-opt1 at 72ea233, SDK 2.3.1, web app 44b66d1, 2026-10-28) | pass | the user's check. Idle turn-off also in the flash log: every 15 min off went through (the pad closed the link, reason 0x13), Joy-Con pair and DS4; Joy-Con lights seen staying on earlier are not from it (likely the pads after the adapter vanished: flash, unplug, ESP32 off) |
-| Joy-Con turned off with its sync button | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
-| Soldered YD-RP2040 hybrid: 120 mode changes through the probe (2026-11-05) | pass | back on USB every time in 3.5-4.0 s; the ESP32 got the settings 504-1257 ms into each of 122 boots |
-| YD-RP2040 RGB LED with the ESP32's 1 ms SCL wait (2026-11-05, bcc87b5) | pass | the LED went red in Switch mode by itself (the user's check); 0 of 128 settings replies cut in 30 s (all cut before) |
-| HD Rumble in Switch mode on the soldered YD-RP2040 hybrid (Joy-Con pair, `hd_rumble.py` loop, 2026-11-05) | pass, L noise | the user: much better than 2026-11-04, close to the Pico 2 W; some noise left on the Joy-Con (L). Probe: 6480 reports from the host, all sent, queue wait 0.0 ms, no I2C write failed its check; the L half's link delay 95 % 45.8 ms against the R's 30.7 ms |
-| HD Rumble, the Joy-Con (L) losing reports: on the Pico 2 W with the same pad, then a second pair (2026-11-05) | pad fault | the same L half lost and lagged on the Pico 2 W too; the second pair played right on both sides (the user's check) |
-| Status LED tick shared by every board (`status_led::Indicator`, YD-RP2040 RGB LED, 2026-11-05) | pass | the user's check: boot code (3 white blinks) then search blink; Switch mode 2 red blinks; web app preview blue and back; brightness 150 and back |
+| # | Board | Result | Notes |
+|---|---|---|---|
+| 6.5 | Pico 2 W bench | pass | Joy-Cons asked to sleep (link closed, reason 0x13), ESP32 restarts; a button press brings them back (they call the adapter) |
+| 7.1 | Pico 2 W bench | pass | the pair merges into one pad, search off with the slot in use |
+| 9.1 | Pico 2 W bench | pass (Joy-Cons) | controllers, input timing, events, `companion` with the ESP32's I2C errors |
+| 11.2 | Pico 2 W bench | pass | many times; the ESP32 enters its bootloader through GP22, no BOOT button |
+| 11.4 | Pico 2 W bench | pass | |
+| 14.1 | Pico 2 W bench | pass (Joy-Cons) | remote chip (`Broadcom v7 s2105`), poll interval granted (`poll 5000 us`) |
+| D-Input ZL / ZR | Pico 2 W bench | pass | after the fix: buttons 7 / 8 on evdev (CHANGELOG) |
+| I2C link | Pico 2 W bench | pass, with errors | about 10 read errors per 30 s at 1 MHz on these jumpers, 1 per 30 s at 400 kHz: signal, see [TODO](TODO.md) |
+| 1.3, 1.4 (DS4, 2026-10-21) | Pico 2 W bench | pass | DS4 off: the host keeps a neutral pad (no USB reconnect); back on with PS, no pairing |
+| 2.1 (DS4, Switch, XInput, D-Input) | Pico 2 W bench | pass | every button by position, D-pad, both sticks full range (Switch right stick after the SPI fix), triggers to 254 in XInput (Bluepad32 widens 8-bit triggers by 4: accepted) |
+| 3.1-3.4 (DS4, STEAM mode) | Pico 2 W bench | pass | strong = left grip, weak lighter; 6 s continuous; 5 of 5 150 ms pulses; host rumble waits about 6 s after the DS4 connects. Seen: rumble in regular pulses when it was already on as the DS4 reconnected (TODO) |
+| 4.2 / 16.2 (DS4 touchpad, STEAM) | Pico 2 W bench | pass | one and two fingers, 21 clicks |
+| 5.1-5.3 (DS4) | Pico 2 W bench | pass | mode colour on connect (STEAM lilac, Switch red), the host's colour after (blue from hid-playstation) |
+| 6.1 (STEAM, Switch, XInput, D-Input combos) | Pico 2 W bench | pass | |
+| 4.7 (DS4) | Pico 2 W bench | pass | battery 0 % when flat (the pad then turned off), 39 % charging |
+| 4.7 (DS4 charging state, 2026-10-22) | Pico 2 W bench | pass | from the pad's status byte: on the charger 100 % `full`, off the cable 95 % `discharging` (level 9) |
+| 7.5 / 17.1 / 17.2 (DS4) | Pico 2 W bench | pass | about 770 reports/s on the RP2040 (after the per-second counter fix), 884/s at the ESP32's radio, 0 % lost, largest gap 18 ms |
+| 9.2, 14.1 (DS4) | Pico 2 W bench | pass | link, key and ready events; MediaTek BT 4.1 chip, RSSI in the golden range, 76 / 79 channels, 0 failed contacts |
+| I2C with a DS4 | Pico 2 W bench | pass, with errors | 9-21 packets rejected per minute (corrupted, wrong length) at about 770 reports/s: CRC needed (TODO) |
+| 8.1-8.3 (DS4, idle time 1 min, 2026-10-22) | Pico 2 W bench | pass | off after a minute still; slow tilting kept it on (off 104 s after connecting, a minute after it was put down); a continuous rumble on the table did not (off about 60 s after the last press) |
+| 6.2, 6.3, 6.6, 6.7 (DS4, 2026-10-22) | Pico 2 W bench | pass | Start + LB + Up + A went to STEAM; with STEAM's combo turned off nothing happened; Start + Select ignored right after connecting, turned the pad off later; Start + L3: one short rumble, "search stopped (controller)" (logged twice: TODO) |
+| 4.4 (pair IMU side, 2026-10-22) | Pico 2 W bench | pass | right chosen: only the right half moves the output (743 deg/s, left half nothing); left chosen: the reverse (1106 deg/s / nothing). Orientation part not yet |
+| 8.4 (Joy-Con pair idle, 2026-10-22) | Pico 2 W bench | pass | both halves off together, each asked to sleep (reason 0x13); took about 97 s with a 1 min idle time (motion noise on the table may restart the minute: watch) |
+| 7.2 (lone Joy-Con, 2026-10-22) | Pico 2 W bench | pass | search reduced to 10 % exactly 60 s after the Joy-Con was ready; LED from fast to slow blink |
+| 4.5 (lone Joy-Con held sideways) | Pico 2 W bench | pass | stick up / right from the player's view read as up (Y 33) / right (X 232) |
+| 17.3, 17.4 (BLE advertising, 2026-10-22) | Pico 2 W bench | pass | lone Joy-Con (reduced search): "OGX-Mini" found by the PC's Bluetooth; pair merged (slot full): not found in 30 s |
+| 17.5 (higher transmit power) | Pico 2 W bench | pass | applied live (no restart): "TX power: high (+9 dBm)" then back, report `high_tx_power` follows; links already open stayed at +3 dBm (power control raises it only when needed) |
+| 17.8 (pads off before a mode change) | Pico 2 W bench | pass | Joy-Cons disconnected before the combo's mode change (dev default on) |
+| 11.3 (`flash-esp32 --baud 115200`) | Pico 2 W bench | pass | 38 s for the app (137.9 kbit/s), hashes verified; the I2C link back right after |
+| 11.5 (`monitor`) | Pico 2 W bench | pass | the kept log (ESP32 boot and RP2040 lines in order), then live output; back to the mode at the end |
+| 17.9 (latency in the stored session) | Pico 2 W bench | pass | STEAM session of 447 s: 312953 samples, average 510 us, max 1.5 ms |
+| Motion, STEAM mode (2026-10-21) | Pico 2 W bench | pass | Joy-Con pair: +0.99 g on Y lying flat, a 360 degree turn integrates to about 351 degrees (bias removed), Steam's calibration page and Eden follow it |
+| Motion, STEAM mode, DS4 (2026-10-21) | Pico 2 W bench | pass | +0.98 g on Y lying flat, a 360 degree turn integrates to about 349 degrees, Steam's gyro as mouse right |
+| Motion reference, DS4 on USB (2026-10-22) | Pico 2 W bench | pass | the same DS4 straight on the PC's USB (its own calibration 0x02, nothing of ours): a hand turn integrates to 348 degrees on Y, as through the adapter (349): the adapter's motion path keeps the pad's scale |
+| 17.7 (DS4, PS4 mode, 2026-10-22) | Pico 2 W bench | pass after a fix | the host kept the dongle's address (no USB reconnect on the hybrid); after the fix one reconnect as the DS4 connects, Linux `HID_UNIQ` = the DS4's address |
+| 4.1 (DS4, PS4 mode, 2026-10-22) | Pico 2 W bench | pass | +0.98 g on Y still; a hand turn integrates to 349.8 degrees on Y, as the DS4 on USB (348) |
+| 2.2 (DS4 touchpad, PS4 mode, 2026-10-22) | Pico 2 W bench | pass | 9 clicks in 3 groups of 3, each counted once; touches seen |
+| 11.6 (2026-10-22) | Pico 2 W bench | pass, with a note | live output fine; the kept log still held the previous session after the cable was out 9 s (SRAM kept its contents; TODO) |
+| STEAM ZL / ZR (Joy-Con pair, 2026-10-23) | Pico 2 W bench | pass after a fix | 6 + 6 presses, analog 255 and L2 / R2 bits each (before: nothing) |
+| Switch right stick (Joy-Con pair, hid-nintendo, 2026-10-23) | Pico 2 W bench | pass after a fix | rest RX 0.7 % / RY -1.8 %, edges 94-100 % with the calibration that matches the output |
+| DS4 full triggers (D-Input/Debug, 2026-10-23) | Pico 2 W bench | pass after a fix | L2 / R2 at 255 (254 before the Bluepad32 bit-replication patch) |
+| Switch mode in Steam (Joy-Con pair, 2026-10-23) | Pico 2 W bench | pass | the user's check after the calibration fix: sticks feel right again |
+| STEAM mode in a game (Joy-Con pair, 2026-10-23) | Pico 2 W bench | pass | the user's check: ZL / ZR work |
+| 3.5 (Joy-Con pair, STEAM, Linux force feedback, 2026-10-23) | Pico 2 W bench | pass | per side (default): strong motor on the left Joy-Con, weak on the right, both on both; "both halves" option: both Joy-Cons for every motor, strong and weak still told apart |
+| 6.4 (lone left Joy-Con, 2026-10-23) | Pico 2 W bench | pass | Capture (its Start) + SL + stick pushed up to the edge went to STEAM: the stick stood in for the D-pad |
+| 17.10 (DS4 at 1-2 m, 60 s, 2026-10-23) | Pico 2 W bench | pass | 0 % lost at the radio and on the board link (56 % in the first test), 6-9 % late, largest gap 15 ms, RSSI -13 to -16 dB (golden range), about 680 reports/s; 12 I2C packets rejected in about 2 min (the known corruption on the jumpers, TODO) |
+| 14.3 (DS4 walked away, 2026-10-23) | Pico 2 W bench | pass | RSSI -14 -> -52 dB, rate 680 -> 0 /s, largest gap 13 ms -> 1269 ms, then "slot 0 disconnected", link closed reason 0x08 (supervision timeout), ESP32 back to searching. "Lost" stays 0 %: the counter compares reports that arrive, a fading link shows as gaps and rate |
+| 2.8 (DS4, XInput, in a game, 2026-10-23) | Pico 2 W bench | pass | the user's check: stick sensitivity and rumble right (triggers now reach 255) |
+| I2C link with controllers (2026-10-21) | Pico 2 W bench | pass, with errors | 58 min up, no silence, no restart, no mode change; about 1 read in 4 still cut short (signal) |
+| ESP32 restarted by a pad that keeps dropping, then the mode combo (DS4, 2026-10-26) | Pico 2 W bench | pass after a fix | before: settings replies cut 99 % at 1 MHz, the combo did nothing (seen 2026-10-25 with a flat Joy-Con); after (reads 400 kHz, writes 1 MHz, `dff4b53`): settings 0.5 s after the ESP32's restart, combo 9 s after reconnecting changed the mode, DS4 about 740 reports/s, no queue drops, about 1 settings read in 20 still cut with the DS4 connected |
+| Pico SDK 2.3.1 on the RP2040 (2026-10-27) | Pico 2 W bench | pass | the user's session: Joy-Con pair and DS4 in the web app, STEAM mode in Steam (DS4 touchpad moves the mouse), mode combos, disconnect combo on both; ESP32 flashed and restarted, settings 0.5 s later; no crash. |
+| Mode colour preview on the ESP32's LED with a DS4 connected (2026-10-27) | Pico 2 W bench | pass after a fix | follows the preview and Cancel almost at once (seconds late before the 400 kHz reads, dff4b53) |
+| Touchpad press and Misc apart (c645e1a, 2026-10-27) | Pico 2 W bench | pass | the user's check: STEAM in Steam, DS4 press = touchpad click only, Joy-Con Capture = Mute only; XInput, the press is Misc; web app Touchpad press row lit by the click |
+| HD Rumble in Switch mode (Joy-Con pair, `hd_rumble.py`, 2026-10-27) | Pico 2 W bench | pass | heartbeat on both, high-band sweep on the left only, low-band sweep on the right only, SDL vs HD compare: as on the Pico 2 W (the user's check); no I2C queue drops |
+| Idle turn-off, rumble and the web app's orange / blue Axis Settings marks (dev-opt1 at 72ea233, SDK 2.3.1, web app 44b66d1, 2026-10-28) | Pico 2 W bench | pass | the user's check. Idle turn-off also in the flash log: every 15 min off went through (the pad closed the link, reason 0x13), Joy-Con pair and DS4; Joy-Con lights seen staying on earlier are not from it (likely the pads after the adapter vanished: flash, unplug, ESP32 off) |
+| Joy-Con turned off with its sync button | Pico 2 W bench | not reconnecting (expected) | the pad calls no host back after a sync tap (same with Windows and macOS); a sync press pairs it again. Start + Select keeps the button-press reconnection (README) |
+| Soldered YD-RP2040 hybrid: 120 mode changes through the probe (2026-11-05) | YD-RP2040 | pass | back on USB every time in 3.5-4.0 s; the ESP32 got the settings 504-1257 ms into each of 122 boots |
+| YD-RP2040 RGB LED with the ESP32's 1 ms SCL wait (2026-11-05, bcc87b5) | YD-RP2040 | pass | the LED went red in Switch mode by itself (the user's check); 0 of 128 settings replies cut in 30 s (all cut before) |
+| HD Rumble in Switch mode on the soldered YD-RP2040 hybrid (Joy-Con pair, `hd_rumble.py` loop, 2026-11-05) | YD-RP2040 | pass, L noise | the user: much better than 2026-11-04, close to the Pico 2 W; some noise left on the Joy-Con (L). Probe: 6480 reports from the host, all sent, queue wait 0.0 ms, no I2C write failed its check; the L half's link delay 95 % 45.8 ms against the R's 30.7 ms |
+| HD Rumble, the Joy-Con (L) losing reports: on the Pico 2 W with the same pad, then a second pair (2026-11-05) | YD-RP2040 + Pico 2 W | pad fault | the same L half lost and lagged on the Pico 2 W too; the second pair played right on both sides (the user's check) |
+| Status LED tick shared by every board (`status_led::Indicator`, YD-RP2040 RGB LED, 2026-11-05) | YD-RP2040 | pass | the user's check: boot code (3 white blinks) then search blink; Switch mode 2 red blinks; web app preview blue and back; brightness 150 and back |
 
 ## Report
 
