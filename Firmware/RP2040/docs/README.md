@@ -56,7 +56,7 @@ How to use specific output modes and related setup.
 |----------|-------------|
 | [Firmware_Architecture.md](Firmware_Architecture.md) | Folder structure, Core0/Core1 flow, PadIn bridge, host/device checklists, external modules. |
 | [ROADMAP.md](../../../docs/ROADMAP.md) | This fork's plan, in priority order. |
-| [Planned_Additions.md](Planned_Additions.md) | The original creator's wish list and researched projects (Xbox wireless dongle, more retro consoles). |
+| [Research_Notes.md](Research_Notes.md) | Researched projects (the Xbox wireless dongle); the wish list is at the end of [ROADMAP.md](../../../docs/ROADMAP.md). |
 | [IMPROVEMENTS.md](IMPROVEMENTS.md) | Deep technical notes: BT stability, Switch 2 / Triton, latency, rumble, unplug detection. |
 | [Dreamcast_Port.md](Dreamcast_Port.md) | Dreamcast (Maple) port status / completing the port from DreamPicoPort. |
 | [CHANGELOG.md](../../../CHANGELOG.md) | Version history and release notes (repo root). |

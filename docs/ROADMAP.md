@@ -2,9 +2,9 @@
 
 What this fork plans to add, in priority order. Nothing here is a commitment or a schedule.
 Bugs and loose ends of features that already exist are in [TODO.md](TODO.md); finished work is in
-the [CHANGELOG](../CHANGELOG.md). The original project's wish list and long research notes (Xbox
-One / Series wireless dongle, more retro consoles) stay in
-[Planned additions](../Firmware/RP2040/docs/Planned_Additions.md).
+the [CHANGELOG](../CHANGELOG.md). Smaller wishes, the original project's included, are at the end
+([wish list](#wish-list-not-scheduled)); long research notes (the Xbox One / Series wireless
+dongle) are in [Research notes](../Firmware/RP2040/docs/Research_Notes.md).
 
 | # | Item | Status |
 |---|---|---|
@@ -13,7 +13,7 @@ One / Series wireless dongle, more retro consoles) stay in
 | 3 | [Native mode](#3-native-mode-each-controller-as-itself) | Partly there (STEAM mode for DualSense) |
 | 4 | [Several controllers on one adapter](#4-several-controllers-on-one-adapter) | Partly there (Joy-Con pair, Wii U mode) |
 | 5 | [Bluetooth out where a system only takes Bluetooth](#5-bluetooth-out-where-a-system-only-takes-bluetooth) | Partly there (Wii mode, wired input only) |
-| 6 | [RP2040 + ESP32 hybrid](#6-rp2040--esp32-hybrid) | Builds in CI; not tested on hardware |
+| 6 | [RP2040 + ESP32 hybrid](#6-rp2040--esp32-hybrid) | Tested on hardware (Pico 2 W and YD-RP2040 boards, one controller); several players and range left |
 | 7 | [Smaller items](#7-smaller-items) | Planned |
 | 8 | [ESP32 multi-slave and the 4-channel board](#8-esp32-multi-slave-and-the-4-channel-board) | Last: after features, compatibility and maintainability |
 
@@ -161,6 +161,21 @@ Last on the list: features, controller compatibility and maintainability come fi
 - **4-channel I2C board** (`EXTERNAL_4CH_I2C`, four RP2040s, wired controllers): works on its own
   with its own I2C protocol and its own USB host bring-up; moving both to the shared code
   (`Firmware/common/I2C`, `USBHost/PioHostPort`) only if the board stays in use.
+
+## Wish list (not scheduled)
+
+From the original OGX-Mini creator and this fork's notes; no order.
+
+- More accurate report parser for unknown HID controllers.
+- Hardware designs: internal OG Xbox install, 4-channel RP2040-Zero adapter.
+- Wired Xbox 360 and Xbox One chatpads; OG Xbox communicator (in some form).
+- Switch (as input) rumble settings and rumble settings in general (intensity, on / off).
+- Generic Bluetooth dongle support.
+- Web app bindings for OG Xbox mode: the Guide tap (Start) and the IGR / shutdown hold combos.
+- More console outputs: NES, SNES, Genesis, Master System, Saturn, Atari, PS1 / PS2 multitap
+  (PS1 / PS2, GameCube, N64 and Dreamcast are done: [GPIO pinouts](../Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md)).
+- Xbox One / Series wireless USB dongle (`045e:02e6`, `045e:02fe`): a large job, see
+  [Research notes](../Firmware/RP2040/docs/Research_Notes.md).
 
 ## Not planned
 

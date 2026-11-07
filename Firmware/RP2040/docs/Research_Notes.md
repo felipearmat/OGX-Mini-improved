@@ -1,47 +1,9 @@
-# Planned additions
+# Research notes
 
-Work that is **not implemented** (or only partially done) in current firmware. Lists combine roadmap items from the **original OGX-Mini creator**, priorities for **this fork**, and researched technical projects (e.g. Xbox One/Series wireless dongle).
-
-These are **not** commitments or a schedule. Items marked ~~struck~~ are already done in this fork.
-
-**Related:** [ROADMAP.md](../../../docs/ROADMAP.md) (this fork's plan, in priority order), [IMPROVEMENTS.md](IMPROVEMENTS.md) (what *is* implemented), [Support](../../../README.md#getting-help-and-support).
-
----
-
-## From the original creator
-
-- More accurate report parser for unknown HID controllers
-- Hardware design for internal OG Xbox install
-- Hardware design for 4 channel RP2040-Zero adapter
-- Wired Xbox 360 chatpad support
-- Wired Xbox One chatpad support
-- Switch (as input) rumble support
-- OG Xbox communicator support (in some form)
-- Generic bluetooth dongle support
-- Button macros
-- Rumble settings (intensity, enable/disable, etc.)
-
----
-
-## Retro and console outputs
-
-This fork's own priorities (turbo, macros, native mode, several controllers, Bluetooth output) are in [ROADMAP.md](../../../docs/ROADMAP.md).
-
-- **Web app bindings for OG Xbox mode** — Allow users to rebind the Guide tap (Start) and the IGR/shutdown hold combos (e.g. which button triggers 1 s soft IGR or 3 s shutdown) via the web app.
-- Output to the following consoles:
-  - ~~PS2~~ (done: PS1/PS2 GPIO mode — see [CHANGELOG](../../../CHANGELOG.md))
-  - ~~GameCube~~ (done: GameCube GPIO mode — see changelog)
-  - ~~Dreamcast~~ (GPIO Maple mode exists; see [Dreamcast_Port.md](Dreamcast_Port.md) / [GPIO pinouts](GPIO_Output_Pinout_and_Mappings.md) for status)
-  - NES
-  - SNES
-  - Genesis
-  - Master System
-  - Sega Saturn
-  - PS4 / PS5 consoles — not planned: a PS4 needs a licensed authentication adapter in front of PS4 mode (see [PS3_PS4_Motion_Controls.md](PS3_PS4_Motion_Controls.md)); PS5 games need a PS5-licensed device ([ROADMAP — Not planned](../../../docs/ROADMAP.md#not-planned))
-  - Xbox One / Series consoles — not planned: not implemented, and they need a licensed authentication device ([ROADMAP — Not planned](../../../docs/ROADMAP.md#not-planned))
-  - Atari
-  - PS2 MultiTap
-  - PS1 MultiTap
+Technical research for features that are not a matter of adding a VID/PID to a table: what was
+found and what an implementation would take. Plans and their order are in
+[ROADMAP.md](../../../docs/ROADMAP.md); what exists is in [IMPROVEMENTS.md](IMPROVEMENTS.md) and the
+[CHANGELOG](../../../CHANGELOG.md).
 
 ---
 

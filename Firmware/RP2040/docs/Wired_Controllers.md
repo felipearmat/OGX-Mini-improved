@@ -11,7 +11,7 @@ This document lists controllers supported when connected to the OGX-Mini adapter
 ### XInput (Xbox 360, Xbox One, Xbox Series)
 
 - **Microsoft:** Xbox 360 (wired and **360 PC wireless receiver**), Xbox One / Series **wired USB**, Xbox Elite
-- **Not supported (planned):** Xbox One / Series **wireless USB dongle** (`045e:02e6`, `045e:02fe`) — see [Planned_Additions.md](Planned_Additions.md#xbox-wireless-adapter-for-windows-045e02e6-045e02fe)
+- **Not supported (planned):** Xbox One / Series **wireless USB dongle** (`045e:02e6`, `045e:02fe`) — see [Research_Notes.md](Research_Notes.md#xbox-wireless-adapter-for-windows-045e02e6-045e02fe)
 - **SCUF Instinct** — **Supported** wired USB (Xbox / XInput). **Bluetooth LE** on Pico W / Pico 2 W / RP2354 uses the same Xbox Series HOGP path (`045e:0b13`); see the main [README — Wireless Bluetooth](../../../README.md#bluetooth-pico-w--pico-2-w--rp2354).
 - **Razer Wolverine V3 Tournament Edition** — **Supported**, **wired USB only** (Xbox / XInput; no wireless on this model). Xbox-licensed TE commonly reports as Razer **`1532:0a43`** / **`1532:0a45`** (PC 8K variants differ, e.g. **`1532:0a5a`**).
 - **Third‑party:** Controllers that identify as XInput over USB (e.g. many 8BitDo, PowerA, PDP, Afterglow when in XInput mode)

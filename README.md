@@ -239,7 +239,7 @@ driver: [Wired controllers](Firmware/RP2040/docs/Wired_Controllers.md).
 
 Microsoft Xbox 360 PC receiver, Flydigi Vader 5 Pro 2.4 GHz dongle, GameSir Cyclone 2 dongle.
 The Xbox One / Series wireless dongle is not supported (it is a Wi-Fi radio, not a gamepad; see
-[Planned additions](Firmware/RP2040/docs/Planned_Additions.md#xbox-wireless-adapter-for-windows-045e02e6-045e02fe)).
+[Research notes](Firmware/RP2040/docs/Research_Notes.md#xbox-wireless-adapter-for-windows-045e02e6-045e02fe)).
 
 Controller-specific pages: [GameSir Cyclone 2](Firmware/RP2040/docs/GameSir_Cyclone2.md) ·
 [GameSir G7 Pro](Firmware/RP2040/docs/GameSir_G7Pro.md) ·
@@ -560,7 +560,7 @@ Upstream: [Ko-fi](https://ko-fi.com/megacadedev) · [Discord](https://discord.gg
 | Using a mode | [Steam / SteamOS / Bazzite](Firmware/RP2040/docs/SteamOS_Bazzite_Output_Mode.md) · [PS3 / PS4 motion](Firmware/RP2040/docs/PS3_PS4_Motion_Controls.md) · [Wii](Firmware/RP2040/docs/Wii_Mode_Guide.md) · [Wii with a USB controller on a Pico 2 W](Firmware/RP2040/docs/PICO2W_WII_USB_SETUP.md) · [GPIO pinouts](Firmware/RP2040/docs/GPIO_Output_Pinout_and_Mappings.md) · [Button mappings](Firmware/RP2040/docs/Controller_Mappings.md) · [Web app guide](Firmware/RP2040/docs/Web_App_Guide.md) · [Debug mode](Firmware/RP2040/docs/Debug_Mode.md) |
 | Controllers | [Wired controllers](Firmware/RP2040/docs/Wired_Controllers.md) · [GameSir Cyclone 2](Firmware/RP2040/docs/GameSir_Cyclone2.md) · [GameSir G7 Pro](Firmware/RP2040/docs/GameSir_G7Pro.md) · [Flydigi APEX 4](Firmware/RP2040/docs/Flydigi_APEX4_Wukong.md) · [Victrix Gambit](Firmware/RP2040/docs/Victrix_Gambit.md) |
 | Hardware | [Boards and wiring](hardware/README.md) |
-| Plans and changes | [Roadmap](docs/ROADMAP.md) · [Known issues](docs/TODO.md) · [Changelog](CHANGELOG.md) · [Fork commits offered upstream](docs/UPSTREAM.md) · [Upstream wish list and research](Firmware/RP2040/docs/Planned_Additions.md) |
+| Plans and changes | [Roadmap](docs/ROADMAP.md) · [Known issues](docs/TODO.md) · [Changelog](CHANGELOG.md) · [Fork commits offered upstream](docs/UPSTREAM.md) · [Research notes](Firmware/RP2040/docs/Research_Notes.md) |
 | Development | [Building from source](Firmware/RP2040/docs/Building_From_Source.md) · [Firmware architecture](Firmware/RP2040/docs/Firmware_Architecture.md) · [Adding controllers](Firmware/RP2040/docs/Adding_Supported_Controllers.md) · [Unit tests and CI](docs/TESTING.md) · [Shared code](Firmware/common/README.md) · [Technical notes per feature](Firmware/RP2040/docs/IMPROVEMENTS.md) |
 | Everything | [Firmware docs index](Firmware/RP2040/docs/README.md) · [docs/](docs/README.md) |
 
