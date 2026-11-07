@@ -23,7 +23,7 @@ This document lists controllers supported when connected to the OGX-Mini adapter
 
 **Razer Atrox arcade stick (wired USB host):** **Xbox One** model (`1532:0a00`) uses GIP on interface 0. Init follows **XBOFS.win** (`05 20 00 01 00`, wait for OUT, then **30-byte** IN read loop); input uses XBOFS byte layout (face/LT/RT on byte 22). Standard Xbox One pads use 64-byte Linux xpad GIP. **Xbox 360** model (`24c6:5000`) uses standard XInput with digital trigger bytes.
 
-**Xbox 360 wireless PC receiver (`045e:0719`), wired to adapter USB host:** Plug the **receiver** into the adapter’s host port; sync a **wireless 360 pad** to any quadrant. On **PIO USB host** boards (Waveshare RP2350-USB-A, Pico, Feather, etc.), v1.0.0.11a polls **all four RF ports** even when `MAX_GAMEPADS=1` and primes idle ports for sync. See [IMPROVEMENTS.md — PIO USB host wired fixes](IMPROVEMENTS.md#pio-usb-host--wired-connection-fixes-waveshare-rp2350-usb-a).
+**Xbox 360 wireless PC receiver (`045e:0719`), wired to adapter USB host:** Plug the **receiver** into the adapter’s host port; sync a **wireless 360 pad** to any quadrant. On **PIO USB host** boards (Waveshare RP2350-USB-A, Pico, Feather, etc.), the adapter polls **all four RF ports** even when `MAX_GAMEPADS=1` and primes idle ports for sync. See [IMPROVEMENTS.md — PIO USB host wired fixes](IMPROVEMENTS.md#pio-usb-host--wired-connection-fixes-waveshare-rp2350-usb-a).
 
 ---
 
@@ -39,7 +39,7 @@ This document lists controllers supported when connected to the OGX-Mini adapter
 
 **Button mappings (all modes):** [Controller_Mappings.md](Controller_Mappings.md)
 
-**DualShock 3 over USB cable (PIO USB host):** v1.0.0.11a sends **SET feature 0xF4** and a **player LED OUT** report at connect (USB Host Shield sequence) with **`pio_usb_host_frame()`** during init, plus a **1 Hz keepalive OUT** so the pad stays connected. On **Pico W / Pico 2 W / RP2354** BT builds, **v1.0.0.12a** sync-sends Bluetooth **auto-pair** (feature **0xF5** with the adapter BD_ADDR) right after that wired init (deferred if the radio address is not ready yet). See [IMPROVEMENTS.md — DualShock 3 wired USB host](IMPROVEMENTS.md#dualshock-3--wired-usb-host) and [automatic USB programming for Bluetooth pairing](IMPROVEMENTS.md#dualshock-3--automatic-usb-programming-for-bluetooth-pairing).
+**DualShock 3 over USB cable (PIO USB host):** the adapter sends **SET feature 0xF4** and a **player LED OUT** report at connect (USB Host Shield sequence) with **`pio_usb_host_frame()`** during init, plus a **1 Hz keepalive OUT** so the pad stays connected. On **Pico W / Pico 2 W / RP2354** BT builds, the adapter sync-sends Bluetooth **auto-pair** (feature **0xF5** with the adapter BD_ADDR) right after that wired init (deferred if the radio address is not ready yet). See [IMPROVEMENTS.md — DualShock 3 wired USB host](IMPROVEMENTS.md#dualshock-3--wired-usb-host) and [automatic USB programming for Bluetooth pairing](IMPROVEMENTS.md#dualshock-3--automatic-usb-programming-for-bluetooth-pairing).
 
 ---
 
