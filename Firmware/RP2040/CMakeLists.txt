@@ -178,17 +178,13 @@ else()
 endif()
 math(EXPR _ogxm_hybrid_log_rx "${_ogxm_hybrid_log_tx} + 1")
 
-# Custom: GP8 / GP9 on every board with the Pico's pinout (Pico, Pico 2, Pico W, Pico 2 W and the
-# hybrids on their default wiring), so one probe wiring fits them all (the user's decision,
-# 2026-11-06; the Pico W boards used GP4 / GP5 before). GP8 / GP9 are free in every mode there (the
-# console modes use GP10 / 11 and GP19-22 / 26, the USB host port GP0 / 1 or GP2 / 3). The hybrid's
-# ORIGINAL wiring keeps GP4 (GP8 is its ESP32 EN), as BlueRetro's board does not get one.
-# Custom: one pinout for every board with the Pico's pinout (Pico, Pico 2, Pico W, Pico 2 W) and the
-# hybrid's default wiring, so one set of wires fits every use (the user's decision, 2026-11-06):
-# USB host port GP2 / GP3, Dreamcast GP13 / GP14, probe GP8 / GP9, external RGB LED GP6, console
-# modes GP19-22 / GP26, the hybrid's ESP32 on GP1 / 4 / 5 / 11 / 12 / 21 / 27 (hardware/README.md).
-# OGXM_LEGACY_PINOUT brings back the pins before it (USB host GP0 / GP1, Dreamcast GP10 / GP11, the
-# Pico W's probe GP4 / GP5) for boards wired that way.
+# Custom: one pinout for every board with the Pico's header (Pico, Pico 2, Pico W, Pico 2 W) and the
+# hybrid's default wiring, so one set of wires fits every use (the user's decision, 2026-11-06;
+# hardware/README.md "Common pinout"): USB host port GP2 / GP3, Dreamcast GP13 / GP14, the probe
+# point (and a Debug build's log) GP8 / GP9, external RGB LED GP6, console modes GP19-22 / GP26, the
+# hybrid's ESP32 on GP1 / 4 / 5 / 11 / 12 / 21 / 27. OGXM_LEGACY_PINOUT brings back the pins before
+# it (USB host GP0 / GP1, Dreamcast GP10 / GP11, the Pico W's probe GP4 / GP5); the hybrid's
+# ORIGINAL wiring has the probe on GP4 (GP8 is its ESP32 EN); BlueRetro's board has none.
 option(OGXM_LEGACY_PINOUT "Pico-pinout boards: the pins before the common pinout (USB host GP0/GP1, Dreamcast GP10/GP11, Pico W probe GP4/GP5)" OFF)
 if(OGXM_LEGACY_PINOUT)
     add_compile_definitions(OGXM_LEGACY_PINOUT=1)
