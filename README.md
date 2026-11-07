@@ -112,8 +112,8 @@ Nintendo Switch, and on the **RP2040 + ESP32 hybrid** (a Pico 2 W with an ESP32 
 > GP13 / GP14** (upstream: GP10 / GP11), and the **RP2040 + ESP32 hybrid's wires**: I2C GP4 / GP5
 > (upstream GP18 / GP19), UART TX GP12 (GP28 / GP16), UART RX GP1 (GP17), ESP32 EN GP27 (GP8) and
 > IO0 GP11 (GP20). A board wired for upstream needs those wires moved, or a build with the old pins
-> (`-DOGXM_LEGACY_PINOUT=ON`; the hybrid: `-DOGXM_HYBRID_PINOUT=ORIGINAL`, the releases'
-> `-ORIGINAL_PINS` files). The fork's own additions use pins upstream leaves free (the debug probe
+> (the releases' `-LEGACY_PINS` files, or `-DOGXM_LEGACY_PINOUT=ON`; the hybrid: the `-ORIGINAL_PINS`
+> files, or `-DOGXM_HYBRID_PINOUT=ORIGINAL`). The fork's own additions use pins upstream leaves free (the debug probe
 > on GP8 / GP9, an external RGB LED on GP6). The whole table:
 > [Common pinout](hardware/README.md#common-pinout-this-fork).
 
