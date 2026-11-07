@@ -3,8 +3,8 @@
 > **USB host port** (GP2 / GP3, upstream GP0 / GP1), **Dreamcast** (GP13 / GP14, upstream
 > GP10 / GP11) and the **RP2040 + ESP32 hybrid's wires** (I2C, UART, EN, IO0; the rows marked in
 > the table). A board wired for upstream, or from the diagrams below (upstream's), needs those wires
-> moved, or a build with the old pins (`-DOGXM_LEGACY_PINOUT=ON`, the hybrid
-> `-DOGXM_HYBRID_PINOUT=ORIGINAL`).
+> moved, or a build with the old pins: the releases' `-LEGACY_PINS` files (`-DOGXM_LEGACY_PINOUT=ON`),
+> for the hybrid the `-ORIGINAL_PINS` files (`-DOGXM_HYBRID_PINOUT=ORIGINAL`).
 
 # Common pinout (this fork)
 One pinout for every board with the Pico's header (Raspberry Pi Pico, Pico 2, Pico W, Pico 2 W,
