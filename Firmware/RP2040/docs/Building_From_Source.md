@@ -229,7 +229,7 @@ cmake -S . -B build -G Ninja \
 cmake --build build
 ```
 
-Replace `PI_PICOW` with your board. Common values:
+Replace `PI_PICOW` with your board. Every value:
 
 | `OGXM_BOARD` | Board |
 |--------------|--------|
@@ -241,11 +241,16 @@ Replace `PI_PICOW` with your board. Common values:
 | `RP2350_ZERO` | Waveshare RP2350-Zero |
 | `RP2350_USB_A` | Waveshare RP2350-USB-A |
 | `RP2040_XIAO` | Seeed XIAO RP2040 |
-| `RP2354` | RP2350 + Pi Radio Module 2 |
-| `ADAFRUIT_FEATHER` | Adafruit Feather USB Host |
-| `EXTERNAL_4CH_I2C` | 4-channel I2C |
-| `ESP32_BLUEPAD32_I2C` / `ESP32_BLUERETRO_I2C` | ESP32 hybrid boards (RP2040) |
-| `ESP32_BLUEPAD32_I2C_PICO2` | Bluepad32 ESP32 hybrid on a Pi Pico 2 / Pico 2 W (RP2350, same pins; Pico 2 W radio unused) |
+| `RP2354` | RP2350 + Pi Radio Module 2: Bluetooth like the Pico 2 W, USB-A on GP0 / GP1, LED GP25 |
+| `ADAFRUIT_FEATHER` | Adafruit Feather RP2040 USB Host (controller on the board's USB-A port; plug it in after boot if it isn't detected) |
+| `OGX_LIVE` | OGX Live |
+| `EXTERNAL_4CH_I2C` | 4-channel I2C board (four RP2040s, wired controllers) |
+| `ESP32_BLUEPAD32_I2C` | RP2040 + ESP32 hybrid (any RP2040 board with the Pico's header, e.g. the YD-RP2040) |
+| `ESP32_BLUEPAD32_I2C_PICO2` | The same hybrid on a Pico 2 / Pico 2 W (the Pico 2 W radio is not used) |
+| `ESP32_BLUERETRO_I2C` | Legacy: the ESP32 runs the third-party BlueRetro firmware, outside this project's shared Bluetooth code (BlueRetro was archived upstream in December 2025) |
+
+Tested by the maintainer: Pico 2 W, the hybrid on a Pico 2 W and on a YD-RP2040 (this fork);
+Feather USB Host, Pico W, Pico 2 W, RP2350-USB-A and OGX Live (upstream).
 
 Useful options:
 
@@ -254,7 +259,11 @@ Useful options:
 | `-DCMAKE_BUILD_TYPE=Debug` | UART logging (`CONFIG_OGXM_DEBUG`) |
 | `-DOGXM_FIXED_DRIVER=STEAM` | Lock one output mode (also `XINPUT`, `PS3`, `WII`, `GAMECUBE`, `N64`, …) |
 | `-DOGXM_FIXED_DRIVER_ALLOW_COMBOS=ON` | Keep combos even when fixed |
-| `-DMAX_GAMEPADS=1` | Gamepad count (multi-pad limits apply; see README) |
+| `-DMAX_GAMEPADS=1` | Gamepad count, 1–4 (default 1; more than one is tested in Wii U mode only, see the README's Limitations) |
+| `-DOGXM_LEGACY_PINOUT=ON` | Pico-header boards: the pins before the common pinout (USB host GP0 / GP1, Dreamcast GP10 / GP11) ([hardware/README.md](../../../hardware/README.md)) |
+| `-DOGXM_HYBRID_PINOUT=ORIGINAL` | The hybrid on upstream OGX-Mini's wiring |
+| `-DMAIN_LOOP_DELAY_US=0` | Main loop delay (default 0; e.g. 250 for lower CPU use) |
+| `-DOGXM_EXT_RGB_PIN=6` / `_COUNT=1` / `_BRIGHTNESS=48` | Pico 2 / Pico 2 W external RGB LED: pin (-1 = none), LEDs (1–4), brightness (1–255) |
 | `-DOGXM_SWITCH2_HID_RAW_LOG=ON` | Debug-only Switch 2 Pro HID hex dumps |
 
 Artifacts appear under the build directory (e.g. `Firmware/RP2040/build/` or `scripts/build/` when using the script).

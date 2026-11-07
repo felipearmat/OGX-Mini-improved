@@ -494,22 +494,9 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOGXM_BOARD=PI_PICO2W -
 cmake --build build
 ```
 
-**Boards (`OGXM_BOARD`):** `PI_PICO`, `PI_PICO2`, `PI_PICOW`, `PI_PICO2W`, `RP2040_ZERO` (Waveshare),
-`RP2350_ZERO` (Waveshare), `RP2350_USB_A` (Waveshare), `RP2040_XIAO` (Seeed), `RP2354`
-(RP2350 + Pi Radio Module 2: Bluetooth like the Pico 2 W, USB-A on GP0 / GP1, LED GP25),
-`ADAFRUIT_FEATHER` (controller on the board's USB-A port; plug it in after boot if it isn't
-detected), `OGX_LIVE`, `EXTERNAL_4CH_I2C` (4-channel), `ESP32_BLUEPAD32_I2C` (RP2040 + ESP32
-hybrid), `ESP32_BLUEPAD32_I2C_PICO2` (the same hybrid on a Pico 2 / Pico 2 W; the Pico 2 W radio
-is not used; both take `-DOGXM_HYBRID_PINOUT=ORIGINAL` for upstream's wiring), `ESP32_BLUERETRO_I2C` (legacy: the ESP32 runs the third-party BlueRetro firmware,
-outside this project's shared Bluetooth code; BlueRetro was archived upstream in December 2025). Maintainer-tested: Pico 2 W, the hybrid on a Pico 2 W (`ESP32_BLUEPAD32_I2C_PICO2`) and on a YD-RP2040 (`ESP32_BLUEPAD32_I2C`, default wiring) (this fork); Feather USB Host, Pico W,
-Pico 2 W, RP2350-USB-A and OGX Live (upstream).
-
-**Options:** `MAX_GAMEPADS` (1–4, default 1; see [Limitations](#limitations)),
-`OGXM_FIXED_DRIVER` / `OGXM_FIXED_DRIVER_ALLOW_COMBOS` (a single-mode build),
-`MAIN_LOOP_DELAY_US` (default 0, e.g. 250 for lower CPU use), the
-[adapter option defaults](#web-app-and-adapter-options), and for the Pico 2 W external RGB LED
-`OGXM_EXT_RGB_PIN` (default 6, -1 = none), `OGXM_EXT_RGB_COUNT` (1–4, default 1),
-`OGXM_EXT_RGB_BRIGHTNESS` (1–255, default 48).
+Every `OGXM_BOARD` value, the build options and the boards tested (build defaults of the adapter
+options: [Web app and adapter options](#web-app-and-adapter-options)):
+[Building from source — manual build](Firmware/RP2040/docs/Building_From_Source.md#5-build-manual-cmake-from-the-command-line).
 
 **ESP32 companion** (Bluetooth side of `ESP32_BLUEPAD32_I2C` and `ESP32_BLUEPAD32_I2C_PICO2`): ESP-IDF 5.5 or newer, then
 `cd Firmware/ESP32 && idf.py build`. Wiring: [hardware/](hardware/README.md#pi-pico--esp32).
