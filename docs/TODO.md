@@ -240,6 +240,8 @@ the plan for them: [ROADMAP.md](ROADMAP.md).
   board freezes. Release builds are fine. Make logging safe across cores (one lock for
   every printf, or a ring buffer drained by one core).
 
+- **Lag felt with the log kept in flash on (the user, 2026-11-06)** — YD-RP2040 hybrid (re-sync build), Joy-Con pair: in a Switch and a PS4 session the Joy-Con (R) fell to 25-60 reports a second for minutes at a time (gaps up to 2.3 s, 18.6 % lost over 43 min in Switch mode), the (L) steady at 88 a second; not tied to rumble (the worst minutes had none, a rumble-heavy stretch was clean). The user felt the same lag on the Pico 2 W once and not in a session without the flash log, so the log in flash is turned off on the dongle until this is understood. The probe does not show flash writes, and one pad clean beside the other does not fit a stall of the whole adapter: next, a session with the log in flash off and the same hand positions (Pico 2 W and hybrid), and the probe marking each flash page write.
+
 ## Closed
 
 Items fixed or settled, kept a while for reference (the CHANGELOG has the full record of each fix).
