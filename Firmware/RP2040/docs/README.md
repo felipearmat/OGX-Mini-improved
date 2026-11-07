@@ -45,6 +45,7 @@ How to use specific output modes and related setup.
 | [Wired_Controllers.md](Wired_Controllers.md) | Supported **wired USB** input pads by host driver (VID/PID lists). |
 | [Flydigi_APEX4_Wukong.md](Flydigi_APEX4_Wukong.md) | **Flydigi APEX 4 Black Myth: Wukong** — wired + Bluetooth modes, limitations, 2.4 GHz untested. |
 | [GameSir_Cyclone2.md](GameSir_Cyclone2.md) | **GameSir Cyclone 2** — wired, 2.4 GHz dongle, and Bluetooth mode matrix. |
+| [GameSir_G7Pro.md](GameSir_G7Pro.md) | **GameSir G7 Pro** — wired support tested on hardware. |
 | [Victrix_Gambit.md](Victrix_Gambit.md) | **Victrix Gambit Tournament Controller / Gambit Prime** — wired Xbox GIP (`0E6F:0250` physically verified). Press Home after connect. |
 | [Controller_Mappings.md](Controller_Mappings.md) | **PadIn** master reference: input → PadIn → every output mode. |
 
