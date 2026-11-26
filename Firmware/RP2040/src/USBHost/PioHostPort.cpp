@@ -106,4 +106,15 @@ void stop()
 
 } // namespace pio_host_port
 
+namespace board_api_usbh {
+
+/* From upstream #154: callers that run pio_usb_host_frame() themselves (feedback, a blocking OUT
+ * wait) skip it while the 1 kHz SOF timer runs it, or the two race and the host wedges. */
+bool sof_timer_active()
+{
+    return pio_host_port::sof_timer_running();
+}
+
+} // namespace board_api_usbh
+
 #endif // CONFIG_EN_USB_HOST && PIO_USB_DP_PIN
