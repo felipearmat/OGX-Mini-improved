@@ -133,6 +133,10 @@ ogxm_add_test(test_device_reports test_device_reports.cpp
     ${DEV}/PS4/PS4.cpp
     ${DEV}/Steam/Steam.cpp
     ${DEV}/Steam/SteamTouchpad.cpp
+    ${DEV}/Switch/Switch.cpp
+    ${DEV}/Switch/SwitchSpi.cpp
+    ${DEV}/Switch/SwitchImu.cpp
+    ${DEV}/Switch/HdRumble.cpp
     ${DEV}/KBM/KBM.cpp
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmSettings.cpp
     ${FW_SRC}/USBDevice/DeviceDriver/KBM/KbmMapper.cpp

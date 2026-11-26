@@ -256,6 +256,7 @@ later fixes reach every board in one PR.
 | 0b97089 | Debug build: 0 warnings in our code (casts, dead helpers, conversion warnings off for ported files) | fork only | Much of it touches fork code; offer the upstream-file parts only if asked. |
 | f456f3f | Build: changing `OGXM_HYBRID_PINOUT` in a build folder moves the pins still at the old defaults | fork only | Upstream has no wiring presets. |
 | 4a9c9df | Debug builds print their log on the probe point's pins (GP8 / GP9 on the Pico-pinout boards) | fork only | Follows the fork's common pinout. |
+| (this commit) | Switch / STEAM outputs applied the profile's button and D-pad mapping a second time, undoing swaps | todo | Upstream has the same `gamepad.MAP_*` tests in `Switch.cpp` and `SteamBtReport.h`. Small, with test. Reported on Discord 2026-11-26. |
 ## Other projects
 
 - wiredopposite/OGX-Mini (original project): dormant; its master is fully in upstream. Issue #118 (L3/R3) and PR #265 (analog axes) match fixes here. Not sending PRs there.
