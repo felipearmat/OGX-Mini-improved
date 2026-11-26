@@ -123,6 +123,7 @@ later fixes reach every board in one PR.
 |---|---|---|---|
 | 802537e | Switch Pro output: L3/R3 swapped | merged #110 | Every pad showed stick clicks inverted in Switch Pro mode. Small, with test. |
 | 3e9aa1e | Switch Pro output: decode host HD rumble properly | merged #116 | Stuck rumble from Steam UI ticks; wrong low-band amplitude. Upstream placed it in `Switch/HdRumble`; the fork follows since the 2026-09-30 sync. |
+| f7fbc48 (delay hook part) | TinyUSB's delay hook (`tusb_time_delay_ms_api`) ran `pio_usb_host_frame()` while the SOF timer ran it too (the reentrancy #154 fixed in the feedback path; the delay runs during every enumeration) | todo | Upstream has the same unguarded call in `Board/board_api.cpp`. One line with #154's `sof_timer_active()`. Not run on hardware yet: send after a wired controller enumerates on a Pico W and a Pico with it. |
 | 727ceb0 | PS3 output: rumble from Linux hosts (hid-sony report 0x01 one byte short) | merged #112 | TinyUSB strips the 0x01 padding byte as a report ID. Small. |
 | 4663f95 | Bluetooth: per-pad state arrays overflowed by Bluetooth slot 1 | merged #111 | Memory corruption on every disconnect of the second slot (right Joy-Con of a pair). High priority. |
 | b0de891 | PS4 output: real motion sensor clock | merged #122 | Bytes 10-11 were a call counter; hosts derive the sample interval from them. One line. |
