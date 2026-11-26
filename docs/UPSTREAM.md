@@ -21,7 +21,7 @@ guide and the diagnostics report in support issues, 2026-10-25). The fork is syn
 own "Firmware rules" CI job (`improved-ci.yml`, so `build.yml` keeps no copy); taken from others:
 #145 (README typo, already right in the fork's README) and #146 (georgboe: BTstack timers that
 ran only on incoming BT packets), whose 2 ms run-loop poll the fork replaced with the cause's fix
-(6473d8c, item 0 below).
+(6473d8c, item 0 below). Taken 2026-11-26: #158 (blamay: the Xbox 360 receiver's rumble stop, upstream #108), with a host test the fork adds (`test_xbox360w_rumble`). Merged upstream 2026-11-20 and not synced yet: #154 (Xess), #155 (pioasm with GCC 15), #157 (CI runners), #160 (standard boards: host line debounce, PIO USB host restart).
 
 0. **Pico SDK timer backports instead of #146's poll** (6473d8c) — #146 polls the BTstack run loop
    every 2 ms because timers ran only when a BT packet came. The cause is two Pico SDK 2.1.0 bugs:

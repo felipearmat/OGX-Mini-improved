@@ -247,3 +247,12 @@ if (OGXM_HAVE_M32)
 else ()
     message(WARNING "No 32-bit toolchain (install gcc-multilib): skipping test_switch_parser")
 endif ()
+
+# Xbox 360 wireless receiver rumble (upstream #108): the driver on a stand-in for tuh_xinput.
+ogxm_add_test(test_xbox360w_rumble test_xbox360w_rumble.cpp
+    ${FW_SRC}/USBHost/HostDriver/XInput/Xbox360W.cpp
+    ${FW_COMMON}/UserSettings/UserProfile.cpp ${FW_COMMON}/UserSettings/JoystickSettings.cpp
+    ${FW_COMMON}/UserSettings/TriggerSettings.cpp)
+target_include_directories(test_xbox360w_rumble BEFORE PRIVATE ${CMAKE_CURRENT_LIST_DIR}/xinput_mock)
+target_compile_definitions(test_xbox360w_rumble PRIVATE CONFIG_OGXM_BOARD_PI_PICO2W=1)
+target_link_libraries(test_xbox360w_rumble PRIVATE fixmath)
