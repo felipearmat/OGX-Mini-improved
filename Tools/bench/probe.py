@@ -13,11 +13,11 @@ must be on (web app, Diagnostics).
   probe.py --mark-played logs/raw/*.bin.gz     the -pad name for kept hours with a controller in them
 
 A session file starts when the adapter's header (once a second) appears and ends when the stream
-stops for --idle seconds or the adapter restarts (its clock goes back). With no controller sending,
-the line of rates is written once a minute, and a session that never had one is named -idle.log and
-kept 14 days (the others are kept). The raw stream is kept too (<dir>/raw, gzip, one file an hour),
-so a session can be decoded again by a newer version: an hour with a controller (-pad) 90 days, an
-hour without one 3 days.
+stops for --idle seconds or the adapter restarts (its clock goes back). Only what had a controller
+is kept: a session that never had one is deleted when it ends, and with none sending the line of
+rates is written once a minute. The raw stream is kept too (<dir>/raw, gzip, one file an hour), so a
+session can be decoded again by a newer version: an hour with a controller (-pad) 90 days, with the
+hour before it (the connection); other hours are deleted.
 """
 import argparse
 import datetime as dt
@@ -159,12 +159,12 @@ class PadClock:
 
 
 class Session:
-    IDLE_LOG_DAYS = 14  # a session that never had a controller (-idle.log)
     IDLE_LINE_S = 60    # with no controller sending, a line of rates this often
 
-    def __init__(self, directory, quiet):
+    def __init__(self, directory, quiet, keep_idle=False):
         self.dir = directory
         self.quiet = quiet
+        self.keep_idle = keep_idle  # keep a session with no controller too (a boot looked into)
         self.file = None
         self.name = None
         self.pad_reports = 0  # every controller report seen, never reset (the raw files' -pad mark)
@@ -228,14 +228,9 @@ class Session:
         os.makedirs(self.dir, exist_ok=True)
         stem = dt.datetime.now().strftime("probe-%Y-%m-%d_%H%M%S")
         name, n = stem + ".log", 1
-        while any(os.path.exists(os.path.join(self.dir, n))  # a restart within the same second
-                  for n in (name, name[:-4] + "-idle.log")):
+        while os.path.exists(os.path.join(self.dir, name)):  # a restart within the same second
             n += 1
             name = f"{stem}-{n}.log"
-        cutoff = time.time() - self.IDLE_LOG_DAYS * 86400
-        for old in glob.glob(os.path.join(self.dir, "probe-*-idle.log")):
-            if os.path.getmtime(old) < cutoff:
-                os.remove(old)
         self.name = os.path.join(self.dir, name)
         self.file = open(self.name, "x", encoding="utf-8")
         self.out(f"# {dt.datetime.now().isoformat(timespec='seconds')} probe session, adapter {ident}")
@@ -248,9 +243,8 @@ class Session:
             self.out(f"# {dt.datetime.now().isoformat(timespec='seconds')} end")
             self.file.close()
             self.file = None
-            if not self.pad_seen:  # nothing played: kept for a while only
-                stem, ext = os.path.splitext(self.name)
-                os.replace(self.name, stem + "-idle" + ext)
+            if not self.pad_seen and not self.keep_idle:  # no controller: nothing worth keeping
+                os.remove(self.name)
         self.reset()
 
     def summary(self):
@@ -593,20 +587,24 @@ def open_port(path):
 
 class RawKeeper:
     """The raw stream, gzipped, one file an hour. An hour with a controller is named -pad and kept
-    PAD_DAYS days, one without IDLE_DAYS (the adapter left plugged in with nothing connected)."""
+    PAD_DAYS days, and so is the hour before it (the controller connecting); the other hours are
+    deleted (the adapter left plugged in with nothing connected)."""
 
     PAD_DAYS = 90
-    IDLE_DAYS = 3
 
     def __init__(self, directory):
         self.dir = os.path.join(directory, "raw")
         self.file = None
         self.hour = None
         self.path = None
+        self.prev = None  # the last hour closed with no controller, until the next one ends
         self.pad = False
 
     def mark_pad(self):
         """A controller sent reports in this hour."""
+        if not self.pad and self.prev and os.path.exists(self.prev):
+            mark(self.prev)  # the connection may have started there
+            self.prev = None
         self.pad = True
 
     def write(self, data):
@@ -623,8 +621,10 @@ class RawKeeper:
     def prune(self):
         now = time.time()
         for old in glob.glob(os.path.join(self.dir, "probe-raw-*.bin.gz")):
-            days = self.PAD_DAYS if old.endswith("-pad.bin.gz") else self.IDLE_DAYS
-            if old != self.path and os.path.getmtime(old) < now - days * 86400:
+            if old.endswith("-pad.bin.gz"):
+                if os.path.getmtime(old) < now - self.PAD_DAYS * 86400:
+                    os.remove(old)
+            elif old not in (self.path, self.prev):
                 os.remove(old)
 
     def close(self):
@@ -633,6 +633,8 @@ class RawKeeper:
             self.file = None
             if self.pad:
                 mark(self.path)
+            else:
+                self.prev = self.path
         self.pad = False
 
 
@@ -697,9 +699,9 @@ def raw_chunks(path):
         start = end
 
 
-def replay(paths, directory, quiet):
+def replay(paths, directory, quiet, keep_idle=False):
     dec = Decoder()
-    ses = Session(directory, quiet)
+    ses = Session(directory, quiet, keep_idle)
     for path in sorted(paths):
         for chunk in raw_chunks(path):
             for fr in dec.feed(chunk):
@@ -717,6 +719,8 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="no output on the terminal")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = run until stopped)")
     ap.add_argument("--no-raw", action="store_true", help="do not keep the raw stream (<dir>/raw)")
+    ap.add_argument("--keep-idle", action="store_true",
+                    help="keep the session files with no controller too (a boot or a mode change looked into)")
     ap.add_argument("--replay", nargs="+", metavar="RAW", help="decode kept raw files (.bin.gz) into session files")
     ap.add_argument("--mark-played", nargs="+", metavar="RAW",
                     help="give the -pad name (kept longer) to the raw files with controller reports in them")
@@ -728,7 +732,7 @@ def main():
                          "O LEVEL DETAILED sets the log options live, M MODE changes the output mode")
     args = ap.parse_args()
     if args.replay:
-        replay(args.replay, args.dir, args.quiet)
+        replay(args.replay, args.dir, args.quiet, args.keep_idle)
         return
     if args.mark_played:
         mark_played(args.mark_played)
@@ -747,7 +751,7 @@ def main():
     pending = b""
     dec = Decoder()
     raw = None if args.no_raw else RawKeeper(args.dir)
-    ses = Session(args.dir, args.quiet)
+    ses = Session(args.dir, args.quiet, args.keep_idle)
     start = time.monotonic()
     port = None
     warned = False

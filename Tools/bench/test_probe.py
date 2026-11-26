@@ -40,8 +40,8 @@ def test_frames_split_and_noise_skipped():
     assert dec.bad > 0
 
 
-def run(tmp_path, frames):
-    ses = probe.Session(str(tmp_path), quiet=True)
+def run(tmp_path, frames, keep_idle=True):
+    ses = probe.Session(str(tmp_path), quiet=True, keep_idle=keep_idle)
     dec = probe.Decoder()
     for f in dec.feed(b"".join(frames)):
         ses.frame(*f)
@@ -260,7 +260,7 @@ def test_the_raw_stream_replays_into_the_same_session(tmp_path):
         f.write(stream[:7])
         f.write(stream[7:])
     out = tmp_path / "out"
-    probe.replay([str(raw)], str(out), True)
+    probe.replay([str(raw)], str(out), True, keep_idle=True)
     (log,) = [p.read_text() for p in out.iterdir()]
     assert "[rp] 1.100 boot STEAM" in log
 
@@ -277,7 +277,7 @@ def test_a_raw_file_with_a_cut_member_still_replays(tmp_path):
     raw = tmp_path / "raw.bin.gz"
     raw.write_bytes(cut + later)
     out = tmp_path / "out"
-    probe.replay([str(raw)], str(out), True)
+    probe.replay([str(raw)], str(out), True, keep_idle=True)
     logs = "".join(p.read_text() for p in out.iterdir())
     assert "[rp] 1.100 boot STEAM" in logs and "slot 0 ready" in logs
 
@@ -290,54 +290,61 @@ def test_boot_events_kept_while_the_header_is_late(tmp_path):
     assert "[rp] 0.100 boot SWITCH" in log
 
 
-def test_no_controller_one_line_a_minute_and_the_session_named_idle(tmp_path):
-    frames = [hello(1_000_000 + i * 1_000_000) for i in range(130)]  # 130 s, nothing connected
-    run(tmp_path, frames)
-    (name,) = [p.name for p in tmp_path.iterdir()]
-    assert name.endswith("-idle.log")
-    log = (tmp_path / name).read_text()
-    assert log.count(" rate: ") == 3  # seconds 2, 62 and 122
+def test_a_session_with_no_controller_is_not_kept_and_idle_lines_once_a_minute(tmp_path):
+    run(tmp_path, [hello(1_000_000 + i * 1_000_000) for i in range(130)], keep_idle=False)  # nothing connected
+    assert list(tmp_path.iterdir()) == []
 
-    played = tmp_path / "played"
-    frames = [hello(1_000_000 + i * 1_000_000) for i in range(5)]
-    frames += [report(5_500_000, 0), hello(6_000_000), hello(7_000_000), hello(8_000_000)]
-    run(played, frames)
-    (name,) = [p.name for p in played.iterdir()]
-    assert not name.endswith("-idle.log")
-    log = (played / name).read_text()
+    frames = [hello(1_000_000 + i * 1_000_000) for i in range(130)]
+    frames += [report(130_500_000, 0), hello(131_000_000), hello(132_000_000), hello(133_000_000)]
+    (log,) = run(tmp_path, frames, keep_idle=False)
     assert "slot 0 1/s" in log
-    assert log.count(" rate: ") == 3  # the idle one, the second with the report, the first quiet one after
+    # seconds 2, 62 and 122 with nothing, the second with the report, the first quiet one after
+    assert log.count(" rate: ") == 5
 
 
-def test_raw_hours_with_a_controller_kept_longer(tmp_path):
-    keeper = probe.RawKeeper(str(tmp_path))
-    keeper.write(hello(1_000_000))
-    keeper.mark_pad()
-    keeper.close()
+def test_raw_hours_kept_only_with_a_controller(tmp_path, monkeypatch):
+    hour = ["2026-01-01_10"]
+
+    class Clock:
+        @staticmethod
+        def now():
+            class T:
+                def strftime(self, _):
+                    return hour[0]
+            return T()
+    monkeypatch.setattr(probe.dt, "datetime", Clock)
     raw = tmp_path / "raw"
-    (pad,) = [p for p in raw.iterdir()]
-    assert pad.name.endswith("-pad.bin.gz")
-    # the service restarted within the hour: the second file joins the first
     keeper = probe.RawKeeper(str(tmp_path))
-    keeper.write(report(2_000_000, 0))
+    keeper.write(hello(1_000_000))          # 10h: nothing
+    hour[0] = "2026-01-01_11"
+    keeper.write(hello(2_000_000))          # 11h: nothing; 10h kept until 11h ends
+    assert sorted(p.name for p in raw.iterdir()) == ["probe-raw-2026-01-01_10.bin.gz", "probe-raw-2026-01-01_11.bin.gz"]
+    hour[0] = "2026-01-01_12"
+    keeper.write(hello(3_000_000))          # 12h: 10h deleted
+    assert sorted(p.name for p in raw.iterdir()) == ["probe-raw-2026-01-01_11.bin.gz", "probe-raw-2026-01-01_12.bin.gz"]
+    keeper.write(report(3_100_000, 0))
+    keeper.mark_pad()                       # a controller at 12h: 11h (its connection) kept too
+    hour[0] = "2026-01-01_13"
+    keeper.write(hello(4_000_000))
+    keeper.close()
+    assert sorted(p.name for p in raw.iterdir()) == [
+        "probe-raw-2026-01-01_11-pad.bin.gz", "probe-raw-2026-01-01_12-pad.bin.gz", "probe-raw-2026-01-01_13.bin.gz"]
+    # the service restarted within a played hour: the second file joins the first
+    hour[0] = "2026-01-01_12"
+    keeper = probe.RawKeeper(str(tmp_path))
+    keeper.write(report(5_000_000, 0))
     keeper.mark_pad()
     keeper.close()
-    assert [p.name for p in raw.iterdir()] == [pad.name]
+    pad = raw / "probe-raw-2026-01-01_12-pad.bin.gz"
     dec = probe.Decoder()
     got = [f[0] for c in probe.raw_chunks(str(pad)) for f in dec.feed(c)]
-    assert got == [probe.HELLO, probe.REPORT]
-
-    old = time.time() - 10 * 86400
-    idle = raw / "probe-raw-2000-01-01_00.bin.gz"
-    idle.write_bytes(b"")
-    os.utime(idle, (old, old))
+    assert got == [probe.HELLO, probe.REPORT, probe.REPORT]
+    old = time.time() - 100 * 86400
     os.utime(pad, (old, old))
-    keeper = probe.RawKeeper(str(tmp_path))
+    hour[0] = "2026-01-01_14"
     keeper.write(b"x")
     keeper.close()
-    names = sorted(p.name for p in raw.iterdir())
-    assert idle.name not in names  # an hour with nothing: 3 days
-    assert pad.name in names       # an hour played: 90 days
+    assert not pad.exists()                 # 90 days
 
 
 def test_mark_played_names_the_old_files(tmp_path):
