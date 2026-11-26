@@ -19,7 +19,7 @@ Tools/bench/run_bench.py --solo PI_PICO2W.uf2 --hybrid ESP32_BLUEPAD32_I2C_PICO2
 | `capture_pad.py` | not a test: records a controller's raw input reports (through the adapter's `RAW_CAPTURE`, or a PC hidraw node) through a script of labelled actions, for the fixture tests ([fixtures](../../Firmware/RP2040/tests/fixtures/README.md)) |
 | `hd_rumble.py` | not a test: HD Rumble patterns written to the adapter in Switch mode (hidraw, Linux) for a Joy-Con / Pro Controller to play ([HD_Rumble.md](../../Firmware/RP2040/docs/HD_Rumble.md)) |
 | `ab_link.py` | not a test: compares firmware builds' radio link on the hybrid. `run` / `summary`: rounds in D-Input/Debug with the controllers still. `soak` / `soak-summary`: hours in STEAM mode with PC rumble, figures from the flash log; it waits for `<out>/go-<NAME>` because the adapter cannot tell whether both Joy-Cons connected, and for the combos it prints |
-| `test_probe.py` | `probe.py`'s decoder and session files from frames built in the test (no board): split frames and noise, text sent before the first header, gaps, no gaps while a controller connects again, a restart starts a new file |
+| `test_probe.py` | `probe.py`'s decoder and session files from frames built in the test (no board): split frames and noise, text sent before the first header, gaps, no gaps while a controller connects again, a restart starts a new file, one rate line a minute with no controller and the `-idle` name, raw hours with a controller kept longer (`-pad`) |
 | `test_logger.py` | `logger.py` against the firmware's virtual adapter on a pseudo-terminal (no board): kept log and first report recorded, each line once across runs, dropped bytes reported, old files cleaned up |
 
 ## Logger
@@ -62,9 +62,13 @@ the adapter's events (`[rp]`, the hybrid's `[esp]`), a line per second with the 
 by the host, each controller's reports), each controller report later than 50 ms (not while it
 connects again), rumble on / off, and at the end each controller's longest gap, the input-to-output
 latency and the probe's own cost (the adapter measures it: about 0.1% of a core on a Pico 2 W). The adapter sends only raw records
-(Board/DebugProbe.h); the figures are worked out here. The raw stream is kept as well (`<dir>/raw`, gzip, one file an hour, 14 days; `--no-raw` to
-skip): `probe.py --replay <dir>/raw/probe-raw-*.bin.gz --dir out` decodes it again, for example
-with a newer `probe.py`. It holds RTS on and DTR off, which keeps an
+(Board/DebugProbe.h); the figures are worked out here. With no controller sending, the line of
+rates is written once a minute, and a session that never had a controller is named `-idle.log` and
+deleted after 14 days (sessions with one are kept). The raw stream is kept as well (`<dir>/raw`,
+gzip, one file an hour; `--no-raw` to skip): an hour with controller reports is named `-pad` and
+kept 90 days, an hour without them 3 days. `probe.py --replay <dir>/raw/probe-raw-*.bin.gz --dir out`
+decodes it again, for example with a newer `probe.py`; `probe.py --mark-played <dir>/raw/*.bin.gz`
+gives the `-pad` name to hours kept before the mark existed. It holds RTS on and DTR off, which keeps an
 ESP32 board used as the reader in reset. With the reader's TX wired to GP5, `--send O LEVEL DETAILED`
 sets the log options live and `--send M MODE` changes the output mode, in any mode (commands for
 automated tests, [Debug mode](../../Firmware/RP2040/docs/Debug_Mode.md#commands-to-the-adapter-automated-tests)).

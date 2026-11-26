@@ -1,6 +1,7 @@
 """probe.py's decoder and session files, from frames built here (no board)."""
 import os
 import struct
+import time
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -287,3 +288,64 @@ def test_boot_events_kept_while_the_header_is_late(tmp_path):
     frames += [hello(70_000_000)]
     (log,) = run(tmp_path, frames)
     assert "[rp] 0.100 boot SWITCH" in log
+
+
+def test_no_controller_one_line_a_minute_and_the_session_named_idle(tmp_path):
+    frames = [hello(1_000_000 + i * 1_000_000) for i in range(130)]  # 130 s, nothing connected
+    run(tmp_path, frames)
+    (name,) = [p.name for p in tmp_path.iterdir()]
+    assert name.endswith("-idle.log")
+    log = (tmp_path / name).read_text()
+    assert log.count(" rate: ") == 3  # seconds 2, 62 and 122
+
+    played = tmp_path / "played"
+    frames = [hello(1_000_000 + i * 1_000_000) for i in range(5)]
+    frames += [report(5_500_000, 0), hello(6_000_000), hello(7_000_000), hello(8_000_000)]
+    run(played, frames)
+    (name,) = [p.name for p in played.iterdir()]
+    assert not name.endswith("-idle.log")
+    log = (played / name).read_text()
+    assert "slot 0 1/s" in log
+    assert log.count(" rate: ") == 3  # the idle one, the second with the report, the first quiet one after
+
+
+def test_raw_hours_with_a_controller_kept_longer(tmp_path):
+    keeper = probe.RawKeeper(str(tmp_path))
+    keeper.write(hello(1_000_000))
+    keeper.mark_pad()
+    keeper.close()
+    raw = tmp_path / "raw"
+    (pad,) = [p for p in raw.iterdir()]
+    assert pad.name.endswith("-pad.bin.gz")
+    # the service restarted within the hour: the second file joins the first
+    keeper = probe.RawKeeper(str(tmp_path))
+    keeper.write(report(2_000_000, 0))
+    keeper.mark_pad()
+    keeper.close()
+    assert [p.name for p in raw.iterdir()] == [pad.name]
+    dec = probe.Decoder()
+    got = [f[0] for c in probe.raw_chunks(str(pad)) for f in dec.feed(c)]
+    assert got == [probe.HELLO, probe.REPORT]
+
+    old = time.time() - 10 * 86400
+    idle = raw / "probe-raw-2000-01-01_00.bin.gz"
+    idle.write_bytes(b"")
+    os.utime(idle, (old, old))
+    os.utime(pad, (old, old))
+    keeper = probe.RawKeeper(str(tmp_path))
+    keeper.write(b"x")
+    keeper.close()
+    names = sorted(p.name for p in raw.iterdir())
+    assert idle.name not in names  # an hour with nothing: 3 days
+    assert pad.name in names       # an hour played: 90 days
+
+
+def test_mark_played_names_the_old_files(tmp_path):
+    import gzip
+    a, b = tmp_path / "probe-raw-2026-01-01_10.bin.gz", tmp_path / "probe-raw-2026-01-01_11.bin.gz"
+    with gzip.open(a, "wb") as f:
+        f.write(hello(1_000_000) + report(1_100_000, 0))
+    with gzip.open(b, "wb") as f:
+        f.write(hello(1_000_000))
+    probe.mark_played([str(a), str(b)])
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["probe-raw-2026-01-01_10-pad.bin.gz", b.name]
