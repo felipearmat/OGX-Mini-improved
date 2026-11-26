@@ -10,6 +10,8 @@
 //  - PS4 / STEAM: input GET_REPORT with a report ID repeated the ID TinyUSB already adds.
 //  - KBM (mouse + keyboard mode): pad buttons / sticks reach the keyboard, mouse and media-key
 //    interfaces; reports only go out on change; the descriptors match TinyUSB's boot layouts.
+//  - Switch / STEAM: the output added the profile's mapping a second time, so a swap made in the
+//    web app (Share <-> touchpad press) came back unswapped and a one-way remap pressed two buttons.
 //  - Remote wakeup: Switch / DInput / PS Classic / Wii U signalled it on every loop while suspended,
 //    so a host that enables wakeup woke right after suspending, with no press.
 #include <cstring>
@@ -21,6 +23,7 @@
 #include "USBDevice/DeviceDriver/PS4/PS4.h"
 #include "USBDevice/DeviceDriver/Steam/Steam.h"
 #include "USBDevice/DeviceDriver/Steam/SteamBtReport.h"
+#include "USBDevice/DeviceDriver/Switch/Switch.h"
 #include "USBDevice/DeviceDriver/Sony/SonyReports.h"
 #include "UserSettings/UserProfile.h"
 #include "USBDevice/DeviceDriver/KBM/KBM.h"
@@ -578,3 +581,67 @@ TEST(kbm_descriptors) {
 }
 
 TEST_MAIN()
+
+namespace {
+/* A web app swap: Share (Back) does Capture / Mute (Misc) and the touchpad press (Misc) does
+ * Minus / Share (Back); the D-pad up and down swapped too. */
+UserProfile swapped_profile() {
+    UserProfile p;
+    p.button_back = Gamepad::BUTTON_MISC;
+    p.button_misc = Gamepad::BUTTON_BACK;
+    p.dpad_up = Gamepad::DPAD_DOWN;
+    p.dpad_down = Gamepad::DPAD_UP;
+    return p;
+}
+}  // namespace
+
+TEST(switch_output_applies_the_profile_mapping_once) {
+    // 2026-11-26, Discord: a DS4 in Switch mode with Share and the touchpad press swapped still
+    // sent Minus for Share. Host drivers already map (Share sets MAP_BUTTON_BACK); the Switch
+    // output mapped again with the same masks and undid the swap.
+    Gamepad gp;
+    gp.set_profile(swapped_profile(), DeviceDriverType::SWITCH);
+    SwitchDevice dev;
+    dev.initialize();
+    Gamepad::PadIn in{};
+    in.buttons = gp.MAP_BUTTON_BACK;  // Share, as the DS4 host driver maps it
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_last_report[0], SwitchPro::REPORT_ID_STANDARD);
+    CHECK((g_last_report[4] & SwitchPro::Btn::CAPTURE) != 0);
+    CHECK((g_last_report[4] & SwitchPro::Btn::MINUS) == 0);
+
+    in = Gamepad::PadIn{};
+    in.buttons = gp.MAP_BUTTON_MISC;  // the touchpad press (no touchpad on this output)
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK((g_last_report[4] & SwitchPro::Btn::MINUS) != 0);
+    CHECK((g_last_report[4] & SwitchPro::Btn::CAPTURE) == 0);
+
+    in = Gamepad::PadIn{};
+    in.dpad = gp.MAP_DPAD_UP;  // up pressed, mapped to down
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_last_report[5] & 0x0F, SwitchPro::HAT_DOWN);
+}
+
+TEST(steam_output_applies_the_profile_mapping_once) {
+    Gamepad gp;
+    gp.set_profile(swapped_profile(), DeviceDriverType::STEAM);
+    SteamDevice dev;
+    dev.initialize();
+    SteamPassthrough::clear();
+    Gamepad::PadIn in{};
+    in.buttons = gp.MAP_BUTTON_BACK;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK((g_last_report[sony_reports::ds5::kButtons2] & PS5::Buttons2::MUTE) != 0);
+    CHECK((g_last_report[9] & PS5::Buttons1::SHARE) == 0);
+
+    in = Gamepad::PadIn{};
+    in.dpad = gp.MAP_DPAD_UP;
+    gp.set_pad_in(in);
+    dev.process(0, gp);
+    CHECK_EQ(g_last_report[8] & 0x0F, PS5::Buttons0::DPAD_DOWN);
+    SteamPassthrough::clear();
+}
