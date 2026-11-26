@@ -236,6 +236,33 @@ TEST(button_bits_are_stable) {
     CHECK_EQ(GamepadBits::ANALOG_OFF_RB, 9);
 }
 
+TEST(mode_combos_follow_the_users_layout) {
+    // The user's layout (2026-11-26): Start + D-pad for the four most used modes, Start + RB +
+    // D-pad for the next four, Start + LB + D-pad for the rest.
+    using B = GamepadBits;
+    auto mode_of = [](uint32_t c) {
+        for (const auto& e : mode_combos::MODE_COMBOS)
+            if (e.combo == c) return static_cast<int>(e.driver);
+        return -1;
+    };
+    const uint16_t S = B::BUTTON_START, RB = B::BUTTON_RB, LB = B::BUTTON_LB;
+    CHECK_EQ(mode_of(mode_combos::combo(S, B::DPAD_UP)), static_cast<int>(DeviceDriverType::XINPUT));
+    CHECK_EQ(mode_of(mode_combos::combo(S, B::DPAD_RIGHT)), static_cast<int>(DeviceDriverType::STEAM));
+    CHECK_EQ(mode_of(mode_combos::combo(S, B::DPAD_DOWN)), static_cast<int>(DeviceDriverType::SWITCH));
+    CHECK_EQ(mode_of(mode_combos::combo(S, B::DPAD_LEFT)), static_cast<int>(DeviceDriverType::DINPUT_DEBUG));
+    CHECK_EQ(mode_of(mode_combos::combo(S | RB, B::DPAD_UP)), static_cast<int>(DeviceDriverType::XBOXOG));
+    CHECK_EQ(mode_of(mode_combos::combo(S | RB, B::DPAD_RIGHT)), static_cast<int>(DeviceDriverType::PS4));
+    CHECK_EQ(mode_of(mode_combos::combo(S | RB, B::DPAD_DOWN)), static_cast<int>(DeviceDriverType::WIIU));
+    CHECK_EQ(mode_of(mode_combos::combo(S | RB, B::DPAD_LEFT)), static_cast<int>(DeviceDriverType::KBM));
+    CHECK_EQ(mode_of(mode_combos::combo(S | LB, B::DPAD_UP)), static_cast<int>(DeviceDriverType::PS3));
+    CHECK_EQ(mode_of(mode_combos::combo(S | LB, B::DPAD_RIGHT)), static_cast<int>(DeviceDriverType::PSCLASSIC));
+    CHECK_EQ(mode_of(mode_combos::combo(S | LB, B::DPAD_DOWN)), static_cast<int>(DeviceDriverType::XBOXOG_SB));
+    CHECK_EQ(mode_of(mode_combos::combo(S | LB, B::DPAD_LEFT)), static_cast<int>(DeviceDriverType::XBOXOG_XR));
+    // Holding RB with Start + Up is the RB combo, not XInput's.
+    CHECK_EQ(mode_combos::find_matching_combo(mode_combos::combo(S | RB, B::DPAD_UP)),
+             mode_combos::combo(S | RB, B::DPAD_UP));
+}
+
 TEST(mode_combos_are_unique) {
     // Both firmwares read the combos from this table; two modes on one combo would be ambiguous.
     for (size_t i = 0; i < mode_combos::MODE_COMBOS.size(); ++i)

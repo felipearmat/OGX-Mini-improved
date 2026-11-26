@@ -265,7 +265,7 @@ Face buttons use **Nintendo names on the wire**; mapping from PadIn is **crossed
 
 ### SteamOS / Bazzite (STEAM mode)
 
-**Select mode:** **Start + Left Bumper + D-pad Up** (~3 s).
+**Select mode:** **Start + D-pad Right** (~3 s).
 
 Enumerates as **DualSense** (`054c:0ce6`) plus a **HID mouse** interface. **DualSense input** (BT or wired USB): gamepad report is **passthrough**; touchpad → separate **mouse** interface. **Other input:** report is **synthesized** from PadIn using the mapping below (in OGX-Mini-improved also motion, DS4 touch points / click, battery; host lightbar and rumble reach the pad); **no stick-mouse fallback**.
 

@@ -478,7 +478,7 @@ static void apply_mode_lightbar(int idx);
 
 static void check_led_cb(btstack_timer_source *ts)
 {
-    /* Custom: the mode's blink code, then the search for new controllers (Board/StatusLed.h);
+    /* Custom: the search for new controllers (Board/StatusLed.h);
      * a wired USB host controller active on the Pico W mux counts as no search. */
     static status_led::Indicator s_led;  // shared with the hybrid's two boards (Board/StatusLed.h)
 
@@ -1054,7 +1054,7 @@ static uni_error_t device_ready_cb(uni_hid_device_t* device) {
     bt_pad::setup_on_ready(device, static_cast<uint8_t>(pad_idx), MotionOutputActive::is_enabled());
 
     /* Custom: the LED timer keeps running: check_led_cb shows the search state (solid once the
-     * search stops, after the boot mode blink code). */
+     * search stops). */
     schedule_mode_lightbar(device, idx);
     if (!feedback_timer_set_) {
         feedback_timer_set_ = true;
@@ -1444,7 +1444,6 @@ void init(Gamepad(&gamepads)[MAX_GAMEPADS])
      * adapter looks for it; a known partner always reconnects). */
     uni_hid_parser_switch_set_joycon_pairing(true);
 
-    mode_indicator::begin(UserSettings::get_instance().get_current_driver());
     led_timer_set_ = true;
     led_timer_.process = check_led_cb;
     led_timer_.context = nullptr;

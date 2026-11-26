@@ -12,8 +12,8 @@ It does **not** enable native **PlayStation 4 console output** by itself. **PS4 
 
 | | |
 |--|--|
-| **Select PS3 mode** | **Start + D-pad Left** (~3 s) |
-| **Select PS4 mode** | **Start + Left Bumper + D-pad Left** (~3 s) |
+| **Select PS3 mode** | **Start + Left Bumper + D-pad Up** (~3 s) |
+| **Select PS4 mode** | **Start + Right Bumper + D-pad Right** (~3 s) |
 | **Supported input (BT — Pico W / Pico 2 W)** | DualShock 4, DualSense, Switch Pro, **Wii Remote** (accelerometer) |
 | **Supported input (wired USB host)** | DualShock 4, DualSense, Switch 1 Pro, Switch 2 Pro |
 | **Wii Remote** | Point the **IR end at the TV**; motion is enabled automatically when motion output is active |

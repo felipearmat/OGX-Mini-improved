@@ -10,7 +10,7 @@ pip install pyserial esptool
 python3 ogxm_hybrid.py ports
 ```
 
-The adapter must be in **D-Input/Debug mode** (hold Start + RB + Left about 3 s on a controller, or pick it
+The adapter must be in **D-Input/Debug mode** (hold Start + Left about 3 s on a controller, or pick it
 in the web app): it then shows up as a USB serial port the tool talks to (the web app's `SYSTEM`
 command, 0x75).
 

@@ -6,7 +6,7 @@ Use this mode on **SteamOS**, **Bazzite**, or other **Linux desktops** (includin
 
 | Method | Combo / option |
 |--------|----------------|
-| **Button combo** | Hold **Start + Left Bumper + D-pad Up** for ~3 seconds (saved to flash; device resets) |
+| **Button combo** | Hold **Start + D-pad Right** for ~3 seconds (saved to flash; device resets) |
 | **Web app** | Output mode **SteamOS / Bazzite** |
 | **Fixed build** | `-DOGXM_FIXED_DRIVER=STEAM` (also in `./scripts/build.sh` / `build.ps1` fixed-mode menu) |
 

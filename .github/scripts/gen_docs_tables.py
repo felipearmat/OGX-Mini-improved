@@ -4,7 +4,7 @@ drift from the code.
 
 Sources:
   Firmware/common/UserSettings/ModeCombos.h            button combos (MODE_COMBOS), hybrid modes (HYBRID_MODES)
-  Firmware/common/Board/ModeIndicator.cpp          LED blink count and lightbar colour per mode
+  Firmware/common/Board/ModeIndicator.cpp          LED and lightbar colour per mode
   Firmware/common/USBDevice/DeviceDriver/DeviceDriverTypes.h   the list of modes
 
 The table sits between these markers in README.md:
@@ -27,21 +27,21 @@ END = "<!-- END GENERATED: mode-table -->"
 # Display name, what the host sees, notes. Order = order in the table.
 MODE_INFO = {
     "XINPUT": ("XInput", "Xbox 360 controller", "PC, Steam, Xbox 360 console (authenticates like an original pad)"),
+    "STEAM": ("STEAM", "DualSense + mouse", "Steam / SteamOS / Bazzite; touchpad as mouse"),
     "SWITCH": ("Switch Pro", "Switch Pro Controller", "Switch / Switch 2 / Lite, PC; motion and HD rumble"),
     "DINPUT_DEBUG": ("D-Input/Debug", "generic gamepad + the web app's serial port", "PC and other hosts that take a generic gamepad; the web app connects over USB in this mode"),
-    "PS4": ("PS4", "DualShock 4", "PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter"),
-    "STEAM": ("STEAM", "DualSense + mouse", "Steam / SteamOS / Bazzite; touchpad as mouse"),
     "XBOXOG": ("Original Xbox", "Xbox controller (Duke)", "Original Xbox console"),
+    "PS4": ("PS4", "DualShock 4", "PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter"),
+    "WIIU": ("GameCube adapter (Wii U / Switch)", "Wii U GameCube adapter", "Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers"),
+    "KBM": ("Mouse + Keyboard", "keyboard + mouse + media keys", "PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard"),
+    "PS3": ("PS3", "DualShock 3", "PS3 console (motion for Sixaxis games), PC"),
+    "PSCLASSIC": ("PS Classic", "PlayStation Classic controller", "PlayStation Classic console"),
     "XBOXOG_SB": ("Original Xbox: Steel Battalion", "Steel Battalion controller", "Original Xbox console"),
     "XBOXOG_XR": ("Original Xbox: DVD remote", "Xbox DVD remote", "Original Xbox console (only in builds with the remote ROM)"),
-    "PS3": ("PS3", "DualShock 3", "PS3 console (motion for Sixaxis games), PC"),
-    "KBM": ("Mouse + Keyboard", "keyboard + mouse + media keys", "PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard"),
-    "PSCLASSIC": ("PS Classic", "PlayStation Classic controller", "PlayStation Classic console"),
-    "WIIU": ("GameCube adapter (Wii U / Switch)", "Wii U GameCube adapter", "Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers"),
-    "WII": ("Wii", "Wiimote over Bluetooth", "Wii / Wii U; Pico W / Pico 2 W with a wired USB controller"),
     "PS1PS2": ("PS1 / PS2", "PlayStation controller (wired)", "PS1 / PS2 through the controller cable; Pico W / Pico 2 W"),
-    "GAMECUBE": ("GameCube", "GameCube controller (wired)", "GameCube / Wii GameCube ports; Pico W / Pico 2 W"),
     "DREAMCAST": ("Dreamcast", "Dreamcast controller (wired)", "Dreamcast through the controller cable; Pico W / Pico 2 W"),
+    "WII": ("Wii", "Wiimote over Bluetooth", "Wii / Wii U; Pico W / Pico 2 W with a wired USB controller"),
+    "GAMECUBE": ("GameCube", "GameCube controller (wired)", "GameCube / Wii GameCube ports; Pico W / Pico 2 W"),
     "N64": ("N64", "N64 controller (wired)", "N64 through the controller cable; Pico W / Pico 2 W"),
 }
 NOT_A_MODE = {"NONE", "UART_BRIDGE", "WEBAPP"}  # internal states (WEBAPP: the former Web App mode, now DINPUT_DEBUG)
@@ -108,12 +108,11 @@ def parse_switch(text: str, function: str):
 
 def parse_indicator(repo: pathlib.Path):
     text = (repo / "Firmware/common/Board/ModeIndicator.cpp").read_text()
-    blinks = {k: re.search(r"return (\d+)", v).group(1) for k, v in parse_switch(text, "blink_count").items()}
     colours = {}
     for k, v in parse_switch(text, "lightbar_color").items():
         comment = re.search(r"//\s*([^(]+)", v)
         colours[k] = comment.group(1).strip() if comment else "?"
-    return blinks, colours
+    return colours
 
 
 def render(repo: pathlib.Path) -> str:
@@ -125,15 +124,14 @@ def render(repo: pathlib.Path) -> str:
     if stale:
         fail("MODE_INFO entries for modes that no longer exist: " + ", ".join(stale))
     combos, hybrid = parse_combos(repo)
-    blinks, colours = parse_indicator(repo)
-    rows = ["| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | RP2040 + ESP32 | For |",
-            "|---|---|---|---|---|---|---|"]
+    colours = parse_indicator(repo)
+    rows = ["| Mode | Combo (hold ~3 s) | Host sees | Colour (LED, lightbar) | RP2040 + ESP32 | For |",
+            "|---|---|---|---|---|---|"]
     for mode in MODE_INFO:
         name, sees, notes = MODE_INFO[mode]
         combo = combos.get(mode, f"fixed build: `-DOGXM_FIXED_DRIVER={mode}`")
-        blink = blinks.get(mode, blinks.get("__default__", "?"))
         colour = colours.get(mode, colours.get("__default__", "?"))
-        rows.append(f"| {name} | {combo} | {sees} | {blink} | {colour} | {'yes' if mode in hybrid else '—'} | {notes} |")
+        rows.append(f"| {name} | {combo} | {sees} | {colour} | {'yes' if mode in hybrid else '—'} | {notes} |")
     return "\n".join(rows)
 
 

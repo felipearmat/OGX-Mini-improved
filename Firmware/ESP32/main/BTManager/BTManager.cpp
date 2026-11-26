@@ -75,8 +75,7 @@ void BTManager::run_task()
     link_diag::set_poll_latency_us(5000);  // each Classic pad polled at least every 5 ms
     uni_hid_parser_switch_set_pair_imu_side(joycon_settings::get().pair_imu_right);
 
-    /* Board LED: the output mode's blink code after boot (Board/ModeIndicator.h), then the search
-     * state, as on the Pico W. */
+    /* Board LED: the output mode's colour and the search state, as on the Pico W. */
     begin_mode_indicator(UserSettings::get_instance().get_current_driver());
     led_timer_.process = check_led_cb;
     led_timer_.context = nullptr;
@@ -190,7 +189,7 @@ bool BTManager::any_connected()
     return false;
 }
 
-/* LED: the mode blink code first; then fast blink = full search, slow blink = reduced search,
+/* LED: fast blink = full search, slow blink = reduced search,
  * solid = no search (every slot in use), as on the Pico W (Board/StatusLed.h), on the GPIO LED and
  * the external RGB one. Several LEDs (several RP2040s): one per output, solid when its pad is
  * connected. */
@@ -253,10 +252,9 @@ void BTManager::check_led_cb(btstack_timer_source *ts)
     btstack_run_loop_add_timer(ts);
 }
 
-/* The output mode's blink code; its colour follows on the next LED step (color_generation). */
+/* The output mode's colour on the LED; later changes follow on the next LED step (color_generation). */
 void BTManager::begin_mode_indicator(DeviceDriverType driver)
 {
-    mode_indicator::begin(driver);
     uint8_t r, g, b;
     mode_indicator::shown_color(driver, r, g, b);
     board_api::set_led_color(r, g, b);
@@ -378,7 +376,7 @@ void BTManager::driver_update_timer_cb(btstack_timer_source *ts)
     btstack_run_loop_add_timer(ts);
 }
 
-/* A new output mode: profiles (they depend on it), the blink code, the lightbar colour. A real
+/* A new output mode: profiles (they depend on it), the LED and lightbar colour. A real
  * mode change (not the first copy at boot) also turns the controllers off first when the adapter
  * option asks for it, as the Pico W does. */
 void BTManager::adopt_driver(DeviceDriverType driver, bool mode_change)

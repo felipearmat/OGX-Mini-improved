@@ -170,7 +170,7 @@ marked where they are described.
 
 | Method | Detail |
 |--------|--------|
-| **Button combo** | **Start + Left Bumper + D-pad Up** — hold ~3 s; saved to flash; RP2040 resets |
+| **Button combo** | **Start + D-pad Right** — hold ~3 s; saved to flash; RP2040 resets |
 | **Web app** | Output mode **SteamOS / Bazzite** (value `16`) |
 | **Fixed build** | **`-DOGXM_FIXED_DRIVER=STEAM`** — also option **13** in `scripts/build.sh` / `build.ps1` fixed-mode menu |
 
@@ -231,7 +231,7 @@ sudo evtest   # select the mouse interface; drag touchpad for REL_X / REL_Y
 
 | Item | Detail |
 |------|--------|
-| **Output modes** | **PS3** (Start + D-pad Left) — Sixaxis in the DS3 report; **PS4** (Start + LB + D-pad Left) — Brook-style accel/gyro in the DS4 report |
+| **Output modes** | **PS3** (Start + LB + D-pad Up) — Sixaxis in the DS3 report; **PS4** (Start + RB + D-pad Right) — Brook-style accel/gyro in the DS4 report |
 | **Input — Bluetooth (Pico W / Pico 2 W)** | **DualShock 4**, **DualSense**, **Switch Pro**, **Wii Remote** (accel only; **0x31** report requested when motion output is active) |
 | **Input — wired USB host** | **DualShock 4**, **DualSense**, **Switch 1 Pro**, **Switch 2 Pro** (IMU parsed from full HID payload) |
 | **Wii Remote hold** | Point **IR end toward the TV**; roll/pitch tuned for that orientation |
@@ -876,7 +876,7 @@ A configurable sensitivity gain is applied to the analog sticks in Switch Pro em
 | **Steam Controller 2026** | **Triton BLE** (`28de:1303`) on Pico W / Pico 2 W / RP2354 — HOGP parser, **LE Secure Connections**, lizard-off, rumble, **~7.5–11 ms** conn interval, View→Start / Menu→Back. See [§ Steam Controller 2026](#steam-controller-2026-triton--bluetooth). |
 | **Boards** | RP2350_ZERO, RP2040_XIAO supported (Standard/PIO-USB host). **RP2354:** RP2350 + **Pi Radio Module 2** — **Bluetooth** + PIO USB host (Pico 2 W firmware path). **RP2350-USB-A (Waveshare):** v1.0.0.11a validation for **Switch Pro, DualShock 3, 360 wireless receiver**, and **Razer Atrox XBO** wired host. |
 | **Latency** | Main loop delay default **0 µs**; `tud_task()` before `process()` so reports send every loop when ready; XInput/Switch/PS3 send latest state when USB ready (no `new_pad_in()` gate). Switch Pro and PS3 always build report every loop so host poll (`get_report`) and IN push both see current state — only remaining delay is BT radio when wireless. |
-| **STEAM (SteamOS / Bazzite)** | **Start + LB + D-pad Up** (~3 s), web app, or **`-DOGXM_FIXED_DRIVER=STEAM`**. USB **DualSense** (`054c:0ce6`) + **HID mouse**. **DualSense input:** passthrough report + **touchpad → mouse** (BT or wired USB host). **Other pads:** synthesized DualSense report; **no stick-mouse fallback**. See [§ STEAM mode](#steam-mode--steamos--bazzite-linux-desktop). |
+| **STEAM (SteamOS / Bazzite)** | **Start + D-pad Right** (~3 s), web app, or **`-DOGXM_FIXED_DRIVER=STEAM`**. USB **DualSense** (`054c:0ce6`) + **HID mouse**. **DualSense input:** passthrough report + **touchpad → mouse** (BT or wired USB host). **Other pads:** synthesized DualSense report; **no stick-mouse fallback**. See [§ STEAM mode](#steam-mode--steamos--bazzite-linux-desktop). |
 | **Motion (PS3/PS4 out)** | Accel/gyro passthrough into emulated DS3/DS4 from DS4/DS5/Switch Pro/SW2/Wii Remote. Console use needs **Brook Wingman XE 2** (or similar). See [§ motion passthrough](#ps3--ps4-output--motion-passthrough). |
 | **Build** | Interactive scripts `scripts/build.sh` (Linux/macOS) and `scripts/build.ps1` (Windows) for board selection, fixed/default mode (**STEAM**, PS4, Wii, etc.), and Release/Debug; output in `scripts/build/`. See [README](../../../README.md) Build section. |
 | **Bluetooth (Pico W / 2 W / RP2354)** | **DS4 / Classic ACL:** BLE advertising **paused** while Classic pad connected; **BR inquiry stopped** during ACL; **no DS4 virtual mouse**; **6 s PS4 rumble** grace. **Xbox Series / SCUF Instinct (BLE):** Just Works HOGP, seeded Report Map on CYW43, no stall disconnect when idle; keepalive 12 s. after last **ready** pad disconnects, restore pairing mode then **watchdog reboot** (~500 ms); **USB resume** + **45 s** idle scan watchdog restore pairing without reboot; **LE Secure Connections** for pads that require it (e.g. Triton); **Steam Controller 2026** HOGP parser. **Switch 2 (BLE):** Pro 2 + Joy-Con 2 L/R — custom GATT parser, rumble keepalive, Home latch, **L+R merge**, **dual-half latency fixes**. **Switch 1 Joy-Con (Classic BT):** L+R merge, IMU off when paired. **General:** `sleep_ms(1)` main loop; lock-free BT pad-in (**2-slot** staging for Joy-Con pairs). ~**1 s connection rumble** at `device_ready` (DS4 delayed start). |

@@ -26,22 +26,25 @@ namespace mode_combos {
 
     using B = GamepadBits;
 
-    /* Wii, GameCube and N64 are fixed builds only (OGXM_FIXED_DRIVER), without a combo. */
+    /* The user's layout (2026-11-26): Start + D-pad for the modes most people use, Start + RB +
+     * D-pad for the next four, Start + LB + D-pad for the rest; the wired console modes on Start +
+     * a face button. Wii, GameCube and N64 are fixed builds only (OGXM_FIXED_DRIVER), without a
+     * combo. */
     constexpr std::array<ModeCombo, 14> MODE_COMBOS = {{
-        { combo(B::BUTTON_START,                                 B::DPAD_RIGHT), DeviceDriverType::XBOXOG    },
-        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_SB },
-        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_RIGHT), DeviceDriverType::XBOXOG_XR },
-        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_UP),    DeviceDriverType::KBM       },
-        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_LEFT),  DeviceDriverType::DINPUT_DEBUG    },
-        { combo(B::BUTTON_START,                                 B::DPAD_DOWN),  DeviceDriverType::SWITCH    },
-        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_DOWN),  DeviceDriverType::WIIU      },
-        { combo(B::BUTTON_START,                                 B::DPAD_UP),    DeviceDriverType::XINPUT    },
-        { combo(B::BUTTON_START,                                 B::DPAD_LEFT),  DeviceDriverType::PS3       },
-        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_LEFT),  DeviceDriverType::PS4       },
-        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_UP),    DeviceDriverType::STEAM     },
-        { combo(B::BUTTON_START | B::BUTTON_A),                                  DeviceDriverType::PSCLASSIC },
-        { combo(B::BUTTON_START | B::BUTTON_B),                                  DeviceDriverType::PS1PS2    },
-        { combo(B::BUTTON_START | B::BUTTON_Y),                                  DeviceDriverType::DREAMCAST },
+        { combo(B::BUTTON_START,                                 B::DPAD_UP),    DeviceDriverType::XINPUT       },
+        { combo(B::BUTTON_START,                                 B::DPAD_RIGHT), DeviceDriverType::STEAM        },
+        { combo(B::BUTTON_START,                                 B::DPAD_DOWN),  DeviceDriverType::SWITCH       },
+        { combo(B::BUTTON_START,                                 B::DPAD_LEFT),  DeviceDriverType::DINPUT_DEBUG },
+        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_UP),    DeviceDriverType::XBOXOG       },
+        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_RIGHT), DeviceDriverType::PS4          },
+        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_DOWN),  DeviceDriverType::WIIU         },
+        { combo(B::BUTTON_START | B::BUTTON_RB,                  B::DPAD_LEFT),  DeviceDriverType::KBM          },
+        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_UP),    DeviceDriverType::PS3          },
+        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_RIGHT), DeviceDriverType::PSCLASSIC    },
+        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_DOWN),  DeviceDriverType::XBOXOG_SB    },
+        { combo(B::BUTTON_START | B::BUTTON_LB,                  B::DPAD_LEFT),  DeviceDriverType::XBOXOG_XR    },
+        { combo(B::BUTTON_START | B::BUTTON_B),                                  DeviceDriverType::PS1PS2       },
+        { combo(B::BUTTON_START | B::BUTTON_Y),                                  DeviceDriverType::DREAMCAST    },
     }};
 
     /* Modes of the RP2040 + ESP32 hybrid (ESP32_BLUEPAD32_I2C*): the USB modes. Left out: the GPIO

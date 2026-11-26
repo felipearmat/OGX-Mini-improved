@@ -48,7 +48,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 
 | # | Steps | Expected |
 |---|---|---|
-| 1.1 | Power the hybrid with no controller | ESP32 LED: the mode's blink code, then fast blink (searching) |
+| 1.1 | Power the hybrid with no controller | ESP32 LED: the mode colour, fast blink (searching) |
 | 1.2 | Pair a DS4 | connection rumble; ESP32 LED solid (search off with the slot in use) |
 | 1.3 | Disconnect the DS4 (hold PS), wait | ESP32 restarts about 0.5 s later; LED back to fast blink; the PC still sees the USB pad (neutral, no stuck buttons) |
 | 1.4 | Turn the DS4 on again | reconnects without pairing again |
@@ -102,7 +102,7 @@ The Pico W path was moved onto the same shared code. With `PI_PICO2W` on the Pic
 | # | Steps | Expected |
 |---|---|---|
 | 6.1 | Each mode combo in the [mode table](../README.md#output-modes) for the hybrid's modes | mode changes (Pico restarts in it); ESP32 LED shows the new blink code |
-| 6.2 | Mode combo with an extra button held (e.g. Start + LB + Up + A) | the longest matching combo wins (STEAM here) |
+| 6.2 | Mode combo with an extra button held (e.g. Start + LB + Up + A) | the longest matching combo wins (PS3 here; STEAM before 2026-11-26) |
 | 6.3 | Web app: turn one mode's combo off, try it | nothing happens; D-Input/Debug mode combo always works |
 | 6.4 | Lone Joy-Con: Start (+) with the stick held at the edge | acts as the D-pad for the combo |
 | 6.5 | Start + Select 3 s (L3 + R3 on an OUYA pad) | disconnects (a Joy-Con is asked to sleep), ESP32 restarts, PC sees a neutral pad |

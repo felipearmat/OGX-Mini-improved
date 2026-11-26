@@ -4,8 +4,7 @@
 #include <cstdint>
 
 /*  The adapter's status LED, the same on every board that has one (custom addition, not
- *  upstream): the output mode's blink code after boot (Board/ModeIndicator.h), then blinking
- *  while the adapter searches for new controllers (fast = full search, slow = reduced search,
+ *  upstream): blinking while the adapter searches for new controllers (fast = full search, slow = reduced search,
  *  Bluepad32/ScanPolicy.h) and solid when it does not (every slot in use, search times used up or
  *  stopped from the controller, a wired controller in use).
  *
@@ -57,7 +56,7 @@ namespace status_led {
     {
     public:
         /* Call again after `next_ms`. Sets `on` to the state to show now; returns true when the
-         * LED must be written (it changed, or the blink code is playing), so boards where a write
+         * LED must be written (it changed, or the alert is playing), so boards where a write
          * costs a bus transfer (the Pico W's LED is on the CYW43) only write on a change. */
         bool step(Search search, bool& on, uint32_t& next_ms) { bool alert; return step(search, false, on, next_ms, alert); }
         /* The same with the battery alert: `critical` a controller's battery is critical; `alert`
@@ -78,7 +77,7 @@ namespace status_led {
     /* One status LED tick, shared by the Pico W (Bluepad32.cpp), the hybrid's RP2040
      * (ESP32_Bluepad32_I2C.cpp) and its ESP32 (BTManager.cpp): the mode colour written again when
      * it changes (a colour saved or previewed in the web app, a mode change), the blink restarted
-     * when the LED options change, then the blink code / search / battery alert (Blinker), the
+     * when the LED options change, then the search / battery alert (Blinker), the
      * alert in dim red and back to the mode colour. Each board passes what it reads (its search
      * state, its LED options) and how it writes its LED. Returns when to call again (ms). */
     class Indicator

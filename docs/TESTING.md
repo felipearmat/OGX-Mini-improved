@@ -72,7 +72,7 @@ patches to the `bluepad32` submodule, the same way the firmware build does.
 | `test_esp32_bridge` | I2C link of the RP2040 + ESP32 hybrid: packet layout byte by byte, mode IDs and button bits (shared by both firmwares in `Firmware/common`); mode combos unique and holding Start; every hybrid mode reachable by combo and none of them a GPIO or Wii mode; who decides the mode at start-up, and a mode combo on an ESP32 that has not got the RP2040's settings yet (the RP2040 needs the same combo request twice within 2 s). |
 | `test_bt_shared` | Bluepad32 code shared by the Pico W and the hybrid's ESP32 (`Firmware/common/Bluepad32`): disconnect combo hold and grace, profile mapper, mode combos (lone Joy-Con stick as D-pad, Start + L3), the restart after the last pad waiting in the first minute after a start, the battery level logged as low, the touchpad press as Misc only on outputs without a touchpad. |
 | `test_spin_lock_budget` | Claimed spin locks stay within the Pico SDK's 8 (one more freezes a Release build at boot). |
-| `test_mode_indicator` | Boot blink code and lightbar colour per output mode; status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct); the shared status LED (`StatusLed`): blink code first, fast / slow blink by search state, solid without search, written only on a change. |
+| `test_mode_indicator` | Lightbar / status LED colour per output mode (one per mode a combo reaches); status LED colour scaled to its brightness (lit channels stay visible, modes stay distinct); the shared status LED (`StatusLed`): blink code first, fast / slow blink by search state, solid without search, written only on a change. |
 
 Checked at build time instead: the Bluetooth per-pad arrays stay sized for every Bluetooth slot
 (`static_assert`s in `Bluepad32.cpp`).
@@ -123,7 +123,7 @@ it: this one against the web app's master, the web app's against this repository
 Two scripts keep the docs in line with the code; CI runs both (job `docs`):
 
 - `python3 .github/scripts/gen_docs_tables.py --check` — the README's output-mode table (combos,
-  LED blinks, lightbar colours) is generated from the firmware source
+  colours) is generated from the firmware source
   (`UserSettings.cpp`, `ModeIndicator.cpp`, `DeviceDriverTypes.h`). After changing a mode, a combo
   or a colour, run it without `--check` to rewrite the table. A new mode needs a row in its
   `MODE_INFO`, or the check fails.

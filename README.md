@@ -141,8 +141,8 @@ is listed under [Building from source](#building-from-source).
 
 A DualShock 4 / DualSense lightbar shows the mode colour until the host sets its own colour. An
 optional external WS2812B LED on the Pico 2 W (GP6) or on the ESP32 hybrid (Pico 2 GP6 or ESP32
-GPIO 4) repeats the blink code and states in the
-mode colour: [wiring](hardware/README.md#external-rgb-status-led).
+GPIO 4) shows the mode colour, blinking while it searches for controllers (each mode has its own colour;
+there is no blink code): [wiring](hardware/README.md#external-rgb-status-led).
 
 ## Output modes
 
@@ -150,25 +150,25 @@ Hold the combo for about **3 seconds**. On a DualShock 4 / DualSense, Start = Op
 LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 
 <!-- BEGIN GENERATED: mode-table (edit .github/scripts/gen_docs_tables.py, not this table) -->
-| Mode | Combo (hold ~3 s) | Host sees | LED blinks | Lightbar | RP2040 + ESP32 | For |
-|---|---|---|---|---|---|---|
-| XInput | Start + Up | Xbox 360 controller | 1 | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
-| Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
-| D-Input/Debug | Start + RB + Left | generic gamepad + the web app's serial port | 3 | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
-| PS4 | Start + LB + Left | DualShock 4 | 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
-| STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
-| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light green | yes | Original Xbox console |
-| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light green | — | Original Xbox console |
-| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light green | — | Original Xbox console (only in builds with the remote ROM) |
-| PS3 | Start + Left | DualShock 3 | 7 | light blue | yes | PS3 console (motion for Sixaxis games), PC |
-| Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | yellow | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
-| PS Classic | Start + A | PlayStation Classic controller | 7 | lilac | yes | PlayStation Classic console |
-| GameCube adapter (Wii U / Switch) | Start + LB + Down | Wii U GameCube adapter | 7 | pink | yes | Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers |
-| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | red-orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
-| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | lilac | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
-| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | salmon | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
-| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | orange | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
-| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | salmon | — | N64 through the controller cable; Pico W / Pico 2 W |
+| Mode | Combo (hold ~3 s) | Host sees | Colour (LED, lightbar) | RP2040 + ESP32 | For |
+|---|---|---|---|---|---|
+| XInput | Start + Up | Xbox 360 controller | green | yes | PC, Steam, Xbox 360 console (authenticates like an original pad) |
+| STEAM | Start + Right | DualSense + mouse | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
+| Switch Pro | Start + Down | Switch Pro Controller | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
+| D-Input/Debug | Start + Left | generic gamepad + the web app's serial port | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
+| Original Xbox | Start + RB + Up | Xbox controller (Duke) | light green | yes | Original Xbox console |
+| PS4 | Start + RB + Right | DualShock 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
+| GameCube adapter (Wii U / Switch) | Start + RB + Down | Wii U GameCube adapter | pink | yes | Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers |
+| Mouse + Keyboard | Start + RB + Left | keyboard + mouse + media keys | yellow | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
+| PS3 | Start + LB + Up | DualShock 3 | light blue | yes | PS3 console (motion for Sixaxis games), PC |
+| PS Classic | Start + LB + Right | PlayStation Classic controller | lilac | yes | PlayStation Classic console |
+| Original Xbox: Steel Battalion | Start + LB + Down | Steel Battalion controller | azure | — | Original Xbox console |
+| Original Xbox: DVD remote | Start + LB + Left | Xbox DVD remote | royal blue | — | Original Xbox console (only in builds with the remote ROM) |
+| PS1 / PS2 | Start + B | PlayStation controller (wired) | violet | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
+| Dreamcast | Start + Y | Dreamcast controller (wired) | coral | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
+| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | red-orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
+| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | salmon | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
+| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | salmon | — | N64 through the controller cable; Pico W / Pico 2 W |
 <!-- END GENERATED: mode-table -->
 
 - **Other combos:** **Start + Select** for 3 s disconnects the controller (Options + Share on a
@@ -255,7 +255,7 @@ browser (Chrome, Edge, Brave) and talks to the adapter over USB or Bluetooth —
 install. It edits button mappings, stick deadzones and curves, trigger thresholds and profiles,
 the Mouse + Keyboard layout, the adapter options below, and shows live input and diagnostics.
 
-- **Over USB:** switch the adapter to **D-Input/Debug** mode (Start + RB + Left), plug it into the PC, press
+- **Over USB:** switch the adapter to **D-Input/Debug** mode (Start + Left), plug it into the PC, press
   *Connect via USB*.
 - **Over Bluetooth:** press *Connect via Bluetooth*; no mode change needed (see the Bluetooth
   Classic note under [Controllers](#bluetooth-pico-w--pico-2-w--rp2354)).

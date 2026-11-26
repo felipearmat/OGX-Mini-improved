@@ -1,17 +1,10 @@
 #include "Board/StatusLed.h"
-#include "Board/ModeIndicator.h"
 
 namespace status_led {
 
 bool Blinker::step(Search search, bool critical, bool& on, uint32_t& next_ms, bool& alert)
 {
     alert = false;
-    if (mode_indicator::next_step(on, next_ms))
-    {
-        shown_ = -1;
-        return true;
-    }
-
     if (!critical) {
         alert_left_ = 0;
         since_alert_ms_ = kAlertEveryMs;  // the next critical battery alerts at once

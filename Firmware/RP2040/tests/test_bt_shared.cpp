@@ -117,10 +117,10 @@ TEST(mode_combo_fires_after_three_seconds) {
 }
 
 TEST(extra_buttons_do_not_block_and_the_longest_combo_wins) {
-    mode_combos::ComboCheck check;  // Start + LB + Up is STEAM, not XInput (Start + Up)
+    mode_combos::ComboCheck check;  // Start + LB + Up is PS3, not XInput (Start + Up)
     const auto r = hold(check, GamepadBits::BUTTON_START | GamepadBits::BUTTON_LB | GamepadBits::BUTTON_A,
                         GamepadBits::DPAD_UP);
-    CHECK_EQ(static_cast<int>(r.new_driver), static_cast<int>(DeviceDriverType::STEAM));
+    CHECK_EQ(static_cast<int>(r.new_driver), static_cast<int>(DeviceDriverType::PS3));
 }
 
 TEST(lone_joycon_stick_stands_in_for_the_dpad) {
@@ -146,13 +146,13 @@ TEST(disabled_mode_combo_does_nothing) {
 }
 
 TEST(dinput_debug_cannot_be_turned_off) {
-    // D-Input/Debug is where the web app connects: its combo (Start + RB + Left) works whatever
+    // D-Input/Debug is where the web app connects: its combo (Start + Left) works whatever
     // the mask says. Start + LB + RB, the former Web App mode combo, is free.
     dongle_settings::Settings settings = dongle_settings::defaults();
     settings.combo_disabled_modes = 1u << static_cast<uint8_t>(DeviceDriverType::DINPUT_DEBUG);
     CHECK(dongle_settings::mode_combo_enabled(settings, static_cast<uint8_t>(DeviceDriverType::DINPUT_DEBUG)));
     mode_combos::ComboCheck debug;
-    CHECK_EQ(static_cast<int>(hold(debug, GamepadBits::BUTTON_START | GamepadBits::BUTTON_RB, GamepadBits::DPAD_LEFT,
+    CHECK_EQ(static_cast<int>(hold(debug, GamepadBits::BUTTON_START, GamepadBits::DPAD_LEFT,
                                    false, 0, 0, settings).new_driver),
              static_cast<int>(DeviceDriverType::DINPUT_DEBUG));
     mode_combos::ComboCheck freed;

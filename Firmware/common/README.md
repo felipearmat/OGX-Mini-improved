@@ -23,7 +23,7 @@ Sources here are built by both the RP2040 / RP2350 firmware (`Firmware/RP2040`, 
 | `Bluepad32/JoyConSettings.*` | Joy-Con motion orientation and pair rumble (dongle options) |
 | `UserSettings/ComboCheck.h` | mode combos, Start + L3, a lone Joy-Con's stick as the D-pad, combos turned off in the web app |
 | `UserSettings/DongleSettings.*` | the dongle options (web app); on the hybrid the RP2040 sends them to the ESP32 |
-| `Board/ModeIndicator.*` | blink code and lightbar colour per output mode |
+| `Board/ModeIndicator.*` | lightbar / status LED colour per output mode |
 | `Gamepad/Lightbar.h`, `Gamepad/MotionSource.h` | a lightbar colour; where a pad's motion comes from (crosses the I2C link) |
 
 The platform keeps only what differs: its time source, how it reboots, and where a pad's input

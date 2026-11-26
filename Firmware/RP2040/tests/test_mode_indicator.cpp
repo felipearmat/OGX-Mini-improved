@@ -1,70 +1,21 @@
-// Boot blink code and lightbar colour per output mode; the shared status LED.
+// Lightbar / status LED colour per output mode (no blink code since 2026-11-26); the shared status LED.
 #include <vector>
 
 #include "Board/ModeIndicator.h"
 #include "Board/StatusLed.h"
 #include "test.h"
 
-namespace {
-
-// Plays the whole code and returns how many "LED on" steps it had.
-int count_blinks(DeviceDriverType mode) {
-    mode_indicator::begin(mode);
-    int on_steps = 0;
-    bool led_on = false;
-    uint32_t ms = 0;
-    for (int guard = 0; guard < 1000 && mode_indicator::next_step(led_on, ms); ++guard) {
-        CHECK(ms > 0);
-        on_steps += led_on ? 1 : 0;
-    }
-    CHECK(!mode_indicator::active());
-    return on_steps;
-}
-
-}  // namespace
-
-TEST(blink_count_per_mode) {
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XINPUT), 1);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::SWITCH), 2);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::DINPUT_DEBUG), 3);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS4), 4);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::STEAM), 5);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG), 6);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::XBOXOG_SB), 6);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::PS3), 7);
-    CHECK_EQ(mode_indicator::blink_count(DeviceDriverType::KBM), 8);
-}
-
-TEST(code_is_played_twice_then_stops) {
-    CHECK_EQ(count_blinks(DeviceDriverType::XINPUT), 2);
-    CHECK_EQ(count_blinks(DeviceDriverType::SWITCH), 4);
-    CHECK_EQ(count_blinks(DeviceDriverType::XBOXOG), 12);
-    bool led_on = true;
-    uint32_t ms = 0;
-    CHECK(!mode_indicator::next_step(led_on, ms));
-}
-
-TEST(each_repetition_ends_with_led_off_pause) {
-    mode_indicator::begin(DeviceDriverType::SWITCH);
-    bool led_on = false;
-    uint32_t ms = 0;
-    // 2 blinks = on, off, on, off, then the pause.
-    for (int i = 0; i < 4; ++i)
-        mode_indicator::next_step(led_on, ms);
-    mode_indicator::next_step(led_on, ms);
-    CHECK(!led_on);
-    CHECK(ms >= 1000);
-}
-
 TEST(lightbar_colours_are_distinct) {
-    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants).
+    // Every mode a combo switches to has its own colour (the mode is told by it); the fixed builds
+    // (Wii, GameCube = N64) only need to differ from those.
     const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
                                       DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
                                       DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
-                                      DeviceDriverType::PS4,       DeviceDriverType::STEAM,
-                                      DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
-                                      DeviceDriverType::DINPUT_DEBUG};
+                                      DeviceDriverType::XBOXOG_SB, DeviceDriverType::XBOXOG_XR,
+                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PSCLASSIC,
+                                      DeviceDriverType::PS3,       DeviceDriverType::PS4,
+                                      DeviceDriverType::STEAM,     DeviceDriverType::KBM,
+                                      DeviceDriverType::DREAMCAST, DeviceDriverType::DINPUT_DEBUG};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -94,14 +45,16 @@ TEST(led_colour_scales_and_keeps_lit_channels_visible) {
 }
 
 TEST(led_colours_stay_distinct_at_default_brightness) {
-    // One mode per colour (GameCube = N64, PS1/PS2 = PS Classic, the Xbox variants).
+    // Every mode a combo switches to has its own colour (the mode is told by it); the fixed builds
+    // (Wii, GameCube = N64) only need to differ from those.
     const DeviceDriverType modes[] = {DeviceDriverType::SWITCH,    DeviceDriverType::WIIU,
                                       DeviceDriverType::WII,       DeviceDriverType::GAMECUBE,
                                       DeviceDriverType::XINPUT,    DeviceDriverType::XBOXOG,
-                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PS3,
-                                      DeviceDriverType::PS4,       DeviceDriverType::STEAM,
-                                      DeviceDriverType::KBM,       DeviceDriverType::DREAMCAST,
-                                      DeviceDriverType::DINPUT_DEBUG};
+                                      DeviceDriverType::XBOXOG_SB, DeviceDriverType::XBOXOG_XR,
+                                      DeviceDriverType::PS1PS2,    DeviceDriverType::PSCLASSIC,
+                                      DeviceDriverType::PS3,       DeviceDriverType::PS4,
+                                      DeviceDriverType::STEAM,     DeviceDriverType::KBM,
+                                      DeviceDriverType::DREAMCAST, DeviceDriverType::DINPUT_DEBUG};
     constexpr int kModes = sizeof(modes) / sizeof(modes[0]);
     uint32_t colours[kModes];
     for (int i = 0; i < kModes; ++i) {
@@ -115,19 +68,12 @@ TEST(led_colours_stay_distinct_at_default_brightness) {
             CHECK(colours[i] != colours[j]);
 }
 
-TEST(status_led_plays_the_code_then_blinks_while_searching) {
+TEST(status_led_blinks_while_searching_from_the_start) {
+    // No blink code first (removed 2026-11-26): the search state from the first step.
     using status_led::Search;
     status_led::Blinker led;
     bool on = false;
     uint32_t ms = 0;
-    mode_indicator::begin(DeviceDriverType::XINPUT);
-    int code_steps = 0;
-    while (mode_indicator::active()) {
-        CHECK(led.step(Search::FULL, on, ms));  // every code step is written
-        ++code_steps;
-    }
-    CHECK_EQ(code_steps, 6);  // (on, off, pause) twice
-
     CHECK(led.step(Search::FULL, on, ms));
     const bool first = on;
     CHECK_EQ(ms, status_led::kFastBlinkMs);

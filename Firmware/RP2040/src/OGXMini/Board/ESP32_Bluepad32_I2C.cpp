@@ -1044,7 +1044,6 @@ void esp32_bp32_i2c::run() {
      * reboots that arm the watchdog themselves (mode change, flash writes) never come back here. */
     watchdog_enable(kHangWatchdogMs, true);
     boot_stage::set(boot_stage::Stage::RUNNING);
-    mode_indicator::begin(_current_driver);
 
     while (true) {
         watchdog_update();

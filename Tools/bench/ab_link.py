@@ -346,7 +346,7 @@ def soak(args):
         go = args.out / f"go-{name}"  # motion cannot tell one Joy-Con from two: someone confirms
         if not (args.already_running and name == next(iter(builds))):
             go.unlink(missing_ok=True)
-            adapter = wait_for(debug_port, f"{name}: put the adapter in D-Input/Debug (Start + RB + Left, 3 s)")
+            adapter = wait_for(debug_port, f"{name}: put the adapter in D-Input/Debug (Start + Left, 3 s)")
             adapter.close()
             notify(f"{name}: flashing")
             flash_pico(next(build.glob("*.uf2")))
@@ -359,7 +359,7 @@ def soak(args):
         wait_for(go.exists, f"{name}: combo for STEAM mode, connect both Joy-Cons, then confirm ({go.name})")
         notify(f"{name}: running {args.hours} h, leave the controllers still")
         lost = steam_rumble(args.hours)
-        wait_for(debug_port_free, f"{name}: done. Combo for D-Input/Debug (Start + RB + Left, 3 s)")
+        wait_for(debug_port_free, f"{name}: done. Combo for D-Input/Debug (Start + Left, 3 s)")
         time.sleep(5)
         subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / "logger.py"), "--dir",
                         str(args.out / name), "--once"], capture_output=True)

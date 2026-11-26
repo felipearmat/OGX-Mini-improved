@@ -6,18 +6,12 @@
 
 #include "USBDevice/DeviceDriver/DeviceDriverTypes.h"
 
-/*  Visual feedback of the active output mode (custom addition, not upstream).
- *
- *  - Onboard LED (Pico W / Pico 2 W, green only): after boot, blinks N times for the
- *    mode number, pauses, and repeats the code REPEATS times. Normal LED behaviour
- *    (blink while searching / solid when connected) resumes afterwards.
- *  - DualShock 4 / DualSense lightbar: colour per mode, applied shortly after connect.
- *  - External WS2812 LED (Pico 2 W): the same blink code and LED states, in the mode colour.
+/*  The active output mode's colour (custom addition, not upstream): on the DualShock 4 /
+ *  DualSense lightbar (applied shortly after connect) and on an RGB status LED. No blink code
+ *  (removed 2026-11-26, the user's decision): a plain LED only shows the search and the battery
+ *  alert (Board/StatusLed.h).
  */
 namespace mode_indicator {
-
-    // Mode number shown by the blink code (1..7).
-    uint8_t blink_count(DeviceDriverType driver);
 
     // Lightbar colour for the mode.
     void lightbar_color(DeviceDriverType driver, uint8_t& r, uint8_t& g, uint8_t& b);
@@ -58,16 +52,6 @@ namespace mode_indicator {
     // Changes whenever a custom colour or the override changes, so the boards re-apply the
     // lightbar and the status LED colour.
     uint32_t color_generation();
-
-    // Start the boot blink code for this mode.
-    void begin(DeviceDriverType driver);
-
-    // True while the blink code is still playing.
-    bool active();
-
-    // Advance one step: returns false when the code has finished; otherwise sets the LED
-    // state to apply now and how long to keep it.
-    bool next_step(bool& led_on, uint32_t& duration_ms);
 
 } // namespace mode_indicator
 
