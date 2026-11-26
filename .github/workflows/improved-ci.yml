@@ -7,7 +7,7 @@ name: OGX-Mini-improved CI
 
 on:
   push:
-    branches: ["master", "main", "phase*"]
+    branches: ["master", "main", "phase*", "debug-probe"]
   pull_request:
   workflow_dispatch:
 

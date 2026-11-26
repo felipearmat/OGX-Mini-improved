@@ -156,19 +156,19 @@ LB = L1; on Joy-Cons, Start = +. The default mode (first boot) is Original Xbox.
 | Switch Pro | Start + Down | Switch Pro Controller | 2 | red | yes | Switch / Switch 2 / Lite, PC; motion and HD rumble |
 | D-Input/Debug | Start + RB + Left | generic gamepad + the web app's serial port | 3 | white | yes | PC and other hosts that take a generic gamepad; the web app connects over USB in this mode |
 | PS4 | Start + LB + Left | DualShock 4 | 4 | blue | yes | PC (complete DS4: touchpad, motion, lightbar); a PS4 console needs a licensed auth adapter |
-| STEAM | Start + LB + Up | DualSense + mouse | 5 | lilac | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
-| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light lime | yes | Original Xbox console |
-| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light lime | — | Original Xbox console |
-| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light lime | — | Original Xbox console (only in builds with the remote ROM) |
-| PS3 | Start + Left | DualShock 3 | 7 | cyan | yes | PS3 console (motion for Sixaxis games), PC |
+| STEAM | Start + LB + Up | DualSense + mouse | 5 | purple | yes | Steam / SteamOS / Bazzite; touchpad as mouse |
+| Original Xbox | Start + Right | Xbox controller (Duke) | 6 | light green | yes | Original Xbox console |
+| Original Xbox: Steel Battalion | Start + RB + Right | Steel Battalion controller | 6 | light green | — | Original Xbox console |
+| Original Xbox: DVD remote | Start + LB + Right | Xbox DVD remote | 6 | light green | — | Original Xbox console (only in builds with the remote ROM) |
+| PS3 | Start + Left | DualShock 3 | 7 | light blue | yes | PS3 console (motion for Sixaxis games), PC |
 | Mouse + Keyboard | Start + RB + Up | keyboard + mouse + media keys | 8 | yellow | yes | PCs, BIOS / UEFI, smart TVs, consoles that take a mouse and keyboard |
-| PS Classic | Start + A | PlayStation Classic controller | 7 | light azure | yes | PlayStation Classic console |
-| GameCube adapter (Wii U / Switch) | Start + LB + Down | Wii U GameCube adapter | 7 | light red | yes | Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers |
-| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
-| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | light azure | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
-| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | magenta | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
-| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | light blue-violet | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
-| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | magenta | — | N64 through the controller cable; Pico W / Pico 2 W |
+| PS Classic | Start + A | PlayStation Classic controller | 7 | lilac | yes | PlayStation Classic console |
+| GameCube adapter (Wii U / Switch) | Start + LB + Down | Wii U GameCube adapter | 7 | pink | yes | Wii U (Super Smash Bros.), Switch / Switch 2 (games that take GameCube controllers), Dolphin; the one mode tested with several controllers |
+| Wii | fixed build: `-DOGXM_FIXED_DRIVER=WII` | Wiimote over Bluetooth | 7 | red-orange | — | Wii / Wii U; Pico W / Pico 2 W with a wired USB controller |
+| PS1 / PS2 | Start + B | PlayStation controller (wired) | 7 | lilac | — | PS1 / PS2 through the controller cable; Pico W / Pico 2 W |
+| GameCube | fixed build: `-DOGXM_FIXED_DRIVER=GAMECUBE` | GameCube controller (wired) | 7 | salmon | — | GameCube / Wii GameCube ports; Pico W / Pico 2 W |
+| Dreamcast | Start + Y | Dreamcast controller (wired) | 7 | orange | — | Dreamcast through the controller cable; Pico W / Pico 2 W |
+| N64 | fixed build: `-DOGXM_FIXED_DRIVER=N64` | N64 controller (wired) | 7 | salmon | — | N64 through the controller cable; Pico W / Pico 2 W |
 <!-- END GENERATED: mode-table -->
 
 - **Other combos:** **Start + Select** for 3 s disconnects the controller (Options + Share on a
