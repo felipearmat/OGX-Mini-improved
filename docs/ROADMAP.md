@@ -184,6 +184,8 @@ every mode, chosen only from the web app: there is no way to switch mappings fro
   profile page (output picker, combo shown per profile); the LED colour per profile (the output's
   colour, or the profile's own); GPIO outputs that need their own build; the hybrid's settings over
   I2C; whether to offer it upstream (a large change to the settings format).
+- **Plan:** [PLAN_PROFILES_INSTEAD_OF_MODES.md](PLAN_PROFILES_INSTEAD_OF_MODES.md) (a combo → output + profile
+  table, recommended over changing the profile record).
 
 ## Wish list (not scheduled)
 
