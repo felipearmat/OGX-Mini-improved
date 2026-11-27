@@ -16,6 +16,7 @@ dongle) are in [Research notes](../Firmware/RP2040/docs/Research_Notes.md).
 | 6 | [RP2040 + ESP32 hybrid](#6-rp2040--esp32-hybrid) | Tested on hardware (Pico 2 W and YD-RP2040 boards, one controller); several players and range left |
 | 7 | [Smaller items](#7-smaller-items) | Planned |
 | 8 | [ESP32 multi-slave and the 4-channel board](#8-esp32-multi-slave-and-the-4-channel-board) | Last: after features, compatibility and maintainability |
+| 9 | [Profiles instead of modes](#9-profiles-instead-of-modes) | Proposed (2026-11-27); place in the order to be decided |
 
 ## 0. D-Input/Debug as a full debug mode
 
@@ -161,6 +162,28 @@ Last on the list: features, controller compatibility and maintainability come fi
 - **4-channel I2C board** (`EXTERNAL_4CH_I2C`, four RP2040s, wired controllers): works on its own
   with its own I2C protocol and its own USB host bring-up; moving both to the shared code
   (`Firmware/common/I2C`, `USBHost/PioHostPort`) only if the board stays in use.
+
+## 9. Profiles instead of modes
+
+Proposed by the maintainer (2026-11-27), from upstream issue #152 (a quick way to invert the right
+stick for games with a forced inverted camera). Today a mode is only the output (what the adapter
+presents itself as) and the profile (button / stick / trigger mappings) is one per player for
+every mode, chosen only from the web app: there is no way to switch mappings from the controller.
+
+- **A profile is an output plus its mappings.** Each profile says which controller the adapter
+  presents itself as (XInput, STEAM / DualSense, Switch Pro, D-Input, ...) and its mappings,
+  colour and options. The mode combos select profiles; the default profiles are today's modes with
+  default mappings, so nothing changes for someone who never edits them.
+- **Quick switch:** two profiles with the same output and different mappings (inverted right stick,
+  swapped buttons) switched by their combos in game, with no web app.
+- **D-Input/Debug fixed on Start + RB + LB**, not editable, so the web app can always be reached
+  whatever the profiles hold. This moves D-Input/Debug off Start + Left, freeing a combo.
+- **To work out:** a profile with the same output switches at once, a different output needs the
+  USB restart a mode change does today; room in the settings flash (8 profiles today, one per
+  player) and moving existing settings across (the journal, a settings version); the web app's
+  profile page (output picker, combo shown per profile); the LED colour per profile (the output's
+  colour, or the profile's own); GPIO outputs that need their own build; the hybrid's settings over
+  I2C; whether to offer it upstream (a large change to the settings format).
 
 ## Wish list (not scheduled)
 
