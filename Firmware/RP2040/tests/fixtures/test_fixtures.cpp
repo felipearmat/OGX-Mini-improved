@@ -954,10 +954,11 @@ const ModeInfo kModes[] = {
     {Mode::WII_CLASSIC, "wii_classic", DeviceDriverType::WII, &kClassic},
 };
 
-std::map<std::string, Summary> replay(const Fixture& fx, const ModeInfo& info, bool& known) {
+std::map<std::string, Summary> replay(const Fixture& fx, const ModeInfo& info, bool& known,
+                                     const UserProfile& profile = UserProfile()) {
     const Mode mode = info.mode;
     Gamepad gamepad;
-    gamepad.set_profile(UserProfile(), info.driver);
+    gamepad.set_profile(profile, info.driver);
     std::vector<ReplayFrame> frames;
     known = bt_replay(fx.rows, fx.controller_type, fx.vid, fx.pid, gamepad, frames);
 
@@ -1072,6 +1073,45 @@ std::vector<std::string> label_order(const Fixture& fx) {
     return order;
 }
 
+/* 2026-11-26, Discord: a DS4 in Switch mode with Share and the touchpad press swapped in the web
+ * app (Share for screenshots) still sent Minus for Share: the Switch and STEAM outputs applied the
+ * profile's mapping a second time, which undid a swap. The recorded DS4 through the whole chain
+ * (Bluepad32 parser, the profile, the output) with Back <-> Misc and D-pad Up <-> Down swapped. */
+void check_remap(const Fixture& fx) {
+    UserProfile swapped;
+    swapped.button_back = Gamepad::BUTTON_MISC;
+    swapped.button_misc = Gamepad::BUTTON_BACK;
+    swapped.dpad_up = Gamepad::DPAD_DOWN;
+    swapped.dpad_down = Gamepad::DPAD_UP;
+    struct Want { Mode mode; const char* share; const char* touch_press; };
+    const Want wants[] = {
+        {Mode::SWITCH, "capture", "minus"},     // Share takes the screenshot, the press is Minus
+        {Mode::STEAM, "mute", "touchpad"},      // the press stays the touchpad's own on STEAM
+    };
+    for (const Want& w : wants) {
+        const ModeInfo* info = nullptr;
+        for (const ModeInfo& m : kModes)
+            if (m.mode == w.mode) info = &m;
+        const std::string where = std::string("ds4.") + info->name + " (swapped profile)";
+        bool known = false;
+        const auto plain = replay(fx, *info, known);
+        const auto by = replay(fx, *info, known, swapped);
+        auto only = [&](const char* label, const char* button) {
+            if (!by.count(label)) { fail(where + " " + label + ": not in the fixture"); return; }
+            if (by.at(label).buttons != std::set<std::string>{button}) {
+                std::string got;
+                for (const auto& b : by.at(label).buttons) got += (got.empty() ? "" : ",") + b;
+                fail(where + " " + label + ": " + (got.empty() ? "nothing" : got) + ", want " + button);
+            }
+        };
+        only("back", w.share);
+        only("touch_press", w.touch_press);
+        if (by.at("dpad_up").dpad != plain.at("dpad_down").dpad || by.at("dpad_down").dpad != plain.at("dpad_up").dpad)
+            fail(where + ": D-pad up / down not swapped");
+        std::printf("[ %s ] %s\n", g_failures ? "..." : "OK", where.c_str());
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1086,6 +1126,8 @@ int main(int argc, char** argv) {
             continue;
         }
         const std::vector<std::string> order = label_order(fx);
+        if (!write && std::strcmp(pad, "ds4") == 0)
+            check_remap(fx);
         for (const ModeInfo& info : kModes) {
             const std::string where = std::string(pad) + "." + info.name;
             bool known = false;
